@@ -1,0 +1,15 @@
+{
+  "name": "sh4npeiris",
+  "description": "sh4npeiris's Claude Code plugin catalog.",
+  "owner": { "name": "sh4npeiris" },
+  "plugins": [
+    {
+      "name": "agentic-dev-harness",
+      "source": ".",
+      "description": "Reusable, self-improving Claude Code development harness (workflow, specialist roles, standards, architecture enforcement). Minimal early shell — grows across plan 0002.",
+      "version": "0.1.0",
+      "category": "development",
+      "homepage": "https://github.com/sh4npeiris/claugentic-dev-harness"
+    }
+  ]
+}

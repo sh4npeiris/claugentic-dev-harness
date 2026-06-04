@@ -10,6 +10,8 @@ Dated, one-line records of non-trivial decisions. **Append newest at the top.** 
 - **Skills over commands** (spike) — entry points (`init-harness`, `harness-audit`, `harness-explain`) are skills (`skills/<name>/SKILL.md`); plugin hooks live in `hooks/hooks.json` referencing bundled **Node** gates via `${CLAUDE_PLUGIN_ROOT}`; distribution via `.claude-plugin/marketplace.json`; validate with `claude plugin validate`.
 - **High-frequency catalog first; capability family deferred (JIT).** Author the 5 modules this repo + a JS app exercise; author Redis/queues/storage/ML/search only when a real audit pulls one in (YAGNI).
 - **Repo live:** `sh4npeiris/claugentic-dev-harness` (private), `main`, pushed via SSH. Added `.gitattributes` (`* text=auto eol=lf`) to normalize line endings for a cross-platform plugin.
+- **Pre-flight safety scan dropped** (user) — the first dogfood target has no credentials; secret-hygiene stays in the `security` module + a Phase-1 secret-scan gate, and run-and-observe still stubs external side-effects, but there's **no separate safety-scan step/ceremony**.
+- **Minimal plugin shell brought forward** (user opted to test the install loop early). `.claude-plugin/plugin.json` + `marketplace.json` expose the 3 existing agents; the manifest `agents` field references `.claude/agents/*` (single source of truth — no duplicate `agents/` dir). Hooks/skills/Node-gates intentionally **not** shipped yet (don't push the Python tree-hook into other repos). Install: `/plugin marketplace add sh4npeiris/claugentic-dev-harness` → `/plugin install agentic-dev-harness@sh4npeiris`.
 
 ## 2026-06-04 — Re-scope to master plan 0002
 

@@ -61,7 +61,7 @@ The load-bearing answer to risk #1: move trust onto signals independent of the m
 - **Frozen behavioral baseline (golden-master):** capture real user-journey traces + screenshots + an HTTP/DB-call inventory *before* changes; this — not agent-authored tests — is the equivalence oracle for refactors.
 - **Hook-enforced Definition-of-Done:** `PreToolUse` (block edits to the frozen baseline / migration files without a token), `PostToolUse` (run the scoped gate on changed files), `Stop` (refuse "done" until gates are green). Mechanizes DoD instead of trusting self-report.
 - **Test-diff review + mutation testing:** every change is checked for "did the tests get *weaker*?"; mutation score verifies the tests are real.
-- **Pre-flight safety scan:** secrets / `.env`-in-git / live-credential / untrusted-postinstall detection **before** any "run the app" step.
+- *(No dedicated pre-flight safety scan — the first dogfood target has no credentials. Secret-hygiene stays in the `security` module + the Phase-1 secret-scan gate; run-and-observe still stubs external side-effects for repos that need it.)*
 - **Scorecard honesty:** every score is tagged **verified-deterministically** vs **asserted-on-the-model's-word**, so the user learns where to apply their own judgment.
 
 ### Pillar A — Quality + Capability Catalog
@@ -71,7 +71,6 @@ The load-bearing answer to risk #1: move trust onto signals independent of the m
 - **Global sync = reference, not copy** (Decision 10): plugin is the source of truth; `harness-update` = bump the plugin, every repo sees new globals for free.
 
 ### Pillar B — Safety-scan → Understand → Audit → 3-Lane Backlog → Gated Execution
-- **Pre-flight safety scan** (from the Trust track) runs first.
 - **`understand`** — derive a dependency/symbol map + hotspots (optional C4 diagram for the human).
 - **`audit`** — bounded, multi-lens, multi-modal sweep (parallel subagents; budget + directory bounded; lenses read the *derived map + scoped modules*, never the raw tree; dedup; **loop-until-dry**) → a **prioritized tiered backlog** with **dual-layer** entries (technical finding + plain-English "what this means / traffic-light"). Untested code → item #1 = "establish a test baseline."
 - **Three lanes:** **refactor** (behavior-preserving → characterization-first + golden-master) · **capability-upgrade** (new tech → *feature* pipeline + safety rails: flag, dual-write/shadow, **backup-before-migration**, migration + **rollback runbook**, observability) · **dependency-health** (CVEs, outdated deps, lockfile, runtime version — its own risk class).
@@ -115,7 +114,7 @@ Each lands **complete in one ≤1M-context session, no debt**; **each slice's ac
 - [ ] **P0-S5 — `product-ux` (+ `accessibility-i18n`) module** (incl. defining the objective UX signals).
 - [ ] **P0-S6 — `data-and-persistence` module.**
 - [ ] **P0-S7 — Role library expansion.** `product-designer`, `ux-reviewer`, 5 lens reviewers, `yagni-sentinel`; `architect-reviewer` → synthesizer. Each: ARCHITECTURE_TREE entry + DECISIONS line for model choice (Sonnet mechanical / Opus judgment-heavy).
-- [ ] **P0-S8a — Workflow upgrade (prose).** Add product-discovery (→ PRODUCT.md), design pass, fan-out review + **effort dial** + adversarial-verify (test-diff lens) + persona-diverse panels, the **pre-flight safety scan** step, the 3 backlog lanes + upgrade safety rails, the two-tier learning touchpoint + episodic log, dual-layer output convention. *(Run-and-observe, judge-panel, gates = designed-in-prose here, **mechanized in Phases 1/3**.)*
+- [ ] **P0-S8a — Workflow upgrade (prose).** Add product-discovery (→ PRODUCT.md), design pass, fan-out review + **effort dial** + adversarial-verify (test-diff lens) + persona-diverse panels, the 3 backlog lanes + upgrade safety rails, the two-tier learning touchpoint + episodic log, dual-layer output convention. *(Run-and-observe, judge-panel, gates = designed-in-prose here, **mechanized in Phases 1/3**.)*
 - [ ] **P0-S8b — Artifact templates + pointers.** Create templates: `docs/PRODUCT.md`, `docs/SCORECARD.md`, `docs/PLAYBOOK.md`, `docs/GLOSSARY.md`, `docs/standards/CANDIDATES.md`, `docs/.harness/episodic-log.md`; update `CLAUDE.md` pointers (index, don't duplicate).
 
 ## Later phases (at altitude — own sub-plans)

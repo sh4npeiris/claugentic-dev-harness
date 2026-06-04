@@ -16,9 +16,14 @@ It turns ad-hoc agent coding into a disciplined, repeatable practice: a staged w
 
 ## How it installs
 
-Distributed as a **Claude Code plugin** via a marketplace, with a `.claude-plugin/plugin.json` manifest exposing the commands (`/init-harness`, `/harness-audit`) and bundling the agents, workflow docs, standards, and the architecture-tree check.
+Distributed as a **Claude Code plugin** via a marketplace (`.claude-plugin/plugin.json` + `.claude-plugin/marketplace.json`). The manifest currently exposes the three specialist agents; the skills (`/init-harness`, `/harness-audit`), the standards catalog, and the gates are added across the phases of plan [`0002`](.claude/plans/0002-harness-re-architecture.md).
 
-> Install instructions (marketplace + plugin name) are **TODO** — they land once the plugin is packaged (plan 0001, final slice).
+> **Early access (minimal shell).** Try the harness's agents today:
+> ```
+> /plugin marketplace add sh4npeiris/claugentic-dev-harness
+> /plugin install agentic-dev-harness@sh4npeiris
+> ```
+> (The repo is private — you must be authed to the GitHub account that owns it.)
 
 ## Two adoption modes
 
