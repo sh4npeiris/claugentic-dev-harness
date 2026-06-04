@@ -1,0 +1,35 @@
+# ── Claude Code harness ────────────────────────────────────────────────────
+# Share the harness itself (roles, plans, hooks); ignore only local overrides.
+.claude/*
+!.claude/agents/
+!.claude/plans/
+!.claude/settings.json
+.claude/settings.local.json
+
+# ── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.venv/
+venv/
+env/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+*.egg-info/
+dist/
+build/
+
+# ── Editors / OS ──────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# ── Logs / local junk ──────────────────────────────────────────────────────────
+*.log
+*.tmp
