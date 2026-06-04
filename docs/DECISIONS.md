@@ -2,6 +2,15 @@
 
 Dated, one-line records of non-trivial decisions. **Append newest at the top.** Consult before re-litigating a past choice (see CLAUDE.md → Harness Discipline).
 
+## 2026-06-04 — Plan-review, manifest spike, repo live (plan 0002 rev 3)
+
+- **Plan 0002 → rev 3** after adversarial plan-review (verdict: CHANGES REQUIRED) + a completeness/innovation critique. All 8 required changes addressed (see the plan's Resolution section): S1 split into **S1a** (module contract — the gate) + **S1b** (migrate the 17 dimensions); S2–S6 are one module each, fanning out **only after S1a**; S8 split/trimmed (run-and-observe + judge-panel are designed-in-prose now, mechanized later).
+- **Trust-first** — an independent, deterministic **Trust & Verification** track (deterministic gates + a **frozen behavioral baseline** as the equivalence oracle + **hook-enforced Definition-of-Done** + test-diff/mutation + pre-flight safety scan + a verified-vs-asserted scorecard) is foundational and built early (Phase 1). Rationale: the harness's #1 risk is *false confidence* from the same model class grading its own work; trust must rest on signals independent of it.
+- **Reference globals, don't copy** (manifest spike, verified vs official Claude Code docs): `${CLAUDE_PLUGIN_ROOT}` lets skills/hooks/agents read plugin-bundled files at runtime, so global standards ship **pristine in the plugin and are referenced**; only repo-local artifacts (Current-scope, `CANDIDATES.md`, lessons) live in `${CLAUDE_PROJECT_DIR}`. `harness-update` = bump the plugin; every repo sees new globals for free. Collapses the sync/merge/clobber problem the reviewer flagged.
+- **Skills over commands** (spike) — entry points (`init-harness`, `harness-audit`, `harness-explain`) are skills (`skills/<name>/SKILL.md`); plugin hooks live in `hooks/hooks.json` referencing bundled **Node** gates via `${CLAUDE_PLUGIN_ROOT}`; distribution via `.claude-plugin/marketplace.json`; validate with `claude plugin validate`.
+- **High-frequency catalog first; capability family deferred (JIT).** Author the 5 modules this repo + a JS app exercise; author Redis/queues/storage/ML/search only when a real audit pulls one in (YAGNI).
+- **Repo live:** `sh4npeiris/claugentic-dev-harness` (private), `main`, pushed via SSH. Added `.gitattributes` (`* text=auto eol=lf`) to normalize line endings for a cross-platform plugin.
+
 ## 2026-06-04 — Re-scope to master plan 0002
 
 - **Re-architected into master plan [`0002`](../.claude/plans/0002-harness-re-architecture.md); `0001` superseded** (its B1–B6 fold into 0002's Phases 2–7). Rationale: the standards/workflow/roles are the substrate the plugin compiles from, so package the *enriched* harness, not the skeleton. The harness's white-space (confirmed vs BMAD/spec-kit/Agent OS/SuperClaude/claude-flow/Cline/Cursor/Aider) is the intersection of: a learning loop, applying a standards catalog to legacy code, and multi-lens (not correctness-only) review.
