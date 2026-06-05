@@ -2,6 +2,14 @@
 
 Dated, one-line records of non-trivial decisions. **Append newest at the top.** Consult before re-litigating a past choice (see CLAUDE.md → Harness Discipline).
 
+## 2026-06-05 — S2b-ii: dogfood audit landed (plan 0003)
+
+- **The audit engine ran on this repo (the harness audited itself).** Orchestrator-driven fan-out of 4 `lens-reviewer`s in audit-scope mode (docs-traceability · maintainability-structure · product-ux · testing); synthesized → a real, **non-hallucinated**, tiered/tagged backlog in the `harness-audit:backlog` fence in `docs/ROADMAP.md`. **Proves the S2b-i engine works end-to-end.**
+- **Real findings surfaced** (each spot-checked against the repo): Tier-1 = no test baseline for `scripts/check_architecture_tree.py` (the linchpin gate); Tier-2 = the standards modules still describe the **abandoned `${CLAUDE_PLUGIN_ROOT}` reference model** — duplicated 13× and contradicting the copy-on-init reversal (a real consequence of Decision 10's reversal the modules' boilerplate never caught up to) + the known-stale README (owned by S5) + ARCHITECTURE_TREE caption drift; Tier-3 = phantom `architecture-styles` index row + `init-harness` rename-lag in script comments.
+- **Stale ROADMAP B1–B6 removed** (per the archive policy): the PLAN-0001 build table is **fully preserved in the archived `0001` plan** (`docs/archive/2026/`) + git history, so it was redundant in the active ROADMAP — removed, not re-archived. `## Later` (human-owned) preserved.
+- **Minor taxonomy note:** "establish a test baseline" doesn't map cleanly to the 5 item tags; tagged `refactor` (the precondition sub-item of the refactor discipline per Decision 2). Flag the taxonomy if it recurs.
+- **Retrospect → citation-guard (learning loop):** the dogfood's first synthesis shipped **2 inaccurate `file:line` citations** (caught by the Verify gate) — the same class as the S2a count error. Folded a **citation-guard** into the audit procedure (synthesize step): re-confirm every `file:line` against the file before it enters the backlog. The Verify gate catching this is the trust layer working as designed.
+
 ## 2026-06-05 — S2b-i: audit engine authored (plan 0003)
 
 - **`harness-audit` Phase 2 (Audit) + Phase 3 (Backlog) are now live** (authored; dogfood-on-this-repo run is S2b-ii). A top-level agent runs the full Understand → Audit → Backlog flow; the fan-out spawns subagents, so it can't be a subagent.

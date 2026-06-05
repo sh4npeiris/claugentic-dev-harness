@@ -198,6 +198,10 @@ discrete `(module × dir)` cells, the status block tracks which are `done` vs `p
    items or one item that hides the spread. **Carry each finding's confidence label**
    (`deterministic` vs `judgment` / verified-vs-asserted) **through synthesis unchanged**
    — synthesis must not upgrade a judgment call into apparent fact.
+   **Citation-guard:** before any finding's `file:line` enters the backlog, **re-confirm it
+   against the actual file** — never carry a line number you haven't re-verified. The
+   backlog's whole value is that its cited locations are trustworthy (the same discipline
+   as the Phase-1 count-guard).
 
 6. **Loop-until-dry (`standard` only).** Re-sweep the cells that aren't yet dry; a round
    is **dry** when it adds **nothing new** to the seen-set. Stop the loop when a round is
