@@ -51,6 +51,7 @@ This repo builds the **`claugentic-dev-harness`** Claude Code plugin and dogfood
 - `.claude/plans/TEMPLATE.md` — the plan template (Problem / Goals / Approach / Affected files / Risks / Tests / Decomposition / Review / Spec) every plan starts from.
 - `.claude/plans/0002-harness-re-architecture.md` — **master plan**: re-architect the harness around three pillars (multi-lens quality catalog · legacy understand→audit→gated-refactor · multi-lens review + product/UX lens) + plugin packaging; **Phase 0 complete**, later phases get sub-plans.
 - `.claude/plans/0003-functional-core.md` — **active sub-plan** of 0002: the functional core that makes the harness runnable on a real codebase — the `init` skill (scaffold) + the `audit` skill (→ tiered, tagged, plain-English backlog); execution rides the existing pipeline (no separate refactor command).
+- `.claude/plans/0004-audit-right-sizing.md` — **v0.1.1 enhancement** to the `audit` skill: auto-dial sized from Phase 1, a post-dry YAGNI synthesis prune (a discipline, not a fan-out), the "architecturally sound" terminal signal, and usage guidance; the full adversarial yagni pass deferred to `thorough`.
 
 ## .claude/ — harness config
 
@@ -64,7 +65,7 @@ This repo builds the **`claugentic-dev-harness`** Claude Code plugin and dogfood
 ## skills/ — harness entry points (the `/claugentic-dev-harness:*` family)
 
 - `skills/init/SKILL.md` — **procedure live (plan 0003 S3):** the 9-step idempotent scaffold (copy the managed set version-stamped, generate ARCHITECTURE_TREE via the gate's file-list, set `INCLUDE_GLOBS`+`STALE_PATTERN`, merge the tree-check hook, write the CLAUDE.md `harness:managed` fence + Current-scope, git-init, seed ROADMAP/DECISIONS, detect+record tooling); every write detect→create-if-absent/merge-in-fence→report, never-clobber. Cold-install dogfood is S5.
-- `skills/audit/SKILL.md` — Understand + Audit + Backlog **live & dogfooded** (S2b-ii: real backlog in `docs/ROADMAP.md`). Phase 1 = inline overview + audit-plan; Phase 2 = `lens-reviewer` fan-out (audit-scope mode), dedup, deterministic `(module×dir)` cell resume; Phase 3 = tiered/tagged backlog into the `harness-audit:backlog` fence.
+- `skills/audit/SKILL.md` — Understand + Audit + Backlog **live & dogfooded** (S2b-ii: real backlog in `docs/ROADMAP.md`). Phase 1 = inline overview + audit-plan; Phase 2 = **auto-dial sized from Phase 1** (named level overrides), `lens-reviewer` fan-out (audit-scope mode), dedup, deterministic `(module×dir)` cell resume, **post-dry YAGNI prune** (v0.1.1, plan 0004); Phase 3 = tiered/tagged backlog into the `harness-audit:backlog` fence + the **"architecturally sound" terminal signal** when Tier 1/2 are empty.
 
 ## scripts/ — tooling
 

@@ -28,6 +28,17 @@ subagents can't spawn subagents. Audit findings are **model-asserted and human-t
 carry each finding's confidence honestly (see *Confidence* in the Phase 3 item format) —
 never launder a judgment call into apparent fact, and never fabricate a finding to fill a tier.
 
+### How to use it (a periodic snapshot, not a treadmill)
+
+- **Run it periodically** — after meaningful changes, **not obsessively.** It's a snapshot
+  of where the codebase stands, not a chore to keep chasing to zero.
+- **The backlog regenerates, it doesn't accumulate.** A re-run replaces the fenced backlog
+  with the *current* snapshot — it gives you today's picture, not an ever-growing pile.
+- **Tier 3 is optional** polish; **an empty Tier 1 + Tier 2 means the code is sound** on the
+  audited dimensions — that's the signal to stop, not a prompt to manufacture more work.
+- **The dial auto-sizes** to the repo (small → `quick`, larger → `standard`) and is reported
+  up front; **name `quick` / `standard` / `thorough` to override.**
+
 ---
 
 ## Phase 1 — Understand  *(LIVE)*
@@ -145,15 +156,24 @@ subagents can't spawn subagents.
 
 The whole pass is **deterministically bounded and resumable**: work is a finite set of
 discrete `(module × dir)` cells, the status block tracks which are `done` vs `pending`
-(so a re-run continues, never restarts), and the caps in steps 6–7 **guarantee termination**.
+(so a re-run continues, never restarts), and the caps in steps 6 + 8 (max-rounds +
+max-cells-per-run) **guarantee termination.**
 
-### The 8-step procedure
+### The 9-step procedure
 
-1. **Parse the dial from the invocation.** The skill is invoked in natural language, not
-   with typed flags. Read the invocation for a level — **`quick`** or **`standard`**
-   (e.g. "audit quick", "do a standard audit"). If none is named, **default to
-   `standard`.** These are the **only two levels** (a deeper `thorough` pass is a
-   deferred roadmap item — do not invent it). The level sets two caps used below:
+1. **Set the dial — named level wins, else auto-size from Phase 1.** The skill is
+   invoked in natural language, not with typed flags. First read the invocation for a
+   **named** level — **`quick`** or **`standard`** (e.g. "audit quick", "do a standard
+   audit"). **A named level always wins.** If none is named, **auto-pick from Phase 1's
+   repo sizing** (the audit-plan's structure / candidate-module count / monorepo signal):
+   a **small, simple repo → `quick`**; a **larger repo, many candidate modules, or a
+   monorepo → `standard`.** Keep this a **rough size/complexity judgment** from the
+   Understand phase — do not author a precise scoring formula. **Always report the chosen
+   level up front** so the user can steer — e.g. *"Auto-selected `quick` — small repo; say
+   `standard` (or `thorough`) to override"* (or *"Using `standard` as you asked"* when
+   named). These are the **only two live levels** — if the user names `thorough`, run `standard`
+   and tell them the deeper `thorough` pass (a second adversarial sweep) is a deferred
+   roadmap item, not built yet. The level sets two caps used below:
 
    | level | max-rounds (loop-until-dry) | scope |
    |---|---|---|
@@ -210,7 +230,18 @@ discrete `(module × dir)` cells, the status block tracks which are `done` vs `p
    terminates** (it cannot oscillate, because "new" is judged against the persisted
    seen-set). For **`quick`**, max-rounds = 1: a single pass, no re-sweep.
 
-7. **Budget checkpoint = deterministic (no "sensing context").** Each **run** has a
+7. **YAGNI right-size the consolidated set (post-dry).** After the loop has gone dry /
+   hit max-rounds, do one final right-sizing pass over the consolidated findings — the
+   harness's own YAGNI applied to its own output: **keep only findings with real impact;
+   cut marginal "nice-to-haves" that don't earn their keep; never manufacture a finding to
+   fill a tier.** A sound codebase legitimately yields few or no items — a valid, expected
+   result. This is a synthesis discipline, *not* a fan-out (no extra subagents; a full
+   adversarial `yagni-sentinel` sweep over the findings is a deferred `thorough`-level
+   item — don't build it here). It runs only after dry-detection, so it trims the
+   already-finished set and cannot affect loop termination. (Exception: never prune the
+   Tier-1 "establish a test baseline" item for untested behavior-bearing code — see step 8.)
+
+8. **Budget checkpoint = deterministic (no "sensing context").** Each **run** has a
    **max-cells-per-run cap** — a hard integer ceiling on how many cells one run audits
    (size it to stay comfortably within context for the repo; the prioritized order means
    the highest-value cells are spent first). **When the cap is hit — or cells remain
@@ -226,7 +257,7 @@ discrete `(module × dir)` cells, the status block tracks which are `done` vs `p
    code seen in the covered (`done`) cells** — a partial audit must never green-light an
    unguarded refactor.
 
-8. **Author the backlog** (Phase 3) into the `harness-audit:backlog` fence, **recommend a
+9. **Author the backlog** (Phase 3) into the `harness-audit:backlog` fence, **recommend a
    starting point**, and **report the dial level + coverage** to the user (which cells
    ran, `COMPLETE` or `PARTIAL`, and — if any — which modules fell back to baseline).
 
@@ -277,6 +308,15 @@ status: COMPLETE | PARTIAL · level: quick|standard · done-cells: [module×dir,
 - **Tier 2 — important:** maintainability · missing tests · performance.
 - **Tier 3 — polish:** docs · style · cleanup.
 
+**Architecturally-sound terminal signal.** When **Tier 1 and Tier 2 both come back empty**
+(only Tier-3 polish, or nothing at all), the backlog must **say so plainly** rather than
+leave the user guessing — it is the explicit "stop" signal. State it in the status area /
+Recommended-starting-point, e.g.: *"Sound on the audited dimensions — what remains is
+optional polish; you don't need to keep re-auditing."* (On a `COMPLETE` run this is a
+genuine all-clear; on a `PARTIAL` run, scope it to the covered cells.) This pairs with the
+step-7 YAGNI prune: a clean codebase legitimately produces few or no items, and that is a
+*result*, not a gap to fill.
+
 ### Item format (every item)
 
 - **Title** — a short, plain action ("Add input validation to the request handlers").
@@ -310,4 +350,7 @@ Trust-track item, next phase) — so be honest in the backlog and **do not imply
 End the backlog with a short **Recommended starting point** — usually Tier-1 #1 (the test
 baseline if there's untested behavior-bearing code), with one plain sentence on why to
 start there. This is the hand-off: the user picks it, and the pipeline takes it from
-Discuss.
+Discuss. **If Tier 1 and Tier 2 are both empty**, the recommended-starting-point *is* the
+sound signal — say *"Sound on the audited dimensions — what remains is optional polish; you
+don't need to keep re-auditing"* instead of pointing at an item, so the stop signal is the
+last thing the user reads.

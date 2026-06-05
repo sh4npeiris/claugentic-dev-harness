@@ -48,6 +48,10 @@ Every one of those errors would have shipped under a normal "looks good to me" w
 - **Dual-layer output** — every finding stated technically *and* in plain English ("what this means for you").
 - **Slice** — one unit of work small enough to finish completely in a single session, with no half-done leftovers.
 
+## Using the audit (`/claugentic-dev-harness:audit`)
+
+It's a **periodic snapshot** — run it after meaningful changes, not obsessively. The backlog **regenerates** (a re-run replaces it with the current picture; it doesn't pile up). **Tier 3 is optional polish**, and an **empty Tier 1 + Tier 2 means the code is sound** — that's your signal to stop re-auditing, not a prompt to invent work. The depth dial **auto-sizes** to the repo and is reported up front; say `quick` / `standard` / `thorough` to override.
+
 ## When in doubt
 
 Ask the agent to **explain what it just did and why** — it's built to teach you as you go (a future `/claugentic-dev-harness:explain` skill will make this one command). The goal is that you get better at directing it every cycle.

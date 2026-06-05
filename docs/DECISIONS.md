@@ -2,6 +2,14 @@
 
 Dated, one-line records of non-trivial decisions. **Append newest at the top.** Consult before re-litigating a past choice (see CLAUDE.md → Harness Discipline).
 
+## 2026-06-05 — Audit right-sizing (plan 0004, v0.1.1)
+
+- **Auto-dial sized from Phase 1** (`skills/audit/SKILL.md` Phase 2 step 1): a **named** level (`quick`/`standard`/`thorough`) always wins; otherwise the dial **auto-picks from the Understand phase's repo sizing** — small/simple → `quick`, larger / many candidate modules / monorepo → `standard` — and **reports the chosen level up front** so the user can override. Kept a **rough size judgment**, not a scoring formula (KISS). `thorough` stays the deferred override forward-pointer (behavior not invented).
+- **YAGNI synthesis prune is a discipline, not a fan-out** (new Phase 2 **step 7**): a single **post-dry** right-sizing pass over the consolidated findings — keep real-impact items, cut marginal nice-to-haves, **never manufacture a finding to fill a tier**, a sound codebase legitimately yields few/none. Deliberately placed **after** loop-until-dry / dry-detection so it **cannot affect termination** (the caps that guarantee termination are step 6 max-rounds + step 8 max-cells-per-run; renumbered the budget-checkpoint 7→8 and author-backlog 8→9). The full **adversarial `yagni-sentinel` sweep over findings is deferred to `thorough`** (YAGNI — not built; would be a heavier separate pass).
+- **"Architecturally sound" terminal signal** (Phase 3 Tiers + Recommended-starting-point): when **Tier 1 + Tier 2 are both empty**, the backlog says so plainly — *"Sound on the audited dimensions — what remains is optional polish; you don't need to keep re-auditing"* — so the user has an explicit stop signal instead of inferring it (scoped to covered cells on a `PARTIAL` run).
+- **Usage guidance** added (SKILL "How to use it" note + a `PLAYBOOK.md` line): the audit is a **periodic snapshot** (after meaningful changes, not obsessively); the backlog **regenerates** (doesn't accumulate); **Tier 3 optional**; **empty Tier 1/2 = sound**; the dial **auto-sizes + can be overridden**.
+- **Version → 0.1.1** (`plugin.json` + `marketplace.json`; the `{VERSION}` managed-stamp follows automatically). Fences (`harness-audit:overview`/`:backlog`, `harness:managed`) and the dedup / seen-set / citation-guard logic **untouched**.
+
 ## 2026-06-05 — Plugin + skills renamed to `claugentic-dev-harness` / `init` / `audit`
 
 - **Plugin `agentic-dev-harness` → `claugentic-dev-harness`** (match the repo, fixing the `agentic`/`claugentic` mismatch) — updated `plugin.json` + `marketplace.json` plugin-entry `name` and all active prose/descriptions (README, ARCHITECTURE_TREE, standards/README, CLAUDE.md, ENGINEERING_STANDARDS, ROADMAP, the Python gate's comments). Marketplace `name: sh4npeiris` + `source: "."` and the repo-path `sh4npeiris/claugentic-dev-harness` left unchanged.
