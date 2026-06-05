@@ -2,6 +2,14 @@
 
 Dated, one-line records of non-trivial decisions. **Append newest at the top.** Consult before re-litigating a past choice (see CLAUDE.md → Harness Discipline).
 
+## 2026-06-05 — Plugin + skills renamed to `claugentic-dev-harness` / `init` / `audit`
+
+- **Plugin `agentic-dev-harness` → `claugentic-dev-harness`** (match the repo, fixing the `agentic`/`claugentic` mismatch) — updated `plugin.json` + `marketplace.json` plugin-entry `name` and all active prose/descriptions (README, ARCHITECTURE_TREE, standards/README, CLAUDE.md, ENGINEERING_STANDARDS, ROADMAP, the Python gate's comments). Marketplace `name: sh4npeiris` + `source: "."` and the repo-path `sh4npeiris/claugentic-dev-harness` left unchanged.
+- **Skills `harness-init` / `harness-audit` → `init` / `audit`** (`git mv skills/harness-init skills/init`, `git mv skills/harness-audit skills/audit` — history follows). Commands are now **`/claugentic-dev-harness:init`** and **`/claugentic-dev-harness:audit`**; the future skills are **`/claugentic-dev-harness:update`** / **`:explain`** (still "not built yet"). Slash-command invocations replaced everywhere in active files; bare prose skill-names rewritten to **"the `init` skill" / "the `audit` skill"** for readability.
+- **Managed-stamp re-prefixed:** `agentic-dev-harness@{VERSION}` → `claugentic-dev-harness@{VERSION}` (markdown + Python forms) **and** the idempotency-detection marker `agentic-dev-harness@` → `claugentic-dev-harness@` in `skills/init/SKILL.md`. (No verbatim `@0.1.0 managed` stamp example exists in the README — the stamp examples live only in the init SKILL, so nothing else to re-prefix.)
+- **Deliberately left unchanged:** the load-bearing **fence markers** `harness-audit:overview:*`, `harness-audit:backlog:*`, `harness:managed:*` (internal stable identifiers, not commands — renaming would break this repo's ROADMAP fences + the SKILL procedures), the adopter `CLAUDE.md` **`harness:` section** name, and all **history** (`.claude/plans/*`, prior dated `DECISIONS.md` entries).
+- **Migration:** existing users must **reinstall under the new plugin name** (`/plugin install claugentic-dev-harness@sh4npeiris`) — the old `agentic-dev-harness@sh4npeiris` id no longer resolves.
+
 ## 2026-06-05 — Repo public + Apache-2.0 licensed
 
 - **Repo made public** (`sh4npeiris/claugentic-dev-harness`) so anyone can install the plugin. (Private repos install too — Claude Code uses the user's git/`gh` credentials — but only for users with read access; public is right for general distribution.) **Security swept first:** no secrets in current files **or** the full git history (clean-start scaffold — DistrictSync history was not imported); `.gitignore` covers `settings.local.json`.

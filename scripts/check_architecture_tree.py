@@ -29,10 +29,10 @@ from pathlib import Path
 TREE_PATH = Path("docs/ARCHITECTURE_TREE.md")
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PER-REPO CONFIG — set by `harness-init` based on the repo's languages.
+# PER-REPO CONFIG — set by the `init` skill based on the repo's languages.
 # ─────────────────────────────────────────────────────────────────────────────
 # INCLUDE_GLOBS lists the files that MUST be indexed in ARCHITECTURE_TREE.md.
-# `harness-init` detects the target repo's languages/layout and writes the
+# The `init` skill detects the target repo's languages/layout and writes the
 # right globs here (e.g. `:(glob)src/**/*.py`, `:(glob)src/**/*.ts`,
 # `:(glob)cmd/**/*.go`, plus any config dirs worth indexing). They are passed to
 # git as pathspecs; the `:(glob)` prefix gives true globstar (** spans
@@ -40,14 +40,14 @@ TREE_PATH = Path("docs/ARCHITECTURE_TREE.md")
 # shapes so the staleness check can spot dangling tree entries — keep the two in
 # sync when you edit either.
 #
-# For THIS repo (agentic-dev-harness) the only code is the check script itself.
+# For THIS repo (claugentic-dev-harness) the only code is the check script itself.
 INCLUDE_GLOBS = [":(glob)scripts/**/*.py"]
 
 # Substrings that exempt a file (no architectural content).
 EXCLUDE_SUBSTR = ("__pycache__", "/__init__.py")
 
 # Path shapes the staleness check recognizes inside the tree's text.
-# Keep in sync with INCLUDE_GLOBS above (set per-repo by `harness-init`).
+# Keep in sync with INCLUDE_GLOBS above (set per-repo by the `init` skill).
 STALE_PATTERN = re.compile(r"(scripts/[\w./-]+\.py)")
 
 

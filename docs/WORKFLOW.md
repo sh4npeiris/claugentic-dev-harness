@@ -59,7 +59,7 @@ Starter library (`.claude/agents/`):
 - **`implementer-architect`** — implements an approved spec to standard, in an isolated worktree, landing one slice complete.
 - **`product-designer`** — the product/UX lens at Discuss (Stage 1) for user-facing work: user, job-to-be-done, flows, states, "what good feels like"; applies `docs/standards/product-ux.md`, persists to `docs/PRODUCT.md`.
 - **`architect-reviewer`** — owns the Verify gate (Stage 7): **solo** for small changes, or **synthesizer** over fan-out findings for risky ones.
-- **`lens-reviewer`** — audits a **diff (Verify) or an audit-scope (harness-audit)** against **one** `docs/standards/` module; invoked once per relevant lens in a fan-out review.
+- **`lens-reviewer`** — audits a **diff (Verify) or an audit-scope (the `audit` skill)** against **one** `docs/standards/` module; invoked once per relevant lens in a fan-out review.
 - **`yagni-sentinel`** — the anti-over-engineering skeptic; argues a plan/diff is *too much*. The deliberate counterweight to the quality lenses.
 
 Also available without new files: built-in **`Explore`** (fan-out search), **`Plan`** (drafting), and `/code-review` · `/simplify` for diff cleanup. **Add new role files as needs emerge** — the library grows (Stage 9).
@@ -104,7 +104,7 @@ Iterate to meet this **fixed** bar, then **stop** — it terminates because the 
 
 ## Executing an audit backlog item — tag → discipline
 
-`/harness-audit` writes a tagged backlog into `docs/ROADMAP.md`; there is **no separate refactor command**. Each item runs through the pipeline above, and its **tag selects the discipline** the implementer applies. (Rationale is settled — see `DECISIONS.md` Decision 2; don't re-litigate it here.)
+`/claugentic-dev-harness:audit` writes a tagged backlog into `docs/ROADMAP.md`; there is **no separate refactor command**. Each item runs through the pipeline above, and its **tag selects the discipline** the implementer applies. (Rationale is settled — see `DECISIONS.md` Decision 2; don't re-litigate it here.)
 
 | Tag | Discipline |
 |-----|-----------|

@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This repo builds the **`agentic-dev-harness`** Claude Code plugin (a reusable, self-improving dev harness) and **dogfoods its own harness** — the workflow, roles, standards, and enforcement below govern its own development.
+This repo builds the **`claugentic-dev-harness`** Claude Code plugin (a reusable, self-improving dev harness) and **dogfoods its own harness** — the workflow, roles, standards, and enforcement below govern its own development.
 
 ## Engineering Principles (non-negotiable, in priority order)
 

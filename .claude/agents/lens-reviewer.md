@@ -1,6 +1,6 @@
 ---
 name: lens-reviewer
-description: Audit code against ONE named standards module (the "lens"). Two modes — Verify-diff (a slice's diff, Stage 7) or Audit-scope (existing code in a given dir/package scope, /harness-audit). Invoked once per relevant lens in a fan-out; the orchestrator passes which module (e.g. docs/standards/security.md), the mode, and the audit target. READ-ONLY on source; returns per-dimension findings for the synthesizer.
+description: Audit code against ONE named standards module (the "lens"). Two modes — Verify-diff (a slice's diff, Stage 7) or Audit-scope (existing code in a given dir/package scope, /claugentic-dev-harness:audit). Invoked once per relevant lens in a fan-out; the orchestrator passes which module (e.g. docs/standards/security.md), the mode, and the audit target. READ-ONLY on source; returns per-dimension findings for the synthesizer.
 tools: Read, Grep, Glob, Bash
 model: opus
 ---
@@ -13,7 +13,7 @@ You audit one of two **audit targets**; the lens, the per-dimension method, and 
 
 - **Verify-diff mode** *(Stage 7 of `docs/WORKFLOW.md` — multi-lens Verify of an implemented slice).*
   **Audit target = the slice's diff.** The orchestrator passes the **diff** and the slice's **spec** (its in-scope dimensions). You audit *the change* against your module.
-- **Audit-scope mode** *(`/harness-audit` — auditing existing code into a backlog).*
+- **Audit-scope mode** *(`/claugentic-dev-harness:audit` — auditing existing code into a backlog).*
   **Audit target = the existing code in an assigned scope.** There is **no diff.** The orchestrator passes your **module**, a **scoped list of directories / packages** to audit (from the audit-plan's prioritized order), and the **exclude-set** (paths never to read — deps, build output, secrets). You audit *the code that already lives in that scope* against your module — read it via `Glob`/`Read`/`Grep`, staying inside the scope and never touching the exclude-set.
 
 If you were not told the mode, infer it from what you were given: a **diff** → Verify-diff; a **scope (dirs/packages) with no diff** → Audit-scope. Never hunt for a diff in Audit-scope mode — there is none; the scope *is* your target.
@@ -43,4 +43,4 @@ Return, in structured form:
 - **A dual-layer summary** — the technical verdict *plus* one plain-English line per real finding ("what this means / how bad / what could break").
 - **Lens verdict** — `CLEAN` or `GAPS`.
 
-The synthesizer (`architect-reviewer` in Verify; the orchestrator's audit synthesis in `/harness-audit`) consumes these — so keep the structure and the confidence labels intact for either consumer.
+The synthesizer (`architect-reviewer` in Verify; the orchestrator's audit synthesis in `/claugentic-dev-harness:audit`) consumes these — so keep the structure and the confidence labels intact for either consumer.

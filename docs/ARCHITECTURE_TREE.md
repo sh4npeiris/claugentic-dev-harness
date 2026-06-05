@@ -2,11 +2,11 @@
 
 > **Read this first.** This is the one-line-per-file index of the repo — your map. Use it to find the right file instead of reading the whole tree. Keep it current: every file add/move/remove updates this index (a hook enforces presence + staleness — see CLAUDE.md → Harness Discipline). Descriptions are authored by you/the agent that touches the file.
 
-This repo builds the **`agentic-dev-harness`** Claude Code plugin and dogfoods its own harness. The only executable code today is `scripts/check_architecture_tree.py`; everything else is harness docs, roles, plans, and config.
+This repo builds the **`claugentic-dev-harness`** Claude Code plugin and dogfoods its own harness. The only executable code today is `scripts/check_architecture_tree.py`; everything else is harness docs, roles, plans, and config.
 
 ## Root
 
-- `README.md` — what `agentic-dev-harness` is (reusable self-improving Claude Code dev harness + plugin), how it installs, how it works (init → audit → tag-gated pipeline), the two adoption modes, and honest v0.1 status.
+- `README.md` — what `claugentic-dev-harness` is (reusable self-improving Claude Code dev harness + plugin), how it installs, how it works (init → audit → tag-gated pipeline), the two adoption modes, and honest v0.1 status.
 - `CLAUDE.md` — lean, generalized guidance for agents working in THIS repo: engineering principles, harness discipline, workflow pointer, Definition of Done.
 - `.gitignore` — ignores local junk + build artifacts; **shares** `.claude/agents/`, `.claude/plans/`, `.claude/settings.json` (ignores only `.claude/settings.local.json`).
 - `.gitattributes` — normalizes line endings (`* text=auto eol=lf`; scripts forced LF) for a cross-platform plugin that bundles shell/Node scripts.
@@ -15,7 +15,7 @@ This repo builds the **`agentic-dev-harness`** Claude Code plugin and dogfoods i
 ## docs/ — process, standards, and project memory
 
 - `docs/WORKFLOW.md` — the staged agent development workflow (Triage → Discuss → Plan → Review → Spec → Approve → Implement → Verify → Land → Retrospect); source of truth for process.
-- `docs/ENGINEERING_STANDARDS.md` — project-agnostic, ever-growing catch-all of engineering quality dimensions; the bar implementations are held to (the per-repo "Current scope" is added by `harness-init`, not shipped populated).
+- `docs/ENGINEERING_STANDARDS.md` — project-agnostic, ever-growing catch-all of engineering quality dimensions; the bar implementations are held to (the per-repo "Current scope" is added by the `init` skill, not shipped populated).
 - `docs/ARCHITECTURE_TREE.md` — this file: one-line-per-file index of the repo.
 - `docs/DECISIONS.md` — dated, one-line records of non-trivial decisions (newest at top); consult before re-litigating.
 - `docs/ROADMAP.md` — backlog of substantial work; tangents land here, never silently into the current change.
@@ -43,14 +43,14 @@ This repo builds the **`agentic-dev-harness`** Claude Code plugin and dogfoods i
 - `.claude/agents/implementer-architect.md` — implements one approved, spec'd slice to standard in an isolated worktree (Stage 6); lands code + tests + docs with no debt.
 - `.claude/agents/architect-reviewer.md` — owns the Verify gate (Stage 7): audits the diff against in-scope `docs/standards/` modules in **solo** mode (small changes) or **synthesizes** lens-reviewer + yagni-sentinel findings in **fan-out** mode; read-only.
 - `.claude/agents/product-designer.md` — product/UX discovery + design lens (Stage 1, user-facing work): user, job-to-be-done, flows, states, "what good feels like"; applies `product-ux`, persists to `docs/PRODUCT.md`.
-- `.claude/agents/lens-reviewer.md` — audits a **diff (Verify) or an audit-scope (harness-audit)** against ONE named `docs/standards/` module; two modes (Verify-diff / Audit-scope), invoked per-lens in a fan-out; read-only, returns per-dimension findings for the synthesizer.
+- `.claude/agents/lens-reviewer.md` — audits a **diff (Verify) or an audit-scope (the `audit` skill)** against ONE named `docs/standards/` module; two modes (Verify-diff / Audit-scope), invoked per-lens in a fan-out; read-only, returns per-dimension findings for the synthesizer.
 - `.claude/agents/yagni-sentinel.md` — the anti-over-engineering skeptic: argues a plan/diff is too much (speculative abstraction, premature infra, gold-plating); read-only, returns a cut-list.
 
 ## .claude/plans/ — active plans
 
 - `.claude/plans/TEMPLATE.md` — the plan template (Problem / Goals / Approach / Affected files / Risks / Tests / Decomposition / Review / Spec) every plan starts from.
 - `.claude/plans/0002-harness-re-architecture.md` — **master plan**: re-architect the harness around three pillars (multi-lens quality catalog · legacy understand→audit→gated-refactor · multi-lens review + product/UX lens) + plugin packaging; **Phase 0 complete**, later phases get sub-plans.
-- `.claude/plans/0003-functional-core.md` — **active sub-plan** of 0002: the functional core that makes the harness runnable on a real codebase — `harness-init` (scaffold) + `harness-audit` (→ tiered, tagged, plain-English backlog) as skills; execution rides the existing pipeline (no separate refactor command).
+- `.claude/plans/0003-functional-core.md` — **active sub-plan** of 0002: the functional core that makes the harness runnable on a real codebase — the `init` skill (scaffold) + the `audit` skill (→ tiered, tagged, plain-English backlog); execution rides the existing pipeline (no separate refactor command).
 
 ## .claude/ — harness config
 
@@ -58,14 +58,14 @@ This repo builds the **`agentic-dev-harness`** Claude Code plugin and dogfoods i
 
 ## .claude-plugin/ — plugin manifest (makes this repo installable)
 
-- `.claude-plugin/plugin.json` — plugin manifest (name `agentic-dev-harness`, version, metadata); exposes the 6 specialist agents via the `agents` field pointing at `.claude/agents/*` (DRY — no duplicate `agents/` dir). Skills live under `skills/`; bundled hooks/gates not yet shipped.
-- `.claude-plugin/marketplace.json` — single-plugin marketplace (`name: sh4npeiris`) so `/plugin marketplace add sh4npeiris/claugentic-dev-harness` → `/plugin install agentic-dev-harness@sh4npeiris` works.
+- `.claude-plugin/plugin.json` — plugin manifest (name `claugentic-dev-harness`, version, metadata); exposes the 6 specialist agents via the `agents` field pointing at `.claude/agents/*` (DRY — no duplicate `agents/` dir). Skills live under `skills/`; bundled hooks/gates not yet shipped.
+- `.claude-plugin/marketplace.json` — single-plugin marketplace (`name: sh4npeiris`) so `/plugin marketplace add sh4npeiris/claugentic-dev-harness` → `/plugin install claugentic-dev-harness@sh4npeiris` works.
 
-## skills/ — harness entry points (the `/harness-` family)
+## skills/ — harness entry points (the `/claugentic-dev-harness:*` family)
 
-- `skills/harness-init/SKILL.md` — **procedure live (plan 0003 S3):** the 9-step idempotent scaffold (copy the managed set version-stamped, generate ARCHITECTURE_TREE via the gate's file-list, set `INCLUDE_GLOBS`+`STALE_PATTERN`, merge the tree-check hook, write the CLAUDE.md `harness:managed` fence + Current-scope, git-init, seed ROADMAP/DECISIONS, detect+record tooling); every write detect→create-if-absent/merge-in-fence→report, never-clobber. Cold-install dogfood is S5.
-- `skills/harness-audit/SKILL.md` — Understand + Audit + Backlog **live & dogfooded** (S2b-ii: real backlog in `docs/ROADMAP.md`). Phase 1 = inline overview + audit-plan; Phase 2 = `lens-reviewer` fan-out (audit-scope mode), dedup, deterministic `(module×dir)` cell resume; Phase 3 = tiered/tagged backlog into the `harness-audit:backlog` fence.
+- `skills/init/SKILL.md` — **procedure live (plan 0003 S3):** the 9-step idempotent scaffold (copy the managed set version-stamped, generate ARCHITECTURE_TREE via the gate's file-list, set `INCLUDE_GLOBS`+`STALE_PATTERN`, merge the tree-check hook, write the CLAUDE.md `harness:managed` fence + Current-scope, git-init, seed ROADMAP/DECISIONS, detect+record tooling); every write detect→create-if-absent/merge-in-fence→report, never-clobber. Cold-install dogfood is S5.
+- `skills/audit/SKILL.md` — Understand + Audit + Backlog **live & dogfooded** (S2b-ii: real backlog in `docs/ROADMAP.md`). Phase 1 = inline overview + audit-plan; Phase 2 = `lens-reviewer` fan-out (audit-scope mode), dedup, deterministic `(module×dir)` cell resume; Phase 3 = tiered/tagged backlog into the `harness-audit:backlog` fence.
 
 ## scripts/ — tooling
 
-- `scripts/check_architecture_tree.py` — deterministic (no-LLM) gate enforcing that this index lists every in-scope source file (presence) and references no deleted file (staleness); `--hook` / `--hook-write` modes wired in `.claude/settings.json`. `INCLUDE_GLOBS`/`STALE_PATTERN` are set per-repo by `harness-init`.
+- `scripts/check_architecture_tree.py` — deterministic (no-LLM) gate enforcing that this index lists every in-scope source file (presence) and references no deleted file (staleness); `--hook` / `--hook-write` modes wired in `.claude/settings.json`. `INCLUDE_GLOBS`/`STALE_PATTERN` are set per-repo by the `init` skill.
