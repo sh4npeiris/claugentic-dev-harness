@@ -59,9 +59,9 @@ Run these in order. Each is **detect → create-if-absent / merge-in-fence → r
 - **Resolve the managed-set source.** When installed as a plugin, the source is the
   plugin root — **`${CLAUDE_PLUGIN_ROOT}`** (verified to expand in skill context). When
   running **from this harness's own repo in dev** (not installed), treat **the repo root**
-  as the source. State which you're using in the report. *(The true installed-plugin
-  `${CLAUDE_PLUGIN_ROOT}` resolution is exercised by the cold-install dogfood, plan 0003
-  S5 — not by a dev run.)*
+  as the source. State which you're using in the report. *(The installed-plugin
+  `${CLAUDE_PLUGIN_ROOT}` path is proven — a real adopter has run the cold install — so
+  both sources are exercised, not just the dev run.)*
 - **Confirm the target repo root** (the adopter's `${CLAUDE_PROJECT_DIR}` / current repo).
 - **Verify Python is available** (the tree-check gate needs it). Detect the interpreter —
   `python`, `python3`, or `py` (try `--version` on each). **Record which one works**; it's

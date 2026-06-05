@@ -104,7 +104,7 @@ Iterate to meet this **fixed** bar, then **stop** — it terminates because the 
 
 ## Executing an audit backlog item — tag → discipline
 
-`/claugentic-dev-harness:audit` writes a tagged backlog into `docs/ROADMAP.md`; there is **no separate refactor command**. Each item runs through the pipeline above, and its **tag selects the discipline** the implementer applies. (Rationale is settled — see `DECISIONS.md` Decision 2; don't re-litigate it here.)
+`/claugentic-dev-harness:audit` writes a tagged backlog into `docs/ROADMAP.md`; there is **no separate refactor command**. Each item runs through the pipeline above, and its **tag selects the discipline** the implementer applies. The tag→discipline mapping is defined here (the canonical home); the rationale is settled — don't re-litigate it.
 
 | Tag | Discipline |
 |-----|-----------|

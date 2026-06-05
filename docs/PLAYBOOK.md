@@ -1,10 +1,10 @@
 # The Harness Playbook — how to drive an AI dev team
 
-The plain-English guide to working *with* this harness, written for a capable non-engineer. The harness turns ad-hoc "vibe coding" into a disciplined practice that produces software able to pass a professional code review. **You don't need to write code — you make product calls and approve the right things at the right moments.**
+A plain-English guide to working *with* this harness, for a capable non-engineer. It turns ad-hoc "vibe coding" into a disciplined practice that produces software able to pass a professional code review. **You don't write code — you make product calls and approve the right things at the right moments.**
 
 ## The one-minute model
 
-Substantial work flows through a pipeline: **Triage → Discuss → Plan → Review-the-plan → Spec → Approve → Implement → Verify → Land → Retrospect** (small changes skip to Implement + Verify). The agent runs it; you steer at three points. Full version: [`WORKFLOW.md`](WORKFLOW.md).
+Substantial work flows through a pipeline: **Triage → Discuss → Plan → Review-the-plan → Spec → Approve → Implement → Verify → Land → Retrospect** (small changes skip straight to Implement + Verify). The agent runs it; **you steer at three points.** Full version: [`WORKFLOW.md`](WORKFLOW.md).
 
 ## Your three leverage points
 
@@ -16,42 +16,43 @@ The whole system is built so you steer with **product judgment, not code**:
 
 Everything else — reading code, writing it, reviewing it — the harness fans out to specialists so your attention stays on decisions.
 
-## The patterns that produce quality (and when each fires)
+## Why it's trustworthy — one real example
 
-These are *how* the harness aims past "standard practice." You'll see their names in `/workflows`:
+The standards catalog in [`standards/`](standards/README.md) was built by the harness, on itself. The build is the proof of the whole approach:
 
-- **Fan-out** — many specialists in parallel, each on one piece. *Why:* speed, and each agent stays focused. *Used for:* authoring many things at once, reviewing through many lenses.
-- **Author → adversarial verify** — one agent writes; a *different, skeptical* agent tries to **refute** it. *Why:* the model that wrote something is the worst judge of it; an independent skeptic catches the confident mistakes. **This is the core trust move.**
-- **Trust the oracle, not the model** — wherever a fact can be checked *mechanically* (a test, a `grep`, a web-lookup), the harness checks it that way instead of believing the model's word. *Why:* models produce confident, professional-looking errors; deterministic checks don't.
-- **Effort dial** — match review depth to the change's risk. *Why:* running the whole machine on a typo wastes time and money and kills your velocity.
-- **Loop-until-dry** — for open-ended hunts (find all the issues), keep going until a pass finds nothing new. *Why:* the long tail is where the real problems hide.
-- **Judge-panel / best-of-N** — for a big design fork, generate several independent approaches, score them, and combine the best of each. *Why:* the first idea is rarely the best — this "takes the best of all possibilities."
+1. **Several agents authored** the deep standards modules in parallel.
+2. **Independent skeptics tried to refute** each one — and caught a *made-up citation*, a *misattributed quote*, and *wrong book chapters*, all of which looked perfectly professional.
+3. The fixes **re-checked every citation against the real web source.**
+4. A final **`grep`** — a plain text search, no AI — confirmed the format was clean.
 
-## A real worked example (this harness built its own standards this way)
-
-The standards catalog in [`standards/`](standards/README.md) was built by the harness, on itself:
-
-1. **5 agents authored** the deep standards modules in parallel *(fan-out)*.
-2. **5 skeptics tried to refute** each *(adversarial verify)* — and caught a *made-up citation*, a *misattributed quote*, and *wrong book chapters*, all of which looked perfectly professional.
-3. The fixes **re-checked every citation against the real web source** *(trust the oracle)*.
-4. A final **`grep`** — a plain text search, no AI — confirmed the format was clean *(deterministic check)*.
-
-Every one of those errors would have shipped under a normal "looks good to me" workflow. **Catching them is the harness.**
-
-## Mini-glossary (terms you'll see)
-
-- **Characterization / golden-master test** — a test that captures what the code *currently does*, so you can change it and prove the behavior didn't move. The safety net for touching legacy code.
-- **Idempotent** — doing it twice is the same as doing it once (safe to retry).
-- **Fitness function / gate** — an automatic check that *enforces* a standard; it can't be argued around.
-- **Lens** — one quality viewpoint (security, performance, UX…); the harness reviews through several at once.
-- **Effort dial** — the knob that scales review depth to risk.
-- **Dual-layer output** — every finding stated technically *and* in plain English ("what this means for you").
-- **Slice** — one unit of work small enough to finish completely in a single session, with no half-done leftovers.
+Every one of those errors would have shipped under a normal "looks good to me" workflow. **That's the point of the harness:** a *different, skeptical* agent reviews the work, and wherever a fact can be checked mechanically, it's checked — not believed. (It's honest about its limits, too: where it can't check something mechanically, it labels the finding as its own judgment, not proof.)
 
 ## Using the audit (`/claugentic-dev-harness:audit`)
 
-It's a **periodic snapshot** — run it after meaningful changes, not obsessively. The backlog **regenerates** (a re-run replaces it with the current picture; it doesn't pile up). **Tier 3 is optional polish**, and an **empty Tier 1 + Tier 2 means the code is sound** — that's your signal to stop re-auditing, not a prompt to invent work. The depth dial **auto-sizes** to the repo and is reported up front; say `quick` / `standard` / `thorough` to override.
+Run it as a **periodic snapshot**, not a treadmill: the backlog **regenerates** (it doesn't pile up), **Tier 3 is optional polish**, and an **empty Tier 1 + Tier 2 means the code is sound** — your signal to stop, not a prompt to invent work. It **auto-sizes** its effort to the repo (override with `quick` / `standard`). *(Full operating rules live in the skill's own "How to use it".)*
 
 ## When in doubt
 
-Ask the agent to **explain what it just did and why** — it's built to teach you as you go (a future `/claugentic-dev-harness:explain` skill will make this one command). The goal is that you get better at directing it every cycle.
+Ask the agent to **explain what it just did and why** — it's built to teach you as you go. The goal is that you get better at directing it every cycle. *(A future `…:explain` skill will make this one command.)*
+
+---
+
+## Under the hood (optional — you don't need this to drive it)
+
+**The patterns that produce quality.** These are *how* the harness aims past "standard practice":
+
+- **Fan-out** — many specialists in parallel, each on one piece (speed + focus).
+- **Author → adversarial verify** — one agent writes; a *different, skeptical* agent tries to **refute** it. The model that wrote something is the worst judge of it. *This is the core trust move.*
+- **Trust the oracle, not the model** — wherever a fact can be checked mechanically (a test, a `grep`, a web-lookup), check it that way. Models produce confident, professional-looking errors; deterministic checks don't.
+- **Effort dial** — match review depth to the change's risk; don't run the whole machine on a typo.
+- **Loop-until-dry** — for open-ended hunts, keep going until a pass finds nothing new (the long tail is where the real problems hide).
+- **Judge-panel / best-of-N** — for a big design fork, generate several approaches, score them, combine the best of each.
+
+**A few terms you'll see.**
+
+- **Characterization / golden-master test** — a test that captures what the code *currently does*, so you can change it and prove the behavior didn't move. The safety net for touching legacy code.
+- **Idempotent** — doing it twice is the same as doing it once (safe to retry).
+- **Gate / fitness function** — an automatic check that *enforces* a standard; it can't be argued around.
+- **Lens** — one quality viewpoint (security, performance, UX…); the harness reviews through several at once.
+- **Dual-layer output** — every finding stated technically *and* in plain English ("what this means for you").
+- **Slice** — one unit of work small enough to finish completely in a single session, with no half-done leftovers.

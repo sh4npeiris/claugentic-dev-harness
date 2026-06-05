@@ -1,5 +1,5 @@
 ---
-module: accessibility-i18n
+module: internationalization
 title: Internationalization
 version: 0.1.0
 status: draft

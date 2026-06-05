@@ -6,7 +6,7 @@ The engineering quality bar is a **modular catalog** under [`docs/standards/`](s
 
 **How it plugs into the workflow:** the spec (Stage 4) names the in-scope modules/dimensions; `implementer-architect` builds to them; `architect-reviewer` audits against them; "done" = the in-scope dimensions pass (see `docs/WORKFLOW.md` → Definition of Done).
 
-> The original 17 dimensions now live as modules under `docs/standards/` — **no content lost.** Authored deep: `security` · `maintainability-structure` · `testing` · `product-ux` · `data-and-persistence`. Migrated: `reliability-resilience` · `performance-efficiency` · `api-and-contracts` · `observability-ops` · `accessibility-i18n` · `docs-traceability`. Capability modules (Redis, queues, storage, …) are authored just-in-time.
+> The original 17 dimensions now live as modules under `docs/standards/` — **no content lost.** Authored deep: `security` · `maintainability-structure` · `testing` · `product-ux` · `data-and-persistence`. Migrated: `reliability-resilience` · `performance-efficiency` · `api-and-contracts` · `observability-ops` · `internationalization` · `docs-traceability`. Capability modules (Redis, queues, storage, …) are authored just-in-time.
 
 ---
 

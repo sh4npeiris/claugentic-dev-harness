@@ -333,7 +333,7 @@ step-7 YAGNI prune: a clean codebase legitimately produces few or no items, and 
   (a model's call). Findings here are **model-asserted** — label judgment calls as such;
   do not present them as verified fact.
 
-### Tag → discipline  *(references locked Decision 2 — enforcement is not yet automated)*
+### Tag → discipline  *(the tag→discipline mapping in `docs/WORKFLOW.md` — enforcement is not yet automated)*
 
 When the user later runs a backlog item through the pipeline, its **tag selects the
 discipline** — the full mapping lives once in **`docs/WORKFLOW.md`** (→ *Executing an

@@ -32,22 +32,42 @@ Standards are **copied into each adopting repo on init**, not read from the plug
 
 ## Module index
 
-**11 authored modules** today (`security` … `docs-traceability`); the rows below them are **reserved** (named, not yet authored — authored just-in-time).
+**11 authored modules** today, split by verification status (see the note below): **5 web-verified** + **6 draft (citations not yet independently verified)**. The reserved rows at the end are named but not yet authored (authored just-in-time).
+
+> ⚠️ **Verified vs draft — read this before trusting a citation.** Only the 5 web-verified modules have had their sources independently checked. **`draft` = authored but its citations are model-asserted, not yet web-verified** — they are verified on promotion to `stable` or on first real use. Treat a draft module's specific source references as a starting point, not as confirmed fact.
+
+### Web-verified modules (5) — citations checked against sources
+
+These passed citation web-verification + an adversarial conformance pass + a deterministic format check.
 
 | Module | ISO/IEC 25010 | Status |
 |---|---|---|
-| `security` | Security | **draft** · web-verified |
-| `maintainability-structure` | Maintainability | **draft** · web-verified |
-| `testing` | Maintainability · Reliability · Functional-suitability | **draft** · web-verified |
-| `product-ux` | Interaction Capability | **draft** · web-verified |
-| `data-and-persistence` | Reliability · Maintainability | **draft** · web-verified |
+| `security` | Security | **web-verified** |
+| `maintainability-structure` | Maintainability | **web-verified** |
+| `testing` | Maintainability · Reliability · Functional-suitability | **web-verified** |
+| `product-ux` | Interaction Capability | **web-verified** |
+| `data-and-persistence` | Reliability · Maintainability | **web-verified** |
+
+### Draft modules (6) — authored, citations model-asserted (NOT independently verified)
+
+Format-checked only. Their citations are **model-asserted** and are independently verified when the module is promoted to `stable` or pulled into real work.
+
+| Module | ISO/IEC 25010 | Status |
+|---|---|---|
 | `reliability-resilience` | Reliability · Safety | draft |
 | `performance-efficiency` | Performance Efficiency | draft |
 | `observability-ops` | Reliability | draft |
 | `api-and-contracts` | Compatibility | draft |
-| `accessibility-i18n` | Interaction Capability | draft |
+| `internationalization` | Interaction Capability | draft |
 | `docs-traceability` | Maintainability | draft |
+
+### Reserved — named, not yet authored
+
+| Module | ISO/IEC 25010 | Status |
+|---|---|---|
 | `architecture-styles` *(reserved)* | Flexibility | reserved — no file yet (authored when a change pulls it in) |
 | `capabilities/` *(reserved)* — Redis, queues, object-storage, third-party-apis, sidecars, ml, search | (various) | reserved — no files yet (authored just-in-time when an audit pulls one in) |
 
-> **Status legend:** `reserved` = named, no file yet · `draft` = authored · `stable` = dogfooded. **web-verified** = the 5 deep modules' citations were checked against their sources and passed an adversarial conformance pass + a deterministic format check; the 6 migrated modules are draft (format-checked — their citations are independently verified when promoted to `stable` or pulled into real work).
+> **Status legend:** `reserved` = named, no file yet · `draft` = authored, citations model-asserted (not yet web-verified) · `web-verified` = citations checked against sources + adversarial conformance + deterministic format check · `stable` = dogfooded.
+>
+> **`[D]` vs `[J]` — what the audit can actually prove.** A `[D]` (deterministic) check is only **proven** when the adopter has the relevant tool wired (linter / scanner / test runner / CI). Without that tool present, the audit can't run it — it falls back to reporting that check as the **model's judgment (`[J]`)**, not a verified fact. So a module's `[D]` tags describe what's *provable in principle*; what's *actually proven* on a given repo depends on its tooling.
