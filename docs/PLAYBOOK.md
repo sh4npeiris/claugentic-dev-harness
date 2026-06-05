@@ -50,4 +50,4 @@ Every one of those errors would have shipped under a normal "looks good to me" w
 
 ## When in doubt
 
-Ask the agent to **explain what it just did and why** — it's built to teach you as you go (a `/harness-explain` skill will make this one command once the plugin's skills land). The goal is that you get better at directing it every cycle.
+Ask the agent to **explain what it just did and why** — it's built to teach you as you go (a future `/harness-explain` skill will make this one command). The goal is that you get better at directing it every cycle.

@@ -24,20 +24,21 @@ that does something on its own.
 
 ### What it does
 
-Once installed into a target repo (via its two planned commands), it is meant to:
-- **Scaffold itself** into that repo (`/harness-init`) — copy in the standards and
-  workflow docs, generate a file index, and wire up its one safety check.
+Installed into a target repo, via its **two skills**:
+- **Scaffold itself** (`/harness-init`) — copy in the standards + workflow docs
+  (version-stamped, **never clobbering your files**), generate a file index, and wire up
+  its one safety check. Idempotent — re-running is a safe no-op.
 - **Audit that repo** (`/harness-audit`) — read the codebase, explain in plain English
   what the app is, then sweep it through quality "lenses" and write a prioritized,
-  plain-English to-do list (a backlog) the owner can work through one item at a time.
+  plain-English to-do list (a backlog) you work through one item at a time.
 - **Govern the work** — a staged workflow (idea → discuss → plan → review → build →
-  verify → ship) plus a library of specialist agents (planner-critic, builder,
-  reviewer, UX designer, anti-over-engineering skeptic) carries each item to a finish
-  with no loose ends.
+  verify → ship) plus a library of specialist agents (planner-critic, builder, reviewer,
+  UX designer, anti-over-engineering skeptic) carries each item to a finish; the backlog
+  item's **tag** selects the discipline (a refactor → tests-first, etc.).
 
-Today only part of this is live: the agent roles and standards exist and are installable;
-the `/harness-init` and `/harness-audit` commands are still being built out in stages
-(this overview was produced by the first working half of `/harness-audit`).
+**Both skills are live and installable (v0.1)** — and the harness has been used to **build
+itself**: `/harness-audit` ran on this very repo to produce a backlog, which was then
+worked down through the pipeline.
 
 ### How it's built
 
@@ -52,12 +53,12 @@ the `/harness-init` and `/harness-audit` commands are still being built out in s
 ### How it's organized
 
 - `docs/standards/` — the quality catalog: 11 focused modules (security, testing,
-  maintainability, performance, data, accessibility, and more) that the reviewers audit
+  maintainability, performance, data, accessibility, and more) the reviewers audit
   against. This is the "rulebook."
-- `.claude/agents/` — the specialist AI roles the workflow delegates to.
-- `.claude/plans/` — the active and historical build plans for the harness itself.
-- `skills/` — the installable commands (`harness-init`, `harness-audit`), each defined
-  in a `SKILL.md`.
+- `.claude/agents/` — the 6 specialist AI roles the workflow delegates to.
+- `.claude/plans/` — the active build plans for the harness itself.
+- `skills/` — the two installable commands (`harness-init`, `harness-audit`), each a
+  `SKILL.md`.
 - `scripts/` — the lone Python safety check.
 - `.claude-plugin/` — the plugin + marketplace manifests that make it installable.
 - `docs/` (top level) — the workflow, the engineering-standards entry point, this
@@ -69,22 +70,21 @@ the `/harness-init` and `/harness-audit` commands are still being built out in s
   (on file writes and at the end of a session, wired in `.claude/settings.json`) and
   blocks finishing if the file index is out of date. Line endings are normalized for
   cross-platform safety (`.gitattributes`).
-- **What's *not* there (and is fine for this kind of repo):** there is **no test runner,
-  no linter, no type-checker, and no CI pipeline** — because there's essentially no
-  application code to test or lint. The quality bar here is enforced by the standards
-  catalog + agent review, not by automated test suites. (A target repo that *does* have
-  app code would bring its own test/lint tooling, which `/harness-init` is designed to
-  compose with rather than replace.)
+- **What's *not* there (and is fine for this kind of repo):** **no test runner, no
+  linter, no type-checker, no CI** — because there's essentially no application code to
+  test or lint. The quality bar here is the standards catalog + agent review. (A target
+  repo that *does* have app code brings its own test/lint tooling, which `/harness-init`
+  composes with rather than replaces.)
 
 ### Confidence & caveats
 
 - **High confidence:** that this is a plugin / docs-and-tooling repo (not a runnable app),
   what the major parts are, and that Python + Markdown are the only "languages" present.
 - **Inferred, not verified by running:** this overview comes from reading manifests,
-  configs, and structure — **nothing was executed.** Descriptions of *what the commands
-  will do* are read from the plans and skill stubs; two of the three command phases
-  (`/harness-init`, and `/harness-audit`'s audit/backlog half) are **not built yet**, so
-  the end-to-end behavior is intended, not yet demonstrated.
+  configs, and structure — **nothing was executed.**
+- **The one unproven path:** the skills are built and self-dogfooded, but the **true
+  cold-install** (a fresh adopter runs `/plugin install` and the plugin-root resolves) is
+  **not yet verified** — that's the immediate next step.
 - **Honest gap:** because the harness "dogfoods" itself, this repo already contains the
   standards natively — so it can't surface the adopter-only issues a fresh target repo would.
 <!-- harness-audit:overview:end -->
@@ -92,59 +92,29 @@ the `/harness-init` and `/harness-audit` commands are still being built out in s
 ## Audit backlog  _(generated by /harness-audit · do not edit inside the fence — re-run to refresh)_
 
 <!-- harness-audit:backlog:start -->
-`status: COMPLETE · level: standard · date: 2026-06-05`
-`done-cells: docs-traceability×repo · maintainability-structure×repo · product-ux×repo · testing×scripts/`
-`lenses: docs-traceability · maintainability-structure · product-ux · testing` · findings are **model-asserted + human-triaged** (confidence noted per item).
+`status: COMPLETE · level: quick · date: 2026-06-05`
+`done-cells: docs-traceability×repo · maintainability-structure×repo`
+`lenses: docs-traceability · maintainability-structure` (a **quick** refresh after the v0.1 cleanup) · findings are **model-asserted + human-triaged**.
 
-### Tier 1 — critical (do these first)
+> _A prior `standard` audit (this session) surfaced 6 items; **#2–#6 were actioned through the pipeline and verified** (standards de-dup → copy-on-init, the README/tree/manifest currency refresh, the phantom-module + comment renames). This quick re-audit confirms they're resolved — only the test baseline below remains._
+
+### Tier 1 — the one remaining item
 
 **1. Establish a characterization test baseline for `scripts/check_architecture_tree.py`** · tag: `refactor` (test-baseline precondition) · confidence: deterministic (zero `test_*.py` exist).
-- *Technical:* the only behavior-bearing code (143 lines: mode dispatch + exit-code contract, the `STALE_PATTERN` regex, Windows/MSYS path-normalization, stdin-JSON parsing) has **no tests, no runner, no CI**. Per **Decision 2** (characterization-tests-first is a hard precondition), pin current behavior before any refactor: add `scripts/test_check_architecture_tree.py` covering `evaluate()`, `_check_written_file()`, and the per-mode `(exit, stdout, stderr)` contract against temp-tree / temp-repo fixtures. Refs: `check_architecture_tree.py:51,64,68,109,123`.
-- *Plain-English:* the deterministic gate the whole harness trusts has no safety net — a future tweak (e.g. to the staleness regex or the path handling) could silently make it stop catching problems while still reporting "green." It's the linchpin; pin its behavior before touching it.
-- *Impact:* high (protects the harness's core enforcement) · *Effort:* ~half a day.
-
-### Tier 2 — important
-
-**2. Standards modules still describe the abandoned `${CLAUDE_PLUGIN_ROOT}` reference model (contradicts copy-on-init) — and it's duplicated 13×** · tag: `refactor` · confidence: deterministic.
-- *Technical:* the "read via `${CLAUDE_PLUGIN_ROOT}` … overwritten on update … don't hand-edit" boilerplate is copy-pasted into all 11 modules + `_TEMPLATE.md` and stated canonically at `docs/standards/README.md:22` — but **Decision 10 was reversed to copy-on-init** (DECISIONS 2026-06-05). DRY trap (13 copies drift together) **and** stale content contradicting the locked decision. Fix: state the governance once (in `README.md`), reduce each module to a one-line "managed — do not hand-edit; re-sync via `/harness-update`" stamp, and correct the read-path to the **local copied** `docs/standards/`. Seed the fix at `_TEMPLATE.md:46` + `docs/standards/README.md:22` so it stops propagating.
-- *Plain-English:* the standards files still tell an adopter "the plugin reads and overwrites these from a bundled copy" — but we decided the opposite (they're copied into each repo and refreshed via `/harness-update`). Pasted into 13 files, it's easy to half-fix and is a live contradiction an adopter would trip on. No runtime breakage today; it's wrong guidance.
-- *Impact:* medium-high (every adopter sees wrong guidance) · *Effort:* ~half a day.
-
-**3. `README.md` is comprehensively stale — the front door misleads** · tag: `bug` · confidence: deterministic · **already owned by plan 0003 S5.**
-- *Technical:* says "scaffold" (Phase 0 is complete); lists "three specialist agents" (there are **6** — `plugin.json:9-16`); points to `docs/ENGINEERING_STANDARDS.md` as the standards home (it's `docs/standards/`); invokes `/init-harness` (the skill is `/harness-init`, ×3); describes a `refactor-item` workflow that doesn't exist; presents unbuilt commands as runnable; points the skills at plan 0002 (they're in 0003). Refs: `README.md:7,12,13,15,19,31,33,36,50,51`.
-- *Plain-English:* the first page a newcomer reads gets the very first command wrong (`/init-harness` → nothing), undercounts the reviewer team by half, and walks them through steps that don't work yet — poor for a tool whose pitch is "honest + disciplined." (Already planned: 0003 S5 refreshes the README.)
-- *Impact:* high (onboarding + credibility) · *Effort:* ~half a day.
-
-**4. `docs/ARCHITECTURE_TREE.md` descriptions lag reality** · tag: `bug` · confidence: judgment (caption accuracy isn't gate-checkable).
-- *Technical:* the caption at `:61` says `plugin.json` exposes "the **3** specialist agents" (it's 6); two descriptions still attribute config to `init-harness` (renamed `harness-init`) at `:17,71`. The tree-check gate can't see caption text (it only checks `scripts/**/*.py` presence).
-- *Plain-English:* the agents' own map has a couple of wrong captions — a reader trusting the tree would think the plugin ships 3 agents and that an `init-harness` skill exists. Low blast-radius, but the tree's one job is to be trustworthy.
-- *Impact:* low-medium · *Effort:* ~15 min.
-
-### Tier 3 — polish
-
-**5. Standards catalog index advertises a phantom `architecture-styles` module** · tag: `bug` · confidence: deterministic (file absence is provable).
-- *Technical:* `docs/standards/README.md:46` lists `architecture-styles | Flexibility | stub`, but no `architecture-styles.md` exists (11 modules + `_TEMPLATE` + `README`) — contradicting the repo-wide "11 modules" invariant. Either drop the row until authored, or mark it clearly reserved (like the `capabilities/` row).
-- *Plain-English:* the catalog index names a rulebook section with no file behind it — an agent told to "load architecture-styles" finds nothing. Low risk today; reconcile the wording.
-- *Impact:* low · *Effort:* ~10 min.
-
-**6. `init-harness` rename-lag in the Python gate's config comments** · tag: `bug` · confidence: deterministic.
-- *Technical:* `check_architecture_tree.py:32,35,50` comments use the old `init-harness` name (renamed `harness-init`). Cosmetic; no behavior impact.
-- *Plain-English:* a few code comments use the old skill name. Purely cosmetic.
-- *Impact:* trivial · *Effort:* ~5 min.
+- *Technical:* the only behavior-bearing code (mode dispatch + exit-code contract, the `STALE_PATTERN` regex, Windows/MSYS path-normalization, stdin-JSON parsing) has **no tests, no runner, no CI**. Per **Decision 2** (characterization-tests-first is a hard precondition), pin current behavior before any refactor: add `scripts/test_check_architecture_tree.py` covering `evaluate()`, `_check_written_file()`, and the per-mode `(exit, stdout, stderr)` contract against temp-tree / temp-repo fixtures. Refs (by function, not line): `evaluate()`, `_check_written_file()`, `main()`'s per-mode exit codes, and the `STALE_PATTERN` regex in `check_architecture_tree.py`.
+- *Plain-English:* the deterministic gate the whole harness trusts has no safety net — a future tweak (e.g. to the staleness regex or path handling) could silently make it stop catching problems while still reporting "green." It's the linchpin; pin its behavior before touching it.
+- *Impact:* high (protects the harness's core enforcement) · *Effort:* ~half a day · **scheduled for the Trust-gate phase**, where the characterization-first `PreToolUse` hook also lands.
 
 ### Recommended starting point
 
-**Tier-1 #1 — the test baseline for `check_architecture_tree.py`.** It's the harness's own characterization-first precondition (Decision 2), it's low-risk (adding tests, not changing behavior), and it protects the single gate everything else relies on — the right first move before any `refactor`-tagged item (e.g. #2's de-dup) touches code. README staleness (#3) is already owned by plan 0003 S5; #2 is the highest-value adopter-facing fix once the baseline exists.
+**The test baseline above** — the harness's own characterization-first precondition (Decision 2), low-risk (adding tests, not changing behavior), and it protects the single gate everything else relies on. It's queued for the upcoming **Trust-gate phase** (alongside the durable hook) — so it's scheduled, not loose.
 
-> _Honesty note:_ this backlog is **model-asserted** — each item carries a confidence label, but the deep "trust gates" (a future phase) are what will give these teeth. Tags map to the execution discipline via **Decision 2** (e.g. `refactor` ⇒ characterization-tests-first; enforcement today is "the implementer stops and asks," not yet an automatic hook).
+> _Honesty note:_ this backlog is **model-asserted**; the deep "trust gates" (the next phase) are what give these teeth. Tags map to the execution discipline via `docs/WORKFLOW.md` → *Executing an audit backlog item* (e.g. `refactor` ⇒ characterization-tests-first).
 <!-- harness-audit:backlog:end -->
-
-> _Actioned 2026-06-05 (this note is outside the regenerable fence): items **#2, #3, #4, #5, #6** landed via the pipeline — re-run `/harness-audit` to refresh the snapshot above. **Remaining: #1** (test baseline for `check_architecture_tree.py`) — deferred to the Trust-gate phase, where the characterization-first hook lands._
 
 ## Later
 
 | Item | Status |
 |------|--------|
-| Publish install instructions (marketplace + plugin name) in `README.md` once B6 lands. | LATER |
 | Grow the role library (`.claude/agents/`) as new specialist needs emerge from dogfooding. | LATER |
 | `harness-audit` `thorough` level — a second adversarial-verify pass + a completeness-critic over the audit findings (cut from S2b-i as YAGNI for a model-asserted v1 backlog). | LATER |
