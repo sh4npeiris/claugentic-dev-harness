@@ -15,7 +15,7 @@
 3. **Two-tier knowledge:** global standards sync everywhere; local lessons stay put.
 4. **Product/UX lens now** — roles, `product-ux` module, product-discovery → `docs/PRODUCT.md`, run-and-observe verification.
 5. **Technology/capability modules** in the catalog (Redis, queues, storage, 3rd-party APIs, sidecars, ML, search) — *authored just-in-time* (deferred, see Decision 9).
-6. **Not Python-centric** — tooling/gates in **Node/JS**; `check_architecture_tree` ports to Node.
+6. **Tree-check is language-incidental** *(refined 2026-06-05):* it's harness tooling the agent runs to list files (never parses project source), so its language needn't match the project — `check_architecture_tree.py` **stays as-is, no port**. Only `INCLUDE_GLOBS` is project-specific (`init-harness` sets it). Code-analyzing gates *compose with the project's own linters/analyzers* rather than being reimplemented per language.
 7. **Trust-first** *(rev 3):* an independent, deterministic **Trust & Verification** track is foundational and built **early (Phase 1)** — the harness's credibility cannot rest on the same model grading its own work.
 8. **High-frequency catalog first** *(rev 3):* author the ~5 modules this repo + a JS app actually exercise; stub the rest.
 9. **Capability family deferred** *(rev 3):* authored JIT when a real audit pulls one in — none are exercised yet (YAGNI).
@@ -57,7 +57,7 @@ A self-improving Claude Code harness that lets a technically-literate non-engine
 
 ### Trust & Verification (the foundation — built early, Phase 1)
 The load-bearing answer to risk #1: move trust onto signals independent of the model being graded.
-- **Deterministic fitness-function gates** (Node, no LLM): complexity, duplication, dead-code, **layering/import-boundary (dependency direction)**, secret-scan, coverage-floor — extending the architecture-tree gate.
+- **Deterministic fitness-function gates** (no LLM; compose with the project's own linters/analyzers where they exist): complexity, duplication, dead-code, **layering/import-boundary (dependency direction)**, secret-scan, coverage-floor — alongside the architecture-tree check.
 - **Frozen behavioral baseline (golden-master):** capture real user-journey traces + screenshots + an HTTP/DB-call inventory *before* changes; this — not agent-authored tests — is the equivalence oracle for refactors.
 - **Hook-enforced Definition-of-Done:** `PreToolUse` (block edits to the frozen baseline / migration files without a token), `PostToolUse` (run the scoped gate on changed files), `Stop` (refuse "done" until gates are green). Mechanizes DoD instead of trusting self-report.
 - **Test-diff review + mutation testing:** every change is checked for "did the tests get *weaker*?"; mutation score verifies the tests are real.
@@ -119,7 +119,7 @@ Each lands **complete in one ≤1M-context session, no debt**; **each slice's ac
 
 ## Later phases (at altitude — own sub-plans)
 
-- **Phase 1 (Trust, Node):** the full Trust & Verification track above; port `check_architecture_tree` to Node **and fix `INCLUDE_GLOBS` to track `docs/standards/**/*.md`**.
+- **Phase 1 (Trust):** the full Trust & Verification track above; **fix the tree-check's `INCLUDE_GLOBS` to track `docs/standards/**/*.md`** (the script stays Python — it's harness tooling, not project code); code-analyzing gates compose with the project's existing linters/analyzers.
 - **Phases 2–7:** 0001's B1–B6 over the enriched harness; skills-not-commands; referenced globals; 3-lane execution; `harness-update`; `/harness-explain`.
 - **JIT / ROADMAP:** capability modules (authored when an audit pulls one in); mechanized learning loop (retrospector + Lesson artifact); episodic-memory automation.
 

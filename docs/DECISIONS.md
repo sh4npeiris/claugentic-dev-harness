@@ -2,6 +2,11 @@
 
 Dated, one-line records of non-trivial decisions. **Append newest at the top.** Consult before re-litigating a past choice (see CLAUDE.md → Harness Discipline).
 
+## 2026-06-05 — Tree-check is language-incidental (refines rev-3 Decision 6)
+
+- **The architecture-tree check needn't match the project's tech.** It's harness tooling the agent runs to get a file list (it never parses project source), so its language is incidental — **`check_architecture_tree.py` stays as-is; no Python→Node port.** The project-specific part is only `INCLUDE_GLOBS` (which `init-harness` sets to the adopter's source layout). Runtime availability is the only real constraint (Python is broadly present; `init-harness` can verify it, and the agent can fall back to `Glob`).
+- **Code-analyzing gates compose, not reimplement.** Gates that inspect project source (complexity, dead-code, secrets, layering) lean on the project's *own* linters/analyzers (ESLint, tsc, …) rather than being rebuilt per language. This removes the Python→Node port from the functional-for-others prereqs.
+
 ## 2026-06-05 — Phase 0 complete: workflow upgrade + PLAYBOOK (P0-S8)
 
 - **WORKFLOW.md upgraded (lean):** the Roles section now lists the 6 agents + fan-out; Verify is **effort-dialed** (solo vs lens-fan-out → synthesizer); Discuss pulls in the `product-designer` UX lens for user-facing work; an **effort-dial principle** + **dual-layer outputs** convention added; the learning loop gains the **two-tier** detail (global `CANDIDATES.md` vs local). No new heavyweight stages — additions woven into existing ones.
