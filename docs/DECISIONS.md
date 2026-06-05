@@ -2,6 +2,12 @@
 
 Dated, one-line records of non-trivial decisions. **Append newest at the top.** Consult before re-litigating a past choice (see CLAUDE.md → Harness Discipline).
 
+## 2026-06-05 — Phase 0 complete: workflow upgrade + PLAYBOOK (P0-S8)
+
+- **WORKFLOW.md upgraded (lean):** the Roles section now lists the 6 agents + fan-out; Verify is **effort-dialed** (solo vs lens-fan-out → synthesizer); Discuss pulls in the `product-designer` UX lens for user-facing work; an **effort-dial principle** + **dual-layer outputs** convention added; the learning loop gains the **two-tier** detail (global `CANDIDATES.md` vs local). No new heavyweight stages — additions woven into existing ones.
+- **`docs/PLAYBOOK.md` shipped** — the teaching deliverable: how a non-engineer drives the harness (three leverage points + the orchestration patterns + a worked example + glossary). The other planned templates (SCORECARD/PRODUCT/GLOSSARY/CANDIDATES/episodic-log) are **deferred** to when their phase or first use needs them (no speculative empty templates — the yagni-sentinel's first win).
+- **Phase 0 is done.** The harness's "brain" is complete: module contract + 11-module catalog + 6 specialist roles + upgraded workflow + playbook. **Next: make it functional for others** — Phase 2 (package the enriched harness) + `/init-harness` + `/harness-audit`.
+
 ## 2026-06-05 — Phase 0: specialist roles + lean scope (P0-S7)
 
 - **Role library expanded — leanly.** Added `product-designer` (UX discovery), `lens-reviewer` (parameterized: audits a diff against ONE standards module), `yagni-sentinel` (anti-over-engineering skeptic); reframed `architect-reviewer` as **solo-reviewer-or-synthesizer** (effort-dial-driven). All exposed in `.claude-plugin/plugin.json`.

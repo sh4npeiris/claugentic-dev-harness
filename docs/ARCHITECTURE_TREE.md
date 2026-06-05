@@ -17,7 +17,8 @@ This repo builds the **`agentic-dev-harness`** Claude Code plugin and dogfoods i
 - `docs/ENGINEERING_STANDARDS.md` — project-agnostic, ever-growing catch-all of engineering quality dimensions; the bar implementations are held to (the per-repo "Current scope" is added by `init-harness`, not shipped populated).
 - `docs/ARCHITECTURE_TREE.md` — this file: one-line-per-file index of the repo.
 - `docs/DECISIONS.md` — dated, one-line records of non-trivial decisions (newest at top); consult before re-litigating.
-- `docs/ROADMAP.md` — backlog of substantial work (the plan-0001 build slices B1–B6); tangents land here, never silently into the current change.
+- `docs/ROADMAP.md` — backlog of substantial work; tangents land here, never silently into the current change.
+- `docs/PLAYBOOK.md` — plain-English guide for a non-engineer driving the harness: the pipeline, your three leverage points, the orchestration patterns (fan-out, adversarial-verify, effort dial), a worked example, and a mini-glossary.
 
 ## docs/standards/ — the modular quality catalog (plan 0002 Pillar A)
 

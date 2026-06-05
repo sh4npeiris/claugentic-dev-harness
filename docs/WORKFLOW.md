@@ -31,6 +31,7 @@ When unsure, default to full; the plan-reviewer (Stage 3) confirms the path was 
 - **No new tech debt.** A landed slice leaves the codebase at least as clean as it found it: tests added, docs/ARCHITECTURE_TREE updated, no dead code, no silenced errors.
 - **The harness is living.** Any task may improve STANDARDS / CLAUDE.md / the `.claude/agents/` role library / this workflow. Stage 9 is how that happens; treat harness improvements as first-class output, not a chore.
 - **Delegate liberally to preserve orchestrator context.** Use subagents freely and in parallel — **no resource constraints** — so the orchestrator's own context stays lean for synthesis and decisions (fan out reads, reviews, and implementation to specialists). The orchestrator picks whichever role(s) fit from the `.claude/agents/` library; as the library grows it has more specialists to choose from.
+- **Effort-dial the machine.** Scale review/verification depth to the change's risk and size, and load only the standards modules the change *touches* (relevance-gating). A one-line fix gets a quick solo look; a security boundary gets the full lens fan-out. Don't run the whole machine on a trivial change — that's how a harness kills the velocity it's meant to protect.
 - Plus the CLAUDE.md non-negotiables: SOLID > DRY > KISS > YAGNI · fail loudly · validate at boundaries · configurable-over-hardcoded · single source of truth.
 
 ---
@@ -54,11 +55,14 @@ If context still runs low, **don't fear auto-compaction** — Claude Code summar
 The orchestrator **selects the role(s) that fit the task** and may spawn several or compose them. It is not locked to a fixed sequence of agents.
 
 Starter library (`.claude/agents/`):
-- **`plan-reviewer`** — adversarially critiques a plan (correctness, SOLID/patterns, risk, **sizing & completeness**, over-engineering/YAGNI, harness impact) and writes findings back into the plan file.
+- **`plan-reviewer`** — adversarially critiques a plan (correctness, SOLID/patterns, risk, **sizing & completeness**, over-engineering/YAGNI, harness impact); writes findings into the plan file.
 - **`implementer-architect`** — implements an approved spec to standard, in an isolated worktree, landing one slice complete.
-- **`architect-reviewer`** — audits the *implemented* diff against the in-scope `ENGINEERING_STANDARDS` dimensions (performant, secure, efficient, extensible) at Verify. Peer to `plan-reviewer`, but for code.
+- **`product-designer`** — the product/UX lens at Discuss (Stage 1) for user-facing work: user, job-to-be-done, flows, states, "what good feels like"; applies `docs/standards/product-ux.md`, persists to `docs/PRODUCT.md`.
+- **`architect-reviewer`** — owns the Verify gate (Stage 7): **solo** for small changes, or **synthesizer** over fan-out findings for risky ones.
+- **`lens-reviewer`** — audits a diff against **one** `docs/standards/` module; invoked once per relevant lens in a fan-out review.
+- **`yagni-sentinel`** — the anti-over-engineering skeptic; argues a plan/diff is *too much*. The deliberate counterweight to the quality lenses.
 
-Also available without new files: built-in **`Explore`** (fan-out search), **`Plan`** (drafting), and any `code-reviewer` agent for diff review. **Add new role files as needs emerge** — the library is meant to grow (Stage 9).
+Also available without new files: built-in **`Explore`** (fan-out search), **`Plan`** (drafting), and `/code-review` · `/simplify` for diff cleanup. **Add new role files as needs emerge** — the library grows (Stage 9).
 
 ---
 
@@ -67,13 +71,13 @@ Also available without new files: built-in **`Explore`** (fan-out search), **`Pl
 | # | Stage | Owner | Output |
 |---|-------|-------|--------|
 | 0 | **Triage** | orchestrator | full vs lightweight path |
-| 1 | **Discuss & brainstorm** | orchestrator + **user** | crystal-clear scope; tangents→ROADMAP, decisions→DECISIONS |
+| 1 | **Discuss & brainstorm** | orchestrator + **user** | crystal-clear scope; **user-facing work pulls in `product-designer`** (UX lens) → `docs/PRODUCT.md`; tangents→ROADMAP, decisions→DECISIONS |
 | 2 | **Draft plan** | orchestrator / `Plan` | `.claude/plans/NNNN-<slug>.md` from `TEMPLATE.md`, **sliced into ≤1-session units** |
 | 3 | **Review the plan** | `plan-reviewer` (+ others as fit) | critique written into the plan's *Review* section; iterate until it passes the gate |
 | 4 | **Spec** | orchestrator | plan upgraded to implementation-ready spec **per slice**: file-by-file changes, signatures, test list, acceptance criteria, **+ the in-scope `ENGINEERING_STANDARDS` dimensions & target bar** |
 | 5 | **Approval gate** | **user** | sign-off on the spec — *no code before this* |
 | 6 | **Implement** | `implementer-architect` | one slice/session, isolated worktree/branch; upholds CLAUDE.md; updates ARCHITECTURE_TREE inline |
-| 7 | **Verify** | implementer + `architect-reviewer` | full test suite **+ any regression/snapshot tests + `check-tree` + the project's lint / type-check / security gates** green; run **`/simplify`** + **`/code-review`** on the diff (low-risk cleanups in-scope); **`architect-reviewer` audits against the in-scope `ENGINEERING_STANDARDS` dimensions**; confirm spec match |
+| 7 | **Verify** | `architect-reviewer` (+ lenses) | **effort-dialed:** small change → `architect-reviewer` audits solo; risky/cross-cutting → fan out `lens-reviewer`s (one per relevant `docs/standards/` module) **+** `yagni-sentinel`, then `architect-reviewer` **synthesizes**. All gates green (full tests + regression/snapshot + `check-tree` + lint/type-check/security); run **`/simplify`** + **`/code-review`**; confirm spec match. Findings are **dual-layer** (technical + plain-English). |
 | 8 | **Land & archive** | orchestrator | conventional commit/PR; move plan → `docs/archive/<year>/`; append DECISIONS |
 | 9 | **Retrospect & evolve** | orchestrator | harvest learnings into the harness (see below) |
 
@@ -90,7 +94,7 @@ Also available without new files: built-in **`Explore`** (fan-out search), **`Pl
 
 A slice is **done** — and may land (Stage 8) — only when **all** hold:
 1. **Acceptance criteria met** (the spec's checklist).
-2. **In-scope `ENGINEERING_STANDARDS` dimensions pass** the `architect-reviewer` audit — performant, secure, efficient, extensible, for what this slice touches.
+2. **In-scope `docs/standards/` modules pass** the `architect-reviewer` audit (solo, or synthesized from `lens-reviewer`s + `yagni-sentinel`), for what this slice touches.
 3. **All gates green:** full test suite + any regression/snapshot tests + `check-tree` + the project's lint / type-check / security gates + `/simplify`/`/code-review`.
 4. **No new tech debt.**
 
@@ -107,6 +111,8 @@ After a slice lands, **harvest** before moving on:
 - Friction in the process itself → edit **this `WORKFLOW.md`**.
 - A notably clean implementation → record it as the **reference pattern** to copy (promotion rule).
 - Every non-trivial choice → one dated line in **`DECISIONS.md`**.
+
+**Two tiers (manual for now).** A *universal* lesson → propose it as a candidate **global** standard: stage it in `docs/standards/CANDIDATES.md`, then promote upstream into the plugin so **every** repo gets it on the next update. A *codebase-specific* lesson → keep it **local** (`CLAUDE.md` / `DECISIONS.md` / the repo's Current-scope), never propagated. Either way, **the user approves** before promotion.
 
 Periodically run a **consolidation pass** (merge duplicates, prune stale guidance, keep the index lean). The intent: each task starts smarter than the last. Feedback flows *upstream* from any stage — a plan-reviewer finding, an implementer surprise, a verification failure can all become a permanent harness improvement.
 
