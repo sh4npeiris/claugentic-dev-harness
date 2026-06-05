@@ -102,6 +102,20 @@ Iterate to meet this **fixed** bar, then **stop** — it terminates because the 
 
 ---
 
+## Executing an audit backlog item — tag → discipline
+
+`/harness-audit` writes a tagged backlog into `docs/ROADMAP.md`; there is **no separate refactor command**. Each item runs through the pipeline above, and its **tag selects the discipline** the implementer applies. (Rationale is settled — see `DECISIONS.md` Decision 2; don't re-litigate it here.)
+
+| Tag | Discipline |
+|-----|-----------|
+| **`refactor`** | **Characterization-tests-first — a HARD precondition.** A refactor item on untested behavior-bearing code **cannot start until its Tier-1 "establish a test baseline" item is done**; if that baseline is absent, the implementer **stops and asks** rather than touching code. Durable enforcement will be the Trust-track `PreToolUse` characterization hook (the first Phase-1 item); **until that hook lands, this is upheld by the implementer + the Verify gate** — not yet automatic. |
+| **`capability-upgrade`** | Migration safety — feature-flag the new path · dual-write / shadow-read · keep a rollback. |
+| **`dependency-health`** | Update + verify — bump, run the full suite green, check the changelog for breaking changes. |
+| **`bug`** | Reproduce-first — a **failing test that captures the bug**, then the fix that makes it pass. |
+| **`feature`** | The standard pipeline (no extra precondition). |
+
+---
+
 ## 9. The learning loop (how the harness grows)
 
 After a slice lands, **harvest** before moving on:

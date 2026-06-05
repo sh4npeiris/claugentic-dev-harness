@@ -2,6 +2,19 @@
 
 Dated, one-line records of non-trivial decisions. **Append newest at the top.** Consult before re-litigating a past choice (see CLAUDE.md → Harness Discipline).
 
+## 2026-06-05 — v0.1 finalized + tagged (plan 0003 functional core ~complete)
+
+- **Shipped v0.1** (user chose "review + ship now, install-test after"). Functional core complete: both skills (`/harness-init`, `/harness-audit`) live + self-dogfooded, 6 agents + 11-module catalog + workflow + playbook, copy-on-init. Tagged **`v0.1.0`**.
+- **Finalization gate:** the README + marketplace front door refreshed (audit #3); a holistic **`architect-reviewer` ship-readiness pass → SHIP** (front door coherent + honest, 6 agents everywhere, no active stale tokens, no overclaim, install flow resolves); **`/simplify`** trimmed the only real DRY findings — the SKILL's tag-mapping duplication (collapsed to a WORKFLOW pointer + the audit-authoring honesty contract) and the README's triplicated flow (the *Two adoption modes* arm now contrasts instead of re-walking the steps).
+- **Known, disclosed v0.1 boundary:** the **true cold-install (`${CLAUDE_PLUGIN_ROOT}` resolution in an *installed* plugin) is NOT yet verified** — every test so far used this repo or a stand-in for the plugin root. The README states this honestly. **This is the #1 thing to prove next.**
+- **Deferred (post-v0.1, in order):** (1) **cold-install verification** + (2) **JS-app dogfood** (the rest of S5) → (3) **Phase 1 Trust gates** (the characterization `PreToolUse` hook + backlog #1 test-baseline) → (4) `/harness-update` + `/harness-explain`.
+
+## 2026-06-05 — v0.1 ship-readiness doc pass: README refreshed + tag→discipline folded into WORKFLOW
+
+- **README refreshed for v0.1 (audit #3 actioned — the front door is now accurate + honest).** Fixed every staleness: status `scaffold`→**early v0.1, functional core live** (both skills live/installable; cold-install + JS-app dogfood = next; trust-gates/`harness-update`/`harness-explain` = future, stated honestly); **3→6** specialist agents (all named); standards home `ENGINEERING_STANDARDS.md`→**`docs/standards/` (11 modules)**, the former a thin pointer; `/init-harness`→**`/harness-init`**; **removed the non-existent `refactor-item` workflow** (execution rides the existing pipeline; the item's **tag selects the discipline**); replaced the plan-0002 skill pointer with the real install + flow. Kept the lean voice; no overclaiming.
+- **The tag→discipline mapping is folded into `docs/WORKFLOW.md`** (new subsection *Executing an audit backlog item — tag → discipline*, by the Definition of Done — the canonical home `harness-audit` already points at). The standalone "S4" slice was **cut as ceremony** (per the user's lean call): the content is delivered, no separate slice. Content indexes Decision 2 for rationale (refactor → characterization-tests-first as a HARD precondition; today upheld by implementer + Verify; durable `PreToolUse` hook = first Phase-1 item, not yet built).
+- **`skills/harness-audit/SKILL.md` reconciled:** the dangling "being formalized in `docs/WORKFLOW.md` (plan 0003 S4)" → **"is in `docs/WORKFLOW.md`"** (present tense, slice ref dropped); kept the honest "the durable hook does not exist yet" + "do not imply the hook already exists."
+
 ## 2026-06-05 — S3: `harness-init` scaffold procedure live (plan 0003)
 
 - **`harness-init` is authored & live** (the 9-step idempotent scaffold; cold-install dogfood with a real `${CLAUDE_PLUGIN_ROOT}` is S5). A top-level agent runs **detect → create-if-absent / merge-in-fence → report** on every write — **never-clobber is the load-bearing safety invariant**; a re-run is a **provable no-op** (`git status` shows zero changes). Proven by a run-twice throwaway dogfood (managed-set source = this repo's root standing in for `${CLAUDE_PLUGIN_ROOT}`; mechanics only — real plugin-root resolution is S5, not overclaimed).

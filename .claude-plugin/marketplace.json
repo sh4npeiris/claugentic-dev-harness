@@ -6,7 +6,7 @@
     {
       "name": "agentic-dev-harness",
       "source": ".",
-      "description": "Reusable, self-improving Claude Code development harness (workflow, specialist roles, standards, architecture enforcement). Minimal early shell — grows across plan 0002.",
+      "description": "Reusable, self-improving Claude Code development harness: a staged workflow, 6 specialist agent roles, an ISO/IEC 25010 standards catalog, and deterministic architecture enforcement — with two live skills, /harness-init (scaffold) and /harness-audit (audit → backlog).",
       "version": "0.1.0",
       "category": "development",
       "homepage": "https://github.com/sh4npeiris/claugentic-dev-harness"

@@ -296,17 +296,14 @@ status: COMPLETE | PARTIAL · level: quick|standard · done-cells: [module×dir,
 ### Tag → discipline  *(references locked Decision 2 — enforcement is not yet automated)*
 
 When the user later runs a backlog item through the pipeline, its **tag selects the
-discipline**:
-- **`refactor`** → **characterization-tests-first**. A refactor on untested
-  behavior-bearing code **cannot start until its Tier-1 "establish a test baseline" item
-  is done.** Today this precondition is enforced by **the implementer stopping and asking**
-  (not yet an automatic gate); it is being **formalized in `docs/WORKFLOW.md` (plan 0003
-  S4)** and given a **durable `PreToolUse` hook (the first Trust-track item, next phase)**.
-  Be honest in the backlog: state the precondition, and that enforcement today is
-  manual — **do not imply the S4 mapping or the hook already exist.**
-- **`capability-upgrade`** → migration safety (feature flag / dual-write / rollback).
-- **`dependency-health`** → update + verify.
-- **`bug`** / **`feature`** → the normal pipeline.
+discipline** — the full mapping lives once in **`docs/WORKFLOW.md`** (→ *Executing an
+audit backlog item — tag → discipline*). The one part you must reflect when **authoring**
+the backlog: a **`refactor`** on untested behavior-bearing code is
+**characterization-tests-first — it cannot start until its Tier-1 "establish a test
+baseline" item is done.** Today that precondition is enforced by **the implementer
+stopping and asking**; the durable `PreToolUse` hook **does not exist yet** (the first
+Trust-track item, next phase) — so be honest in the backlog and **do not imply the hook
+(or any automatic gate) already exists.**
 
 ### Recommended starting point
 
