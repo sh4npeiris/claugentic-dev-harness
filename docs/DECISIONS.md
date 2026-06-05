@@ -2,6 +2,15 @@
 
 Dated, one-line records of non-trivial decisions. **Append newest at the top.** Consult before re-litigating a past choice (see CLAUDE.md → Harness Discipline).
 
+## 2026-06-05 — S2a: understand phase (plan 0003)
+
+- **`harness-audit` Phase 1 (Understand) is live; Phase 2 (Audit+backlog) stays an honest no-op** until plan 0003 S2b. The skill runs the 8-step inline pass, writes the overview, emits an audit-plan, then stops and says the audit phase is coming.
+- **ROADMAP-header persistence via a fenced region** (`<!-- harness-audit:overview:start -->…:end -->`, user choice): the generated "what your app is & does" overview lives between exact HTML-comment markers; re-runs replace **only** inside the fence, never clobbering human-added roadmap items. S2b adds a parallel `harness-audit:backlog` fence under the same rule.
+- **Text-only overview (no Mermaid/diagram)** — user choice; the audit teaches a non-engineer in plain English.
+- **Understand is a single cheap inline pass** (manifests + structure + entry points + a few bounded reads), **not** a fan-out (parallelism is S2b's audit). **DRY with init:** reuse an existing fresh `docs/ARCHITECTURE_TREE.md` as the file-level map; else a bounded `Glob` walk.
+- **Security rule baked into the procedure:** never read or echo secrets (`.env*`, key/credential files) — exclude them and never surface their contents in the overview or audit-plan.
+- **Exclude-set is `.gitignore`-first**, augmented by well-known dep/build/generated dirs; the audit-plan also carries the prioritized directory order, monorepo/package boundaries, detected ecosystem+tooling, and candidate standards modules (S2b's input).
+
 ## 2026-06-05 — Copy standards on init (reverses Decision 10); plan 0003 rev 2
 
 - **Reverse "reference, don't copy" (0002 Decision 10) → COPY the standards into each adopter repo on init; re-sync via `/harness-update`.** Verified vs official Claude Code docs (plan-review RC-1): a plugin's **subagents cannot read bundled files via bare relative paths** in an adopter repo (they resolve to the adopter's project root), and `${CLAUDE_PLUGIN_ROOT}` — though it expands in agent prompt bodies — doesn't cover the **parameterized `lens-reviewer`** (module chosen at runtime). Copy-on-init is reliable, needs **no agent changes** (agents keep reading local `docs/standards/`), and matches the proven Agent-OS pattern. Two-tier model intact: global = copied + version-stamped + "managed, do not edit"; local = Current-scope/CANDIDATES/lessons. Drift handled by version stamp + `/harness-update` overwrite.

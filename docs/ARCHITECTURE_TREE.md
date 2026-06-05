@@ -64,7 +64,7 @@ This repo builds the **`agentic-dev-harness`** Claude Code plugin and dogfoods i
 ## skills/ — harness entry points (the `/harness-` family)
 
 - `skills/harness-init/SKILL.md` — **stub (plan 0003 S3):** idempotent scaffold of the harness into a repo (copy the managed harness set, generate ARCHITECTURE_TREE, set globs, compose with tooling).
-- `skills/harness-audit/SKILL.md` — **stub (plan 0003 S2):** understand the codebase → multi-lens audit → tiered, tagged, plain-English backlog in ROADMAP.
+- `skills/harness-audit/SKILL.md` — **Understand phase live (S2a); Audit+backlog stub → S2b:** Phase 1 runs the 8-step inline pass → plain-English overview (into the ROADMAP `harness-audit:overview` fence) + an audit-plan; Phase 2 (multi-lens sweep → tiered/tagged backlog) is an honest no-op until S2b.
 
 ## scripts/ — tooling
 

@@ -116,4 +116,52 @@ Expose `harness-init` + `harness-audit` as **skills** (`skills/<name>/SKILL.md`)
 ---
 
 ## Spec  _(per slice, after Review passes — Stage 4)_
-Spec'd per slice at its own approval gate, starting with **S1**.
+Spec'd per slice at its own approval gate. **S1** done. **S2a** below — awaiting approval (Stage 5).
+
+### S2a Spec — `understand` (the front-half of `harness-audit`)
+
+**What this slice is.** `harness-audit` is one **skill** (a `SKILL.md` procedure an agent follows), built in two slices: S2a authors the **Understand** front-half; S2b adds the **Audit + backlog** back-half. S2a lands a genuinely-usable standalone capability — "point it at a repo, get a plain-English overview + an audit-plan" — and is proved by dogfooding on THIS repo.
+
+**Discuss decisions (this slice):**
+- **Summary persistence → `docs/ROADMAP.md` header** (user choice), inside a **fenced, regenerable region** so re-runs touch only the fence and never clobber human-added roadmap items.
+- **Visual → text only** (user choice) — no Mermaid/Excalidraw.
+- **Fence convention (new, load-bearing for S2b too):** audit-generated content in ROADMAP lives between HTML-comment markers — `<!-- harness-audit:overview:start -->…:end` (this slice) and `<!-- harness-audit:backlog:start -->…:end` (S2b). Regeneration replaces only inside the fences; everything outside is human-owned.
+- **DRY with init:** Understand prefers an existing fresh `docs/ARCHITECTURE_TREE.md` as its file-level map; else it derives structure via a bounded `Glob` walk.
+- **Understand is a single cheap inline pass** (manifests + structure + entry points + a few bounded reads) — **not** a fan-out. Parallelism is S2b's audit.
+
+**Files changed:**
+
+1. **`skills/harness-audit/SKILL.md`** — replace the stub with: a short *How this skill works* overview (Understand → Audit → Backlog); **Phase 1 — Understand** authored as the real, followable 8-step procedure below (with its output contract); **Phase 2 — Audit + backlog** kept as an **honest no-op** ("not yet implemented — lands in plan 0003 S2b; today the skill runs Understand, writes the overview, then stops here and says so"). Frontmatter `description` stays describing the full skill (clean for triggering); the body carries the honesty window (RC-6).
+2. **`docs/ROADMAP.md`** — the dogfood artifact: insert the fenced `harness-audit:overview` region after the intro, holding the generated "What this app is & does" overview of THIS repo. Existing content (the stale PLAN-0001 B1–B6 table, `## Later`) is **preserved below the fence** — full reconciliation of that stale backlog is **S2b's** job (when it writes the backlog fence).
+3. **`docs/ARCHITECTURE_TREE.md`** — update the `skills/harness-audit/SKILL.md` line: no longer a pure stub ("Understand phase live; Audit+backlog stub → S2b").
+4. **`docs/DECISIONS.md`** — append a dated S2a entry (ROADMAP-header persistence + fence convention; text-only; tree-first; cheap-inline Understand).
+
+**The Understand procedure — output contract (what the agent produces):**
+- **(A) User-facing overview** — plain-English, text-only, written into the ROADMAP overview fence. Sections: *what it is · what it does · how it's built · how it's organized · safety-net signals (tests/CI/types) · confidence & caveats (honest: inferred from structure, not run).*
+- **(B) Audit-plan** — audit-internal, handed to S2b; shown in-conversation as S2a's proof: *exclude-set · prioritized directory order · monorepo/package boundaries · detected ecosystem + existing tooling · candidate standards modules.*
+
+**The Understand procedure — 8 steps (authored into SKILL.md):**
+1. **Prefer existing signal** — if `docs/ARCHITECTURE_TREE.md` exists and is current, use it as the file-level map; else derive structure via a bounded `Glob` walk. Budget discipline: read **manifests, configs, entry points, READMEs** — not every source file.
+2. **Detect ecosystem & tooling** — scan root+subdirs for manifests (`package.json`, `pyproject.toml`/`requirements.txt`, `go.mod`, `Cargo.toml`, `pom.xml`/`build.gradle`, `Gemfile`, `composer.json`, `*.csproj`, …) → language(s), framework(s), package manager; and existing **lint/format/type-check/test** configs (eslint, prettier, tsconfig, jest/vitest/pytest, …) — this dovetails with init's compose-with-tooling and tells the audit what gates already exist. General rule over exhaustive list: "identify by manifest."
+3. **Detect monorepo / package boundaries** — `workspaces`, `pnpm-workspace.yaml`, `lerna.json`, `nx.json`, `turbo.json`, multiple manifests, `packages/`·`apps/` layout. If monorepo, enumerate packages as separate audit units.
+4. **Build the exclude-set** — honor `.gitignore` as the primary signal, augmented by known dirs: VCS (`.git`), deps (`node_modules`, `vendor`, `.venv`/`venv`, `__pycache__`, `target`, `Pods`), build/output (`dist`, `build`, `.next`, `out`, `coverage`, `.turbo`), generated (`*.generated.*`, `*.min.js`, codegen output), lockfiles, binary/large assets. **Security:** never read or echo secrets (`.env*`, key/credential files) — exclude them and never surface contents in the overview.
+5. **Identify entry points & surfaces** — from manifests (`main`/`bin`/`scripts`, `[project.scripts]`/`__main__`, `func main`, framework conventions `src/index.*`·`app/`·`pages/`·`cmd/`, Dockerfile `CMD`/`ENTRYPOINT`) → the app's **type** (CLI · web server · library · SPA · service) and external surfaces.
+6. **Map dependencies (high-level)** — name the **architecturally-significant** deps (frameworks, DB drivers, HTTP/auth libs) — enough to say "an Express+Postgres API" — not every dep. This pre-selects the likely standards modules (DB driver → `data-and-persistence`; HTTP server → `api-and-contracts`+`security`).
+7. **Prioritized directory order** — rank included dirs by likely risk/value for the audit's budget-spend: entry points & core domain first → data/persistence → API/routes → UI → config/scripts → tests last.
+8. **Compose & emit** — write the plain-English overview (A) into the ROADMAP fence; emit the audit-plan (B) for S2b.
+
+**Dogfood / acceptance (run on THIS repo):**
+- Overview correctly frames the harness as **"a Claude Code plugin / self-improving dev-harness — mostly docs + agent roles + one Python gate script, not a conventional app,"** names the key parts (`docs/standards`, `.claude/agents`, `skills`, `scripts`, `.claude-plugin`), and is **honest it's inferred**.
+- Ecosystem detection correct: **Python** (one script) + Markdown-heavy; **no Node/JS app**; **monorepo = no**; existing tooling = the tree-check hook in `.claude/settings.json` (no eslint/tsc/test runner).
+- Exclude-set correct (honors `.gitignore`; excludes `.git`, `.claude/settings.local.json`, build junk); directory order sensible (standards/agents/skills/scripts before plans/archive).
+- Overview written into `docs/ROADMAP.md` **inside the fence, non-destructively** (existing content intact below).
+- `python scripts/check_architecture_tree.py` **green**; `claude plugin validate .` **green**.
+- SKILL.md **honestly states** Phase 2 (audit+backlog) is not yet built.
+
+**In-scope standards (the bar) + effort dial:**
+- `docs-traceability` — overview + SKILL.md are docs: accurate, current, clear; fence/regenerate convention documented.
+- `product-ux` — the overview is a teaching artifact for a non-engineer: plain language, right altitude, honest confidence ("what good feels like").
+- `maintainability-structure` (light) — SKILL.md procedure is well-structured, single-responsibility (Understand ≠ Audit), no dead/speculative steps.
+- **Effort dial: LOW** (doc/skill slice, read-only on real code) → **solo `architect-reviewer`** audit (no lens fan-out) + a quick **`yagni-sentinel`** check that the procedure isn't gold-plated; run **`/simplify`**, the tree-check, and plugin-validate.
+
+**Out of scope (→ S2b / later):** the audit fan-out, dedup, loop-until-dry, budget/resume, backlog authoring (tiers/tags/dual-layer/impact/effort/recommended-start), reconciling the stale ROADMAP backlog, and persisting the audit-plan for cross-session resume.
