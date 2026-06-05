@@ -10,4 +10,4 @@ The engineering quality bar is a **modular catalog** under [`docs/standards/`](s
 
 ---
 
-> **Current scope (per repo).** `init-harness` appends a **Current scope** section below this line when the harness is installed into a codebase — a living, non-capping snapshot of which dimensions/modules are LIVE in *that* repo today (relevance is always a per-change judgment; it grows as the stack grows). The plugin ships only the universal catalog and does **not** ship this section populated.
+> **Current scope (per repo).** `harness-init` appends a **Current scope** section below this line when the harness is installed into a codebase — a living, non-capping snapshot of which dimensions/modules are LIVE in *that* repo today (relevance is always a per-change judgment; it grows as the stack grows). The plugin ships only the universal catalog and does **not** ship this section populated.

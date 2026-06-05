@@ -2,6 +2,15 @@
 
 Dated, one-line records of non-trivial decisions. **Append newest at the top.** Consult before re-litigating a past choice (see CLAUDE.md → Harness Discipline).
 
+## 2026-06-05 — Audit backlog #2/#4/#5/#6 actioned (first pipeline-actioned audit items)
+
+- **First time the dogfood audit's backlog drove real changes through the pipeline** (in-place, pre-S3, since S3 copies the standards into adopters — the stale guidance had to be fixed before it propagated).
+- **#2 (standards governance — de-dup + correct to copy-on-init):** the `${CLAUDE_PLUGIN_ROOT}` reference-model governance boilerplate was duplicated across **11 modules + `_TEMPLATE.md`** and contradicted the locked copy-on-init reversal. **Removed the duplicated block from all 11 modules** (source modules carry *content*, not governance boilerplate); replaced it in `_TEMPLATE.md` with a one-line pointer to `docs/standards/README.md` (so the drift can't reappear); **governance now lives once** in `docs/standards/README.md`, corrected to copy-on-init (bundled-in-plugin source of truth → `harness-init` copies into the adopter's local `docs/standards/` → agents read the **local** copy → `/harness-update` re-copies; dropped the abandoned runtime-read-via-`${CLAUDE_PLUGIN_ROOT}`). Two-tier intent (global synced vs local stays) preserved; references the 2026-06-05 copy-on-init decision.
+- **S3 requirement (new):** since source modules no longer carry it, **`harness-init` must add the per-copy "managed — do not edit; re-sync via `/harness-update`" version-stamp when it copies each module** into an adopter repo.
+- **#5 (phantom `architecture-styles`):** reframed it (and aligned `capabilities/`) as **reserved — no file yet** (mark-reserved over drop-the-row: preserves the planned-module info, consistent with `capabilities/`); added a header note + reconciled the status legend (`stub`→`reserved`) so the index is internally consistent with **11 authored modules**.
+- **#4 (ARCHITECTURE_TREE captions):** `plugin.json` caption **3 → 6** specialist agents + refreshed the stale "minimal early shell / plan 0002 Phase 2" note (skills now exist); `init-harness` → `harness-init` at the ENGINEERING_STANDARDS + check-script captions; plus the `docs/standards/README.md` caption updated off the abandoned `${CLAUDE_PLUGIN_ROOT}` model (a #2 consequence).
+- **#6 (rename-lag in the Python gate):** **comments-only** edit (3 comment lines, `init-harness` → `harness-init`) — **zero logic/constant/behavior change** (the script has no characterization baseline yet — Tier-1 #1 — so behavior stays byte-for-byte identical).
+
 ## 2026-06-05 — S2b-ii: dogfood audit landed (plan 0003)
 
 - **The audit engine ran on this repo (the harness audited itself).** Orchestrator-driven fan-out of 4 `lens-reviewer`s in audit-scope mode (docs-traceability · maintainability-structure · product-ux · testing); synthesized → a real, **non-hallucinated**, tiered/tagged backlog in the `harness-audit:backlog` fence in `docs/ROADMAP.md`. **Proves the S2b-i engine works end-to-end.**

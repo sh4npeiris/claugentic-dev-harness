@@ -184,4 +184,3 @@ sink, a new data field), not by how big the diff is. A one-line change can be in
 - **Right-size:** apply only *relevant* dimensions per change (`KISS`/`YAGNI`); never skip a relevant one. Relevance is a per-change judgment — see `README.md`.
 - **Novel patterns allowed** when they add clear value — justify (problem → why existing patterns fall short → benefit) and record in `DECISIONS.md`. Unconventional ≠ wrong.
 - **Every dimension carries a Confidence tag** so the harness can separate what it *proved* (deterministic gates) from what it *asserts* (judgment). Trust the oracle, not the model's word.
-- **This is a GLOBAL module — keep it pristine.** It ships in the plugin and is read via `${CLAUDE_PLUGIN_ROOT}/docs/standards/`. **Do not hand-edit a global module inside an adopting repo** — your edit is overwritten on the next update. Stage repo-specific or candidate-global lessons in `CANDIDATES.md` instead (see `README.md` → Two-tier knowledge).

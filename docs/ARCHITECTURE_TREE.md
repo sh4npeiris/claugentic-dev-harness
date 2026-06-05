@@ -14,7 +14,7 @@ This repo builds the **`agentic-dev-harness`** Claude Code plugin and dogfoods i
 ## docs/ — process, standards, and project memory
 
 - `docs/WORKFLOW.md` — the staged agent development workflow (Triage → Discuss → Plan → Review → Spec → Approve → Implement → Verify → Land → Retrospect); source of truth for process.
-- `docs/ENGINEERING_STANDARDS.md` — project-agnostic, ever-growing catch-all of engineering quality dimensions; the bar implementations are held to (the per-repo "Current scope" is added by `init-harness`, not shipped populated).
+- `docs/ENGINEERING_STANDARDS.md` — project-agnostic, ever-growing catch-all of engineering quality dimensions; the bar implementations are held to (the per-repo "Current scope" is added by `harness-init`, not shipped populated).
 - `docs/ARCHITECTURE_TREE.md` — this file: one-line-per-file index of the repo.
 - `docs/DECISIONS.md` — dated, one-line records of non-trivial decisions (newest at top); consult before re-litigating.
 - `docs/ROADMAP.md` — backlog of substantial work; tangents land here, never silently into the current change.
@@ -23,7 +23,7 @@ This repo builds the **`agentic-dev-harness`** Claude Code plugin and dogfoods i
 ## docs/standards/ — the modular quality catalog (plan 0002 Pillar A)
 
 - `docs/standards/_TEMPLATE.md` — the **module contract**: frontmatter schema (version, ISO-25010 mapping, load-scope) + per-dimension structure (good / auditor-checks / confidence / tradeoff / sources) every module conforms to. The gate for all module authoring.
-- `docs/standards/README.md` — catalog index + meta-rules (select-don't-skip, additive, novel-patterns-allowed), the two-tier model (global pristine via `${CLAUDE_PLUGIN_ROOT}` vs local repo artifacts), versioning, and the module-status index.
+- `docs/standards/README.md` — catalog index + meta-rules (select-don't-skip, additive, novel-patterns-allowed), the two-tier model (global copied-on-init + version-stamped vs local repo artifacts), versioning, and the module-status index. **Canonical home of the standards-governance text** (the modules carry content only).
 - `docs/standards/security.md` — **(deep)** authN/authZ, secrets, injection/OWASP, supply-chain, privacy/PII, encryption, compliance; ASVS 5.0 / NIST-grounded.
 - `docs/standards/maintainability-structure.md` — **(deep)** SOLID, Clean/Hexagonal/Onion layers, design-pattern catalog, code-health/smells/dead-code, type safety.
 - `docs/standards/testing.md` — **(deep)** test pyramid, characterization/golden-master, mutation, test-diff review, visual/a11y testing, determinism, coverage.
@@ -58,7 +58,7 @@ This repo builds the **`agentic-dev-harness`** Claude Code plugin and dogfoods i
 
 ## .claude-plugin/ — plugin manifest (makes this repo installable)
 
-- `.claude-plugin/plugin.json` — plugin manifest (name `agentic-dev-harness`, version, metadata); exposes the 3 specialist agents via the `agents` field pointing at `.claude/agents/*` (DRY — no duplicate `agents/` dir). Minimal early shell; grows in plan 0002 Phase 2 (skills, bundled gates).
+- `.claude-plugin/plugin.json` — plugin manifest (name `agentic-dev-harness`, version, metadata); exposes the 6 specialist agents via the `agents` field pointing at `.claude/agents/*` (DRY — no duplicate `agents/` dir). Skills live under `skills/`; bundled hooks/gates not yet shipped.
 - `.claude-plugin/marketplace.json` — single-plugin marketplace (`name: sh4npeiris`) so `/plugin marketplace add sh4npeiris/claugentic-dev-harness` → `/plugin install agentic-dev-harness@sh4npeiris` works.
 
 ## skills/ — harness entry points (the `/harness-` family)
@@ -68,4 +68,4 @@ This repo builds the **`agentic-dev-harness`** Claude Code plugin and dogfoods i
 
 ## scripts/ — tooling
 
-- `scripts/check_architecture_tree.py` — deterministic (no-LLM) gate enforcing that this index lists every in-scope source file (presence) and references no deleted file (staleness); `--hook` / `--hook-write` modes wired in `.claude/settings.json`. `INCLUDE_GLOBS`/`STALE_PATTERN` are set per-repo by `init-harness`.
+- `scripts/check_architecture_tree.py` — deterministic (no-LLM) gate enforcing that this index lists every in-scope source file (presence) and references no deleted file (staleness); `--hook` / `--hook-write` modes wired in `.claude/settings.json`. `INCLUDE_GLOBS`/`STALE_PATTERN` are set per-repo by `harness-init`.

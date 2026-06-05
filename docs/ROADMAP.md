@@ -139,6 +139,8 @@ the `/harness-init` and `/harness-audit` commands are still being built out in s
 > _Honesty note:_ this backlog is **model-asserted** — each item carries a confidence label, but the deep "trust gates" (a future phase) are what will give these teeth. Tags map to the execution discipline via **Decision 2** (e.g. `refactor` ⇒ characterization-tests-first; enforcement today is "the implementer stops and asks," not yet an automatic hook).
 <!-- harness-audit:backlog:end -->
 
+> _Actioned 2026-06-05 (this note is outside the regenerable fence): items **#2, #4, #5, #6** landed via the pipeline — re-run `/harness-audit` to refresh the snapshot above. **Remaining: #1** (test baseline for `check_architecture_tree.py`) and **#3** (README refresh — owned by plan 0003 S5)._
+
 ## Later
 
 | Item | Status |
