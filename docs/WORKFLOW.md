@@ -19,7 +19,7 @@ How agents **and** human devs take *substantial* work from idea → landed chang
 
 **Lightweight path** for small/local/mechanical changes: go straight to **Implement → Verify**, still updating `ARCHITECTURE_TREE.md` and `DECISIONS.md` as needed.
 
-**Triage continuously, not just up front.** A conversation often *grows* into a substantial change. The moment a request is shaping up to cross the bar above (≈8 files, or any qualitative trigger), **stop free-coding**: ask the user clarifying questions until scope is crystal-clear, then **enter plan mode (Stage 2)** and follow the pipeline — don't keep ad-hoc editing.
+**Triage continuously, not just up front.** A conversation often *grows* into a substantial change. The moment a request is shaping up to cross the bar above (≈8 files, or any qualitative trigger), **stop free-coding**: ask the user clarifying questions — from technical *and* **product-discovery** angles (see Stage 1) — until scope is crystal-clear, then **enter plan mode (Stage 2)** and follow the pipeline — don't keep ad-hoc editing.
 
 When unsure, default to full; the plan-reviewer (Stage 3) confirms the path was right.
 
@@ -71,7 +71,7 @@ Also available without new files: built-in **`Explore`** (fan-out search), **`Pl
 | # | Stage | Owner | Output |
 |---|-------|-------|--------|
 | 0 | **Triage** | orchestrator | full vs lightweight path |
-| 1 | **Discuss & brainstorm** | orchestrator + **user** | crystal-clear scope; **user-facing work pulls in `product-designer`** (UX lens) → `docs/PRODUCT.md`; tangents→ROADMAP, decisions→DECISIONS |
+| 1 | **Discuss & brainstorm** | orchestrator + **user** | learn the endeavour from multiple **angles** before planning — technical scope **+ product-discovery** (who's the user · the job-to-be-done · what success/"delight" looks like · the key flows & their states); these surface the user-story gaps a technical-only intake misses. User-facing work pulls in `product-designer` → `docs/PRODUCT.md`. Crystal-clear scope; tangents→ROADMAP, decisions→DECISIONS |
 | 2 | **Draft plan** | orchestrator / `Plan` | `.claude/plans/NNNN-<slug>.md` from `TEMPLATE.md`, **sliced into ≤1-session units** |
 | 3 | **Review the plan** | `plan-reviewer` (+ others as fit) | critique written into the plan's *Review* section; iterate until it passes the gate |
 | 4 | **Spec** | orchestrator | plan upgraded to implementation-ready spec **per slice**: file-by-file changes, signatures, test list, acceptance criteria, **+ the in-scope `ENGINEERING_STANDARDS` dimensions & target bar** |
