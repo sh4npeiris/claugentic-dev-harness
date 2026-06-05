@@ -108,3 +108,4 @@ The slices below are the build backlog from `.claude/plans/0001-build-agentic-de
 |------|--------|
 | Publish install instructions (marketplace + plugin name) in `README.md` once B6 lands. | LATER |
 | Grow the role library (`.claude/agents/`) as new specialist needs emerge from dogfooding. | LATER |
+| `harness-audit` `thorough` level — a second adversarial-verify pass + a completeness-critic over the audit findings (cut from S2b-i as YAGNI for a model-asserted v1 backlog). | LATER |

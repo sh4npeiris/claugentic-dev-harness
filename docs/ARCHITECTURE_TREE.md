@@ -42,7 +42,7 @@ This repo builds the **`agentic-dev-harness`** Claude Code plugin and dogfoods i
 - `.claude/agents/implementer-architect.md` — implements one approved, spec'd slice to standard in an isolated worktree (Stage 6); lands code + tests + docs with no debt.
 - `.claude/agents/architect-reviewer.md` — owns the Verify gate (Stage 7): audits the diff against in-scope `docs/standards/` modules in **solo** mode (small changes) or **synthesizes** lens-reviewer + yagni-sentinel findings in **fan-out** mode; read-only.
 - `.claude/agents/product-designer.md` — product/UX discovery + design lens (Stage 1, user-facing work): user, job-to-be-done, flows, states, "what good feels like"; applies `product-ux`, persists to `docs/PRODUCT.md`.
-- `.claude/agents/lens-reviewer.md` — audits a diff against ONE named `docs/standards/` module; invoked per-lens in fan-out Verify; read-only, returns per-dimension findings for the synthesizer.
+- `.claude/agents/lens-reviewer.md` — audits a **diff (Verify) or an audit-scope (harness-audit)** against ONE named `docs/standards/` module; two modes (Verify-diff / Audit-scope), invoked per-lens in a fan-out; read-only, returns per-dimension findings for the synthesizer.
 - `.claude/agents/yagni-sentinel.md` — the anti-over-engineering skeptic: argues a plan/diff is too much (speculative abstraction, premature infra, gold-plating); read-only, returns a cut-list.
 
 ## .claude/plans/ — active plans
@@ -64,7 +64,7 @@ This repo builds the **`agentic-dev-harness`** Claude Code plugin and dogfoods i
 ## skills/ — harness entry points (the `/harness-` family)
 
 - `skills/harness-init/SKILL.md` — **stub (plan 0003 S3):** idempotent scaffold of the harness into a repo (copy the managed harness set, generate ARCHITECTURE_TREE, set globs, compose with tooling).
-- `skills/harness-audit/SKILL.md` — **Understand phase live (S2a); Audit+backlog stub → S2b:** Phase 1 runs the 8-step inline pass → plain-English overview (into the ROADMAP `harness-audit:overview` fence) + an audit-plan; Phase 2 (multi-lens sweep → tiered/tagged backlog) is an honest no-op until S2b.
+- `skills/harness-audit/SKILL.md` — Understand + Audit + Backlog procedure authored & live; dogfood-on-this-repo pending S2b-ii. Phase 1 = inline overview + audit-plan; Phase 2 = `lens-reviewer` fan-out (audit-scope mode), dedup, deterministic `(module×dir)` cell resume; Phase 3 = tiered/tagged backlog into the `harness-audit:backlog` fence.
 
 ## scripts/ — tooling
 
