@@ -61,6 +61,11 @@ This repo builds the **`agentic-dev-harness`** Claude Code plugin and dogfoods i
 - `.claude-plugin/plugin.json` — plugin manifest (name `agentic-dev-harness`, version, metadata); exposes the 3 specialist agents via the `agents` field pointing at `.claude/agents/*` (DRY — no duplicate `agents/` dir). Minimal early shell; grows in plan 0002 Phase 2 (skills, bundled gates).
 - `.claude-plugin/marketplace.json` — single-plugin marketplace (`name: sh4npeiris`) so `/plugin marketplace add sh4npeiris/claugentic-dev-harness` → `/plugin install agentic-dev-harness@sh4npeiris` works.
 
+## skills/ — harness entry points (the `/harness-` family)
+
+- `skills/harness-init/SKILL.md` — **stub (plan 0003 S3):** idempotent scaffold of the harness into a repo (copy the managed harness set, generate ARCHITECTURE_TREE, set globs, compose with tooling).
+- `skills/harness-audit/SKILL.md` — **stub (plan 0003 S2):** understand the codebase → multi-lens audit → tiered, tagged, plain-English backlog in ROADMAP.
+
 ## scripts/ — tooling
 
 - `scripts/check_architecture_tree.py` — deterministic (no-LLM) gate enforcing that this index lists every in-scope source file (presence) and references no deleted file (staleness); `--hook` / `--hook-write` modes wired in `.claude/settings.json`. `INCLUDE_GLOBS`/`STALE_PATTERN` are set per-repo by `init-harness`.
