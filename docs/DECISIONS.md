@@ -2,6 +2,12 @@
 
 Dated, one-line records of non-trivial decisions. **Append newest at the top.** Consult before re-litigating a past choice (see CLAUDE.md → Harness Discipline).
 
+## 2026-06-04 — Phase 0 build: P0-S1a module contract
+
+- **Standards catalog structure landed** (`docs/standards/`): `_TEMPLATE.md` (the module contract every module conforms to) + `README.md` (catalog index + meta-rules + two-tier model + versioning). This is the gate the rest of Phase 0 builds on.
+- **Module contract:** YAML frontmatter (`module`, `title`, `version` semver, `status` stub|draft|stable, `iso_25010`, `load_scope.{keywords,globs}`, `last_reviewed`); per-dimension body = **Good** / **Auditor checks** (`[D]`/`[J]` tagged) / **Confidence** (deterministic|judgment) / **Tradeoff** (plain-English) / **Sources**. The Confidence tag operationalizes *trust-first* (the scorecard's verified-vs-asserted split); the Tradeoff field operationalizes the *teaching layer*.
+- **Meta-rules preserved verbatim** from `ENGINEERING_STANDARDS.md:5-11` into `docs/standards/README.md` (the new canonical home). `ENGINEERING_STANDARDS.md` becomes a thin pointer in **P0-S1b** (which also migrates the 17 dimensions); until then the meta-rules live in both places (transitional, resolved by S1b).
+
 ## 2026-06-04 — Plan-review, manifest spike, repo live (plan 0002 rev 3)
 
 - **Plan 0002 → rev 3** after adversarial plan-review (verdict: CHANGES REQUIRED) + a completeness/innovation critique. All 8 required changes addressed (see the plan's Resolution section): S1 split into **S1a** (module contract — the gate) + **S1b** (migrate the 17 dimensions); S2–S6 are one module each, fanning out **only after S1a**; S8 split/trimmed (run-and-observe + judge-panel are designed-in-prose now, mechanized later).

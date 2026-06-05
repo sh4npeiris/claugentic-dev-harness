@@ -19,6 +19,11 @@ This repo builds the **`agentic-dev-harness`** Claude Code plugin and dogfoods i
 - `docs/DECISIONS.md` — dated, one-line records of non-trivial decisions (newest at top); consult before re-litigating.
 - `docs/ROADMAP.md` — backlog of substantial work (the plan-0001 build slices B1–B6); tangents land here, never silently into the current change.
 
+## docs/standards/ — the modular quality catalog (plan 0002 Pillar A)
+
+- `docs/standards/_TEMPLATE.md` — the **module contract**: frontmatter schema (version, ISO-25010 mapping, load-scope) + per-dimension structure (good / auditor-checks / confidence / tradeoff / sources) every module conforms to. The gate for all module authoring.
+- `docs/standards/README.md` — catalog index + meta-rules (select-don't-skip, additive, novel-patterns-allowed), the two-tier model (global pristine via `${CLAUDE_PLUGIN_ROOT}` vs local repo artifacts), versioning, and the module-status index.
+
 ## .claude/agents/ — specialist role library
 
 - `.claude/agents/plan-reviewer.md` — adversarially critiques a draft plan (Stage 3): soundness, sizing/completeness, risk, YAGNI, harness impact; edits only the plan's Review section.
