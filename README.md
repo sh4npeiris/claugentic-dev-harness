@@ -23,7 +23,7 @@ Distributed as a **Claude Code plugin** via a marketplace (`.claude-plugin/plugi
 /plugin install agentic-dev-harness@sh4npeiris
 ```
 
-> (The repo is private — you must be authed to the GitHub account that owns it.)
+> Public + **Apache-2.0** licensed — free to install and use; no GitHub auth required.
 
 ## How it works
 

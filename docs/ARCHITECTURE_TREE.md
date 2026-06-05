@@ -10,6 +10,7 @@ This repo builds the **`agentic-dev-harness`** Claude Code plugin and dogfoods i
 - `CLAUDE.md` — lean, generalized guidance for agents working in THIS repo: engineering principles, harness discipline, workflow pointer, Definition of Done.
 - `.gitignore` — ignores local junk + build artifacts; **shares** `.claude/agents/`, `.claude/plans/`, `.claude/settings.json` (ignores only `.claude/settings.local.json`).
 - `.gitattributes` — normalizes line endings (`* text=auto eol=lf`; scripts forced LF) for a cross-platform plugin that bundles shell/Node scripts.
+- `LICENSE` — Apache License 2.0 (the repo is public; © 2026 Shan Peiris).
 
 ## docs/ — process, standards, and project memory
 

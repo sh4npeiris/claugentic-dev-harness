@@ -2,6 +2,12 @@
 
 Dated, one-line records of non-trivial decisions. **Append newest at the top.** Consult before re-litigating a past choice (see CLAUDE.md → Harness Discipline).
 
+## 2026-06-05 — Repo public + Apache-2.0 licensed
+
+- **Repo made public** (`sh4npeiris/claugentic-dev-harness`) so anyone can install the plugin. (Private repos install too — Claude Code uses the user's git/`gh` credentials — but only for users with read access; public is right for general distribution.) **Security swept first:** no secrets in current files **or** the full git history (clean-start scaffold — DistrictSync history was not imported); `.gitignore` covers `settings.local.json`.
+- **`LICENSE` = Apache-2.0** (© 2026 Shan Peiris) + a `license` field in `plugin.json` — a public, installable plugin needs a license or it's legally "all rights reserved." Fixed the stale "repo is private" line in the README.
+- **Branch protection (`main`) reviewed:** force-push + deletion blocked; PR + 1 approval required for non-admins; **`enforce_admins: false`**, so the owner bypasses → the direct push-to-`main` workflow stays intact. **Solo gotcha:** don't enable `enforce_admins` until there's a second reviewer — GitHub blocks self-approval, so "require 1 approval" would then block every merge.
+
 ## 2026-06-05 — v0.1 finalized + tagged (plan 0003 functional core ~complete)
 
 - **Shipped v0.1** (user chose "review + ship now, install-test after"). Functional core complete: both skills (`/harness-init`, `/harness-audit`) live + self-dogfooded, 6 agents + 11-module catalog + workflow + playbook, copy-on-init. Tagged **`v0.1.0`**.
