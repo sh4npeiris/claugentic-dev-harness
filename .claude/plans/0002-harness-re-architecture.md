@@ -1,7 +1,7 @@
 # 0002 — Harness Re-Architecture: Trust-First, Three Pillars + Product Lens (Master Plan)
 
 - **Status:** Draft (**rev 3** — trust-first; plan-review addressed; manifest spike done) — awaiting user approval to start Phase 0 (Stage 5).
-- **Supersedes:** [`0001-build-agentic-dev-harness.md`](0001-build-agentic-dev-harness.md) — its B1–B6 fold into Phases 2–7 here.
+- **Supersedes:** [`0001-build-agentic-dev-harness.md`](../../docs/archive/2026/0001-build-agentic-dev-harness.md) *(archived)* — its B1–B6 fold into Phases 2–7 here.
 - **References:** `docs/WORKFLOW.md` · `docs/ENGINEERING_STANDARDS.md` · `docs/ARCHITECTURE_TREE.md` · `docs/DECISIONS.md` · plan `0001`.
 
 > **Master/umbrella plan.** Defines vision + full phase roadmap; **only Phase 0 is fully sliced.** Later phases get their own sub-plan (`0003+`) when reached — slice just-in-time.

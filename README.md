@@ -4,7 +4,7 @@ A **reusable, self-improving Claude Code development harness**, packaged as a pl
 
 It turns ad-hoc agent coding into a disciplined, repeatable practice: a staged workflow that takes substantial work from idea → landed change, a growing library of specialist agent roles, a project-agnostic engineering-standards bar, an always-current architecture index with deterministic enforcement, and a loop that promotes what you learn back into the harness so each task starts smarter than the last.
 
-> **Status:** scaffold. This repo was **extracted from a working harness** that lived as files inside a real project, then generalized to be project-agnostic. The plugin packaging and the workflows are the build ahead — see [`.claude/plans/0001-build-agentic-dev-harness.md`](.claude/plans/0001-build-agentic-dev-harness.md).
+> **Status:** scaffold. This repo was **extracted from a working harness** that lived as files inside a real project, then generalized to be project-agnostic. The plugin packaging and the workflows are the build ahead — see [`.claude/plans/0002-harness-re-architecture.md`](.claude/plans/0002-harness-re-architecture.md).
 
 ## What's in the box
 
@@ -49,7 +49,7 @@ README.md            — this file
 CLAUDE.md            — lean, generalized guidance for agents working in THIS repo
 docs/                — WORKFLOW, ENGINEERING_STANDARDS, ARCHITECTURE_TREE, DECISIONS, ROADMAP
 .claude/agents/      — specialist role library (plan-reviewer, implementer-architect, architect-reviewer)
-.claude/plans/       — active plans + TEMPLATE; 0001 is the build plan for this repo
+.claude/plans/       — active plans + TEMPLATE (completed/superseded plans → docs/archive/)
 .claude/settings.json — hooks (architecture-tree enforcement)
 scripts/             — check_architecture_tree.py (deterministic index gate)
 ```
