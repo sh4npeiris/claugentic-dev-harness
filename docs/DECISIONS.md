@@ -2,6 +2,21 @@
 
 Dated, one-line records of non-trivial decisions. **Append newest at the top.** Consult before re-litigating a past choice (see CLAUDE.md → Harness Discipline).
 
+## 2026-06-04 — Phase 0: standards catalog landed (P0-S1b + S2–S6)
+
+- **The catalog is live** — 11 modules under `docs/standards/` (the 17 original dimensions migrated, **no content lost**). Authored **deep** via parallel fan-out: `security`, `maintainability-structure`, `testing`, `product-ux`, `data-and-persistence`. **Migrated** to draft: `reliability-resilience`, `performance-efficiency`, `api-and-contracts`, `observability-ops`, `accessibility-i18n`, `docs-traceability`. `ENGINEERING_STANDARDS.md` thinned to a pointer.
+- **Built by the harness itself** (dogfooding): three workflow passes — author→adversarial-verify (12 agents), fix-with-web-verification (10), mechanical cleanup (5) — then a **deterministic grep** (not an LLM) confirmed zero residual hybrid `Confidence` labels.
+- **The trust layer proved its thesis:** the adversarial verifiers caught real errors that capable Opus authors made confidently — a hallucinated Fowler "Design-Token UI Architecture" article, Kleppmann Ch.10/11 mis-cited, ASVS 4.0 chapter labels on 5.0 content, a Minsky-vs-King misattribution. All corrected + web-verified; none would have survived on the model's word alone.
+- **Contract refined from a finding** (learning loop): `_TEMPLATE.md` Confidence now allows `mixed` (a dimension may carry both `[D]` and `[J]` checks); each individual check is tagged exactly one of `[D]`/`[J]`; the per-check tags are authoritative for the scorecard's verified-vs-asserted split.
+- **Verified-vs-asserted, honestly:** the 5 deep modules were citation-web-verified + conformance-checked + deterministically format-checked; the 6 migrated modules are draft (format-checked; citations independently verified when promoted to `stable` or pulled into real work).
+
+## 2026-06-04 — security.md ASVS 5.0 citation correction (web-verified)
+
+- **Corrected all ASVS chapter numbers in `docs/standards/security.md` to the OWASP ASVS 5.0 numbering**, verified against the OWASP GitHub `v5.0.0` tag chapter list (`5.0/en/`). Key 4.0→5.0 shifts: Authorization V4→**V8**; Validation & Business Logic V5→**V2**; Data Protection V8→**V14**; Cryptography→**V11**; Secure Communication→**V12**. Authentication V6, Session V7, Self-contained Tokens V9, Web Frontend V3, Configuration V13, Logging V16 were already correct.
+- **NIST SP 800-63B-4 (final):** the password requirements are §3.1.1, and Rev. 4 **renamed** "Memorized Secrets" to **"Passwords"** — cited as `§3.1.1 (Passwords)` (the suggested "Memorized Secret Authenticators" is the stale Rev. 3 name; not used). Verified via `pages.nist.gov/800-63-4/sp800-63b.html`.
+- **Secrets Management:** added `OWASP Top 10:2021 A02 (Cryptographic Failures)` alongside A05 — A02 explicitly covers exposed/hardcoded secrets & keys (CWE-259). Verified via the official A02 page.
+- **Beyond the assigned 5 fixes:** also fixed the **Cryptography correctness** dimension's mislabeled `ASVS 5.0 V6 (Cryptography)` → `V11 (Cryptography) / V12 (Secure Communication)` — same class of error (V6 is Authentication); leaving a known-wrong citation would violate the "never leave a mislabeled citation" rule.
+
 ## 2026-06-04 — Phase 0 build: P0-S1a module contract
 
 - **Standards catalog structure landed** (`docs/standards/`): `_TEMPLATE.md` (the module contract every module conforms to) + `README.md` (catalog index + meta-rules + two-tier model + versioning). This is the gate the rest of Phase 0 builds on.

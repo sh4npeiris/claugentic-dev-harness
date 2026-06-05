@@ -28,8 +28,8 @@ gold-plating an irrelevant one, never skipping a relevant one.
 ## <Dimension name>
 
 - **Good looks like —** <the target state, concrete and observable.>
-- **Auditor checks —** <what to look for and where, phrased as checks. Tag each `[D]` (a gate can prove it) or `[J]` (needs a reviewer's eye).>
-- **Confidence —** `deterministic` (name the gate that proves it) | `judgment` (reviewer call). *This drives the scorecard's "verified vs asserted" split — the harness must be honest about what it proved vs what it's vouching for.*
+- **Auditor checks —** <what to look for and where, phrased as checks. Tag **each check exactly one** of `[D]` (a gate can prove it) or `[J]` (needs a reviewer's eye) — never both. If a check is provable *with* tooling but judgment *without*, split it into a `[D]` check and a `[J]` check.>
+- **Confidence —** `deterministic` (a gate proves it — name it) · `judgment` (reviewer call) · `mixed` (some checks each — the per-check `[D]`/`[J]` tags are authoritative). *Drives the scorecard's "verified vs asserted" split — the harness must be honest about what it proved vs what it's vouching for.* The dimension-level label summarizes; the per-check tags are the source of truth.
 - **Tradeoff (plain English) —** <1–2 sentences a non-engineer understands: what this buys, what it costs, what breaks if you skip it.>
 - **Sources —** <authoritative reference(s) the standard is grounded in.>
 

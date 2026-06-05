@@ -32,18 +32,18 @@ touches its concern (see each module's `load_scope`), so the catalog can grow to
 
 | Module | ISO/IEC 25010 | Status |
 |---|---|---|
-| `security` | Security | stub → authored in Phase 0 |
-| `maintainability-structure` | Maintainability | stub → authored in Phase 0 |
-| `testing` | (cross-cutting) | stub → authored in Phase 0 |
-| `product-ux` | Interaction Capability | stub → authored in Phase 0 |
-| `data-and-persistence` | Reliability · Maintainability | stub → authored in Phase 0 |
-| `reliability-resilience` | Reliability · Safety | stub |
-| `performance-efficiency` | Performance Efficiency | stub |
-| `observability-ops` | (cross-cutting) | stub |
-| `api-and-contracts` | Compatibility | stub |
+| `security` | Security | **draft** · web-verified |
+| `maintainability-structure` | Maintainability | **draft** · web-verified |
+| `testing` | Maintainability · Reliability · Functional-suitability | **draft** · web-verified |
+| `product-ux` | Interaction Capability | **draft** · web-verified |
+| `data-and-persistence` | Reliability · Maintainability | **draft** · web-verified |
+| `reliability-resilience` | Reliability · Safety | draft |
+| `performance-efficiency` | Performance Efficiency | draft |
+| `observability-ops` | Reliability | draft |
+| `api-and-contracts` | Compatibility | draft |
+| `accessibility-i18n` | Interaction Capability | draft |
+| `docs-traceability` | Maintainability | draft |
 | `architecture-styles` | Flexibility | stub |
-| `accessibility-i18n` | Interaction Capability | stub |
-| `docs-traceability` | Maintainability | stub |
 | `capabilities/` — Redis, queues, object-storage, third-party-apis, sidecars, ml, search | (various) | deferred (authored just-in-time when an audit pulls one in) |
 
-> **Status legend:** `stub` = listed, not yet authored · `draft` = authored, not yet dogfooded · `stable` = dogfooded. The 5 high-frequency modules are authored first (plan `0002` Phase 0); the rest are stubs until pulled in by real work.
+> **Status legend:** `stub` = listed, not yet authored · `draft` = authored · `stable` = dogfooded. **web-verified** = the 5 deep modules' citations were checked against their sources and passed an adversarial conformance pass + a deterministic format check; the 6 migrated modules are draft (format-checked — their citations are independently verified when promoted to `stable` or pulled into real work).
