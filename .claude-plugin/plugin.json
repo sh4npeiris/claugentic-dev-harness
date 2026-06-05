@@ -9,6 +9,9 @@
   "agents": [
     "./.claude/agents/plan-reviewer.md",
     "./.claude/agents/implementer-architect.md",
-    "./.claude/agents/architect-reviewer.md"
+    "./.claude/agents/architect-reviewer.md",
+    "./.claude/agents/product-designer.md",
+    "./.claude/agents/lens-reviewer.md",
+    "./.claude/agents/yagni-sentinel.md"
   ]
 }

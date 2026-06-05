@@ -2,6 +2,13 @@
 
 Dated, one-line records of non-trivial decisions. **Append newest at the top.** Consult before re-litigating a past choice (see CLAUDE.md → Harness Discipline).
 
+## 2026-06-05 — Phase 0: specialist roles + lean scope (P0-S7)
+
+- **Role library expanded — leanly.** Added `product-designer` (UX discovery), `lens-reviewer` (parameterized: audits a diff against ONE standards module), `yagni-sentinel` (anti-over-engineering skeptic); reframed `architect-reviewer` as **solo-reviewer-or-synthesizer** (effort-dial-driven). All exposed in `.claude-plugin/plugin.json`.
+- **Why 3 roles + a reframe, not 8 lens-reviewers:** the lens expertise now lives in the `docs/standards/` modules, so one *parameterized* `lens-reviewer` that loads the relevant module is DRYer than 6 near-identical files. Authored by hand (not fanned out) — a small set of interlocking role files where cross-coherence beats parallelism.
+- **Scope trimmed (user, value-pressure-test):** dropped the separate product-discovery stage (redundant with the Stage-1 clarifying Q&A → folded in as a lightweight UX lens) and the standalone design pass; persona-diverse panels become a *PLAYBOOK pattern*, not a mandatory stage. S8b ships only `PLAYBOOK.md`; `SCORECARD`/`PRODUCT`/`GLOSSARY`/`CANDIDATES`/episodic-log are deferred to when their phase or first use needs them (no speculative empty templates).
+- **Direction:** after a lean Phase 0, build the **functional skills** (Phase 2 package + `/init-harness` + `/harness-audit`) so others can actually run the harness on their repo; trust gates (Phase 1) follow.
+
 ## 2026-06-04 — Phase 0: standards catalog landed (P0-S1b + S2–S6)
 
 - **The catalog is live** — 11 modules under `docs/standards/` (the 17 original dimensions migrated, **no content lost**). Authored **deep** via parallel fan-out: `security`, `maintainability-structure`, `testing`, `product-ux`, `data-and-persistence`. **Migrated** to draft: `reliability-resilience`, `performance-efficiency`, `api-and-contracts`, `observability-ops`, `accessibility-i18n`, `docs-traceability`. `ENGINEERING_STANDARDS.md` thinned to a pointer.

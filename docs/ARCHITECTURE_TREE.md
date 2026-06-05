@@ -39,7 +39,10 @@ This repo builds the **`agentic-dev-harness`** Claude Code plugin and dogfoods i
 
 - `.claude/agents/plan-reviewer.md` — adversarially critiques a draft plan (Stage 3): soundness, sizing/completeness, risk, YAGNI, harness impact; edits only the plan's Review section.
 - `.claude/agents/implementer-architect.md` — implements one approved, spec'd slice to standard in an isolated worktree (Stage 6); lands code + tests + docs with no debt.
-- `.claude/agents/architect-reviewer.md` — audits an implemented diff against the in-scope ENGINEERING_STANDARDS dimensions before it lands (Stage 7); read-only on source.
+- `.claude/agents/architect-reviewer.md` — owns the Verify gate (Stage 7): audits the diff against in-scope `docs/standards/` modules in **solo** mode (small changes) or **synthesizes** lens-reviewer + yagni-sentinel findings in **fan-out** mode; read-only.
+- `.claude/agents/product-designer.md` — product/UX discovery + design lens (Stage 1, user-facing work): user, job-to-be-done, flows, states, "what good feels like"; applies `product-ux`, persists to `docs/PRODUCT.md`.
+- `.claude/agents/lens-reviewer.md` — audits a diff against ONE named `docs/standards/` module; invoked per-lens in fan-out Verify; read-only, returns per-dimension findings for the synthesizer.
+- `.claude/agents/yagni-sentinel.md` — the anti-over-engineering skeptic: argues a plan/diff is too much (speculative abstraction, premature infra, gold-plating); read-only, returns a cut-list.
 
 ## .claude/plans/ — active plans
 
