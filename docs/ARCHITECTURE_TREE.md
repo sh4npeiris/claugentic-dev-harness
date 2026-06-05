@@ -49,7 +49,8 @@ This repo builds the **`agentic-dev-harness`** Claude Code plugin and dogfoods i
 
 - `.claude/plans/TEMPLATE.md` — the plan template (Problem / Goals / Approach / Affected files / Risks / Tests / Decomposition / Review / Spec) every plan starts from.
 - `.claude/plans/0001-build-agentic-dev-harness.md` — the original build plan (package the portable harness as a plugin, slices B1–B6); **superseded by 0002** (its B1–B6 fold into Phases 2–7 there).
-- `.claude/plans/0002-harness-re-architecture.md` — **active master plan**: re-architect the harness around three pillars (multi-lens quality catalog · legacy understand→audit→gated-refactor · multi-lens review + product/UX lens) + plugin packaging; Phase 0 (foundation enrichment) is sliced, later phases get sub-plans.
+- `.claude/plans/0002-harness-re-architecture.md` — **master plan**: re-architect the harness around three pillars (multi-lens quality catalog · legacy understand→audit→gated-refactor · multi-lens review + product/UX lens) + plugin packaging; **Phase 0 complete**, later phases get sub-plans.
+- `.claude/plans/0003-functional-core.md` — **active sub-plan** of 0002: the functional core that makes the harness runnable on a real codebase — `harness-init` (scaffold) + `harness-audit` (→ tiered, tagged, plain-English backlog) as skills; execution rides the existing pipeline (no separate refactor command).
 
 ## .claude/ — harness config
 

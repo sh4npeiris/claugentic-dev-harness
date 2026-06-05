@@ -19,7 +19,7 @@
 7. **Trust-first** *(rev 3):* an independent, deterministic **Trust & Verification** track is foundational and built **early (Phase 1)** — the harness's credibility cannot rest on the same model grading its own work.
 8. **High-frequency catalog first** *(rev 3):* author the ~5 modules this repo + a JS app actually exercise; stub the rest.
 9. **Capability family deferred** *(rev 3):* authored JIT when a real audit pulls one in — none are exercised yet (YAGNI).
-10. **Reference, don't copy, globals** *(rev 3, spike-confirmed):* global modules ship in the plugin and are read via `${CLAUDE_PLUGIN_ROOT}`; only local artifacts live in the repo (`${CLAUDE_PROJECT_DIR}`). No copy, no merge, no drift. Candidate-global lessons stage in a local `docs/standards/CANDIDATES.md` until promoted upstream.
+10. ~~**Reference, don't copy, globals**~~ → **SUPERSEDED 2026-06-05 (plan-0003 RC-1):** verified that a plugin's subagents can't read bundled files via bare paths in an adopter repo, and `${CLAUDE_PLUGIN_ROOT}` doesn't cover the parameterized `lens-reviewer` → **`harness-init` COPIES the standards into the adopter repo (version-stamped, "managed"); `/harness-update` re-syncs.** Two-tier model unchanged (global copied+managed vs local); candidate-global lessons still stage in `docs/standards/CANDIDATES.md`.
 11. **Skills over commands** *(rev 3, spike-confirmed):* harness entry points are skills (`skills/<name>/SKILL.md`), not legacy commands.
 
 ---

@@ -2,6 +2,12 @@
 
 Dated, one-line records of non-trivial decisions. **Append newest at the top.** Consult before re-litigating a past choice (see CLAUDE.md → Harness Discipline).
 
+## 2026-06-05 — Copy standards on init (reverses Decision 10); plan 0003 rev 2
+
+- **Reverse "reference, don't copy" (0002 Decision 10) → COPY the standards into each adopter repo on init; re-sync via `/harness-update`.** Verified vs official Claude Code docs (plan-review RC-1): a plugin's **subagents cannot read bundled files via bare relative paths** in an adopter repo (they resolve to the adopter's project root), and `${CLAUDE_PLUGIN_ROOT}` — though it expands in agent prompt bodies — doesn't cover the **parameterized `lens-reviewer`** (module chosen at runtime). Copy-on-init is reliable, needs **no agent changes** (agents keep reading local `docs/standards/`), and matches the proven Agent-OS pattern. Two-tier model intact: global = copied + version-stamped + "managed, do not edit"; local = Current-scope/CANDIDATES/lessons. Drift handled by version stamp + `/harness-update` overwrite.
+- **Characterization-first = hard precondition + fast-follow hook, not prose** (RC-2): a refactor item can't start until its Tier-1 "establish a test baseline" item is done; the Trust-track `PreToolUse` characterization hook is **pulled forward as the first Trust-track item** (so Phase 1 doesn't double-build it).
+- **Plan 0003 → rev 2** (plan-review CHANGES REQUIRED addressed): copy-on-init; S2 split (understand / audit+backlog); audit exclude-set + resumable budget-exhaustion; honest skill stubs; declared harness impacts.
+
 ## 2026-06-05 — Tree-check is language-incidental (refines rev-3 Decision 6)
 
 - **The architecture-tree check needn't match the project's tech.** It's harness tooling the agent runs to get a file list (it never parses project source), so its language is incidental — **`check_architecture_tree.py` stays as-is; no Python→Node port.** The project-specific part is only `INCLUDE_GLOBS` (which `init-harness` sets to the adopter's source layout). Runtime availability is the only real constraint (Python is broadly present; `init-harness` can verify it, and the agent can fall back to `Glob`).
