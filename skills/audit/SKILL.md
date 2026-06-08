@@ -265,7 +265,7 @@ max-cells-per-run) **guarantee termination.**
        for the run report (step 10's report line). Refuted findings are **not** persisted durably
        (regenerate-don't-accumulate — see step 5 / Phase 3); their only trace is the run report.
      - **Verified** → **keep** + attach the verifier's **proof snippet** (`file:line`); tag it
-       inline `(verified against the code)` in Phase 3.
+       inline `(checked against the code)` in Phase 3.
      - **Unconfirmed** → **keep** + **flag** it inline `(could not confirm independently —
        model's assertion)` in Phase 3 — never silently presented as fact.
    - **Budget — verification draws from `max-cells-per-run`** (see step 9), **not** a separate
@@ -299,10 +299,13 @@ max-cells-per-run) **guarantee termination.**
 10. **Author the backlog** (Phase 3) into the `harness-audit:backlog` fence, **recommend a
     starting point**, and **report the dial level + coverage** to the user (which cells
     ran, `COMPLETE` or `PARTIAL`, and — if any — which modules fell back to baseline). Include
-    the **verification run-report line** for the high-stakes findings checked in step 8:
-    `verified N · unconfirmed K · dropped M false positives: …` (name the dropped findings so
-    the user can see what the verify step caught — this is the only trace a refuted finding
-    leaves, since refuted findings aren't persisted).
+    the **verification run-report line** for the high-stakes findings checked in step 8 —
+    frame the refuted ones as a **trust signal that the check bit**, reported as a **count, not
+    a list**: e.g. *"Independently re-checked the Tier-1/security findings; dropped N that
+    couldn't be confirmed against the code."* Keep `verified N · unconfirmed K` in the same
+    line. **Do not list the specific refuted claims** (that invites re-litigating dropped
+    noise) and **do not persist them** — a count in the run report is the only trace a refuted
+    finding leaves, since refuted findings aren't persisted.
 
 ---
 
@@ -379,7 +382,7 @@ step-7 YAGNI prune: a clean codebase legitimately produces few or no items, and 
   - A **verified-scope item** (Tier-1 or security — the findings step 8 checks) shows its
     **inline verification tag**, and that tag **supersedes** the `deterministic`/`judgment`
     confidence label for display:
-    - `(verified against the code)` — a `finding-verifier` confirmed it (proof snippet attached
+    - `(checked against the code)` — a `finding-verifier` confirmed it (proof snippet attached
       to the technical finding).
     - `(could not confirm independently — model's assertion)` — the verifier returned
       `Unconfirmed`; kept, but honestly flagged as still just the model's claim.

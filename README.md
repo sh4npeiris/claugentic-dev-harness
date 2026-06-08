@@ -1,6 +1,6 @@
 # claugentic-dev-harness
 
-A Claude Code plugin that makes AI-assisted coding **disciplined and reviewable**. It installs into any repo, **never touches your code without asking**, and gives your agent an always-current map of the codebase plus a skeptical second reviewer that knows what "good" looks like.
+A Claude Code plugin that makes AI-assisted coding **disciplined and reviewable**. It installs into any repo, **never touches your code without asking**, and gives your agent an always-current map of the codebase plus a skeptical second reviewer that reviews against a written, ISO/IEC 25010-anchored catalog of what good looks like.
 
 **Two commands:**
 
@@ -9,16 +9,16 @@ A Claude Code plugin that makes AI-assisted coding **disciplined and reviewable*
 
 ## What you actually get
 
-- **An enforced, always-current map of your codebase.** One line per file in `docs/ARCHITECTURE_TREE.md`, so your agent reads the index instead of re-walking the tree every session — and a deterministic (no-LLM) hook **blocks "done" until the index is current.** This is the part that's mechanical, not a prompt.
+- **An enforced, always-current map of your codebase.** One line per file in `docs/ARCHITECTURE_TREE.md`, so your agent reads the index instead of re-walking the tree every session — and a deterministic (no-LLM) hook **blocks "done" until the index is current.** It checks that every file is **documented** (present, not deleted) — **not that the code is good**, and the one-line descriptions themselves are authored, not gate-verified. This is the part that's mechanical, not a prompt.
 - **A quality bar that scopes itself.** A standards catalog (security, testing, maintainability, accessibility, …) that **only loads the parts your change actually touches** — a checklist, not a set of hoops to jump. An independent agent reviews the work against it and tries to *refute* it, because the model that wrote something is the worst judge of it.
 - **Plain-English output for a non-engineer driver.** Every finding is stated technically *and* in plain language; you steer with product decisions, not code. (New to this? Start with [`docs/PLAYBOOK.md`](docs/PLAYBOOK.md).)
 - **Honesty by default.** `init` never overwrites your content; the audit **labels what it actually checked vs. what's the model's judgment**; execution happens one reviewed slice at a time.
 
-## Status — v0.1.2 (honest about what's real)
+## Status (honest about what's real)
 
-The functional core is **live and proven**: both skills work, and the **cold install is verified** — a real adopter installed the plugin and ran `init` → `audit` against their own repo successfully. The audit now **independently verifies its Tier-1 + security findings** — a separate agent tries to refute each one against the code, so false positives are dropped and the rest arrive with proof. The harness also **dogfoods itself** (it was built using its own workflow, including this release).
+The functional core is **live**: both `init` and `audit` work, and `init` installs cleanly into a fresh repo. The audit **independently verifies its Tier-1 + security findings** — a separate agent tries to refute each one against the code, so false positives are dropped and the rest arrive with proof.
 
-That finding-verification is an honest *reduction* of false confidence, **not** a deterministic guarantee (it's the same model class, run independently and adversarially). The genuinely **mechanical, model-independent trust-gates** — a characterization-tests-first hook + a secret-scan — are **not built yet**, and sit at the top of the [roadmap](docs/ROADMAP.md), alongside `…:update` (re-sync managed copies) and `…:explain` (teach-as-you-go). Today the review discipline is upheld by independent skeptical agents + the architecture-tree gate (which now has its own test suite). The harness's whole pitch is honesty, so it states only what's real.
+That finding-verification is an honest *reduction* of false confidence, **not** a deterministic guarantee (it's the same model class, run independently and adversarially). The genuinely **mechanical, model-independent trust-gates** — a characterization-tests-first hook + a secret-scan — are **not built yet**, and sit at the top of the [roadmap](docs/ROADMAP.md), alongside `…:update` (re-sync managed copies) and `…:explain` (teach-as-you-go). Today the review discipline is upheld by independent skeptical agents + the deterministic architecture-tree gate. The harness's whole pitch is honesty, so it states only what's real.
 
 ## Install
 
@@ -29,11 +29,24 @@ That finding-verification is an honest *reduction* of false confidence, **not** 
 
 Public + **Apache-2.0** — free to install and use. Install at **user scope** to use it across all your repos.
 
+**Requires:** `git`, and `Python 3` (for the architecture-tree gate; without it the gate is skipped and the agent maintains the index manually).
+
 **If the install doesn't show up** (the plugin list looks empty, or `init` / `audit` aren't found right after you add the marketplace) — Claude Code is usually holding a stale plugin cache. The marketplace and plugin themselves are fine; you just need to rebuild the local index:
 
 1. **Quit Claude Code completely** (not just the window).
 2. **Delete the `plugin-catalog-cache.json` file** from your Claude Code config folder (`~/.claude/` on macOS/Linux, `%USERPROFILE%\.claude\` on Windows — search your home folder for that filename if you're unsure where it lives).
 3. **Reopen Claude Code** and run the two install commands above again.
+
+## Quickstart
+
+Two commands, in order:
+
+1. **`/claugentic-dev-harness:init`** — scaffolds the harness into your repo (safe — never overwrites; you'll see a created/skipped/merged summary).
+2. **`/claugentic-dev-harness:audit`** — explains the codebase in plain English + writes a prioritized backlog into `docs/ROADMAP.md` (a large repo may finish in passes and say "re-run to continue" — that's expected).
+
+**Tip:** start a fresh chat after `init` so it picks up the new setup.
+
+New to this? Read [`docs/PLAYBOOK.md`](docs/PLAYBOOK.md).
 
 ## How it works
 

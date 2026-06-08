@@ -8,6 +8,12 @@ Descriptions are authored by humans/agents — this script does not write them.
 In-scope = tracked + staged + **untracked-not-ignored** files matching the globs,
 so a file just created via Write (not yet `git add`-ed) is caught immediately.
 
+Fails loud: `_git` raises `RuntimeError` if git is missing or returns non-zero
+(missing/erroring git or a non-repo cwd must NEVER read as a green "0 in-scope
+files"). A returncode-0 with empty stdout is legitimate (empty repo / glob matches
+nothing) and is left as an empty list. `main()` is the boundary that maps a git
+failure to each mode's exit code (see below).
+
 Modes:
     python scripts/check_architecture_tree.py                # human/CI: stdout, exit 1 on problems
     python scripts/check_architecture_tree.py --hook          # Stop hook: full scan, silent OK, stderr+exit 2 on problems
@@ -77,7 +83,20 @@ TOKEN_PATTERN = re.compile(r"`([\w./\\-]+\.\w+)`")
 
 
 def _git(*args: str) -> list[str]:
-    result = subprocess.run(["git", *args], capture_output=True, text=True, check=False)
+    """Run a git command, failing loud on genuine git failure.
+
+    Raises `RuntimeError` if git is not installed (`FileNotFoundError`) or returns a
+    non-zero exit code (errored / cwd is not a repository). A returncode-0 result with
+    empty stdout is LEGITIMATE (empty repo, or a pathspec that matched nothing) and
+    returns an empty list — only missing-git / non-zero is treated as a failure, so the
+    gate can never silently read a broken git as a green "0 in-scope files".
+    """
+    try:
+        result = subprocess.run(["git", *args], capture_output=True, text=True, check=False)
+    except FileNotFoundError as exc:
+        raise RuntimeError("git unavailable or not a repository: git executable not found") from exc
+    if result.returncode != 0:
+        raise RuntimeError(f"git unavailable or not a repository: {result.stderr.strip()}")
     return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
 
@@ -153,10 +172,22 @@ def _check_written_file() -> int:
 
 def main(argv: list[str]) -> int:
     if "--hook-write" in argv:
-        return _check_written_file()
+        # A git failure must NOT block a file write — the write nudge is advisory only.
+        try:
+            return _check_written_file()
+        except RuntimeError:
+            return 0
 
     hook_mode = "--hook" in argv
-    problems, summary = evaluate()
+    try:
+        problems, summary = evaluate()
+    except RuntimeError as exc:
+        # The gate could not run — fail loud, never report a false green.
+        if hook_mode:
+            print(f"ERROR: {exc}", file=sys.stderr)  # blocking: the agent must know the gate couldn't run
+            return 2
+        print(f"ERROR: {exc}")
+        return 1
     if problems:
         msg = "\n".join(problems) + "\n\nUpdate docs/ARCHITECTURE_TREE.md with a one-line description (CLAUDE.md -> Harness Discipline)."
         if hook_mode:

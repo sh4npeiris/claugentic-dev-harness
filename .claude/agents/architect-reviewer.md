@@ -1,6 +1,6 @@
 ---
 name: architect-reviewer
-description: Audit an IMPLEMENTED slice against the in-scope ENGINEERING_STANDARDS dimensions before it lands (Stage 7 of docs/WORKFLOW.md). Use after implementation to confirm it's performant, secure, efficient, extensible, and debt-free per the spec's named dimensions. Read-only on source; reports findings.
+description: Audit an IMPLEMENTED slice against the in-scope docs/standards/ dimensions (entry point docs/ENGINEERING_STANDARDS.md) before it lands (Stage 7 of docs/WORKFLOW.md). Use after implementation to confirm it's performant, secure, efficient, extensible, and debt-free per the spec's named dimensions. Read-only on source; reports findings.
 tools: Read, Grep, Glob, Bash
 model: opus
 ---

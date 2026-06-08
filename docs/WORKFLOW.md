@@ -75,7 +75,7 @@ Also available without new files: built-in **`Explore`** (fan-out search), **`Pl
 | 1 | **Discuss & brainstorm** | orchestrator + **user** | learn the endeavour from multiple **angles** before planning — technical scope **+ product-discovery** (who's the user · the job-to-be-done · what success/"delight" looks like · the key flows & their states); these surface the user-story gaps a technical-only intake misses. User-facing work pulls in `product-designer` → `docs/PRODUCT.md`. Crystal-clear scope; tangents→ROADMAP, decisions→DECISIONS |
 | 2 | **Draft plan** | orchestrator / `Plan` | `.claude/plans/NNNN-<slug>.md` from `TEMPLATE.md`, **sliced into ≤1-session units** |
 | 3 | **Review the plan** | `plan-reviewer` (+ others as fit) | critique written into the plan's *Review* section; iterate until it passes the gate |
-| 4 | **Spec** | orchestrator | plan upgraded to implementation-ready spec **per slice**: file-by-file changes, signatures, test list, acceptance criteria, **+ the in-scope `ENGINEERING_STANDARDS` dimensions & target bar** |
+| 4 | **Spec** | orchestrator | plan upgraded to implementation-ready spec **per slice**: opens with a short plain-English block (*what this builds · what "done" means for you · what you're accepting — risks/trade-offs*), then file-by-file changes, signatures, test list, acceptance criteria, **+ the in-scope `docs/standards/` dimensions & target bar (entry point: `docs/ENGINEERING_STANDARDS.md`)** |
 | 5 | **Approval gate** | **user** | sign-off on the spec — *no code before this* |
 | 6 | **Implement** | `implementer-architect` | one slice/session, isolated worktree/branch; upholds CLAUDE.md; updates ARCHITECTURE_TREE inline |
 | 7 | **Verify** | `architect-reviewer` (+ lenses) | **effort-dialed:** small change → `architect-reviewer` audits solo; risky/cross-cutting → fan out `lens-reviewer`s (one per relevant `docs/standards/` module) **+** `yagni-sentinel`, then `architect-reviewer` **synthesizes**. All gates green (full tests + regression/snapshot + `check-tree` + lint/type-check/security); run **`/simplify`** + **`/code-review`**; confirm spec match. Findings are **dual-layer** (technical + plain-English). |
@@ -84,20 +84,28 @@ Also available without new files: built-in **`Explore`** (fan-out search), **`Pl
 
 **Stage 3 gate — a plan may not pass review until:** it is correct & sound (SOLID/patterns), each slice is **session-sized and lands complete with no debt**, the right path was chosen, risks + test strategy are stated, and any harness impact (new STANDARD/agent/doc) is noted. The reviewer writes a verdict + required changes into the plan; the orchestrator iterates.
 
+**Stage 4 → 5, the plain-English layer (the non-engineer's steering wheel):** the spec contract is code-shaped (file-by-file edits, signatures, named dimensions), but approval is about *intent, not code*. So every spec **MUST open with a short plain-English block — *what this builds · what "done" means for you · what you're accepting (risks/trade-offs)*** — and that block is **presented first at the approval gate (Stage 5)**, with the file-by-file detail beneath it. The user approves the intent; the detail is there to verify against, not to decode. *(The plan `TEMPLATE.md` carries a matching section.)*
+
 **Keep the docs current — it's part of each stage (no hooks needed beyond the tree check):**
 - **Implement (6):** update `ARCHITECTURE_TREE.md` for any file add/move/remove (also hook-nudged); touch `CLAUDE.md` only for a genuinely new gotcha/command/pattern — *concisely; index, don't duplicate code*.
 - **Land (8):** append a dated one-liner to `DECISIONS.md` for non-trivial choices; update `ROADMAP.md` if scope shifted.
-- **Retrospect (9):** promote durable learnings into `ENGINEERING_STANDARDS.md` / `CLAUDE.md` / agent files.
+- **Retrospect (9):** promote durable learnings into the `docs/standards/` modules (entry point: `docs/ENGINEERING_STANDARDS.md`) / `CLAUDE.md` / agent files.
 
 ---
 
 ## Definition of Done
 
-A slice is **done** — and may land (Stage 8) — only when **all** hold:
-1. **Acceptance criteria met** (the spec's checklist).
-2. **In-scope `docs/standards/` modules pass** the `architect-reviewer` audit (solo, or synthesized from `lens-reviewer`s + `yagni-sentinel`), for what this slice touches.
-3. **All gates green:** full test suite + any regression/snapshot tests + `check-tree` + the project's lint / type-check / security gates + `/simplify`/`/code-review`.
-4. **No new tech debt.**
+A slice is **done** — and may land (Stage 8) — only when **all** hold. Two groups, same bar; they differ in *who* says pass:
+
+**Deterministic gates** (pass/fail, can't be argued around):
+1. **Full test suite** (`python -m pytest`) + any regression/snapshot tests green.
+2. **`python scripts/check_architecture_tree.py`** green (the one mechanically-enforced harness gate — file-index presence + staleness).
+3. **The project's lint / type-check / security gates** green.
+
+**Reviewer sign-offs** (model judgment, not a mechanical gate):
+4. **In-scope `docs/standards/` dimensions pass** the `architect-reviewer` audit (incl. SOLID) — solo, or synthesized from `lens-reviewer`s + `yagni-sentinel` — for what this slice touches; `/simplify` + `/code-review` run.
+
+**Plus:** acceptance criteria met (the spec's checklist) **+ no new tech debt.**
 
 Iterate to meet this **fixed** bar, then **stop** — it terminates because the bar is *finite*, not "is it perfect?". Genuinely separate future work → `ROADMAP.md` (backlog, *not* debt).
 

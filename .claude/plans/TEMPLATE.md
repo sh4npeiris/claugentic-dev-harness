@@ -40,6 +40,7 @@ Each slice must land **complete in one ≤1M-context session, no debt**.
 
 ## Spec  _(per slice, after Review passes — Stage 4)_
 ### Slice 1
+- **In plain English (shown first at the approval gate):** what this builds · what "done" means for you · what you're accepting (risks / trade-offs).
 - **Files & changes:** signatures, exact edits.
 - **Tests to add:** …
 - **Acceptance criteria:** …

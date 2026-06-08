@@ -2,11 +2,11 @@
 
 > **Read this first.** This is the one-line-per-file index of the repo — your map. Use it to find the right file instead of reading the whole tree. Keep it current: every file add/move/remove updates this index (a hook enforces presence + staleness — see CLAUDE.md → Harness Discipline). Descriptions are authored by you/the agent that touches the file.
 
-This repo builds the **`claugentic-dev-harness`** Claude Code plugin and dogfoods its own harness. The only executable code today is `scripts/check_architecture_tree.py`; everything else is harness docs, specialist roles, the plan template, and config.
+This repo builds the **`claugentic-dev-harness`** Claude Code plugin. The only executable code is `scripts/check_architecture_tree.py`; everything else is harness docs, specialist roles, the plan template, and config.
 
 ## Root
 
-- `README.md` — what `claugentic-dev-harness` is + the concrete value it delivers (the two commands), how it installs, how it works (init → audit → reviewed pipeline), and an honest status section (current version).
+- `README.md` — what `claugentic-dev-harness` is + the concrete value it delivers (the two commands), how it installs, how it works (init → audit → reviewed pipeline), and an honest status section.
 - `CLAUDE.md` — lean, generalized guidance for agents working in THIS repo: engineering principles, harness discipline, workflow pointer, Definition of Done.
 - `.gitignore` — ignores local junk + build artifacts; **shares** `.claude/agents/`, `.claude/plans/`, `.claude/settings.json` (ignores only `.claude/settings.local.json`).
 - `.gitattributes` — normalizes line endings (`* text=auto eol=lf`; scripts forced LF) for a cross-platform plugin.
@@ -16,7 +16,7 @@ This repo builds the **`claugentic-dev-harness`** Claude Code plugin and dogfood
 ## docs/ — process, standards, and project memory
 
 - `docs/WORKFLOW.md` — the staged agent development workflow (Triage → Discuss → Plan → Review → Spec → Approve → Implement → Verify → Land → Retrospect); source of truth for process.
-- `docs/ENGINEERING_STANDARDS.md` — project-agnostic, ever-growing catch-all of engineering quality dimensions; the bar implementations are held to (the per-repo "Current scope" is added by the `init` skill, not shipped populated).
+- `docs/ENGINEERING_STANDARDS.md` — thin entry point pointing to the `docs/standards/` catalog (the real quality bar); the per-repo Current scope is added by the `init` skill.
 - `docs/ARCHITECTURE_TREE.md` — this file: one-line-per-file index of the repo.
 - `docs/DECISIONS.md` — dated, one-line records of non-trivial decisions (newest at top); consult before re-litigating.
 - `docs/ROADMAP.md` — backlog of substantial work; tangents land here, never silently into the current change.
@@ -63,7 +63,7 @@ This repo builds the **`claugentic-dev-harness`** Claude Code plugin and dogfood
 
 ## skills/ — harness entry points (the `/claugentic-dev-harness:*` family)
 
-- `skills/init/SKILL.md` — the 9-step idempotent scaffold (copy the managed set version-stamped, generate ARCHITECTURE_TREE via the gate's file-list, set `INCLUDE_GLOBS`, merge the tree-check hook, write the CLAUDE.md `harness:managed` fence + Current-scope, git-init, seed ROADMAP/DECISIONS, detect+record tooling); every write detect→create-if-absent/merge-in-fence→report, never-clobber; the cold-install path is proven.
+- `skills/init/SKILL.md` — the 9-step idempotent scaffold (copy the managed set version-stamped, generate ARCHITECTURE_TREE via the gate's file-list, set `INCLUDE_GLOBS`, merge the tree-check hook, write the CLAUDE.md `harness:managed` fence + Current-scope, git-init, seed ROADMAP/DECISIONS, detect+record tooling); every write detect→create-if-absent/merge-in-fence→report, never-clobber.
 - `skills/audit/SKILL.md` — Understand + Audit + Backlog. Phase 1 = inline overview + audit-plan; Phase 2 = **auto-dial sized from Phase 1** (named level overrides), `lens-reviewer` fan-out (audit-scope mode), dedup, deterministic `(module×dir)` cell resume, **post-dry YAGNI prune**; Phase 3 = tiered/tagged backlog into the `harness-audit:backlog` fence + the **"architecturally sound" terminal signal** when Tier 1/2 are empty.
 
 ## scripts/ — tooling
