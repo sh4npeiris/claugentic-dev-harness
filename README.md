@@ -5,7 +5,7 @@ A Claude Code plugin that makes AI-assisted coding **disciplined and reviewable*
 **Two commands:**
 
 - **`/claugentic-dev-harness:init`** — scaffold the harness into your repo. Idempotent and **never clobbers** your files (re-running is a safe no-op): it adds an always-current architecture index + an enforcement hook, a quality-standards catalog, and the workflow docs — and **composes with your existing linters/tests** instead of replacing them.
-- **`/claugentic-dev-harness:audit`** — point it at the repo and it explains, in plain English, what your app is and does, then writes a **prioritized to-do list** (a backlog) of the work worth doing. It **auto-sizes its effort to the codebase** and tells you plainly when the code is already sound.
+- **`/claugentic-dev-harness:audit`** — point it at the repo and it explains, in plain English, what your app is and does, then writes a **prioritized to-do list** (a backlog) of the work worth doing. It **auto-sizes its effort to the codebase**, tells you plainly when the code is already sound, and **independently verifies its most serious findings** — a separate agent reads the cited code and tries to *disprove* each security/correctness item before it reaches your list (false alarms get dropped; the rest carry their proof).
 
 ## What you actually get
 
@@ -14,11 +14,11 @@ A Claude Code plugin that makes AI-assisted coding **disciplined and reviewable*
 - **Plain-English output for a non-engineer driver.** Every finding is stated technically *and* in plain language; you steer with product decisions, not code. (New to this? Start with [`docs/PLAYBOOK.md`](docs/PLAYBOOK.md).)
 - **Honesty by default.** `init` never overwrites your content; the audit **labels what it actually checked vs. what's the model's judgment**; execution happens one reviewed slice at a time.
 
-## Status — v0.1.1 (honest about what's real)
+## Status — v0.1.2 (honest about what's real)
 
-The functional core is **live and proven**: both skills work, and the **cold install is verified** — a real adopter installed the plugin and ran `init` → `audit` against their own repo successfully. The harness also **dogfoods itself** (it was built using its own workflow).
+The functional core is **live and proven**: both skills work, and the **cold install is verified** — a real adopter installed the plugin and ran `init` → `audit` against their own repo successfully. The audit now **independently verifies its Tier-1 + security findings** — a separate agent tries to refute each one against the code, so false positives are dropped and the rest arrive with proof. The harness also **dogfoods itself** (it was built using its own workflow, including this release).
 
-**Not built yet** (and the docs say so wherever it's mentioned): the deterministic **trust-gates** — an independent verification track that would make the review *mechanical* rather than a disciplined prompt — plus `…:update` (re-sync managed copies) and `…:explain` (teach-as-you-go). Today the review discipline is upheld by an independent skeptical agent + the architecture-tree gate; the heavier deterministic gates are the top of the [roadmap](docs/ROADMAP.md). The harness's whole pitch is honesty, so it states only what's real.
+That finding-verification is an honest *reduction* of false confidence, **not** a deterministic guarantee (it's the same model class, run independently and adversarially). The genuinely **mechanical, model-independent trust-gates** — a characterization-tests-first hook + a secret-scan — are **not built yet**, and sit at the top of the [roadmap](docs/ROADMAP.md), alongside `…:update` (re-sync managed copies) and `…:explain` (teach-as-you-go). Today the review discipline is upheld by independent skeptical agents + the architecture-tree gate (which now has its own test suite). The harness's whole pitch is honesty, so it states only what's real.
 
 ## Install
 
@@ -28,6 +28,12 @@ The functional core is **live and proven**: both skills work, and the **cold ins
 ```
 
 Public + **Apache-2.0** — free to install and use. Install at **user scope** to use it across all your repos.
+
+**If the install doesn't show up** (the plugin list looks empty, or `init` / `audit` aren't found right after you add the marketplace) — Claude Code is usually holding a stale plugin cache. The marketplace and plugin themselves are fine; you just need to rebuild the local index:
+
+1. **Quit Claude Code completely** (not just the window).
+2. **Delete the `plugin-catalog-cache.json` file** from your Claude Code config folder (`~/.claude/` on macOS/Linux, `%USERPROFILE%\.claude\` on Windows — search your home folder for that filename if you're unsure where it lives).
+3. **Reopen Claude Code** and run the two install commands above again.
 
 ## How it works
 
@@ -42,7 +48,7 @@ Works the same for a **mature codebase** (audit → incremental backlog) and a *
 You don't need any of this to use the two commands — it's the machinery they run on:
 
 - **Staged workflow** (`docs/WORKFLOW.md`) — Triage → Discuss → Plan → Review → Spec → **Approve** → Implement → Verify → Land → Retrospect. Small changes skip straight to Implement + Verify; only substantial work runs the full pipeline.
-- **6 specialist agents** (`.claude/agents/`) — a plan critic, a builder, a verifier, a product/UX lens, a per-standard lens reviewer, and an anti-over-engineering skeptic. The orchestrator delegates to them so your attention stays on decisions.
+- **7 specialist agents** (`.claude/agents/`) — a plan critic, a builder, a verifier, a product/UX lens, a per-standard lens reviewer, an anti-over-engineering skeptic, and a finding-verifier that refutes audit findings against the code. The orchestrator delegates to them so your attention stays on decisions.
 - **The standards catalog** (`docs/standards/`) — ISO/IEC 25010-anchored, loaded by relevance, with each finding labeled by how confidently it was checked.
 
 ## License & layout

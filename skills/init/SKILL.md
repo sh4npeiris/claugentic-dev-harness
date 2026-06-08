@@ -127,22 +127,23 @@ Rules:
 
 ### 5. Set the tree-check globs + wire the hook
 
-**(a) Set `INCLUDE_GLOBS` *and* `STALE_PATTERN` in the *copied* `check_architecture_tree.py`.**
-These are the **only** per-repo knobs in the script, and the script itself requires the
-two be **kept in sync** (the staleness check is dead if `STALE_PATTERN` doesn't recognize
-the same path shapes `INCLUDE_GLOBS` matches). Set **both**:
+**(a) Set `INCLUDE_GLOBS` in the *copied* `check_architecture_tree.py`.**
+`INCLUDE_GLOBS` is the **only** per-repo knob in the script — the staleness check derives
+its valid extensions from it (`EXTS`), so there is no second regex to keep in sync. Set it:
 - **Reuse the layout detection from `/claugentic-dev-harness:audit` Phase 1 (Understand)** — its
   ecosystem/manifest detection identifies the source layout (e.g. `src/**/*.ts`,
   `src/**/*.py`, `cmd/**/*.go`). **Do not author a second detector** (DRY). Map the
-  detected layout to the git pathspec globs (`:(glob)src/**/*.ts`, …) for `INCLUDE_GLOBS`,
-  and a matching regex for `STALE_PATTERN` (the same path shapes — e.g.
-  `r"(src/[\w./-]+\.ts)"`).
-- **Unmappable ecosystem?** Set a **conservative broad source glob** (e.g. the dominant
-  source extensions under the main source dir) + a matching `STALE_PATTERN`, and **report**
-  "globs set conservatively for an unrecognized layout; refine `INCLUDE_GLOBS` /
-  `STALE_PATTERN` in `scripts/check_architecture_tree.py` if needed." Never guess a
-  layout you can't see — broaden + flag instead.
-- Edit **only** the copied script (step 3 placed it). You only set the two constants.
+  detected layout to the git pathspec **extension** globs (`:(glob)src/**/*.ts`,
+  `:(glob)src/**/*.tsx`, `:(glob)cmd/**/*.go`, …) for `INCLUDE_GLOBS`.
+- **Always emit extension globs** (every entry ends in `*.<ext>`) so `EXTS` is derivable
+  and the staleness check works. **Never** set a bare directory glob (e.g. `:(glob)src/**`):
+  the script still presence-checks those files but cannot staleness-check them.
+- **Unmappable ecosystem?** Emit the **dominant source *extensions*** under the main source
+  dir as extension globs (e.g. `:(glob)src/**/*.rb`, `:(glob)src/**/*.erb`) — never a bare
+  directory glob — and **report** "globs set conservatively for an unrecognized layout;
+  refine `INCLUDE_GLOBS` in `scripts/check_architecture_tree.py` if needed." Never guess a
+  layout you can't see — broaden (more extension globs) + flag instead.
+- Edit **only** the copied script (step 3 placed it). You only set this one constant.
 
 **(b) Wire the hook into `.claude/settings.json` (JSON-merge — the most dangerous write).**
 - **Parse** `.claude/settings.json` as JSON. **Absent → treat as `{}`** (and create the

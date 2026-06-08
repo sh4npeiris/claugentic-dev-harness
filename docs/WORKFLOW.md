@@ -60,6 +60,7 @@ Starter library (`.claude/agents/`):
 - **`product-designer`** — the product/UX lens at Discuss (Stage 1) for user-facing work: user, job-to-be-done, flows, states, "what good feels like"; applies `docs/standards/product-ux.md`, persists to `docs/PRODUCT.md`.
 - **`architect-reviewer`** — owns the Verify gate (Stage 7): **solo** for small changes, or **synthesizer** over fan-out findings for risky ones.
 - **`lens-reviewer`** — audits a **diff (Verify) or an audit-scope (the `audit` skill)** against **one** `docs/standards/` module; invoked once per relevant lens in a fan-out review.
+- **`finding-verifier`** — refutes **one** audit finding against the code: given only the claim + `file:line` (never the finder's rationale), it tries to prove the finding wrong and returns `Verified` / `Refuted` / `Unconfirmed`. The audit's adversarial-verify counterpart to `lens-reviewer`.
 - **`yagni-sentinel`** — the anti-over-engineering skeptic; argues a plan/diff is *too much*. The deliberate counterweight to the quality lenses.
 
 Also available without new files: built-in **`Explore`** (fan-out search), **`Plan`** (drafting), and `/code-review` · `/simplify` for diff cleanup. **Add new role files as needs emerge** — the library grows (Stage 9).
