@@ -12,9 +12,7 @@ Status: `NEXT` (queued) · `LATER`.
 
 | Item | Why it matters | Status |
 |------|----------------|--------|
-| **Deterministic trust-gates** — the independent, *model-independent* verification track: a `PreToolUse` characterization-tests-first hook + a secret-scan gate. | The harness's #1 risk is false confidence from the same model class grading its own work. The audit's `finding-verifier` (v0.1.2) *reduces* that; these gates *remove* it wherever a fact is mechanically checkable. The tree-gate now has a test baseline (✓ v0.1.2) to build on. | NEXT |
-
-> **Done (v0.1.2):** Real-app dogfood (AskBase) · the audit's verify-findings pass + `finding-verifier` agent · the tree-gate test baseline (`STALE_PATTERN`→`EXTS`). See `docs/DECISIONS.md` 2026-06-08.
+| **Deterministic trust-gates** — the independent, *model-independent* verification track: a `PreToolUse` characterization-tests-first hook + a secret-scan gate. | The harness's #1 risk is false confidence from the same model class grading its own work. The audit's `finding-verifier` *reduces* that; these gates *remove* it wherever a fact is mechanically checkable. The tree-gate's test baseline is there to build on. | NEXT |
 
 ## Later
 
@@ -24,5 +22,4 @@ Status: `NEXT` (queued) · `LATER`.
 | **`/claugentic-dev-harness:explain`** — teach-as-you-go for non-engineers. | Lowers the barrier for the harness's target audience (someone driving AI-assisted development without a deep engineering background). | LATER |
 | **Grow the role library** (`.claude/agents/`) as new specialist needs emerge from dogfooding. | The workflow delegates to specialists; more real use surfaces gaps the starter set doesn't cover. | LATER |
 | **Capability modules** (Redis, queues, object-storage, …) authored just-in-time. | The catalog modernizes vibe-coded apps (introduce new tech safely), not just cleans code — but these are authored only when a real audit pulls one in (YAGNI). | LATER |
-| **Deepen finding-verification by dial** — `standard` also verifies `deterministic`-labeled findings; `thorough` verifies **all** findings + a second adversarial sweep. | v0.1.2 verifies Tier-1 + security on every dial (the trust floor). Scaling verification by dial is a cost/coverage trade to make once real-audit cost is measured — and it's what the deferred `thorough` level becomes. | LATER |
-| **Fail loud when `git` is unavailable** in `scripts/check_architecture_tree.py` — today a missing/failed `git` yields an empty file list, so the gate reports "green" instead of erroring. | The linchpin gate's "green" must be trustworthy; a silent false-green undercuts the whole point. Add the guard + a companion test. | LATER |
+| **Deepen finding-verification by dial** — `standard` also verifies `deterministic`-labeled findings; `thorough` verifies **all** findings + a second adversarial sweep. | The audit verifies Tier-1 + security on every dial (the trust floor). Scaling verification by dial is a cost/coverage trade to make once real-audit cost is measured — and it's what the deferred `thorough` level becomes. | LATER |

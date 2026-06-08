@@ -1,6 +1,6 @@
 # The Harness Playbook — how to drive an AI dev team
 
-A plain-English guide to working *with* this harness, for a capable non-engineer. It turns ad-hoc "vibe coding" into a disciplined practice that produces software able to pass a professional code review. **You don't write code — you make product calls and approve the right things at the right moments.**
+A plain-English guide to working *with* this harness, for a capable non-engineer. It turns ad-hoc "vibe coding" into a disciplined practice that gives you a real shot at software that passes a professional code review. **You don't write code — you make product calls and approve the right things at the right moments.**
 
 ## The one-minute model
 
@@ -8,7 +8,7 @@ Substantial work flows through a pipeline: **Triage → Discuss → Plan → Rev
 
 ## Your three leverage points
 
-The whole system is built so you steer with **product judgment, not code**:
+The whole system is built so you steer **what gets built and what "done" means** — with product judgment. Approving the spec is the steering point; you set intent and bless the plan, and the harness carries the code-shaped detail from there:
 
 1. **Brainstorm at Discuss.** Tell the harness *who the user is* and *what "good" means* for this product. The more context here, the better everything downstream. This is your Product-Designer seat.
 2. **Approve the Spec.** Nothing gets built before you sign off on *what* will be built and *what "done" means*. You approve intent, not code. This is your steering wheel.
@@ -16,16 +16,13 @@ The whole system is built so you steer with **product judgment, not code**:
 
 Everything else — reading code, writing it, reviewing it — the harness fans out to specialists so your attention stays on decisions.
 
-## Why it's trustworthy — one real example
+## Why it's trustworthy
 
-The standards catalog in [`standards/`](standards/README.md) was built by the harness, on itself. The build is the proof of the whole approach:
+Three moves make the output worth trusting:
 
-1. **Several agents authored** the deep standards modules in parallel.
-2. **Independent skeptics tried to refute** each one — and caught a *made-up citation*, a *misattributed quote*, and *wrong book chapters*, all of which looked perfectly professional.
-3. The fixes **re-checked every citation against the real web source.**
-4. A final **`grep`** — a plain text search, no AI — confirmed the format was clean.
-
-Every one of those errors would have shipped under a normal "looks good to me" workflow. **That's the point of the harness:** a *different, skeptical* agent reviews the work, and wherever a fact can be checked mechanically, it's checked — not believed. (It's honest about its limits, too: where it can't check something mechanically, it labels the finding as its own judgment, not proof.)
+1. **A different, skeptical agent reviews the work** and tries to refute it. The author is the worst judge of their own work, so the harness never lets the agent that wrote something be the one that signs off on it.
+2. **Anything that can be checked mechanically is checked, not believed** — a test, a `grep`, a web-lookup. Models produce confident, professional-looking errors; a deterministic check doesn't care how confident the prose is.
+3. **It's honest about its limits.** Where a claim *can't* be checked mechanically, the harness labels the finding as judgment, not proof — so you always know which is which.
 
 ## Using the audit (`/claugentic-dev-harness:audit`)
 

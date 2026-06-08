@@ -307,3 +307,110 @@ class TestHookWrite:
         self._feed_stdin(monkeypatch, '{"tool_input": {}}')
         assert cat._written_path_from_stdin() is None
         assert cat.main(["--hook-write"]) == 0
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# _git — fail loud on genuine git failure (missing git / non-zero); empty-success OK
+# ─────────────────────────────────────────────────────────────────────────────
+class _FakeCompleted:
+    """Minimal stand-in for subprocess.CompletedProcess."""
+
+    def __init__(self, returncode: int, stdout: str = "", stderr: str = "") -> None:
+        self.returncode = returncode
+        self.stdout = stdout
+        self.stderr = stderr
+
+
+# The genuine `_git` (the `repo` fixture stubs `cat._git` to an empty lambda; the
+# git-failure tests need the real implementation so the stubbed `subprocess.run`
+# actually drives its fail-loud path). Captured at import, before any monkeypatch.
+_REAL_GIT = cat._git
+
+
+def _stub_run(monkeypatch, *, returncode=0, stdout="", stderr="", raises=None):
+    """Monkeypatch subprocess.run to simulate a git invocation result.
+
+    Also restores the genuine `_git` so the stub actually runs (the `repo` fixture
+    replaces `cat._git` with an empty lambda by default).
+    """
+
+    def fake_run(*_args, **_kwargs):
+        if raises is not None:
+            raise raises
+        return _FakeCompleted(returncode, stdout, stderr)
+
+    monkeypatch.setattr(cat, "_git", _REAL_GIT)
+    monkeypatch.setattr(cat.subprocess, "run", fake_run)
+
+
+class TestGitFailLoud:
+    def test_nonzero_returncode_raises(self, monkeypatch):
+        # git ran but errored (e.g. cwd is not a repository) → loud RuntimeError,
+        # NOT a silent empty list that would read as "0 in-scope files".
+        _stub_run(monkeypatch, returncode=128, stderr="fatal: not a git repository")
+        with pytest.raises(RuntimeError) as exc:
+            cat._git("ls-files")
+        assert "git unavailable or not a repository" in str(exc.value)
+        assert "fatal: not a git repository" in str(exc.value)
+
+    def test_git_missing_raises(self, monkeypatch):
+        # git not installed → subprocess.run raises FileNotFoundError → RuntimeError.
+        _stub_run(monkeypatch, raises=FileNotFoundError("git"))
+        with pytest.raises(RuntimeError) as exc:
+            cat._git("ls-files")
+        assert "git unavailable or not a repository" in str(exc.value)
+
+    def test_returncode_zero_empty_stdout_is_legitimate(self, monkeypatch):
+        # Regression guard: success (rc 0) with empty stdout is a legitimately-empty
+        # result (empty repo / glob matched nothing) — must NOT raise.
+        _stub_run(monkeypatch, returncode=0, stdout="")
+        assert cat._git("ls-files") == []
+
+    def test_returncode_zero_with_output_parsed(self, monkeypatch):
+        # Sanity: a normal success still parses + strips lines as before.
+        _stub_run(monkeypatch, returncode=0, stdout="scripts/a.py\nscripts/b.py\n")
+        assert cat._git("ls-files") == ["scripts/a.py", "scripts/b.py"]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# main() — git-failure boundary: never a false green
+# ─────────────────────────────────────────────────────────────────────────────
+class TestMainGitFailure:
+    def test_default_mode_git_failure_exit_1_error_on_stdout(self, repo, monkeypatch, capsys):
+        # CLI mode: a git failure must surface as ERROR + exit 1, never "OK: 0 files".
+        _stub_run(monkeypatch, returncode=128, stderr="fatal: not a git repository")
+        _write_tree(repo, "# Tree\n")
+        rc = cat.main([])
+        assert rc == 1
+        captured = capsys.readouterr()
+        assert "ERROR:" in captured.out
+        assert "OK:" not in captured.out
+
+    def test_hook_mode_git_failure_exit_2_error_on_stderr(self, repo, monkeypatch, capsys):
+        # Stop hook: blocking exit 2, error to stderr — the agent must know the gate
+        # could not run.
+        _stub_run(monkeypatch, returncode=128, stderr="fatal: not a git repository")
+        _write_tree(repo, "# Tree\n")
+        rc = cat.main(["--hook"])
+        assert rc == 2
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert "ERROR:" in captured.err
+
+    def test_hook_mode_git_missing_exit_2(self, repo, monkeypatch, capsys):
+        _stub_run(monkeypatch, raises=FileNotFoundError("git"))
+        _write_tree(repo, "# Tree\n")
+        assert cat.main(["--hook"]) == 2
+        assert "git unavailable" in capsys.readouterr().err
+
+    def test_hook_write_git_failure_exit_0_not_blocked(self, repo, monkeypatch, capsys):
+        # PostToolUse(Write) nudge is advisory — a git failure must NOT block the write.
+        _stub_run(monkeypatch, returncode=128, stderr="fatal: not a git repository")
+        import io
+
+        monkeypatch.setattr(
+            cat.sys, "stdin", io.StringIO('{"tool_input": {"file_path": "scripts/new.py"}}')
+        )
+        assert cat.main(["--hook-write"]) == 0
+        # Silent: no nag on a gate it couldn't even run.
+        assert capsys.readouterr().err == ""
