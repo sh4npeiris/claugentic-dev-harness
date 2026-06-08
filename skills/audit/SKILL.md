@@ -24,9 +24,13 @@ Three phases, cheap → expensive, run end-to-end in one pass:
 
 Run the full flow: Understand → Audit → Backlog. The fan-out in Phase 2 spawns
 `lens-reviewer` subagents, so **a top-level agent (the orchestrator) runs this skill** —
-subagents can't spawn subagents. Audit findings are **model-asserted and human-triaged**;
-carry each finding's confidence honestly (see *Confidence* in the Phase 3 item format) —
-never launder a judgment call into apparent fact, and never fabricate a finding to fill a tier.
+subagents can't spawn subagents. Audit findings are **model-asserted, then independently
+verified for the high-stakes ones (Tier-1 + security), and human-triaged**: a separate
+`finding-verifier` reads the cited code and tries to *refute* each critical/security claim
+before it reaches the backlog (Phase 2's verify step) — an honest **reduction of false
+confidence**, not a deterministic gate. Carry each finding's confidence honestly (see
+*Confidence* in the Phase 3 item format) — never launder a judgment call into apparent fact,
+and never fabricate a finding to fill a tier.
 
 ### How to use it (a periodic snapshot, not a treadmill)
 
@@ -156,10 +160,10 @@ subagents can't spawn subagents.
 
 The whole pass is **deterministically bounded and resumable**: work is a finite set of
 discrete `(module × dir)` cells, the status block tracks which are `done` vs `pending`
-(so a re-run continues, never restarts), and the caps in steps 6 + 8 (max-rounds +
+(so a re-run continues, never restarts), and the caps in steps 6 + 9 (max-rounds +
 max-cells-per-run) **guarantee termination.**
 
-### The 9-step procedure
+### The 10-step procedure
 
 1. **Set the dial — named level wins, else auto-size from Phase 1.** The skill is
    invoked in natural language, not with typed flags. First read the invocation for a
@@ -239,9 +243,44 @@ max-cells-per-run) **guarantee termination.**
    adversarial `yagni-sentinel` sweep over the findings is a deferred `thorough`-level
    item — don't build it here). It runs only after dry-detection, so it trims the
    already-finished set and cannot affect loop termination. (Exception: never prune the
-   Tier-1 "establish a test baseline" item for untested behavior-bearing code — see step 8.)
+   Tier-1 "establish a test baseline" item for untested behavior-bearing code — see step 9.)
 
-8. **Budget checkpoint = deterministic (no "sensing context").** Each **run** has a
+8. **Verify high-stakes findings (Tier-1 + security).** For every survivor of the prune that
+   will be **Tier-1 (correctness / security / data-loss)** *or* comes from the **`security`
+   lens** — determinable from the finding's nature/module before final tiering — spawn an
+   independent **`finding-verifier`** to try to **refute** it against the code. **One rule,
+   every dial:** Tier-1 + security on `quick` *and* `standard` alike — **no dial-scaling**
+   (verifying `deterministic`-labeled findings on `standard`, or *all* findings on `thorough`,
+   is a deferred roadmap item — don't build it here). The trust floor is dial-independent:
+   never present an unverified critical/security claim as fact.
+   - **Independence is enforced by the input contract.** Pass each verifier **only**
+     `{claim (plain + technical), file:line, source module, confidence label, exclude-set}` and
+     the refute-first posture — **never** the finder's transcript or rationale, and **never** let
+     a lens verify its own finding (route it to a verifier seeded from a clean context). With a
+     clean-context subagent given just the claim + location, independence is *structural*. (See
+     `.claude/agents/finding-verifier.md`.) **You (the orchestrator) spawn these directly** —
+     they are not nested under the `lens-reviewer`s. Fan them out **in parallel.**
+   - **Apply the verdicts:**
+     - **Refuted** → **drop** the finding from the backlog (it was a false positive); record it
+       for the run report (step 10's report line). Refuted findings are **not** persisted durably
+       (regenerate-don't-accumulate — see step 5 / Phase 3); their only trace is the run report.
+     - **Verified** → **keep** + attach the verifier's **proof snippet** (`file:line`); tag it
+       inline `(verified against the code)` in Phase 3.
+     - **Unconfirmed** → **keep** + **flag** it inline `(could not confirm independently —
+       model's assertion)` in Phase 3 — never silently presented as fact.
+   - **Budget — verification draws from `max-cells-per-run`** (see step 9), **not** a separate
+     uncapped burst. Size the cap to leave headroom to verify the criticals found (they are
+     few). If the budget is **exhausted** before a Tier-1/security finding can be verified, mark
+     it **`deferred`**: write the finding with an explicit **"⚠ not yet verified — re-run to
+     confirm"** flag and list it in `pending-cells`. A critical is **never** silently presented
+     as verified — its representable states are `verified` · `unconfirmed` · `deferred`.
+   - **Persistence + resume.** A verdict **persists in the backlog fence alongside its finding**
+     (its inline tag *is* the persisted verdict). On a **resume** run a finding already carrying
+     a verdict is **not re-verified**, and `done` cells are not re-swept — so refuted findings
+     don't reappear and there is no O(rounds) re-verify cost. (A fresh re-run regenerates the
+     backlog from scratch, so it may legitimately re-find and re-refute — an accepted cost.)
+
+9. **Budget checkpoint = deterministic (no "sensing context").** Each **run** has a
    **max-cells-per-run cap** — a hard integer ceiling on how many cells one run audits
    (size it to stay comfortably within context for the repo; the prioritized order means
    the highest-value cells are spent first). **When the cap is hit — or cells remain
@@ -257,9 +296,13 @@ max-cells-per-run) **guarantee termination.**
    code seen in the covered (`done`) cells** — a partial audit must never green-light an
    unguarded refactor.
 
-9. **Author the backlog** (Phase 3) into the `harness-audit:backlog` fence, **recommend a
-   starting point**, and **report the dial level + coverage** to the user (which cells
-   ran, `COMPLETE` or `PARTIAL`, and — if any — which modules fell back to baseline).
+10. **Author the backlog** (Phase 3) into the `harness-audit:backlog` fence, **recommend a
+    starting point**, and **report the dial level + coverage** to the user (which cells
+    ran, `COMPLETE` or `PARTIAL`, and — if any — which modules fell back to baseline). Include
+    the **verification run-report line** for the high-stakes findings checked in step 8:
+    `verified N · unconfirmed K · dropped M false positives: …` (name the dropped findings so
+    the user can see what the verify step caught — this is the only trace a refuted finding
+    leaves, since refuted findings aren't persisted).
 
 ---
 
@@ -329,9 +372,25 @@ step-7 YAGNI prune: a clean codebase legitimately produces few or no items, and 
   *why it matters / how bad it is / what could break.*
 - **Impact + rough effort** — plain-English ("medium impact; ~half a day"), so the user
   can prioritize.
-- **Confidence** — **honest**: `deterministic` (a gate could prove this) vs `judgment`
-  (a model's call). Findings here are **model-asserted** — label judgment calls as such;
-  do not present them as verified fact.
+- **Verification + Confidence — one status axis per item, in plain English.** These are two
+  *different* axes: **Confidence** = *could a gate prove this* (`deterministic` vs `judgment`);
+  **Verification** = *was this checked against the code, and what came back* (Phase 2 step 8).
+  To spare a non-engineer reconciling two labels, **show only one per item:**
+  - A **verified-scope item** (Tier-1 or security — the findings step 8 checks) shows its
+    **inline verification tag**, and that tag **supersedes** the `deterministic`/`judgment`
+    confidence label for display:
+    - `(verified against the code)` — a `finding-verifier` confirmed it (proof snippet attached
+      to the technical finding).
+    - `(could not confirm independently — model's assertion)` — the verifier returned
+      `Unconfirmed`; kept, but honestly flagged as still just the model's claim.
+    - `(⚠ not yet verified — re-run to confirm)` — `deferred`: budget ran out before it could be
+      checked (it sits in `pending-cells`; a re-run verifies it).
+  - An **out-of-scope item** (everything else — not Tier-1, not security) keeps its
+    **confidence label** (`deterministic` / `judgment`) exactly as today.
+  - **No item shows both**, and there is **no badge/legend system** — the inline phrase is
+    self-explanatory. Findings the verifier **Refuted** are dropped entirely (they never appear
+    here; their only trace is step 10's run-report line). Be honest either way: a verification
+    tag is a *reduction of false confidence*, not a deterministic guarantee — never overstate it.
 
 ### Tag → discipline  *(the tag→discipline mapping in `docs/WORKFLOW.md` — enforcement is not yet automated)*
 

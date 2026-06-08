@@ -29,7 +29,7 @@ Every one of those errors would have shipped under a normal "looks good to me" w
 
 ## Using the audit (`/claugentic-dev-harness:audit`)
 
-Run it as a **periodic snapshot**, not a treadmill: the backlog **regenerates** (it doesn't pile up), **Tier 3 is optional polish**, and an **empty Tier 1 + Tier 2 means the code is sound** — your signal to stop, not a prompt to invent work. It **auto-sizes** its effort to the repo (override with `quick` / `standard`). *(Full operating rules live in the skill's own "How to use it".)*
+Run it as a **periodic snapshot**, not a treadmill: the backlog **regenerates** (it doesn't pile up), **Tier 3 is optional polish**, and an **empty Tier 1 + Tier 2 means the code is sound** — your signal to stop, not a prompt to invent work. It **auto-sizes** its effort to the repo (override with `quick` / `standard`). And for the findings that matter most — anything **Tier 1 (correctness, security, data-loss)** — it doesn't just *assert* them: a **second, independent agent reads the actual code and tries to disprove each one**, so false alarms are dropped and the survivors arrive with their proof attached. *(That's an honest reduction of false confidence — it doesn't claim to be an absolute guarantee.)* *(Full operating rules live in the skill's own "How to use it".)*
 
 ## When in doubt
 

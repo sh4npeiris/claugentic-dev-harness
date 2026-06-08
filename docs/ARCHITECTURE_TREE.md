@@ -6,11 +6,12 @@ This repo builds the **`claugentic-dev-harness`** Claude Code plugin and dogfood
 
 ## Root
 
-- `README.md` — what `claugentic-dev-harness` is + the concrete value it delivers (the two commands), how it installs, how it works (init → audit → reviewed pipeline), and honest v0.1.1 status.
+- `README.md` — what `claugentic-dev-harness` is + the concrete value it delivers (the two commands), how it installs, how it works (init → audit → reviewed pipeline), and an honest status section (current version).
 - `CLAUDE.md` — lean, generalized guidance for agents working in THIS repo: engineering principles, harness discipline, workflow pointer, Definition of Done.
 - `.gitignore` — ignores local junk + build artifacts; **shares** `.claude/agents/`, `.claude/plans/`, `.claude/settings.json` (ignores only `.claude/settings.local.json`).
 - `.gitattributes` — normalizes line endings (`* text=auto eol=lf`; scripts forced LF) for a cross-platform plugin.
 - `LICENSE` — Apache License 2.0 (the repo is public; © 2026 Shan Peiris).
+- `pyproject.toml` — minimal pytest config (`testpaths=["tests"]`) so `python -m pytest` runs the gate's test suite.
 
 ## docs/ — process, standards, and project memory
 
@@ -45,6 +46,7 @@ This repo builds the **`claugentic-dev-harness`** Claude Code plugin and dogfood
 - `.claude/agents/product-designer.md` — product/UX discovery + design lens (Stage 1, user-facing work): user, job-to-be-done, flows, states, "what good feels like"; applies `product-ux`, persists to `docs/PRODUCT.md`.
 - `.claude/agents/lens-reviewer.md` — audits a **diff (Verify) or an audit-scope (the `audit` skill)** against ONE named `docs/standards/` module; two modes (Verify-diff / Audit-scope), invoked per-lens in a fan-out; read-only, returns per-dimension findings for the synthesizer.
 - `.claude/agents/yagni-sentinel.md` — the anti-over-engineering skeptic: argues a plan/diff is too much (speculative abstraction, premature infra, gold-plating); read-only, returns a cut-list.
+- `.claude/agents/finding-verifier.md` — the audit's adversarial-verify counterpart to `lens-reviewer`: given ONE audit finding (claim + `file:line`, never the finder's rationale), independently reads the cited code and tries to **refute** it → `Verified` / `Refuted` / `Unconfirmed`; read-only, opus. A false-confidence reduction, not a deterministic gate.
 
 ## .claude/plans/ — plan template
 
@@ -56,14 +58,19 @@ This repo builds the **`claugentic-dev-harness`** Claude Code plugin and dogfood
 
 ## .claude-plugin/ — plugin manifest (makes this repo installable)
 
-- `.claude-plugin/plugin.json` — plugin manifest (name `claugentic-dev-harness`, version, metadata); exposes the 6 specialist agents via the `agents` field pointing at `.claude/agents/*` (DRY — no duplicate `agents/` dir). Skills live under `skills/`; bundled hooks/gates not yet shipped.
+- `.claude-plugin/plugin.json` — plugin manifest (name `claugentic-dev-harness`, version, metadata); exposes the 7 specialist agents via the `agents` field pointing at `.claude/agents/*` (DRY — no duplicate `agents/` dir). Skills live under `skills/`; bundled hooks/gates not yet shipped.
 - `.claude-plugin/marketplace.json` — single-plugin marketplace (`name: sh4npeiris`) so `/plugin marketplace add sh4npeiris/claugentic-dev-harness` → `/plugin install claugentic-dev-harness@sh4npeiris` works.
 
 ## skills/ — harness entry points (the `/claugentic-dev-harness:*` family)
 
-- `skills/init/SKILL.md` — the 9-step idempotent scaffold (copy the managed set version-stamped, generate ARCHITECTURE_TREE via the gate's file-list, set `INCLUDE_GLOBS`+`STALE_PATTERN`, merge the tree-check hook, write the CLAUDE.md `harness:managed` fence + Current-scope, git-init, seed ROADMAP/DECISIONS, detect+record tooling); every write detect→create-if-absent/merge-in-fence→report, never-clobber; the cold-install path is proven.
+- `skills/init/SKILL.md` — the 9-step idempotent scaffold (copy the managed set version-stamped, generate ARCHITECTURE_TREE via the gate's file-list, set `INCLUDE_GLOBS`, merge the tree-check hook, write the CLAUDE.md `harness:managed` fence + Current-scope, git-init, seed ROADMAP/DECISIONS, detect+record tooling); every write detect→create-if-absent/merge-in-fence→report, never-clobber; the cold-install path is proven.
 - `skills/audit/SKILL.md` — Understand + Audit + Backlog. Phase 1 = inline overview + audit-plan; Phase 2 = **auto-dial sized from Phase 1** (named level overrides), `lens-reviewer` fan-out (audit-scope mode), dedup, deterministic `(module×dir)` cell resume, **post-dry YAGNI prune**; Phase 3 = tiered/tagged backlog into the `harness-audit:backlog` fence + the **"architecturally sound" terminal signal** when Tier 1/2 are empty.
 
 ## scripts/ — tooling
 
-- `scripts/check_architecture_tree.py` — deterministic (no-LLM) gate enforcing that this index lists every in-scope source file (presence) and references no deleted file (staleness); `--hook` / `--hook-write` modes wired in `.claude/settings.json`. `INCLUDE_GLOBS`/`STALE_PATTERN` are set per-repo by the `init` skill.
+- `scripts/check_architecture_tree.py` — deterministic (no-LLM) gate enforcing that this index lists every in-scope source file (presence) and references no deleted file (staleness); `--hook` / `--hook-write` modes wired in `.claude/settings.json`. `INCLUDE_GLOBS` is the only per-repo knob (set by `init`); the valid-extension set `EXTS` is derived from it and drives both presence and staleness.
+
+## tests/ — gate test suite
+
+- `tests/test_check_architecture_tree.py` — characterization tests for the tree-check gate (presence, staleness incl. the `.ts/.tsx` regression, mode dispatch + exit codes, `--hook-write` stdin); hermetic via mocked `_git`. *(Out of `INCLUDE_GLOBS` — listed for the map, not gate-enforced.)*
+- `tests/conftest.py` — puts `scripts/` on `sys.path` so the gate imports as a module under pytest.

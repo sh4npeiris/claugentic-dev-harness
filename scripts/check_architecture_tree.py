@@ -31,14 +31,18 @@ TREE_PATH = Path("docs/ARCHITECTURE_TREE.md")
 # ─────────────────────────────────────────────────────────────────────────────
 # PER-REPO CONFIG — set by the `init` skill based on the repo's languages.
 # ─────────────────────────────────────────────────────────────────────────────
-# INCLUDE_GLOBS lists the files that MUST be indexed in ARCHITECTURE_TREE.md.
-# The `init` skill detects the target repo's languages/layout and writes the
-# right globs here (e.g. `:(glob)src/**/*.py`, `:(glob)src/**/*.ts`,
-# `:(glob)cmd/**/*.go`, plus any config dirs worth indexing). They are passed to
-# git as pathspecs; the `:(glob)` prefix gives true globstar (** spans
-# directories, incl. zero). STALE_PATTERN below must recognize the same path
-# shapes so the staleness check can spot dangling tree entries — keep the two in
-# sync when you edit either.
+# INCLUDE_GLOBS is the ONLY per-repo knob. It lists the files that MUST be indexed
+# in ARCHITECTURE_TREE.md. The `init` skill detects the target repo's
+# languages/layout and writes the right globs here. They are passed to git as
+# pathspecs; the `:(glob)` prefix gives true globstar (** spans directories, incl.
+# zero).
+#
+# Entries MUST use EXTENSION globs (end in `*.<ext>`, e.g. `:(glob)src/**/*.ts`,
+# `:(glob)cmd/**/*.go`) so the valid extensions are derivable (EXTS below) — that
+# single source of truth drives the staleness check, with no second per-repo regex
+# to keep in sync. An entry with no derivable `*.<ext>` (e.g. a bare directory glob
+# like `:(glob)src/**`) is still PRESENCE-checked but is NOT staleness-checked
+# (its files can't be told apart from any other path token in the tree's prose).
 #
 # For THIS repo (claugentic-dev-harness) the only code is the check script itself.
 INCLUDE_GLOBS = [":(glob)scripts/**/*.py"]
@@ -46,9 +50,30 @@ INCLUDE_GLOBS = [":(glob)scripts/**/*.py"]
 # Substrings that exempt a file (no architectural content).
 EXCLUDE_SUBSTR = ("__pycache__", "/__init__.py")
 
-# Path shapes the staleness check recognizes inside the tree's text.
-# Keep in sync with INCLUDE_GLOBS above (set per-repo by the `init` skill).
-STALE_PATTERN = re.compile(r"(scripts/[\w./-]+\.py)")
+
+def _exts_from_globs(globs: list[str]) -> set[str]:
+    """Derive the set of valid extensions from INCLUDE_GLOBS (single source of truth).
+
+    Parse the trailing `*.<ext>` of each glob and collect lowercase `<ext>`. Entries
+    with no derivable `*.<ext>` (e.g. a bare directory glob) are skipped — those files
+    stay presence-checked but not staleness-checked (see PER-REPO CONFIG above).
+    """
+    exts: set[str] = set()
+    for glob in globs:
+        match = re.search(r"\*\.(\w+)$", glob)
+        if match:
+            exts.add(match.group(1).lower())
+    return exts
+
+
+# Valid extensions for the staleness check, derived from INCLUDE_GLOBS (the only
+# per-repo knob). Empty set ⇒ staleness is a no-op (extension-less globs only).
+EXTS = _exts_from_globs(INCLUDE_GLOBS)
+
+# Candidate path tokens inside the tree's markdown: backtick-quoted, path-shaped,
+# carrying a dot-extension. Repo-agnostic (no per-repo tuning); the extension is
+# then matched against EXTS, which is what makes a token an in-scope reference.
+TOKEN_PATTERN = re.compile(r"`([\w./\\-]+\.\w+)`")
 
 
 def _git(*args: str) -> list[str]:
@@ -72,7 +97,13 @@ def evaluate() -> tuple[list[str], str]:
     text = TREE_PATH.read_text(encoding="utf-8")
     files = in_scope_files()
     missing = sorted(f for f in files if f not in text)
-    referenced = set(STALE_PATTERN.findall(text))
+    # Staleness: extract candidate tokens, normalize `\`→`/` (the tree is markdown
+    # text; the FS may be Windows — mirror in_scope_files()'s normalization on this
+    # side too), and keep only those whose last-dot extension is in EXTS. Whole-
+    # extension equality structurally avoids the alternation bug (e.g. `ts` matching
+    # inside `tsx`). No path-prefix filter — extension equality alone scopes it.
+    candidates = (t.replace("\\", "/") for t in TOKEN_PATTERN.findall(text))
+    referenced = {p for p in candidates if p.rsplit(".", 1)[-1].lower() in EXTS}
     stale = sorted(p for p in referenced if not Path(p).exists())
 
     problems: list[str] = []

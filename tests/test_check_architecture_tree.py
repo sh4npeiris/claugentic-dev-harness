@@ -1,0 +1,309 @@
+"""Characterization + regression tests for the architecture-tree gate.
+
+The gate (`scripts/check_architecture_tree.py`) is the one deterministic component
+the whole harness trusts. These tests lock its behaviour so a future edit can't
+silently regress it (it once carried a latent `ts`-before-`tsx` staleness bug while
+still reporting green).
+
+Hermetic by construction:
+  * `_git` is monkeypatched so no real repo state leaks in.
+  * `tmp_path` + `chdir` give a real (controlled) filesystem for `Path.exists()`.
+  * `INCLUDE_GLOBS`/`EXTS` are monkeypatched per-test to exercise multi-extension
+    repos without touching this repo's own config.
+"""
+
+from __future__ import annotations
+
+import pytest
+
+import check_architecture_tree as cat
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Helpers
+# ─────────────────────────────────────────────────────────────────────────────
+@pytest.fixture
+def repo(tmp_path, monkeypatch):
+    """A scratch repo: chdir into tmp_path, point TREE_PATH at it, stub _git empty.
+
+    Returns the tmp_path root so a test can materialise files for `Path.exists()`.
+    Individual tests override `in_scope_files` (via _git) and `INCLUDE_GLOBS`/`EXTS`
+    as needed.
+    """
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(cat, "TREE_PATH", cat.Path("docs/ARCHITECTURE_TREE.md"))
+    # Default: git reports nothing in scope (presence check is then trivially OK).
+    monkeypatch.setattr(cat, "_git", lambda *args: [])
+    return tmp_path
+
+
+def _write_tree(root, text: str) -> None:
+    tree = root / "docs" / "ARCHITECTURE_TREE.md"
+    tree.parent.mkdir(parents=True, exist_ok=True)
+    tree.write_text(text, encoding="utf-8")
+
+
+def _touch(root, rel: str) -> None:
+    p = root / rel
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text("x", encoding="utf-8")
+
+
+def _set_scope(monkeypatch, globs: list[str], files: list[str]) -> None:
+    """Configure the per-repo knob + the file list git would report."""
+    monkeypatch.setattr(cat, "INCLUDE_GLOBS", globs)
+    monkeypatch.setattr(cat, "EXTS", cat._exts_from_globs(globs))
+    monkeypatch.setattr(cat, "_git", lambda *args: list(files))
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# _exts_from_globs — the single source of truth for valid extensions
+# ─────────────────────────────────────────────────────────────────────────────
+class TestExtsFromGlobs:
+    def test_single_extension_glob(self):
+        assert cat._exts_from_globs([":(glob)scripts/**/*.py"]) == {"py"}
+
+    def test_multiple_globs_collected(self):
+        assert cat._exts_from_globs(
+            [":(glob)src/**/*.ts", ":(glob)src/**/*.tsx"]
+        ) == {"ts", "tsx"}
+
+    def test_extension_lowercased(self):
+        assert cat._exts_from_globs([":(glob)src/**/*.PY"]) == {"py"}
+
+    def test_root_glob_no_prefix(self):
+        # A root-level glob with no directory prefix still yields its extension.
+        assert cat._exts_from_globs([":(glob)**/*.go"]) == {"go"}
+
+    def test_extension_less_glob_skipped(self):
+        # A bare directory glob has no derivable `*.ext` — skipped gracefully.
+        assert cat._exts_from_globs([":(glob)src/**"]) == set()
+
+    def test_mixed_extension_and_extension_less(self):
+        assert cat._exts_from_globs(
+            [":(glob)src/**", ":(glob)cmd/**/*.go"]
+        ) == {"go"}
+
+    def test_empty_globs(self):
+        assert cat._exts_from_globs([]) == set()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# evaluate() — PRESENCE
+# ─────────────────────────────────────────────────────────────────────────────
+class TestPresence:
+    def test_missing_tree_file_errors(self, repo):
+        # No tree on disk → loud error, not a silent pass.
+        problems, summary = cat.evaluate()
+        assert summary == ""
+        assert any("is missing" in p for p in problems)
+
+    def test_all_indexed_is_ok(self, repo, monkeypatch):
+        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], ["scripts/a.py"])
+        _touch(repo, "scripts/a.py")
+        _write_tree(repo, "# Tree\n- `scripts/a.py` — does a thing.\n")
+        problems, summary = cat.evaluate()
+        assert problems == []
+        assert "indexes all 1 in-scope files" in summary
+
+    def test_undocumented_in_scope_file_flagged(self, repo, monkeypatch):
+        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], ["scripts/a.py"])
+        _touch(repo, "scripts/a.py")
+        _write_tree(repo, "# Tree\n(nothing useful here)\n")
+        problems, _ = cat.evaluate()
+        assert any("MISSING an entry" in p for p in problems)
+        assert any("scripts/a.py" in p for p in problems)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# evaluate() — STALENESS (the bug-prone path)
+# ─────────────────────────────────────────────────────────────────────────────
+class TestStaleness:
+    def test_existing_reference_not_stale(self, repo, monkeypatch):
+        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], [])
+        _touch(repo, "scripts/a.py")
+        _write_tree(repo, "# Tree\n- `scripts/a.py` — exists.\n")
+        problems, _ = cat.evaluate()
+        assert problems == []
+
+    def test_dangling_reference_is_stale(self, repo, monkeypatch):
+        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], [])
+        _write_tree(repo, "# Tree\n- `scripts/gone.py` — was deleted.\n")
+        problems, _ = cat.evaluate()
+        assert any("NO LONGER EXIST" in p for p in problems)
+        assert any("scripts/gone.py" in p for p in problems)
+
+    def test_ts_tsx_regression_no_false_stale(self, repo, monkeypatch):
+        """The exact bug class: a tree citing an existing `foo.tsx` must NOT be
+        flagged stale. The old per-repo staleness regex used naive alternation
+        (`(?:ts|tsx)`) that matched `ts` before `tsx`, truncating `foo.tsx`→`foo.ts`
+        and producing a false 'stale' positive. Whole-extension equality kills it.
+
+        EXTS is set to a `.ts`+`.tsx` pair so this exercises the multi-extension repo.
+        """
+        _set_scope(
+            monkeypatch,
+            [":(glob)src/**/*.ts", ":(glob)src/**/*.tsx"],
+            [],
+        )
+        _touch(repo, "src/foo.tsx")
+        _write_tree(repo, "# Tree\n- `src/foo.tsx` — a component that exists.\n")
+        problems, _ = cat.evaluate()
+        assert problems == [], f"false stale positive on .tsx: {problems}"
+
+    def test_ts_tsx_regression_missing_tsx_is_stale(self, repo, monkeypatch):
+        """The flip side: a missing `gone.tsx` MUST still be flagged stale."""
+        _set_scope(
+            monkeypatch,
+            [":(glob)src/**/*.ts", ":(glob)src/**/*.tsx"],
+            [],
+        )
+        _write_tree(repo, "# Tree\n- `src/gone.tsx` — deleted component.\n")
+        problems, _ = cat.evaluate()
+        assert any("src/gone.tsx" in p for p in problems)
+
+    def test_deep_monorepo_path(self, repo, monkeypatch):
+        """A deep/monorepo path is handled the same as any other — extension match,
+        existence check, no prefix gymnastics."""
+        _set_scope(monkeypatch, [":(glob)**/*.tsx"], [])
+        _write_tree(
+            repo,
+            "# Tree\n- `packages/app/src/x.tsx` — deep, missing.\n",
+        )
+        problems, _ = cat.evaluate()
+        assert any("packages/app/src/x.tsx" in p for p in problems)
+
+    def test_token_with_out_of_scope_extension_ignored(self, repo, monkeypatch):
+        """A path-shaped token whose extension is not in EXTS is never a staleness
+        candidate (e.g. a `.md` reference when EXTS == {py})."""
+        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], [])
+        _write_tree(
+            repo,
+            "# Tree\n- `docs/SOMETHING.md` — a doc that does not exist on disk.\n",
+        )
+        problems, _ = cat.evaluate()
+        assert problems == [], f"out-of-EXTS token wrongly treated as stale: {problems}"
+
+    def test_extension_less_glob_skips_staleness(self, repo, monkeypatch):
+        """An extension-less INCLUDE_GLOBS entry → EXTS empty → staleness is a
+        no-op (presence still works); a dangling `.py` reference is NOT flagged."""
+        _set_scope(monkeypatch, [":(glob)src/**"], [])
+        _write_tree(repo, "# Tree\n- `src/gone.py` — would be stale, but EXTS empty.\n")
+        problems, _ = cat.evaluate()
+        assert problems == []
+
+    def test_windows_path_normalization(self, repo, monkeypatch):
+        """`evaluate()` must normalize `\\`→`/` on extracted tokens so a tree citing
+        `a/b.py` matches the real file regardless of OS path separators.
+
+        We write the file with forward slashes (Path handles the native sep) and the
+        tree cites it with a backslash — the extractor must normalize and find it.
+        """
+        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], [])
+        _touch(repo, "scripts/sub/b.py")
+        _write_tree(repo, "# Tree\n- `scripts\\sub\\b.py` — cited with backslashes.\n")
+        problems, _ = cat.evaluate()
+        assert problems == [], f"backslash path not normalized: {problems}"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# main() — mode dispatch + exit codes
+# ─────────────────────────────────────────────────────────────────────────────
+class TestMainDispatch:
+    def test_ok_default_mode_exit_0_prints_summary(self, repo, monkeypatch, capsys):
+        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], ["scripts/a.py"])
+        _touch(repo, "scripts/a.py")
+        _write_tree(repo, "# Tree\n- `scripts/a.py` — does a thing.\n")
+        rc = cat.main([])
+        assert rc == 0
+        assert "OK:" in capsys.readouterr().out
+
+    def test_ok_hook_mode_exit_0_silent(self, repo, monkeypatch, capsys):
+        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], ["scripts/a.py"])
+        _touch(repo, "scripts/a.py")
+        _write_tree(repo, "# Tree\n- `scripts/a.py` — does a thing.\n")
+        rc = cat.main(["--hook"])
+        assert rc == 0
+        # Hook mode is silent on success (no nagging the agent on every Stop).
+        assert capsys.readouterr().out == ""
+
+    def test_problem_default_mode_exit_1(self, repo, monkeypatch, capsys):
+        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], ["scripts/a.py"])
+        _touch(repo, "scripts/a.py")
+        _write_tree(repo, "# Tree\n(undocumented)\n")
+        rc = cat.main([])
+        assert rc == 1
+        assert "MISSING an entry" in capsys.readouterr().out
+
+    def test_problem_hook_mode_exit_2_stderr(self, repo, monkeypatch, capsys):
+        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], ["scripts/a.py"])
+        _touch(repo, "scripts/a.py")
+        _write_tree(repo, "# Tree\n(undocumented)\n")
+        rc = cat.main(["--hook"])
+        assert rc == 2
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert "MISSING an entry" in captured.err
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# main(--hook-write) — PostToolUse(Write) nudge via stdin
+# ─────────────────────────────────────────────────────────────────────────────
+class TestHookWrite:
+    def _feed_stdin(self, monkeypatch, payload: str) -> None:
+        import io
+
+        monkeypatch.setattr(cat.sys, "stdin", io.StringIO(payload))
+
+    def test_well_formed_new_undocumented_exit_2(self, repo, monkeypatch, capsys):
+        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], ["scripts/new.py"])
+        _write_tree(repo, "# Tree\n(empty)\n")
+        self._feed_stdin(
+            monkeypatch,
+            '{"tool_input": {"file_path": "/abs/repo/scripts/new.py"}}',
+        )
+        rc = cat.main(["--hook-write"])
+        assert rc == 2
+        assert "not in docs/ARCHITECTURE_TREE.md" in capsys.readouterr().err
+
+    def test_malformed_stdin_returns_none_exit_0(self, repo, monkeypatch):
+        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], ["scripts/new.py"])
+        self._feed_stdin(monkeypatch, "{not valid json")
+        # Malformed payload → no path → silent no-op (never crash the agent's Write).
+        assert cat._written_path_from_stdin() is None
+        assert cat.main(["--hook-write"]) == 0
+
+    def test_already_indexed_exit_0(self, repo, monkeypatch):
+        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], ["scripts/seen.py"])
+        _write_tree(repo, "# Tree\n- `scripts/seen.py` — already documented.\n")
+        self._feed_stdin(
+            monkeypatch,
+            '{"tool_input": {"file_path": "/abs/repo/scripts/seen.py"}}',
+        )
+        assert cat.main(["--hook-write"]) == 0
+
+    def test_out_of_scope_file_exit_0(self, repo, monkeypatch):
+        # README.md is not in INCLUDE_GLOBS → not our concern → silent.
+        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], ["scripts/a.py"])
+        _write_tree(repo, "# Tree\n- `scripts/a.py` — x.\n")
+        self._feed_stdin(
+            monkeypatch,
+            '{"tool_input": {"file_path": "/abs/repo/README.md"}}',
+        )
+        assert cat.main(["--hook-write"]) == 0
+
+    def test_overwrite_of_indexed_file_exit_0(self, repo, monkeypatch):
+        # Overwriting an already-indexed in-scope file is fine — no nudge.
+        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], ["scripts/a.py"])
+        _write_tree(repo, "# Tree\n- `scripts/a.py` — already here.\n")
+        self._feed_stdin(
+            monkeypatch,
+            '{"tool_input": {"file_path": "scripts/a.py"}}',
+        )
+        assert cat.main(["--hook-write"]) == 0
+
+    def test_no_file_path_in_payload_exit_0(self, repo, monkeypatch):
+        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], ["scripts/a.py"])
+        self._feed_stdin(monkeypatch, '{"tool_input": {}}')
+        assert cat._written_path_from_stdin() is None
+        assert cat.main(["--hook-write"]) == 0

@@ -24,6 +24,6 @@ Substantial work follows the staged pipeline in **`docs/WORKFLOW.md`** — Triag
 
 ## Definition of Done
 
-A slice **lands** only when: acceptance criteria met **+** the in-scope `docs/ENGINEERING_STANDARDS.md` dimensions pass the `architect-reviewer` audit **+** all gates green (full tests incl. any regression/snapshot tests, `python scripts/check_architecture_tree.py`, and the project's lint / type-check / security gates) **+** **no new tech debt.**
+A slice **lands** only when: acceptance criteria met **+** the in-scope `docs/ENGINEERING_STANDARDS.md` dimensions pass the `architect-reviewer` audit **+** all gates green (full tests via `python -m pytest`, incl. any regression/snapshot tests, `python scripts/check_architecture_tree.py`, and the project's lint / type-check / security gates) **+** **no new tech debt.**
 
 The engineering quality bar is **`docs/ENGINEERING_STANDARDS.md`** — a project-agnostic, ever-growing catch-all; the spec names the in-scope dimensions per slice and the reviewer audits against them.

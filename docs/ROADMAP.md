@@ -12,9 +12,9 @@ Status: `NEXT` (queued) · `LATER`.
 
 | Item | Why it matters | Status |
 |------|----------------|--------|
-| **Real-app dogfood** — prove `/claugentic-dev-harness:audit` produces a sharp, cited backlog on a real (JS) application. | The cold install is proven; this is the adoption-critical demo — that the audit yields a genuinely useful, accurately-cited backlog on code the harness didn't write. | NEXT |
-| **Deterministic trust-gates** — the independent verification track: a `PreToolUse` characterization-tests-first hook + a secret-scan gate. | These are the "teeth" that are today model-upheld. The harness's #1 risk is false confidence from the same model class grading its own work; deterministic, model-independent signals are what make the quality bar real. | NEXT |
-| **Test baseline for `scripts/check_architecture_tree.py`** — characterization tests for the one behavior-bearing file (mode dispatch + exit-code contract, the `STALE_PATTERN` regex, path-normalization, stdin-JSON parsing). | It's the linchpin gate the whole harness trusts and it has no safety net — a future tweak could silently stop it catching problems while still reporting "green." Tier-1 of the harness's own audit; lands with the trust-gate work. | NEXT |
+| **Deterministic trust-gates** — the independent, *model-independent* verification track: a `PreToolUse` characterization-tests-first hook + a secret-scan gate. | The harness's #1 risk is false confidence from the same model class grading its own work. The audit's `finding-verifier` (v0.1.2) *reduces* that; these gates *remove* it wherever a fact is mechanically checkable. The tree-gate now has a test baseline (✓ v0.1.2) to build on. | NEXT |
+
+> **Done (v0.1.2):** Real-app dogfood (an adopter) · the audit's verify-findings pass + `finding-verifier` agent · the tree-gate test baseline (`STALE_PATTERN`→`EXTS`). See `docs/DECISIONS.md` 2026-06-08.
 
 ## Later
 
@@ -24,3 +24,5 @@ Status: `NEXT` (queued) · `LATER`.
 | **`/claugentic-dev-harness:explain`** — teach-as-you-go for non-engineers. | Lowers the barrier for the harness's target audience (someone driving AI-assisted development without a deep engineering background). | LATER |
 | **Grow the role library** (`.claude/agents/`) as new specialist needs emerge from dogfooding. | The workflow delegates to specialists; more real use surfaces gaps the starter set doesn't cover. | LATER |
 | **Capability modules** (Redis, queues, object-storage, …) authored just-in-time. | The catalog modernizes vibe-coded apps (introduce new tech safely), not just cleans code — but these are authored only when a real audit pulls one in (YAGNI). | LATER |
+| **Deepen finding-verification by dial** — `standard` also verifies `deterministic`-labeled findings; `thorough` verifies **all** findings + a second adversarial sweep. | v0.1.2 verifies Tier-1 + security on every dial (the trust floor). Scaling verification by dial is a cost/coverage trade to make once real-audit cost is measured — and it's what the deferred `thorough` level becomes. | LATER |
+| **Fail loud when `git` is unavailable** in `scripts/check_architecture_tree.py` — today a missing/failed `git` yields an empty file list, so the gate reports "green" instead of erroring. | The linchpin gate's "green" must be trustworthy; a silent false-green undercuts the whole point. Add the guard + a companion test. | LATER |
