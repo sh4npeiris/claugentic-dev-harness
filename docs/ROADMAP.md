@@ -21,10 +21,11 @@ _Ordered by recommended sequence (top = first). Items 1–3 are the critical pat
 | 5 | **Deterministic trust-gates** — the model-*independent* track: a `PreToolUse` characterization-tests-first hook + a secret-scan gate. | The mechanical CI. With #4, this is what makes autopilot *trustworthy* rather than asserted — tests mechanically gate every slice. | NEXT |
 | 6 | **Plugin-read architecture** *(supersedes `/...:update`)* — agents read standards/workflow from `${CLAUDE_PLUGIN_ROOT}/docs/…`; `init` shrinks + becomes refresh-capable. Validated (Slice 0); see plan `0002`. | One source of truth refreshed by the marketplace → deletes `/update` + the copy-staleness problem. Independent of the autonomy work. | NEXT |
 
-## Later
+## Later — growing the two libraries (ongoing · just-in-time)
 
-| Item | Why it matters | Status |
+Once everything in **Next** ships, the only standing work is growing the harness's two libraries as it meets more codebases. Neither is ever "done" — they grow as the harness sees more projects, which is the right shape for LATER.
+
+| Track | Why it matters | Status |
 |------|----------------|--------|
-| **`/claugentic-dev-harness:explain`** — teach-as-you-go for non-engineers. | Lowers the barrier for the harness's target audience (someone driving AI-assisted development without a deep engineering background). | LATER |
-| **Grow the role library** (`.claude/agents/`) as new specialist needs emerge from dogfooding. | The workflow delegates to specialists; more real use surfaces gaps the starter set doesn't cover. | LATER |
-| **Capability modules** (Redis, queues, object-storage, …) authored just-in-time. | The catalog modernizes vibe-coded apps (introduce new tech safely), not just cleans code — but these are authored only when a real audit pulls one in (YAGNI). | LATER |
+| **Grow the role library** (`.claude/agents/`) — add specialist agents as real use surfaces gaps the starter set lacks. | The workflow delegates to specialists; more real use surfaces gaps. Add a role when a gap is *real*, never speculatively. | LATER |
+| **Grow the standards catalog** — author **capability modules** (Redis, queues, object-storage, …) as real projects pull them in. | The catalog modernizes vibe-coded apps (introduce new tech safely), not just cleans code — authored just-in-time when a real audit pulls one in (YAGNI). | LATER |

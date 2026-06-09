@@ -18,7 +18,7 @@ A Claude Code plugin that makes AI-assisted coding **disciplined and reviewable*
 
 The functional core is **live**: both `init` and `audit` work, and `init` installs cleanly into a fresh repo. The audit **independently verifies its Tier-1 + security findings** — a separate agent tries to refute each one against the code, so false positives are dropped and the rest arrive with proof.
 
-That finding-verification is an honest *reduction* of false confidence, **not** a deterministic guarantee (it's the same model class, run independently and adversarially). The genuinely **mechanical, model-independent trust-gates** — a characterization-tests-first hook + a secret-scan — are **not built yet**, and sit at the top of the [roadmap](docs/ROADMAP.md), alongside `…:update` (re-sync managed copies) and `…:explain` (teach-as-you-go). Today the review discipline is upheld by independent skeptical agents + the deterministic architecture-tree gate. The harness's whole pitch is honesty, so it states only what's real.
+That finding-verification is an honest *reduction* of false confidence, **not** a deterministic guarantee (it's the same model class, run independently and adversarially). The genuinely **mechanical, model-independent trust-gates** — a characterization-tests-first hook + a secret-scan — are **not built yet** — they're the top of the [roadmap](docs/ROADMAP.md). Today the review discipline is upheld by independent skeptical agents + the deterministic architecture-tree gate. The harness's whole pitch is honesty, so it states only what's real.
 
 ## Install
 
