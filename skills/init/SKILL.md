@@ -218,7 +218,14 @@ volatile content** so a re-write is byte-identical:
 
 ### 9. Report
 
-Emit a clear summary, grouped:
+**Lead with a plain-English headline** — before the grouped technical summary — so a
+non-engineer reads the reassurance first: *"Done — I added a code map, a quality checklist,
+and a safety check. I did NOT change any of your code or overwrite your files."* Then a
+generic **next step**: *"Start a fresh chat, then either run `/claugentic-dev-harness:audit`
+on existing code, or just tell me what you want to build."* *(Keep the next step generic for
+now — tailoring it to whether the repo already has code is a separate, later change.)*
+
+Then emit the clear summary, grouped:
 - **Created** — files written from scratch (e.g. `ARCHITECTURE_TREE.md`, `ROADMAP.md`).
 - **Copied + stamped** — the managed set that was absent (or "all skipped — already
   copied").

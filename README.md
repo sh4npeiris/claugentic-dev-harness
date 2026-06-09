@@ -22,10 +22,14 @@ That finding-verification is an honest *reduction* of false confidence, **not** 
 
 ## Install
 
+Type these in the Claude Code chat input — the same place you talk to Claude (not a separate terminal):
+
 ```
 /plugin marketplace add sh4npeiris/claugentic-dev-harness
 /plugin install claugentic-dev-harness@sh4npeiris
 ```
+
+**Success check:** type `/claugentic` and you should see `:init` and `:audit` offered — that's it installed.
 
 Public + **Apache-2.0** — free to install and use. Install at **user scope** to use it across all your repos.
 
@@ -34,17 +38,16 @@ Public + **Apache-2.0** — free to install and use. Install at **user scope** t
 **If the install doesn't show up** (the plugin list looks empty, or `init` / `audit` aren't found right after you add the marketplace) — Claude Code is usually holding a stale plugin cache. The marketplace and plugin themselves are fine; you just need to rebuild the local index:
 
 1. **Quit Claude Code completely** (not just the window).
-2. **Delete the `plugin-catalog-cache.json` file** from your Claude Code config folder (`~/.claude/` on macOS/Linux, `%USERPROFILE%\.claude\` on Windows — search your home folder for that filename if you're unsure where it lives).
+2. **Delete the `plugin-catalog-cache.json` file** from your Claude Code config folder (`~/.claude/` on macOS/Linux; on Windows it's at `%USERPROFILE%\.claude\plugin-catalog-cache.json` — search your home folder for that filename if you're unsure where it lives). **This file is just a cache; deleting it is safe — Claude Code rebuilds it on restart.**
 3. **Reopen Claude Code** and run the two install commands above again.
 
 ## Quickstart
 
-Two commands, in order:
+In order:
 
 1. **`/claugentic-dev-harness:init`** — scaffolds the harness into your repo (safe — never overwrites; you'll see a created/skipped/merged summary).
-2. **`/claugentic-dev-harness:audit`** — explains the codebase in plain English + writes a prioritized backlog into `docs/ROADMAP.md` (a large repo may finish in passes and say "re-run to continue" — that's expected).
-
-**Tip:** start a fresh chat after `init` so it picks up the new setup.
+2. **Start a fresh chat after `init`** so the agent picks up the new setup.
+3. **`/claugentic-dev-harness:audit`** — explains the codebase in plain English + writes a prioritized backlog into `docs/ROADMAP.md` (a large repo may finish in passes and say "re-run to continue" — that's expected).
 
 New to this? Read [`docs/PLAYBOOK.md`](docs/PLAYBOOK.md).
 
@@ -53,6 +56,8 @@ New to this? Read [`docs/PLAYBOOK.md`](docs/PLAYBOOK.md).
 1. **`init`** scaffolds the managed harness into your repo.
 2. **`audit`** explains the codebase + writes a tiered, tagged backlog into `docs/ROADMAP.md` (for untested behavior-bearing code, "establish a test baseline" comes first).
 3. **You pick an item; the staged workflow lands it** — one reviewed slice at a time. The item's **tag selects the discipline** (a `refactor` on untested code is gated behind a characterization-test baseline first).
+
+**To start anything — a backlog item or a brand-new project — just tell the agent in plain English what you want** (e.g. "Let's do Tier-1 item 1" or "I want to build X"). It will ask you questions (Discuss), then write a plan and spec for you to approve before any code.
 
 Works the same for a **mature codebase** (audit → incremental backlog) and a **new project** (the workflow governs from the first feature; the index + standards apply from day one).
 

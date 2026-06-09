@@ -14,6 +14,17 @@ The whole system is built so you steer **what gets built and what "done" means**
 2. **Approve the Spec.** Nothing gets built before you sign off on *what* will be built and *what "done" means*. You approve intent, not code. This is your steering wheel.
 3. **Approve lessons.** When the harness says "I think this should become a standard," you keep or kill it. That's how the standards stay *yours*.
 
+### How to approve a spec (you don't need to read the code)
+
+When the agent hands you a spec to approve, read the plain-English part and ask yourself:
+
+- **Does this match what I asked for?**
+- **Is anything I care about missing?**
+- **Are the risks ones I'm OK with?**
+- **What does it explicitly NOT do?** (a good spec says so.)
+
+If any answer is "no," say **"this is missing X, please revise"** — you don't have to fix it yourself. And the technical detail below the plain-English block is for the agent and reviewer to check against — **you are not expected to read it.**
+
 Everything else — reading code, writing it, reviewing it — the harness fans out to specialists so your attention stays on decisions.
 
 ## Why it's trustworthy
@@ -24,9 +35,17 @@ Three moves make the output worth trusting:
 2. **Anything that can be checked mechanically is checked, not believed** — a test, a `grep`, a web-lookup. Models produce confident, professional-looking errors; a deterministic check doesn't care how confident the prose is.
 3. **It's honest about its limits.** Where a claim *can't* be checked mechanically, the harness labels the finding as judgment, not proof — so you always know which is which.
 
+## How to start work
+
+**To start anything — a backlog item or a brand-new project — just tell the agent in plain English what you want** (e.g. "Let's do Tier-1 item 1" or "I want to build X"). It will ask you questions (Discuss), then write a plan and spec for you to approve before any code. That's the go-button: you describe what you want, it drives the workflow.
+
+**If the agent starts writing code without asking you product questions first, say "use the workflow"** — it should pause and ask.
+
 ## Using the audit (`/claugentic-dev-harness:audit`)
 
 Run it as a **periodic snapshot**, not a treadmill: the backlog **regenerates** (it doesn't pile up), **Tier 3 is optional polish**, and an **empty Tier 1 + Tier 2 means the code is sound** — your signal to stop, not a prompt to invent work. It **auto-sizes** its effort to the repo (override with `quick` / `standard`). And for the findings that matter most — anything **Tier 1 (correctness, security, data-loss)** — it doesn't just *assert* them: a **second, independent agent reads the actual code and tries to disprove each one**, so false alarms are dropped and the survivors arrive with their proof attached. *(That's an honest reduction of false confidence — it doesn't claim to be an absolute guarantee.)* *(Full operating rules live in the skill's own "How to use it".)*
+
+Once the backlog is written, starting an item is the same go-button as everything else: **tell the agent "let's do Tier-1 item 1"** (or whichever) in plain English, and it runs the workflow from Discuss.
 
 ## When in doubt
 
