@@ -12,13 +12,13 @@ Status: `NEXT` (queued) · `LATER`.
 
 | Item | Why it matters | Status |
 |------|----------------|--------|
+| **Plugin-read architecture** *(supersedes `/...:update`)* — agents read the standards/workflow from `${CLAUDE_PLUGIN_ROOT}/docs/…` instead of copy-on-init; `init` shrinks to per-repo essentials and becomes refresh-capable. | **Proven viable** (a subagent reads a plugin-bundled file by absolute path). One source of truth refreshed by the marketplace → deletes the `/update` skill *and* the copy-staleness problem (e.g. the gate fix reaching existing adopters). See plan `0002` + `DECISIONS.md`. | NEXT |
 | **Deterministic trust-gates** — the independent, *model-independent* verification track: a `PreToolUse` characterization-tests-first hook + a secret-scan gate. | The harness's #1 risk is false confidence from the same model class grading its own work. The audit's `finding-verifier` *reduces* that; these gates *remove* it wherever a fact is mechanically checkable. The tree-gate's test baseline is there to build on. | NEXT |
 
 ## Later
 
 | Item | Why it matters | Status |
 |------|----------------|--------|
-| **`/claugentic-dev-harness:update`** — re-sync managed copies in an adopter repo via the version stamp. | Closes the lifecycle: init copies, update refreshes. The managed-stamp + fence conventions already define its input contract. | LATER |
 | **`/claugentic-dev-harness:explain`** — teach-as-you-go for non-engineers. | Lowers the barrier for the harness's target audience (someone driving AI-assisted development without a deep engineering background). | LATER |
 | **Grow the role library** (`.claude/agents/`) as new specialist needs emerge from dogfooding. | The workflow delegates to specialists; more real use surfaces gaps the starter set doesn't cover. | LATER |
 | **Capability modules** (Redis, queues, object-storage, …) authored just-in-time. | The catalog modernizes vibe-coded apps (introduce new tech safely), not just cleans code — but these are authored only when a real audit pulls one in (YAGNI). | LATER |
