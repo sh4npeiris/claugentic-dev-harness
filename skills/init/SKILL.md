@@ -141,6 +141,22 @@ its valid extensions from it (`EXTS`), so there is no second regex to keep in sy
   directory glob — and **report** "globs set conservatively for an unrecognized layout;
   refine `INCLUDE_GLOBS` in `scripts/check_architecture_tree.py` if needed." Never guess a
   layout you can't see — broaden (more extension globs) + flag instead.
+- **No application source yet?** When the *Application source present* predicate (defined in
+  `/claugentic-dev-harness:audit` Phase 1 — the same detection above, the single source of
+  truth) is **false** — an empty / docs-only repo where there is nothing to track — set
+  **`INCLUDE_GLOBS = []`** (the safe, well-defined "unset" state: presence/staleness become
+  no-ops, never a fail-open whole-repo scan) and **report** "no source yet — file-tracking is
+  unset; I'll configure it when you add code." Do **not** guess globs over an empty repo.
+- **Terminating self-correction (when the gate later flags zero-coverage drift).** Once real
+  code lands, the gate's **drift detection** (mechanical) flags that `INCLUDE_GLOBS` watches
+  *no* files while the repo now contains source. The agent then **re-runs this step-5 detection**
+  (reusing audit Phase 1 — DRY) and **resets `INCLUDE_GLOBS`** to match the now-visible layout,
+  then **reconciles the tree (step-4 loop)**. **Termination:** drift clears the instant the
+  reset globs match **≥1** file (`in_scope_files()` non-empty → the gate stops flagging drift);
+  if the stack is genuinely unmappable, fall back to the **broaden-and-flag** rule above (emit
+  the dominant source-extension globs) — those still match ≥1 file, so drift clears. This
+  **never loops forever and never silences drift** — it resets the config so the gate can watch
+  the real code.
 - Edit **only** the copied script (step 3 placed it). You only set this one constant.
 
 **(b) Wire the hook into `.claude/settings.json` (JSON-merge — the most dangerous write).**

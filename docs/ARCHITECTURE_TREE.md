@@ -68,7 +68,7 @@ This repo builds the **`claugentic-dev-harness`** Claude Code plugin. The only e
 
 ## scripts/ — tooling
 
-- `scripts/check_architecture_tree.py` — deterministic (no-LLM) gate enforcing that this index lists every in-scope source file (presence) and references no deleted file (staleness); `--hook` / `--hook-write` modes wired in `.claude/settings.json`. `INCLUDE_GLOBS` is the only per-repo knob (set by `init`); the valid-extension set `EXTS` is derived from it and drives both presence and staleness.
+- `scripts/check_architecture_tree.py` — deterministic (no-LLM) gate enforcing that this index lists every in-scope source file (presence), references no deleted file (staleness), and **detects glob drift** (flags — does not auto-fix — when `INCLUDE_GLOBS` watches no files while the repo contains non-harness-managed source, the zero-coverage rot); `--hook` / `--hook-write` modes wired in `.claude/settings.json`. `INCLUDE_GLOBS` is the only per-repo knob for presence/staleness (set by `init`); the valid-extension set `EXTS` is derived from it. Drift detection uses a separate, stable `SOURCE_EXTS` allow-list + the `claugentic-dev-harness@` managed-stamp exclusion (no per-repo knob).
 
 ## tests/ — gate test suite
 

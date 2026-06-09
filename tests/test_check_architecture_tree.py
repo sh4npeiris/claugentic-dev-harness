@@ -56,6 +56,43 @@ def _set_scope(monkeypatch, globs: list[str], files: list[str]) -> None:
     monkeypatch.setattr(cat, "_git", lambda *args: list(files))
 
 
+def _git_router(monkeypatch, *, in_scope: list[str], repo_wide: list[str]):
+    """Install an args-aware `_git` that distinguishes the gate's two call shapes.
+
+    The drift path makes UN-scoped `ls-files` calls (no `:(glob)` pathspec — they see the
+    whole repo); `in_scope_files()` makes GLOB-scoped calls (args carry a `:(glob)` pathspec).
+    Return `repo_wide` for the former and `in_scope` for the latter, so a single test can
+    drive both `in_scope_files()` and `_repo_source_files()` truthfully.
+
+    Returns the list of arg-tuples the gate passed to `_git`, so a test can assert that
+    git was NEVER invoked with an empty/`--`-only pathspec (the fail-open guard).
+    """
+    calls: list[tuple[str, ...]] = []
+
+    def fake_git(*args: str) -> list[str]:
+        calls.append(args)
+        if any(":(glob)" in a for a in args):
+            return list(in_scope)
+        return list(repo_wide)
+
+    monkeypatch.setattr(cat, "_git", fake_git)
+    return calls
+
+
+def _stamp(root, rel: str) -> None:
+    """Materialise a harness-managed source file (the managed stamp on line 1).
+
+    `_is_harness_managed` reads line 1 from disk, so the file must really exist with the
+    `claugentic-dev-harness@<ver>` token first — mirrors a copied gate script in an adopter.
+    """
+    p = root / rel
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(
+        "# claugentic-dev-harness@0.1.0 managed — do not edit.\nprint('x')\n",
+        encoding="utf-8",
+    )
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # _exts_from_globs — the single source of truth for valid extensions
 # ─────────────────────────────────────────────────────────────────────────────
@@ -414,3 +451,181 @@ class TestMainGitFailure:
         assert cat.main(["--hook-write"]) == 0
         # Silent: no nag on a gate it couldn't even run.
         assert capsys.readouterr().err == ""
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# glob_drift — the zero-coverage trip-wire (the reason this slice exists)
+# ─────────────────────────────────────────────────────────────────────────────
+class TestGlobDrift:
+    def test_headline_empty_globs_after_real_source_lands_is_blocking(
+        self, repo, monkeypatch, capsys
+    ):
+        """THE transition the slice exists for: `INCLUDE_GLOBS == []` (init's 'unset' on
+        an empty repo) AFTER real source has landed. in_scope is empty, so drift censuses
+        the repo, finds `src/app.ts`, and `evaluate()` must go BLOCKING — never silent-green.
+        Asserted end-to-end through both CLI exit codes."""
+        monkeypatch.setattr(cat, "INCLUDE_GLOBS", [])
+        monkeypatch.setattr(cat, "EXTS", set())
+        _touch(repo, "src/app.ts")
+        _git_router(monkeypatch, in_scope=[], repo_wide=["src/app.ts"])
+        _write_tree(repo, "# Tree\n(no source indexed)\n")
+
+        problems, _ = cat.evaluate()
+        assert any("watches no files" in p for p in problems)
+        assert any("src/app.ts" in p for p in problems)
+
+        assert cat.glob_drift(set()) == ["src/app.ts"]
+
+        # CLI: exit 1 + actionable message on stdout.
+        rc = cat.main([])
+        assert rc == 1
+        out = capsys.readouterr().out
+        assert "src/app.ts" in out
+        assert "INCLUDE_GLOBS" in out
+
+        # Hook: exit 2 (blocking) + message on stderr, silent stdout.
+        rc = cat.main(["--hook"])
+        assert rc == 2
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert "watches no files" in captured.err
+
+    def test_steady_state_in_scope_nonempty_no_drift_no_stamp_reads(
+        self, repo, monkeypatch
+    ):
+        """This repo's shape: INCLUDE_GLOBS covers `scripts/**/*.py`, in_scope non-empty →
+        drift short-circuits to [] and NEVER reads a stamp / censuses the repo."""
+        # _is_harness_managed must not be called in the steady state — spy that explodes.
+        def _explode(_path):
+            raise AssertionError("stamp read in steady state — short-circuit broken")
+
+        monkeypatch.setattr(cat, "_is_harness_managed", _explode)
+        assert cat.glob_drift({"scripts/a.py"}) == []
+
+    def test_day0_stamped_gate_script_does_not_false_trip(self, repo, monkeypatch):
+        """Day-0 false-positive guard (R3): `INCLUDE_GLOBS == []` and the ONLY source file
+        is a STAMPED `scripts/check_architecture_tree.py` (the copied gate) → excluded by
+        `_is_harness_managed` → `_repo_source_files` empty → no drift. A freshly-`init`'d
+        empty adopter repo must not false-trip."""
+        monkeypatch.setattr(cat, "INCLUDE_GLOBS", [])
+        monkeypatch.setattr(cat, "EXTS", set())
+        _stamp(repo, "scripts/check_architecture_tree.py")
+        _git_router(
+            monkeypatch,
+            in_scope=[],
+            repo_wide=["scripts/check_architecture_tree.py"],
+        )
+        assert cat._repo_source_files() == []
+        assert cat.glob_drift(set()) == []
+
+    def test_empty_globs_guard_never_calls_git_with_empty_pathspec(
+        self, repo, monkeypatch
+    ):
+        """Empty-globs guard: `INCLUDE_GLOBS == []` → `in_scope_files() == set()` AND git is
+        never invoked with a bare `--`/empty pathspec (the fail-open that would list EVERY
+        file). We assert it short-circuits before any `_git` call at all."""
+        monkeypatch.setattr(cat, "INCLUDE_GLOBS", [])
+        monkeypatch.setattr(cat, "EXTS", set())
+        calls = _git_router(monkeypatch, in_scope=["should-not-be-used"], repo_wide=[])
+        assert cat.in_scope_files() == set()
+        # The guard returns before any git call — so no `ls-files --` with empty pathspec.
+        assert calls == []
+
+    def test_truly_empty_repo_is_ok(self, repo, monkeypatch):
+        """Truly empty repo: `INCLUDE_GLOBS == []`, no SOURCE_EXTS files → evaluate() OK
+        (no false drift problem)."""
+        monkeypatch.setattr(cat, "INCLUDE_GLOBS", [])
+        monkeypatch.setattr(cat, "EXTS", set())
+        _git_router(monkeypatch, in_scope=[], repo_wide=[])
+        _write_tree(repo, "# Tree\n(empty repo)\n")
+        problems, summary = cat.evaluate()
+        assert problems == []
+        assert "OK:" in summary
+
+    def test_source_exts_discrimination_docs_only_repo_no_drift(self, repo, monkeypatch):
+        """SOURCE_EXTS discrimination: a `.md`/`.json`-only repo with `INCLUDE_GLOBS == []`
+        → no drift (docs/config are not source code)."""
+        monkeypatch.setattr(cat, "INCLUDE_GLOBS", [])
+        monkeypatch.setattr(cat, "EXTS", set())
+        _git_router(
+            monkeypatch,
+            in_scope=[],
+            repo_wide=["README.md", "package.json", "docs/WORKFLOW.md"],
+        )
+        assert cat._repo_source_files() == []
+        assert cat.glob_drift(set()) == []
+
+    def test_termination_reset_globs_clear_drift(self, repo, monkeypatch):
+        """Self-correction termination (unit): once globs are reset to match the landed
+        source, in_scope is non-empty → `glob_drift` returns [] — drift clears, no loop."""
+        # Reset INCLUDE_GLOBS to cover the source; in_scope now non-empty.
+        monkeypatch.setattr(cat, "INCLUDE_GLOBS", [":(glob)src/**/*.ts"])
+        monkeypatch.setattr(cat, "EXTS", cat._exts_from_globs([":(glob)src/**/*.ts"]))
+        _git_router(monkeypatch, in_scope=["src/app.ts"], repo_wide=["src/app.ts"])
+        assert cat.in_scope_files() == {"src/app.ts"}
+        assert cat.glob_drift(cat.in_scope_files()) == []
+
+    def test_mixed_managed_excluded_and_real_source_in_one_census(self, repo, monkeypatch):
+        """Pins the three-way filter in ONE census: a STAMPED gate script (managed → dropped),
+        an `__init__.py` + a `__pycache__` path (EXCLUDE_SUBSTR → dropped pre-disk), and a real
+        un-stamped `src/app.ts` (kept). Proves drop-managed-AND-keep-real in the same pass — a
+        partial-exclusion bug (early return, wrong element) would survive without this."""
+        monkeypatch.setattr(cat, "INCLUDE_GLOBS", [])
+        monkeypatch.setattr(cat, "EXTS", set())
+        _stamp(repo, "scripts/check_architecture_tree.py")  # managed (stamp on line 1)
+        _touch(repo, "src/app.ts")  # real, un-stamped
+        _git_router(
+            monkeypatch,
+            in_scope=[],
+            repo_wide=[
+                "scripts/check_architecture_tree.py",
+                "src/pkg/__init__.py",  # EXCLUDE_SUBSTR — dropped before any disk read
+                "build/__pycache__/x.py",  # EXCLUDE_SUBSTR — dropped before any disk read
+                "src/app.ts",
+            ],
+        )
+        assert cat._repo_source_files() == ["src/app.ts"]
+        assert cat.glob_drift(set()) == ["src/app.ts"]
+
+    def test_extensionless_file_named_like_an_ext_is_not_source(self, repo, monkeypatch):
+        """The bug-hunter's defect: a dotless file literally named `go`/`c`/`rs` (or `Makefile`,
+        `LICENSE`) must NOT be misread as source — `"go".rsplit(".",1)[-1]` is `"go"`, so the
+        basename-dot guard is what stops a false drift fire on such a repo."""
+        monkeypatch.setattr(cat, "INCLUDE_GLOBS", [])
+        monkeypatch.setattr(cat, "EXTS", set())
+        _git_router(
+            monkeypatch,
+            in_scope=[],
+            repo_wide=["go", "c", "rs", "Makefile", "LICENSE", "src.dir/Makefile"],
+        )
+        # All dotless basenames → no real extension → not source → no drift.
+        assert cat._repo_source_files() == []
+        assert cat.glob_drift(set()) == []
+
+    def test_drift_sample_is_capped_at_8_and_sorted(self, repo, monkeypatch):
+        """Pins the user-facing payload's determinism: the drift sample is `sorted(...)[:8]`,
+        so the quoted `drift[0]` and the cap are stable regardless of git's output order. (Stamp
+        check stubbed False to isolate the cap/sort from disk.)"""
+        monkeypatch.setattr(cat, "INCLUDE_GLOBS", [])
+        monkeypatch.setattr(cat, "EXTS", set())
+        monkeypatch.setattr(cat, "_is_harness_managed", lambda _p: False)
+        unsorted = [f"src/m{i}.ts" for i in (9, 2, 11, 4, 7, 1, 12, 5, 8, 3, 10, 6)]
+        _git_router(monkeypatch, in_scope=[], repo_wide=unsorted)
+        drift = cat.glob_drift(set())
+        assert drift == sorted(unsorted)[:8]
+        assert len(drift) == 8
+
+    def test_drift_and_stale_coexist_without_masking(self, repo, monkeypatch):
+        """drift is the THIRD problem class — it must neither mask nor be masked by staleness.
+        Reachable when globs are non-empty but match NOTHING (EXTS non-empty → staleness live)
+        while real un-globbed source exists. Assert both fire and stale is reported before drift."""
+        monkeypatch.setattr(cat, "INCLUDE_GLOBS", [":(glob)src/**/*.py"])
+        monkeypatch.setattr(cat, "EXTS", {"py"})
+        _touch(repo, "app.ts")  # real un-globbed source → drift
+        # globs match no .py (in_scope empty); the tree cites a deleted src/gone.py → stale.
+        _git_router(monkeypatch, in_scope=[], repo_wide=["app.ts"])
+        _write_tree(repo, "# Tree\n- `src/gone.py` — deleted, still cited.\n")
+        problems, _ = cat.evaluate()
+        stale_idx = next(i for i, p in enumerate(problems) if "NO LONGER EXIST" in p)
+        drift_idx = next(i for i, p in enumerate(problems) if "watches no files" in p)
+        assert stale_idx < drift_idx  # ordering: missing → stale → drift, no masking

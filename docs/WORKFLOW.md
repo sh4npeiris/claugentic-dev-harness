@@ -102,7 +102,8 @@ A slice is **done** — and may land (Stage 8) — only when **all** hold. Two g
 
 **Deterministic gates** (pass/fail, can't be argued around):
 1. **Full test suite** (`python -m pytest`) + any regression/snapshot tests green.
-2. **`python scripts/check_architecture_tree.py`** green (the one mechanically-enforced harness gate — file-index presence + staleness).
+2. **`python scripts/check_architecture_tree.py`** green (the one mechanically-enforced harness gate — file-index presence, staleness, and **glob-drift detection**).
+   - **Updating the codebase map (the handled drift case).** When this gate reports *glob drift* — it's watching no files while the repo now contains source (e.g. an `init`'d empty repo that has since grown real code) — surface it to the user in plain English: *"I'm updating your codebase map to match your new code"* — then re-detect the layout and reset `INCLUDE_GLOBS` (init step 5's terminating self-correction). **Scope the claim honestly:** this is the *handled* drift path reading as plain English — a **genuine gate crash still fails loud by design** (CLAUDE.md: never swallow errors); don't promise "no error ever," only that this one case is plain.
 3. **The project's lint / type-check / security gates** green.
 
 **Reviewer sign-offs** (model judgment, not a mechanical gate):
