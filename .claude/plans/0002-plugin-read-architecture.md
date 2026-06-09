@@ -1,6 +1,6 @@
 # 0002 — Read harness files from the plugin (kill copy-on-init + `/update`)
 
-- **Status:** Draft — validation pending (2 precondition tests); **paused for session handoff**
+- **Status:** Draft — **Slice 0 (validation) done**; design refined below; next = Slice 1 spec
 - **Roadmap item:** `docs/ROADMAP.md` → Next "Plugin-read architecture (supersedes `/...:update`)"
 - **References:** `docs/DECISIONS.md` → "Standards/workflow read from the plugin, not copied"; `skills/init/SKILL.md`; `skills/audit/SKILL.md`; `.claude/agents/lens-reviewer.md` · `architect-reviewer.md`; `scripts/check_architecture_tree.py`; `docs/WORKFLOW.md`
 
@@ -16,15 +16,21 @@
 **Goals:** agents read standards/workflow/playbook from `${CLAUDE_PLUGIN_ROOT}/docs/…` (single source of truth, marketplace-refreshed); shrink `init` to per-repo essentials; make `init` **refresh-capable**; **delete the `/...:update` plan**.
 **Non-goals:** no change to what the audit/workflow *do*; per-repo files (tree · ROADMAP · DECISIONS · the CLAUDE.md managed fence · per-repo gate config) **stay in the repo**; not touching the deterministic-trust-gates track.
 
-## Preconditions — two cheap tests BEFORE committing the design (Slice 0)
-1. **Skill-context expansion:** confirm `${CLAUDE_PLUGIN_ROOT}` expands inside the audit/init **SKILL body**, so the orchestrator can construct the absolute path it passes to subagents. *(Documented via init; not freshly e2e-tested. If it fails → the orchestrator must discover the plugin root another way, or copy-on-init stays.)*
-2. **Hook access:** determine whether the architecture-tree **hook** (run from the adopter's `.claude/settings.json` as a shell command) receives `${CLAUDE_PLUGIN_ROOT}` or only `${CLAUDE_PROJECT_DIR}`. → decides whether the gate **script** runs from the plugin (per-repo config externalized to a tiny file) or stays a thin copied file refreshed by `init`.
+## Slice 0 — validation results (done; via claude-code-guide reading the official docs)
+- **Q1 — `${CLAUDE_PLUGIN_ROOT}` in a SKILL body: NO** (not in the documented substitution set; skills get vars in *frontmatter*, not body prose). **This contradicts the current `skills/init/SKILL.md` claim that it "expands in skill context" — that claim is wrong and must be corrected (Slice 3).** Consequence: the orchestrator can't get the plugin root by writing `${CLAUDE_PLUGIN_ROOT}` in skill/CLAUDE.md text; it must **discover** it (see Approach).
+- **Q2 — `${CLAUDE_PLUGIN_ROOT}` in a PROJECT-level hook (adopter `.claude/settings.json`): YES** (hooks reference → "Available in hook commands"; expands at execution time, version-tracked; plugins-reference shows the exact `"${CLAUDE_PLUGIN_ROOT}"/scripts/…` pattern). **This is the unlock:** the init-written project hook runs the gate script straight from the plugin via `${CLAUDE_PLUGIN_ROOT}/scripts/check_architecture_tree.py` — **the script need not be copied**, and script fixes reach adopters on a marketplace update with no re-init.
+- **Q3 — plugin-DEFINED hooks fire GLOBALLY** (every project the plugin is enabled in), no per-project scope → keep the gate hook **project-wired** (init writes it into the adopter's settings.json, as today): correctly scoped *and* gets the var (Q2).
+- **Q4 — subagents reading absolute plugin paths: YES** (empirically confirmed this session); whether the *variable* reaches a subagent is undocumented — irrelevant, since the orchestrator passes a resolved absolute path.
+- **Version tracking confirmed:** `${CLAUDE_PLUGIN_ROOT}` → `cache/<owner>/<plugin>/<semver>/`, always the installed version; never hardcode.
+- **Residual before shipping Slice 1:** one end-to-end confirm in a REAL adopter repo (this dev repo isn't an installed-plugin context, so a hook test here isn't representative).
 
-## Approach (design — pending the two tests)
-- **Agents read from the plugin:** `lens-reviewer` / `architect-reviewer` / the audit + verify flows read modules from `${CLAUDE_PLUGIN_ROOT}/docs/standards/<module>.md`. The orchestrator (skill context) resolves `${CLAUDE_PLUGIN_ROOT}` and passes **absolute paths** to subagents (proven readable).
-- **`init` stops copying docs:** it writes a CLAUDE.md managed fence that **points at** `${CLAUDE_PLUGIN_ROOT}` paths (or documents the read-from-plugin convention), seeds per-repo ROADMAP/DECISIONS, generates the tree, sets per-repo gate config, wires the hook.
-- **`init` becomes refresh-capable:** re-running re-syncs the **version-stamped managed fence** in place (never user content) — this replaces `/update`.
-- **Gate script:** test 2 passes → run from plugin with per-repo config in a tiny file (e.g. `.claude/harness.json`); else → keep a thin copied `check_architecture_tree.py`, refreshed by `init`.
+## Approach (refined by Slice 0)
+The **hook** is the bridge: it's the one project-side context that gets `${CLAUDE_PLUGIN_ROOT}` (Q2), since skills/CLAUDE.md text don't (Q1).
+
+- **Gate script → runs from the plugin (no copy).** `init` writes the project hook as `python "${CLAUDE_PLUGIN_ROOT}/scripts/check_architecture_tree.py" --hook --config "${CLAUDE_PROJECT_DIR}/.claude/harness.json"`. The script reads its per-repo `INCLUDE_GLOBS` from that tiny per-repo config (externalized out of the script). Script fixes then propagate via marketplace.
+- **Standards/workflow docs → read from the plugin by subagents.** Subagents can read absolute plugin paths (Q4), but the orchestrator must *discover* the (version-stamped) plugin root first (skills don't get the var — Q1). **Discovery:** `init` resolves the plugin root via a quick **Bash glob** of `~/.claude/plugins/cache/<owner>/<plugin>/` and writes it into `.claude/harness.json`, kept fresh by the hook (which has the live `${CLAUDE_PLUGIN_ROOT}`). The audit/verify flows read that marker → pass `…/docs/standards/<module>.md` absolute paths to lens-reviewers.
+- **`init` shrinks + becomes refresh-capable.** Stops copying docs/script; writes `.claude/harness.json` (INCLUDE_GLOBS + plugin-root marker), wires the hook(s), generates the tree, seeds ROADMAP/DECISIONS, writes the CLAUDE.md managed fence. Re-running refreshes the version-stamped managed regions in place — **replacing `/update`.**
+- **Per-repo files stay in the repo** (tree · ROADMAP · DECISIONS · CLAUDE.md fence · `.claude/harness.json` · hook wiring).
 
 ## Affected files (anticipated)
 `skills/init/SKILL.md` (point-not-copy; refresh-capable; per-repo config) · `skills/audit/SKILL.md` + `.claude/agents/lens-reviewer.md`/`architect-reviewer.md` (read from `${CLAUDE_PLUGIN_ROOT}`) · `scripts/check_architecture_tree.py` (externalize `INCLUDE_GLOBS` if run from plugin) · `docs/DECISIONS.md` (supersede "Copy standards on init") · `docs/ROADMAP.md` (already drops `/update`) · `CLAUDE.md` · `docs/ARCHITECTURE_TREE.md`.
@@ -32,11 +38,11 @@
 ## Risks & mitigations
 - Test 1 fails → fall back to discovering the plugin root or keep copying. · Test 2 fails → script stays a thin copy (acceptable; tiny). · Adopters lose easy local customization of standards → acceptable for the non-engineer audience; power users can still copy selectively. · **Backward-compat:** existing v0.1.2 adopters already have copied files — the new refresh-capable `init` must reconcile (refresh managed regions; optionally a one-time clean re-init), documented.
 
-## Decomposition (slices) — finalize after Slice 0 + plan-review
-- [ ] **Slice 0** — run the two precondition tests; record results here.
-- [ ] **Slice 1** — agents/audit read standards from `${CLAUDE_PLUGIN_ROOT}`; verify an audit still works end-to-end.
-- [ ] **Slice 2** — `init`: stop copying docs (point instead); refresh-capable managed fence; per-repo config.
-- [ ] **Slice 3** — gate script from plugin OR thin-copy-refreshed (per test 2); docs sweep (DECISIONS/ROADMAP/TREE); confirm `/update` fully retired.
+## Decomposition (slices) — refined after Slice 0
+- [x] **Slice 0** — validation (done; results above).
+- [ ] **Slice 1 (highest value, lowest risk) — gate script from the plugin.** Externalize `INCLUDE_GLOBS` → `.claude/harness.json`; `init` writes the hook as `${CLAUDE_PLUGIN_ROOT}/scripts/check_architecture_tree.py … --config …`; stop copying the script. **End-to-end confirm in a real adopter repo.** Fixes then propagate via marketplace.
+- [ ] **Slice 2 — standards/workflow read from the plugin.** Plugin-root discovery (Bash glob at init + hook-refreshed marker in `.claude/harness.json`); audit/verify + lens-reviewer/architect-reviewer read `${plugin}/docs/standards/<module>.md` absolute paths; `init` stops copying the docs.
+- [ ] **Slice 3 — `init` refresh-capable + retire `/update`; docs sweep** (correct the `skills/init/SKILL.md` "expands in skill context" claim; DECISIONS supersede "Copy standards on init"; ARCHITECTURE_TREE; confirm `/update` fully gone).
 
 ---
 ## Review  _(pending — Stage 3)_
