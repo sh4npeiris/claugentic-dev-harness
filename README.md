@@ -47,7 +47,9 @@ In order:
 
 1. **`/claugentic-dev-harness:init`** — scaffolds the harness into your repo (safe — never overwrites; you'll see a created/skipped/merged summary).
 2. **Start a fresh chat after `init`** so the agent picks up the new setup.
-3. **`/claugentic-dev-harness:audit`** — explains the codebase in plain English + writes a prioritized backlog into `docs/ROADMAP.md` (a large repo may finish in passes and say "re-run to continue" — that's expected).
+3. **Then, depending on your repo:**
+   - **Already have code? → `/claugentic-dev-harness:audit`** — explains the codebase in plain English + writes a prioritized backlog into `docs/ROADMAP.md` (a large repo may finish in passes and say "re-run to continue" — that's expected).
+   - **Brand-new / empty repo? → skip the audit.** Just tell the agent what you want to build — describe your first feature in plain English and it runs the workflow from there.
 
 New to this? Read [`docs/PLAYBOOK.md`](docs/PLAYBOOK.md).
 

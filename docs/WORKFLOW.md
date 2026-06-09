@@ -86,9 +86,12 @@ Also available without new files: built-in **`Explore`** (fan-out search), **`Pl
 
 **Stage 4 → 5, the plain-English layer (the non-engineer's steering wheel):** the spec contract is code-shaped (file-by-file edits, signatures, named dimensions), but approval is about *intent, not code*. So every spec **MUST open with a short plain-English block — *what this builds · what "done" means for you · what you're accepting (risks/trade-offs)*** — and that block is **presented first at the approval gate (Stage 5)**, with the file-by-file detail beneath it. The user approves the intent; the detail is there to verify against, not to decode. *(The plan `TEMPLATE.md` carries a matching section.)*
 
+**Stage 1, the plain-English open (say why before the questions):** when Discuss begins, tell the user in plain English why you're asking before any code — *"Before any code I'll ask a few questions about who this is for and what 'good' looks like; your answers steer everything downstream."* Then ask. (The *why* of Discuss is the Stage-1 row above — this is just the user-facing opener, not a second rationale.)
+
 **Keep the docs current — it's part of each stage (no hooks needed beyond the tree check):**
 - **Implement (6):** update `ARCHITECTURE_TREE.md` for any file add/move/remove (also hook-nudged); touch `CLAUDE.md` only for a genuinely new gotcha/command/pattern — *concisely; index, don't duplicate code*.
 - **Land (8):** append a dated one-liner to `DECISIONS.md` for non-trivial choices; update `ROADMAP.md` if scope shifted.
+- **Land (8) — close out for the user:** after the slice lands, say it plainly — *"This one's done. Next: pick another item the same way, or re-run `/claugentic-dev-harness:audit` for a fresh picture — you're finished when Tier 1 and Tier 2 come back empty."*
 - **Retrospect (9):** promote durable learnings into the `docs/standards/` modules (entry point: `docs/ENGINEERING_STANDARDS.md`) / `CLAUDE.md` / agent files.
 
 ---
@@ -117,7 +120,7 @@ Iterate to meet this **fixed** bar, then **stop** — it terminates because the 
 
 | Tag | Discipline |
 |-----|-----------|
-| **`refactor`** | **Characterization-tests-first — a HARD precondition.** A refactor item on untested behavior-bearing code **cannot start until its Tier-1 "establish a test baseline" item is done**; if that baseline is absent, the implementer **stops and asks** rather than touching code. Durable enforcement will be the Trust-track `PreToolUse` characterization hook (the first Phase-1 item); **until that hook lands, this is upheld by the implementer + the Verify gate** — not yet automatic. |
+| **`refactor`** | **Characterization-tests-first — a HARD precondition.** A refactor item on untested behavior-bearing code **cannot start until its Tier-1 "establish a test baseline" item is done**; if that baseline is absent, the implementer **stops and asks** rather than touching code. Durable enforcement will be the Trust-track `PreToolUse` characterization hook (the first Phase-1 item); **until that hook lands, this is upheld by the implementer + the Verify gate** — not yet automatic. **Say this to the user when the pause fires:** *"Before I tidy this code I need to capture what it currently does as a test, or I can't prove I didn't change its behavior — so I'll establish that baseline first."* |
 | **`capability-upgrade`** | Migration safety — feature-flag the new path · dual-write / shadow-read · keep a rollback. |
 | **`dependency-health`** | Update + verify — bump, run the full suite green, check the changelog for breaking changes. |
 | **`bug`** | Reproduce-first — a **failing test that captures the bug**, then the fix that makes it pass. |

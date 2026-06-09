@@ -2,6 +2,14 @@
 
 Dated, one-line records of non-trivial decisions. **Append newest at the top.** Consult before re-litigating a past choice (see CLAUDE.md → Harness Discipline). This is the durable architectural record; the full build history lives in git.
 
+## Journey usability fixes — flow + the "Application source present" predicate (plan 0003)
+
+- **Slice 1 (`949c3b4`)** shipped the plain-English go-button + on-ramp (PLAYBOOK/README/audit close-out, beginner on-ramp, spec-approval rubric, `init` headline).
+- **Slice 2** branches `init`'s closing report + the README Quickstart on **repo-state** (has app source → `:audit` · empty → "describe your first feature, skip audit"); adds an **empty-repo guard** to `audit` Phase 1 (no app source → "nothing to audit yet", never enter Phase 2); conversational Phase-2 **progress narration** ("several minutes" + ≤1 completed-cells beat per round, **never an ETA**); a reassuring `PARTIAL` framing; a Stage-8 **close-out loop** line; and one-line **pause narrations** (refactor→test-baseline; Discuss opener) anchored to their existing WORKFLOW homes.
+- **The "Application source present" predicate is defined ONCE** — owned by `audit` Phase 1 (step 5), consumed by `init` step 9, `init` step 5 (Slice 3), and the `audit` Phase-1 guard. Excludes harness-managed scaffolding (the `claugentic-dev-harness@`-stamped gate script + seeded docs) so a freshly-`init`'d empty adopter repo is correctly "no app source." No second detector (DRY). *(Stage-3 review R2 — three call sites previously hand-waved this.)*
+- **All audit narration stays conversational, never inside a `harness-audit:*` managed fence** — preserves the byte-identical-on-re-run idempotency guarantee.
+- **Stage-3 review (3 critics) reshaped Slice 3 before any code:** the registry design was cut for a lean, stack-agnostic zero-coverage check (see the gate-drift entry, added at Slice-3 land); partial-coverage drift → ROADMAP.
+
 ## Standards/workflow read from the plugin, not copied (supersedes "Copy standards on init")
 
 - **Proven (test this session):** a subagent **can `Read` a plugin-bundled file by absolute path** from inside an adopter project — verified against `…/.claude/plugins/cache/sh4npeiris/claugentic-dev-harness/<ver>/docs/standards/security.md` → READ OK. This **refutes** the assumption behind *Copy standards on init* ("subagents can't read bundled files"). The marketplace install bundles the **whole repo** (docs/, scripts/, skills/, agents/), and the install path is **version-stamped** (`…/<semver>/…`), so `${CLAUDE_PLUGIN_ROOT}` auto-follows a marketplace update. `${CLAUDE_PLUGIN_ROOT}` is empty in a plain shell but expands in skill bodies (init already relies on this).
