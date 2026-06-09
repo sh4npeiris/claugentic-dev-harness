@@ -114,6 +114,17 @@ Run these in order. Each step feeds the output contract above.
    the app's **type** — CLI · web server · library · SPA · service · (or, as here, a
    plugin / docs-and-tooling repo) — and its external surfaces.
 
+   **Application source present — the shared predicate (single source of truth).** As a named
+   output of this detection, decide whether the repo *has application source*: **true iff there
+   is ≥1 non-harness-managed source file of a detected ecosystem** (a recognized manifest is
+   present **and/or** ≥1 file matches the detected source layout), **excluding** harness-managed
+   scaffolding (anything carrying the `claugentic-dev-harness@` managed stamp — e.g. the copied
+   `scripts/check_architecture_tree.py` — plus the seeded `docs/standards/`, `WORKFLOW.md`,
+   `PLAYBOOK.md`) and the exclude-set (deps / build / generated). A repo of **only** docs +
+   config + harness scaffolding is **"no application source"** (e.g. a freshly-`init`'d empty
+   repo). **`/claugentic-dev-harness:init` reuses this exact predicate** — its step-9 next-step
+   branch and its step-5 empty-repo glob decision — so do **not** author a second detector.
+
 6. **Map dependencies (high-level).** Name only the **architecturally-significant**
    dependencies (web frameworks, DB drivers, HTTP / auth libraries, queues) — enough to
    say *"an Express + Postgres API,"* not every transitive dep. These **pre-select the
@@ -126,9 +137,17 @@ Run these in order. Each step feeds the output contract above.
    config / scripts → tests last.** This is what Phase 2 walks; spend lands where bugs
    and standards violations cluster.
 
-8. **Compose & emit.** Write the plain-English overview **(A)** into the ROADMAP fence
-   (replacing only the fenced content — see below), and present the audit-plan **(B)**
-   to the user as this phase's proof and Phase 2's input.
+8. **Compose & emit — or stop if there's nothing to audit.** **Empty-repo guard (the
+   Phase 1 → Phase 2 gate):** if *Application source present* (step 5) is **false** — only
+   docs / config / harness scaffolding, or a brand-new empty repo — **stop here: do NOT write
+   an overview and do NOT enter Phase 2.** Report, in conversation (never into a fence): *"Nothing
+   to audit yet — I don't see any application code here, just documentation and config files. When
+   you're ready, just tell me what you want to build and I'll run the workflow from your first
+   feature; re-run
+   `/claugentic-dev-harness:audit` once there's code."* (An empty repo is the new-project on-ramp,
+   not an audit target — this pairs with `init`'s empty-repo next-step.) **Otherwise**, write the
+   plain-English overview **(A)** into the ROADMAP fence (replacing only the fenced content — see
+   below), and present the audit-plan **(B)** to the user as this phase's proof and Phase 2's input.
 
 ### Where the overview goes — the ROADMAP fence  *(load-bearing convention)*
 
@@ -203,13 +222,19 @@ max-cells-per-run) **guarantee termination.**
      redo a `done` cell.** If the backlog has no status block (or it says `COMPLETE`),
      this is a fresh full run — enumerate all cells.
 
-4. **Fan out lenses (delegation = the primary budget defense).** Group cells into
-   **batches by module** (one module over its scoped dirs/packages) and spawn a
+4. **Fan out lenses (delegation = the primary budget defense).** **Tell the user first, in
+   plain English** (so a multi-minute pass isn't a silent stall): *"This can take several minutes
+   on a larger repo — I'm reading the code through several quality lenses in parallel."* Group cells
+   into **batches by module** (one module over its scoped dirs/packages) and spawn a
    **`lens-reviewer` subagent in audit-scope mode** per batch, **in parallel**. Pass each
    subagent: its **module**, the **scoped dir/package list** for that batch, and the
    **exclude-set**. Each returns a **per-dimension digest** (met/gap + `file:line` +
    confidence + a plain-English line). Cell granularity keeps each subagent's read-set
-   small, so the fan-out stays in-budget even on a big repo.
+   small, so the fan-out stays in-budget even on a big repo. **As rounds complete, emit at most one
+   light "still working" beat per round naming cells already *done*** (e.g. *"swept the API routes…"*)
+   — report **completed** work, **never an ETA or a "nearly finished"** (a budget checkpoint can land
+   `PARTIAL` at any round — see step 9). These beats are **conversational only — never written into a
+   fence.**
 
 5. **Dedup + synthesize.** Maintain a **persisted seen-set** of findings across rounds
    (so "did this round add anything new?" is judged against what's already been seen, not
@@ -289,7 +314,10 @@ max-cells-per-run) **guarantee termination.**
    - set the status block to **`PARTIAL`** with the explicit **`done`** and **`pending`**
      cell lists,
    - **stop, and tell the user to re-run** to continue (the re-run resumes from
-     `pending`).
+     `pending`). **Frame it reassuringly in conversation** (not in a fence): *"I audited the
+     highest-priority areas and saved that backlog; there's more to sweep, so re-run
+     `/claugentic-dev-harness:audit` to continue where I left off. A partial pass is normal on a big
+     repo — not an error."*
    **Never silently truncate** — a partial run must always say it's partial and record
    where it stopped. **Test-baseline guarantee:** even on a `PARTIAL` run, the Tier-1
    "establish a test baseline" item **still emits** for any **untested behavior-bearing
@@ -298,7 +326,11 @@ max-cells-per-run) **guarantee termination.**
 
 10. **Author the backlog** (Phase 3) into the `harness-audit:backlog` fence, **recommend a
     starting point**, and **report the dial level + coverage** to the user (which cells
-    ran, `COMPLETE` or `PARTIAL`, and — if any — which modules fell back to baseline). Include
+    ran, `COMPLETE` or `PARTIAL`, and — if any — which modules fell back to baseline). **When
+    Tier 1 + Tier 2 both come back empty, surface the Phase-3 "Sound on the audited dimensions"
+    terminal signal in this conversational report** (reuse that exact phrasing — don't restate it
+    loosely) so an empty result reads as the success it is, scoped to the covered cells on a
+    `PARTIAL` run. Include
     the **verification run-report line** for the high-stakes findings checked in step 8 —
     frame the refuted ones as a **trust signal that the check bit**, reported as a **count, not
     a list**: e.g. *"Independently re-checked the Tier-1/security findings; dropped N that

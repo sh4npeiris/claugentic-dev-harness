@@ -220,10 +220,15 @@ volatile content** so a re-write is byte-identical:
 
 **Lead with a plain-English headline** — before the grouped technical summary — so a
 non-engineer reads the reassurance first: *"Done — I added a code map, a quality checklist,
-and a safety check. I did NOT change any of your code or overwrite your files."* Then a
-generic **next step**: *"Start a fresh chat, then either run `/claugentic-dev-harness:audit`
-on existing code, or just tell me what you want to build."* *(Keep the next step generic for
-now — tailoring it to whether the repo already has code is a separate, later change.)*
+and a safety check. I did NOT change any of your code or overwrite your files."* Then the
+**next step, branched on whether the repo already has application source** — the *Application
+source present* predicate defined in `/claugentic-dev-harness:audit` Phase 1 (step 5), the same
+detection this skill reuses in step 5:
+- **Has app source →** *"Start a fresh chat, then run `/claugentic-dev-harness:audit` — I'll
+  explain your codebase in plain English and write a prioritized backlog of the work worth doing."*
+- **No app source yet (empty / docs-only) →** *"Start a fresh chat, then just tell me what you
+  want to build — describe your first feature in plain English and I'll run the workflow. No need
+  to run `/claugentic-dev-harness:audit` until there's code to audit."*
 
 Then emit the clear summary, grouped:
 - **Created** — files written from scratch (e.g. `ARCHITECTURE_TREE.md`, `ROADMAP.md`).
