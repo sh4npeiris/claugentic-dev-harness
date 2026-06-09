@@ -49,7 +49,7 @@ Once the backlog is written, starting an item is the same go-button as everythin
 
 ## When in doubt
 
-Ask the agent to **explain what it just did and why** — it's built to teach you as you go. The goal is that you get better at directing it every cycle. *(A future `…:explain` skill will make this one command.)*
+Ask the agent to **explain what it just did and why** — it's built to teach you as you go. The goal is that you get better at directing it every cycle.
 
 ---
 
