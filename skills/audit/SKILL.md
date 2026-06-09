@@ -346,6 +346,22 @@ status: COMPLETE | PARTIAL · level: quick|standard · done-cells: [module×dir,
   and sweeps only `pending-cells` (Phase 2 step 3). On a `COMPLETE` run, `pending-cells`
   is empty. Keep the lists concrete — `done: 3 dirs` is not enough to resume from.
 
+### "How to read this" legend  *(2 lines, just below the status block)*
+
+Immediately under the status line — still **inside the fence**, before Tier 1 — write a
+**short 2-line legend** so a non-engineer can read the tags without a glossary. Keep it to
+**2 lines, not a wall** — one short phrase per tag, plus what the verification phrases mean:
+
+- **Line 1 (tags):** `refactor` = tidy without changing behavior · `capability-upgrade` =
+  add/upgrade a technology · `dependency-health` = update/patch dependencies · `bug` = fix
+  wrong behavior · `feature` = new behavior.
+- **Line 2 (verification):** `(checked against the code)` = a separate agent confirmed it
+  against the actual code · `(could not confirm independently — model's assertion)` = still
+  just the model's claim, not independently confirmed.
+
+(Author it in plain prose on those two lines — the bullets above are the *content*, not the
+required layout. Don't expand it into a section; the inline tags stay self-explanatory.)
+
 ### Tiers (most urgent first)
 
 - **Tier 1 — critical:** correctness · security · data-loss. **Untested behavior-bearing
@@ -416,3 +432,9 @@ Discuss. **If Tier 1 and Tier 2 are both empty**, the recommended-starting-point
 sound signal — say *"Sound on the audited dimensions — what remains is optional polish; you
 don't need to keep re-auditing"* instead of pointing at an item, so the stop signal is the
 last thing the user reads.
+
+After the Recommended-starting-point, **close the backlog with this plain "how to start" line**
+(verbatim, so the user always has the go-button in front of them): *"To start anything — a
+backlog item or a brand-new project — just tell the agent in plain English what you want
+(e.g. 'Let's do Tier-1 item 1' or 'I want to build X'). It will ask you questions (Discuss),
+then write a plan and spec for you to approve before any code."*
