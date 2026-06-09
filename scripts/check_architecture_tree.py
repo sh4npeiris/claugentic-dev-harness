@@ -2,8 +2,11 @@
 """Enforce that docs/ARCHITECTURE_TREE.md indexes every in-scope source file.
 
 Deterministic gate (no LLM): checks PRESENCE (every in-scope file appears in the
-tree) and STALENESS (no tree entry points to a file that no longer exists).
-Descriptions are authored by humans/agents — this script does not write them.
+tree), STALENESS (no tree entry points to a file that no longer exists), and GLOB
+DRIFT (INCLUDE_GLOBS watches NO files while the repo nonetheless contains source —
+the zero-coverage rot a wrong/unset glob would otherwise hide). Descriptions are
+authored by humans/agents — this script does not write them. Drift DETECTION is
+mechanical (the gate flags); resetting the globs is the agent's job, not the gate's.
 
 In-scope = tracked + staged + **untracked-not-ignored** files matching the globs,
 so a file just created via Write (not yet `git add`-ed) is caught immediately.
@@ -56,6 +59,32 @@ INCLUDE_GLOBS = [":(glob)scripts/**/*.py"]
 # Substrings that exempt a file (no architectural content).
 EXCLUDE_SUBSTR = ("__pycache__", "/__init__.py")
 
+# ─────────────────────────────────────────────────────────────────────────────
+# GLOB-DRIFT DETECTION — a stack-agnostic, STABLE trip-wire (NOT a per-repo knob).
+# ─────────────────────────────────────────────────────────────────────────────
+# SOURCE_EXTS answers one question the per-repo INCLUDE_GLOBS deliberately can't:
+# "does the repo contain source code at all?" — so the gate can flag the one
+# zero-coverage failure where INCLUDE_GLOBS watches NOTHING while real code exists
+# (init guessed globs on an empty repo, then the repo grew). It is intentionally
+# broad + stable: file extensions don't drift the way per-stack tooling does, so
+# there is no list to keep in lockstep with adopters' stacks.
+#
+# SCOPE — this is for DRIFT DETECTION ONLY. It is NOT used for presence/staleness;
+# `INCLUDE_GLOBS` (and the `EXTS` derived from it) stay the ONLY per-repo knob there.
+SOURCE_EXTS = frozenset(
+    {
+        "py", "js", "jsx", "mjs", "cjs", "ts", "tsx", "go", "rs", "java", "kt",
+        "rb", "php", "cs", "swift", "c", "h", "cpp", "hpp", "cc", "scala",
+        "vue", "svelte",
+    }
+)
+
+# The managed-stamp token (the documented `/update` convention): a file the harness
+# COPIED into an adopter repo carries `claugentic-dev-harness@<semver>` on its first
+# line. Reused here so the copied gate script never false-trips drift on a day-0
+# empty adopter repo (it's harness scaffolding, not the adopter's own source).
+MANAGED_STAMP = "claugentic-dev-harness@"
+
 
 def _exts_from_globs(globs: list[str]) -> set[str]:
     """Derive the set of valid extensions from INCLUDE_GLOBS (single source of truth).
@@ -100,8 +129,71 @@ def _git(*args: str) -> list[str]:
     return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
 
+def _is_harness_managed(path: str) -> bool:
+    """True if the managed stamp (the `/update` convention) is at the start of `path`.
+
+    Reads a bounded 256-byte prefix — the stamp sits at byte 0 of line 1, so a fixed prefix
+    is enough and stays hard-bounded even for a newline-less (minified) file. A read error
+    (file vanished mid-scan, permission denied, path-is-a-directory — all `OSError`) returns
+    False rather than crashing: drift detection must never blow up on an unreadable file, and
+    treating it as un-managed is the safe (conservative) default — it then counts as source
+    and errs toward FLAGGING drift, never toward a silent false all-clear.
+    """
+    try:
+        with open(path, encoding="utf-8", errors="replace") as fh:
+            return MANAGED_STAMP in fh.read(256)
+    except OSError:
+        return False
+
+
+def _repo_source_files() -> list[str]:
+    """Repo-wide source files (drift's view): committed + staged-new + untracked, SOURCE_EXTS only.
+
+    The drift detector's "does this repo contain real code?" census. Two `_git` calls with NO
+    pathspec, so it sees the WHOLE repo (unlike the glob-scoped in_scope_files()): `ls-files`
+    lists the index — committed AND newly-`git add`-ed (staged-new) files — and `ls-files
+    --others --exclude-standard` adds untracked-not-ignored. Normalized `\\`→`/`, kept only if
+    the basename has a real `.<ext>` whose extension is in SOURCE_EXTS (so an extensionless file
+    named `go`/`c`/`rs` is NOT misread as source), MINUS `EXCLUDE_SUBSTR` and MINUS harness-managed
+    files (the copied gate script et al. — so a day-0 empty adopter repo isn't read as "has
+    source"). Sorted. Fails loud via `_git`. Stamp reads happen only here, on the small surviving
+    candidate set, and only when drift is actually being computed (zero-coverage state) — bounded.
+    """
+    tracked = _git("ls-files")
+    untracked = _git("ls-files", "--others", "--exclude-standard")
+    files = {f.replace("\\", "/") for f in (*tracked, *untracked)}
+    candidates = sorted(
+        f
+        for f in files
+        if "." in f.rsplit("/", 1)[-1]  # a real extension on the basename, not a dotless name
+        and f.rsplit(".", 1)[-1].lower() in SOURCE_EXTS
+        and not any(x in f for x in EXCLUDE_SUBSTR)
+    )
+    return [f for f in candidates if not _is_harness_managed(f)]
+
+
+def glob_drift(in_scope: set[str]) -> list[str]:
+    """Zero-coverage drift: a sample of un-watched source when INCLUDE_GLOBS sees NOTHING.
+
+    Returns `[]` whenever the globs match ≥1 file — the steady state. The early return is
+    also the load-bearing short-circuit: it fires BEFORE any `_repo_source_files()` call, so
+    a healthy repo (this one) computes drift with zero stamp reads. Only when in_scope is
+    empty (globs unset/`[]` or matching nothing) do we census the repo; a non-empty result
+    (a small sample, capped) is the un-watched codebase the gate must flag.
+    """
+    if in_scope:
+        return []
+    return _repo_source_files()[:8]
+
+
 def in_scope_files() -> set[str]:
     """Tracked + staged + untracked-not-ignored files matching INCLUDE_GLOBS, minus exclusions."""
+    # Empty-globs guard: `git ls-files --` with NO pathspec lists EVERY file (a fail-open
+    # bug — the gate would presence-check the whole repo). An unset INCLUDE_GLOBS means
+    # "tracking not configured yet" → no in-scope files; drift (above) is what catches a
+    # repo that has since grown real code.
+    if not INCLUDE_GLOBS:
+        return set()
     tracked = _git("ls-files", "--", *INCLUDE_GLOBS)
     staged = _git("diff", "--cached", "--name-only", "--diff-filter=ACMR", "--", *INCLUDE_GLOBS)
     untracked = _git("ls-files", "--others", "--exclude-standard", "--", *INCLUDE_GLOBS)
@@ -124,6 +216,10 @@ def evaluate() -> tuple[list[str], str]:
     candidates = (t.replace("\\", "/") for t in TOKEN_PATTERN.findall(text))
     referenced = {p for p in candidates if p.rsplit(".", 1)[-1].lower() in EXTS}
     stale = sorted(p for p in referenced if not Path(p).exists())
+    # Glob drift: short-circuits on the non-empty `files` (steady state) BEFORE any repo
+    # census. With INCLUDE_GLOBS == [] presence/staleness above are no-ops (files == set()),
+    # but drift stays LIVE — so an unset repo that grows real code is still caught here.
+    drift = glob_drift(files)
 
     problems: list[str] = []
     if missing:
@@ -133,6 +229,13 @@ def evaluate() -> tuple[list[str], str]:
     if stale:
         problems.append("docs/ARCHITECTURE_TREE.md references files that NO LONGER EXIST (remove/update):")
         problems += [f"  - {f}" for f in stale]
+    if drift:
+        problems.append(
+            f"INCLUDE_GLOBS watches no files, but the repo contains source code (e.g. `{drift[0]}`) — "
+            "the globs are unset or stale; re-detect the layout and set INCLUDE_GLOBS in "
+            "scripts/check_architecture_tree.py to match the source files below:"
+        )
+        problems += [f"  ? {f}" for f in drift]
     return (problems, f"OK: docs/ARCHITECTURE_TREE.md indexes all {len(files)} in-scope files.")
 
 
