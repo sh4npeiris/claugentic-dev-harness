@@ -20,8 +20,8 @@ env/
 .coverage
 htmlcov/
 *.egg-info/
-dist/
-build/
+/dist/
+/build/
 
 # ── Editors / OS ──────────────────────────────────────────────────────────────
 .vscode/
