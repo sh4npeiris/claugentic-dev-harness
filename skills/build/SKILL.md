@@ -54,14 +54,16 @@ Build mode has **one live mode** and **one named-but-not-built mode**:
   asks to run unwatched / on autopilot, return **EXACTLY** this and then continue in
   checkpoint if they wish:
 
-  > Running unwatched needs an independent cross-model judge (Roadmap #4) and deterministic
-  > trust-gates (Roadmap #5) — neither exists yet, so I can't do this honestly. Here's
-  > checkpoint instead.
+  > Running unwatched still needs deterministic trust-gates (Roadmap #5). The cross-model judge
+  > is now wired (same-model runs are tagged as such), but it's a reduction of shared-blind-spot
+  > risk, not a mechanical guarantee — so unwatched runs stay gated on #5. Here's checkpoint
+  > instead.
 
   **This refusal is autopilot's only behavior.** Do **not** build a mode-dispatch layer, a
   config flag, or any autopilot execution path — there is nothing to dispatch to. When
-  Roadmap #4 + #5 land, a future slice makes autopilot real; until then it is a named mode
-  whose whole implementation is this honest "not yet, here's why, here's checkpoint."
+  Roadmap #5 lands (the cross-model judge, #4, is now wired), a future slice makes autopilot
+  real; until then it is a named mode whose whole implementation is this honest "not yet,
+  here's why, here's checkpoint."
 
 ---
 
@@ -144,8 +146,12 @@ Draft `.claude/plans/NNNN-<item>.md` from **`.claude/plans/TEMPLATE.md`**, slice
 ≤1-session units per the WORKFLOW *Principles*. Then spawn **`plan-reviewer`** to
 adversarially critique it, **escalating to the diverse panel per the WORKFLOW Principles
 trigger**: a contested design fork or a trust/honesty surface adds **`yagni-sentinel`** +
-**`honesty-reviewer`**; a user-facing change also adds **`product-designer`**. Iterate the
-plan until the review verdict is **PASS**.
+**`honesty-reviewer`**; a user-facing change also adds **`product-designer`**. **Spawn the
+judge roles — `plan-reviewer` · `honesty-reviewer` — with the `fable` model override** (a
+different model family than the builder; the mechanism, the `RUNNING AS:` self-report
+comparison, the verbatim same-model tag, and the on-error respawn+tag live in **`docs/WORKFLOW.md`
+→ Principles → "Convene the panel's judge roles with the `fable` model override"** — point there,
+don't restate). Iterate the plan until the review verdict is **PASS**.
 
 **Narrate progress as completed beats only — never an ETA, never a "nearly done."** *"Planned
 it · reviewed the plan · folding in the changes…"* — the same calm completed-beat discipline
@@ -186,8 +192,13 @@ Dial the Verify depth per the **WORKFLOW's named triggers** (read them there —
 "substantial" triggers): a **solo `architect-reviewer`** is the small/local default; a named
 trigger **fans out** the `lens-reviewer`s + `yagni-sentinel`, and a trust/honesty/user-facing
 surface convenes the **diverse panel** per the WORKFLOW Principles — `architect-reviewer`
-then synthesizes. Run the **Definition-of-Done deterministic run-gates** (the canonical list
-lives in the WORKFLOW DoD — run it, don't restate it).
+then synthesizes. **Spawn the judge roles — `architect-reviewer` · `honesty-reviewer` ·
+`finding-verifier` — with the `fable` model override** (a different model family than the
+builder; the mechanism, the `RUNNING AS:` self-report comparison, the verbatim same-model tag,
+and the on-error respawn+tag live in **`docs/WORKFLOW.md` → Principles → "Convene the panel's
+judge roles with the `fable` model override"** — point there, don't restate). Run the
+**Definition-of-Done deterministic run-gates** (the canonical list lives in the WORKFLOW DoD —
+run it, don't restate it).
 
 **On a failed Verify, iterate implement→verify up to a small bounded number of attempts
 (2–3).** If it still fails after that bound, **pause and ask — the item-failure pause:**
@@ -274,8 +285,9 @@ closing audit is what catches cross-file fallout).
 Carry each re-audit finding's **verification tag unchanged** — `(checked against the code)` /
 `(could not confirm independently — model's assertion)` / `(⚠ not yet verified — re-run to
 confirm)` mean exactly what they mean in the `audit` skill: a reduction of false confidence by
-an independent re-check of the same model class, **not** a deterministic guarantee. Don't
-upgrade the framing because it's the loop re-checking its own work.
+a re-check from a different model family than the builder (the cross-model judge; on a
+same-family run, tagged as such), **not** a deterministic guarantee. Don't upgrade the framing
+because it's the loop re-checking its own work.
 
 **Then decide — continue or re-triage:**
 
@@ -353,5 +365,6 @@ that could drift from the backlog).
   "proven correct" / "guaranteed" / "bug-free." **"done" is scoped to the audited
   dimensions** (and the deterministic gates that ran), never a blanket claim. Progress is
   **completed-beat narration, never an ETA** or a "nearly finished." The autopilot refusal
-  names exactly what's missing (Roadmap #4 + #5) — never a vague "coming soon," never a
-  silent degrade to a weaker promise.
+  names exactly what's missing (Roadmap #5 — the cross-model judge, #4, is now wired, but it's
+  a reduction of shared-blind-spot risk, not a mechanical guarantee) — never a vague "coming
+  soon," never a silent degrade to a weaker promise.

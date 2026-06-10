@@ -55,11 +55,11 @@ load-bearing — and nowhere else (decision-fatigue is a failure mode, not a saf
 - **`checkpoint` — LIVE.** Auto-drives Plan → Review → Implement → Verify between the real
   human gates, and **pauses** at: (1) triage selection, (2) the spec, before any code
   (Stage 5), (3) before land / any irreversible action.
-- **`autopilot` — DESIGNED, refuses honestly.** Running unwatched is **not earned yet**: it
-  needs the not-yet-built cross-model judge (ROADMAP #4) + deterministic trust-gates
-  (ROADMAP #5). Until those land, autopilot **declines and offers checkpoint instead** —
-  honestly, naming *why* it isn't trustworthy yet, never silently degrading to a weaker
-  promise.
+- **`autopilot` — DESIGNED, refuses honestly.** Running unwatched is **not earned yet**: the
+  cross-model judge (ROADMAP #4) is now **wired** — a reduction of shared-blind-spot risk, not a
+  mechanical guarantee — but the deterministic trust-gates (ROADMAP #5) are **not built yet**.
+  Until #5 lands, autopilot **declines and offers checkpoint instead** — honestly, naming *why*
+  it isn't trustworthy yet, never silently degrading to a weaker promise.
 
 ## The key flows (end-to-end)
 
@@ -118,7 +118,8 @@ A surface is only finished when none of these is a blank screen or a dead end.
   audit confirms it; surface the audit's *"Sound on the audited dimensions"* phrasing,
   scoped honestly to the audited dimensions (not "your app is perfect / bug-free").
 - **The autopilot-refusal state** — honest about *why* unwatched running isn't earned yet
-  (no cross-model judge, no deterministic trust-gates), and offers checkpoint as the live,
+  (the cross-model judge is now wired — a shared-blind-spot risk reduction, not a guarantee —
+  but the deterministic trust-gates aren't built), and offers checkpoint as the live,
   trustworthy alternative. Not an apology, not a vague "coming soon" — a clear, true reason.
 
 ## What "good" feels like
@@ -157,13 +158,15 @@ exactly these points:
 - **"verified / done / safe" language** — the Verify gate is `architect-reviewer` judgment
   (plus the deterministic gates that exist), **not** a blanket mechanical proof. Say a slice
   "passed the checks and the reviewer's audit," not "is proven correct."
-- **The autopilot refusal** — be specific that unwatched running needs the not-yet-built
-  cross-model judge + deterministic trust-gates; don't imply they exist, and don't soften the
-  refusal into a vague maybe. The honest "not yet, here's why, here's checkpoint instead" is
-  the trustworthy move.
+- **The autopilot refusal** — be specific that unwatched running still needs the not-yet-built
+  deterministic trust-gates; the cross-model judge is now wired (a reduction of shared-blind-spot
+  risk, not a mechanical guarantee — same vendor), so don't claim it as independence, and don't
+  soften the refusal into a vague maybe. The honest "not yet, here's why, here's checkpoint
+  instead" is the trustworthy move.
 - **The "Tier-1+2 empty" success claim** — scope it to the **audited dimensions** and the
   covered cells (a scoped re-audit covers blast-radius; only the closing full audit is
   repo-wide). It means "sound on what we checked," never "bug-free" or "perfect."
 - **The re-audit's verification tags** — carry the audit's verification phrasing through
-  unchanged: `(checked against the code)` is a reduction of false confidence by an
-  independent re-check of the same model class, **not** a deterministic guarantee.
+  unchanged: `(checked against the code)` is a reduction of false confidence by a re-check from
+  a different model family than the builder (the cross-model judge; on a same-family run, tagged
+  as such), **not** a deterministic guarantee.
