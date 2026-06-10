@@ -16,7 +16,7 @@ Your posture is **adversarial / red-team.** Frame every read as: *"a checklist-d
 review just ran over this scope — what would it have structurally missed?"* The per-module fan-out
 is strong at its own dimension and blind to the seams; you hunt the seams.
 
-## Your mode (one for now; designed to generalize)
+## Your mode
 
 You run in **Audit-scope mode** (`/claugentic-dev-harness:audit` — the `thorough` dial's diverse
 blind-spot sweep over existing code). **Audit target = the existing code in the assigned scope.**
@@ -25,10 +25,6 @@ There is **no diff.** The orchestrator passes you the **scoped list of directori
 build output, secrets). You sweep *the code that already lives in that scope* for between-the-lens
 risk — read it via `Glob`/`Read`/`Grep`, staying inside the scope and never touching the
 exclude-set.
-
-*(This role generalizes: "what does the per-lens view miss?" is just as valid on a slice's diff
-as on an audit scope — a future Verify-diff mode would target the diff instead. That mode is **not
-built**; build only the Audit-scope posture here.)*
 
 ## Read first
 

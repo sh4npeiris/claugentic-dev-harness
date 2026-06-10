@@ -56,17 +56,15 @@ Build mode has **one live mode** and **one named-but-not-built mode**:
   asks to run unwatched / on autopilot, return **EXACTLY** this and then continue in
   checkpoint if they wish:
 
-  > Running unwatched still needs the deterministic trust-gates (a roadmap item — the
-  > mechanical layer that blocks a red commit without a human watching). The cross-model judge
-  > is now wired (same-model runs are tagged as such), but it's a reduction of shared-blind-spot
-  > risk, not a mechanical guarantee — so unwatched runs stay gated on those mechanical gates.
-  > Here's checkpoint instead.
+  > Running unwatched needs mechanical trust-gates that can block a bad change without a human
+  > watching — those don't exist, so I can't do this honestly. The cross-model judge is wired
+  > (same-model runs are tagged as such), but it's a reduction of shared-blind-spot risk, not a
+  > mechanical guarantee. Here's checkpoint instead.
 
   **This refusal is autopilot's only behavior.** Do **not** build a mode-dispatch layer, a
-  config flag, or any autopilot execution path — there is nothing to dispatch to. When the
-  deterministic trust-gates land (the roadmap's demand-gated item; the cross-model judge is
-  already wired), a future slice makes autopilot real; until then it is a named mode whose
-  whole implementation is this honest "not yet, here's why, here's checkpoint."
+  config flag, or any autopilot execution path — there is nothing to dispatch to. It is a
+  named mode whose whole implementation is this honest "not yet, here's why, here's
+  checkpoint."
 
 ---
 
@@ -232,10 +230,10 @@ hard-stop set** (see *Guardrails* below — the single authoritative list, inclu
 push-to-`main`), **stop, name the exact action and its consequence in plain English, and
 ask; never proceed on silence.**
 
-On approval, land per the WORKFLOW Stage 8: a **conventional commit**, move the plan to
-**`docs/archive/<year>/`**, append a **`docs/DECISIONS.md`** line for any non-trivial
-choice, and **run the Stage-9 harvest checklist** (the five sweeps — see `docs/WORKFLOW.md`
-§9; point at it, don't restate it).
+On approval, land per the WORKFLOW Stage 8: a **conventional commit**, **remove the completed
+plan from `.claude/plans/`** (git history keeps it), append a **`docs/DECISIONS.md`** line for
+any non-trivial choice, and **run the Stage-9 harvest checklist** (the five sweeps — see
+`docs/WORKFLOW.md` §9; point at it, don't restate it).
 
 ### 8. Close-out *(per item)*
 
@@ -440,8 +438,8 @@ adds none.** Derive, don't store:
   implementation boxes**. **Offer to continue it/them first** before re-confirming the rest of
   the list — a **batch run can leave SEVERAL plans in-flight** (the run works the approved list
   in order), so offer to continue **all** of them, not just one, before re-confirming the rest.
-- **A done item** = its **plan archived in `docs/archive/`** (the Land convention — step 7
-  moves a landed item's plan there).
+- **A done item** = its **plan no longer in `.claude/plans/`** (removed at Land, step 7 —
+  git history keeps it).
 
 **The three batch-derived approval states** (from the plan files' `Status` line — the durable
 mark the sitting writes; see *Batch approval (on request)*): **`Status: Spec'd`** (or in
