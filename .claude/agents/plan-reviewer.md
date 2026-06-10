@@ -20,7 +20,7 @@ Evaluate the plan against the **Stage-3 gate**:
 
 Be specific and cite `file:line`. Prefer a few high-impact findings over a long list of nits. If a slice is fine, say so — don't invent problems.
 
-**Output:** **Open every response with one line — `RUNNING AS: <model family>`** — your best self-identification of the model family you are actually running as, so the orchestrator can compare it to the builder family and tag a same-model run. Then append (via Edit) a `## Review` section to the plan file containing:
+**Output:** **Open every response with one line — `RUNNING AS: <model family>`** — your best self-identification of the **model family** you are actually running as (e.g. "Fable 5" / "Opus 4.x" — **never just the vendor ("Claude" / "Anthropic") and never your role name**), so the orchestrator can compare it to the builder family and tag a same-model run. Then append (via Edit) a `## Review` section to the plan file containing:
 - **Verdict:** `PASS` or `CHANGES REQUIRED`
 - **Required changes:** numbered, each actionable (what to change in the plan and why)
 - **Sizing/completeness check:** per slice — OK / split needed (with the split)

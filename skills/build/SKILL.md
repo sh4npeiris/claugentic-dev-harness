@@ -1,5 +1,5 @@
 ---
-description: Drive your audit backlog through the full reviewed pipeline — plan → adversarial review → spec → your approval → implement → verify → land — pausing only at the decisions that are yours. Pick one item, several, or a whole tier; it works them one by one, re-checking the code it touched between items and pausing for you only when new important work surfaces, to the honest "sound on the audited dimensions" stop-signal. Checkpoint mode. Honest about its limits: it pauses at the spec and before anything irreversible, and unwatched "autopilot" is not earned yet (it names exactly what's missing and offers checkpoint instead).
+description: Drive your audit backlog through the full reviewed pipeline — plan → adversarial review → spec → your approval → implement → verify → land — pausing only at the decisions that are yours. Pick one item, several, or a whole tier; it works them one by one, re-checking the code it touched between items and pausing for you only when new important work surfaces, to the honest "sound on the audited dimensions" stop-signal. Checkpoint mode. Honest about its limits: every item's spec needs your approval before any code — per item as you go, or all at once up front in a single approval sitting if you say "spec everything first" — and it stops before anything irreversible; unwatched "autopilot" is not earned yet (it names exactly what's missing and offers checkpoint instead).
 ---
 
 # /claugentic-dev-harness:build
@@ -30,9 +30,11 @@ item"*, *"/claugentic-dev-harness:build the test-baseline item"*.
 reviewed change with **at most three interruptions per item** — each in plain English (*what
 was just done · what's being decided · your options*). Everything between those three pauses
 auto-drives. A failed item **pauses and tells you plainly that nothing partial landed**.
-The three pauses are: (1) the spec, before any code · (2) before land · (3) before any
-irreversible action. *(Two further pauses fire only on exceptions — a mid-build re-slice
-and a failed item — never on the happy path.)*
+The three pauses are: (1) the spec, before any code — fired **per item** as you go, **or
+pre-satisfied per item up front in a single approval sitting** if you ask to *spec everything
+first* (see *Batch approval (on request)*) · (2) before land · (3) before any irreversible
+action. *(Two further pauses fire only on exceptions — a mid-build re-slice and a failed
+item — never on the happy path.)*
 
 **The full-backlog loop is live.** Pick several items (or "all of Tier-1"), confirm the
 ordered worklist, and it works them one by one — after each landed item it **re-checks the
@@ -108,10 +110,21 @@ user asks for several items, a **tier-level shortcut** (*"all of Tier-1"*, *"do 
    list in the order it'll be built (*"so I'll build, in order: 1) the test baseline · 2)
    input validation · 3) …"*), and let the user re-order or drop any before you start. The
    **recommended default order** is the backlog's own order (Tier-1 #1 first — the test
-   baseline gates later refactors), but the user's order wins.
+   baseline gates later refactors), but the user's order wins. Add **one passive tip line**
+   here (a tip, not a question — it needs no answer; the as-we-go flow continues unchanged if
+   it's ignored): *"(tip: you can say 'spec everything first' to approve the whole list in one
+   sitting)"*.
 4. **"Start now?" — the explicit gate into the loop.** Nothing is built until the user says
    go. This is triage selection (the first of build mode's load-bearing decisions); on "yes"
    you enter the loop (step 9), on "no" you stop.
+
+**The batch ask (recognized here, not a standing question).** If the user says — in this
+triage conversation — *"spec everything first," "approve them all in one sitting," "batch
+approve,"* or the like, run **Batch approval (on request)** (below) instead of entering the
+loop directly. **Absent the ask, as-we-go behaves exactly as before** — the only addition on
+that path is the passive tip line; the spec/land/irreversible pauses are unchanged.
+The ask is the only trigger; there is no standing approval-mode question and the tip line in
+step 3 needs no answer.
 
 ---
 
@@ -263,9 +276,12 @@ re-checking the code it touched…"*, then *"clean — moving to item 3."* This 
 completed-beat discipline steps 3–7 use within an item, now spanning the worklist. **Never**
 estimate how long the remaining items will take, never say "nearly through the list."
 
-The three per-item checkpoint pauses (spec · before-land · irreversible) **fire on every
-item** — the loop does not suppress them. The autopilot refusal, the irreversible hard-stop
-set, and no-invented-scope all hold unchanged across the whole loop.
+The per-item checkpoint pauses hold across the loop: the **before-land** and **irreversible**
+pauses **fire on every item**; the **spec** pause fires per item as you go, **or is
+pre-satisfied per item by a batch sitting** (see *Batch approval (on request)*) — never
+skipped, only satisfied earlier. **The loop never suppresses a pause that hasn't been
+explicitly satisfied.** The autopilot refusal, the irreversible hard-stop set, and
+no-invented-scope all hold unchanged across the whole loop.
 
 ### 10. The scoped re-audit + re-triage *(flow 3 — after each landed item)*
 
@@ -328,6 +344,89 @@ re-audits didn't claim). Then:
 
 ---
 
+## Batch approval (on request) *(front-load the spec decisions into one sitting)*
+
+Triggered **only** by the batch ask at step 1b (*"spec everything first," "approve them all
+in one sitting"*). It does not invent new steps — it **re-orders when the existing pauses
+fire**: every item's Stage-5 spec pause is satisfied up front, in **one sitting**, so the run
+that follows has only the lighter per-item confirms left. The as-we-go default is untouched;
+this path runs only when asked.
+
+**At the ask, answer with both honesty lines once — no confirm-shaming, no penalty framing:**
+
+> Spec-everything-first front-loads the approval decisions into one sitting, so you get
+> **fewer interruptions: you'll still confirm each item before it lands, anything irreversible
+> still stops, and if earlier work shifts the ground under a later item I'll pause to
+> re-confirm.** And planning every item up front means a dropped item's planning is already
+> spent.
+
+(A multi-item batch is still several touchpoints — front-loaded *spec* decisions, not zero
+presence. **Prep-cost, said plainly:** N items = N plan + review + spec cycles before anything
+builds; the larger the worklist, the more likely a session boundary lands mid-prep — the
+durable `Spec'd`/`Approved` states below absorb it, so a resumed run picks up derivably.)
+
+### Prep — plan + review + spec every item, no code
+
+Per worklist item, run the **existing steps 2–4** (tag → discipline → plan → panel review →
+spec) — and **stop before any code**. Adjust-iterations reuse the **existing iterate-until-PASS
+review loop** (step 3). No new mechanics: this is steps 2–4, run for every item before the
+sitting instead of one item at a time. Narrate completed beats only (*"specced 3 of 7 —
+no code yet…"*), never an ETA.
+
+### The sitting — Stage 5, satisfied per item, up front (ROSTER-FIRST)
+
+This **is** the Stage-5 spec pause, run once for the whole list. Lead with a **scannable
+roster** so the user grasps the batch at a glance — **one line per item**: *number · title ·
+one-line "what this builds" · one-line "what you're accepting"*. The **full approval triad per
+item sits beneath, to drill into** (the same triad-above-detail pattern the single-item pause
+uses at step 4) — the roster is the overview, the triads are the detail.
+
+Per item, the choices are **approve / adjust / drop**:
+
+- **Approve** → flip that item's plan file to **`Status: Approved`** (the `TEMPLATE.md`
+  Status convention — **this is the durable mark** the run and any resume read; see the
+  resume contract).
+- **Adjust** → amend the spec and re-render that item's triad; a **material change re-enters
+  the review loop** (step 3) before it can be approved.
+- **Drop** → unjudged, **no penalty framing** — as easy and as blame-free as approve.
+
+**Close the sitting by re-confirming the surviving ordered list** (a numbered read-back, the
+same shape as step 1b) — **and restate what batch does not remove**: *"you'll still confirm
+each item before it lands, anything irreversible still stops, and if earlier work shifts the
+ground under a later item I'll pause to re-confirm."* (The echo matters: on a mid-prep resume
+the sitting may run in a session where the user never heard the ask copy.)
+
+### The run — the existing loop, spec pre-satisfied per item
+
+Work the surviving list through the **existing loop (steps 5–8 per item)**. The **spec pause
+is pre-satisfied per item by the sitting** (its plan reads `Status: Approved`) — every other
+pause is unchanged: **pre-land per item · the irreversible hard-stop · the re-slice and
+item-failure pauses · the re-triage on a new Tier-1/2 (step 10) · the currency pause (below).**
+
+**Walk-away narration is load-bearing on this path.** Because batch invites the user to step
+away after the sitting, the **completed beats** between items (*"built item 3 of 7 —
+re-checking the code it touched…"*) are their **primary thread back into the run** — same
+no-ETA discipline (step 9), now the explicit reassurance surface for the walk-away case.
+
+### The spec-currency check — before item *k* implements
+
+A later item's spec was written before earlier items landed, so the ground may have moved.
+**Before item *k* implements:** intersect **the files landed since the sitting** (the landed
+items' plan *Affected-files* lists / `git log`) with **the files item *k*'s spec names**.
+
+- **No overlap** → proceed (the spec is still current).
+- **Overlap** → the **currency pause**, in the standard pause frame: *what changed* (the
+  landed work that touched this item's named files, in plain English) · *what's being decided*
+  (re-confirm the spec as-is, **or** re-spec — a re-spec **re-fires the Stage-5 pause for that
+  item**) · *the options*. Frame it as **the safety net promised at the sitting — never an
+  error, and never a reversal of the user's approval.**
+
+State it plainly: this is **file-level overlap, NOT semantic impact analysis** — the harness
+has **no dependency graph and claims none**; semantic cross-file fallout stays owned by the
+scoped re-audit (step 10) + the closing full audit (step 11). Model-upheld, said plainly.
+
+---
+
 ## The resume contract *(derive the worklist — don't store it)*
 
 A resumed `/claugentic-dev-harness:build` **reconstructs** the worklist from the two state
@@ -336,11 +435,19 @@ adds none.** Derive, don't store:
 
 - **The item universe + status** = the **`harness-audit:backlog` fence** in `docs/ROADMAP.md`
   (its status block + tiered items — exactly what triage reads in step 1).
-- **An in-flight item** = its **plan file in `.claude/plans/`** with unchecked slices. **Offer
-  to continue it first** before re-confirming the rest of the list — it's the item that was
-  mid-build when the session ended.
+- **An in-flight item** = its **plan file in `.claude/plans/`** with **unchecked
+  implementation boxes**. **Offer to continue it/them first** before re-confirming the rest of
+  the list — a **batch run can leave SEVERAL plans in-flight** (the run works the approved list
+  in order), so offer to continue **all** of them, not just one, before re-confirming the rest.
 - **A done item** = its **plan archived in `docs/archive/`** (the Land convention — step 7
   moves a landed item's plan there).
+
+**The three batch-derived approval states** (from the plan files' `Status` line — the durable
+mark the sitting writes; see *Batch approval (on request)*): **`Status: Spec'd`** (or in
+review) = **awaiting a sitting** · **`Status: Approved`** = **build when reached** · a plan
+with **unchecked implementation boxes** = **in-flight** (the case above). **Approval is never
+inferred** — only an explicit `Status: Approved` counts as approved; a run that died mid-prep
+or mid-sitting resumes derivably, each item exactly as `Spec'd` or `Approved` as its file says.
 
 From those, **re-confirm the remaining selection + order with the user** (the step-1b
 confirm + "start now?"). Be honest: the **picked order is the one thing not durably stored** —

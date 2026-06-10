@@ -54,7 +54,9 @@ load-bearing — and nowhere else (decision-fatigue is a failure mode, not a saf
 
 - **`checkpoint` — LIVE.** Auto-drives Plan → Review → Implement → Verify between the real
   human gates, and **pauses** at: (1) triage selection, (2) the spec, before any code
-  (Stage 5), (3) before land / any irreversible action.
+  (Stage 5) — **per item as you go, or pre-satisfied per item up front in one approval
+  sitting** when the user asks to *spec everything first* (the batch ask), (3) before land /
+  any irreversible action.
 - **`autopilot` — DESIGNED, refuses honestly.** Running unwatched is **not earned yet**: the
   cross-model judge (ROADMAP #4) is now **wired** — a reduction of shared-blind-spot risk, not a
   mechanical guarantee — but the deterministic trust-gates (ROADMAP #5) are **not built yet**.
@@ -68,7 +70,11 @@ load-bearing — and nowhere else (decision-fatigue is a failure mode, not a saf
 2. **Per-item build** — for each chosen item, auto-drive the pipeline to the next gate,
    pausing only at spec-approval and any irreversible action. The item's **tag selects the
    discipline** (`refactor` → characterization-tests-first, `bug` → reproduce-first, etc. —
-   see WORKFLOW's tag→discipline table).
+   see WORKFLOW's tag→discipline table). **Spec-approval has two rhythms:** as-we-go (the
+   default — each item's spec is approved when its turn comes) or, on the **batch ask**
+   (*"spec everything first"*), one **roster-first approval sitting** up front that approves
+   the whole list before anything builds; then the run has only the lighter per-item land
+   confirms + the safety pauses left.
 3. **Re-audit → continue-or-re-triage** — after each item, a **scoped re-audit** over the
    touched `(module × dir)` cells (honest scope — cross-file fallout beyond those cells is
    owned by the closing full audit; the harness has no dependency graph and claims none). If
@@ -99,6 +105,14 @@ A surface is only finished when none of these is a blank screen or a dead end.
   - *Triage* — the tiered list to pick from.
   - *Spec approval (Stage 5)* — the spec's plain-English block first (*what this builds ·
     what "done" means for you · what you're accepting*); no code before the yes.
+  - *The approval-mode ask (batch spec-approval)* — when the user says *"spec everything
+    first,"* the spec pauses are front-loaded into **one roster-first sitting**: a scannable
+    list of every item (what it builds · what you're accepting, one line each) with the full
+    triad beneath each to drill into; approve / adjust / drop per item, then it builds the
+    approved list. Honest at the ask — and echoed at the sitting close — about what batch does *not* remove (still confirm each
+    landing, anything irreversible still stops, a later item re-confirms if the ground
+    shifted) and the neutral sunk-cost fact (a dropped item's planning is already spent). The
+    durable approval mark rides the plan file's `Status` line. As-we-go stays the default.
   - *Irreversible hard-stop* — name the exact action and its consequence, and wait. Never
     proceed on silence.
 - **An item FAILS mid-build** — the Verify gate fails, implementation can't complete, or a
@@ -147,7 +161,13 @@ The four experience qualities, in priority order:
 3. **Decision-fatigue from too many checkpoints** — so many pauses the user rubber-stamps
    without reading, which silently destroys the value of every gate. *Defend:* pause **only**
    at the three load-bearing gates (triage · spec · irreversible) and auto-drive everything
-   between; auto-continue the agreed list unless something material changed.
+   between; auto-continue the agreed list unless something material changed. *The in-sitting
+   variant (batch spec-approval):* front-loading every spec into one sitting risks the same
+   rubber-stamping **within** the sitting — a wall of N full specs the user skims and waves
+   through. *Defend:* the sitting is **roster-first** — a scannable one-line-per-item overview
+   (what it builds · what you're accepting) the user grasps at a glance, with the full triad
+   **beneath each, to drill into** only where they want detail; the decision per item stays
+   approve / adjust / drop, never an undifferentiated bulk "yes."
 
 ## Honesty surface — where the UX must NOT over-claim
 
