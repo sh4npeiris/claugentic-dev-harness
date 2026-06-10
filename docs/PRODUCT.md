@@ -69,8 +69,10 @@ load-bearing — and nowhere else (decision-fatigue is a failure mode, not a saf
    pausing only at spec-approval and any irreversible action. The item's **tag selects the
    discipline** (`refactor` → characterization-tests-first, `bug` → reproduce-first, etc. —
    see WORKFLOW's tag→discipline table).
-3. **Re-audit → continue-or-re-triage** — after each item, a **scoped re-audit** (blast
-   radius = touched files + their dependents). If nothing material surfaced, **auto-continue**
+3. **Re-audit → continue-or-re-triage** — after each item, a **scoped re-audit** over the
+   touched `(module × dir)` cells (honest scope — cross-file fallout beyond those cells is
+   owned by the closing full audit; the harness has no dependency graph and claims none). If
+   nothing material surfaced, **auto-continue**
    the agreed list. If material new/obsoleted work surfaced, **pause to re-triage** — the
    user re-picks before more is built.
 4. **Stop / done** — when the agreed list is worked through, one **full audit** confirms

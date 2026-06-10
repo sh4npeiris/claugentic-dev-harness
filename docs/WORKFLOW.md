@@ -6,6 +6,7 @@
 > - **Substantial change?** (new subsystem, cross-cutting refactor, shared-contract change, or **~8+ files**) — don't free-code. The agent will **pause, ask questions, enter plan mode**, and run the pipeline below: a plan in `.claude/plans/`, an adversarial review, a spec **you approve**, implementation in an isolated branch, verification, then a retrospect that improves this harness.
 > - **Your map of the codebase** is `docs/ARCHITECTURE_TREE.md` (one line per file) — read it before diving into source. Specialist **roles** the agent delegates to live in `.claude/agents/` and grow over time.
 > - **Decisions** → `docs/DECISIONS.md`. **Backlog** → `docs/ROADMAP.md`.
+> - **Build mode** (`skills/build/SKILL.md`) is the orchestration layer that **auto-drives this pipeline over the audit backlog** — pick items or a whole tier and it works them through the stages below, pausing only at the decisions that are yours.
 
 How agents **and** human devs take *substantial* work from idea → landed change while keeping quality high and the harness self-improving. CLAUDE.md links here; this is the source of truth for process.
 
@@ -98,7 +99,7 @@ Also available without new files: built-in **`Explore`** (fan-out search), **`Pl
 - **Verify (7) — honesty register:** the report says what the verify **attempted and tagged**, never what it "proved." Deterministic gates passed; reviewer sign-offs are model-upheld judgment, not a guarantee.
 - **Land (8):** append a dated one-liner to `DECISIONS.md` for non-trivial choices; update `ROADMAP.md` if scope shifted; **run the Stage-9 harvest checklist** (below) before moving on.
 - **Land (8) — honesty register:** the close-out names **which gate-class passed** — the *deterministic gates* (tests, tree-check, lint/type/security) vs the *reviewer sign-offs* (the audited dimensions) — never a blanket "verified/done."
-- **Land (8) — close out for the user:** after the slice lands, say it plainly — *"This one's done. Next: pick another item the same way, or re-run `/claugentic-dev-harness:audit` for a fresh picture — you're finished when Tier 1 and Tier 2 come back empty."*
+- **Land (8) — close out for the user:** after the slice lands, say it plainly — *"This one's done. Next: pick another item the same way, run `/claugentic-dev-harness:build` to keep working the backlog, or re-run `/claugentic-dev-harness:audit` for a fresh picture — you're finished when Tier 1 and Tier 2 come back empty."*
 - **Retrospect (9):** promote durable learnings into the `docs/standards/` modules (entry point: `docs/ENGINEERING_STANDARDS.md`) / `CLAUDE.md` / agent files.
 
 ---
