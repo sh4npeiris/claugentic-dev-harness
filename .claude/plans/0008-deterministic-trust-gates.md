@@ -82,8 +82,22 @@ Each slice ships **real hermetic unit tests** (pytest grows from 61). Plus: (1) 
 
 ---
 
-## Review *(Stage-3 — diverse panel, judges cross-model)*
-- **Verdict:** _pending_
+## Review *(Stage-3 — diverse panel, judges cross-model; ran at park time — the plan RESUMES FROM THESE FINDINGS, not from scratch)*
+
+**Verdicts:** `plan-reviewer` (fable) **CHANGES REQUIRED** · `yagni-sentinel` **OVER-BUILT** · `honesty-reviewer` (fable) **OVERCLAIMS**. None folded in yet (the plan parked before revision) — fold them in at resume.
+
+**The blocking mechanism findings (plan-reviewer — must be fixed at resume):**
+1. **Secret-scan target is vacuous at PreToolUse time:** the hook fires *before* `git add -A && git commit` runs, so `git diff --cached` is empty — scan the **working tree vs HEAD (added lines + untracked)**; at `push` time secrets are already in history (scan the unpushed range or scope the claim to commit-time).
+2. **Source-predicate deadlock:** pin the characterization hook to **`INCLUDE_GLOBS`** (imported, single source of truth), NOT `SOURCE_EXTS` — which matches `tests/**` and would block writing the characterization tests themselves. Add the missing test: *declared + no baseline + edit under `tests/` → pass*.
+3. **Hook-timeout fail-open:** Claude Code hooks default to a 60s timeout and **only exit-2 blocks — a timed-out/killed hook fails OPEN** (try/except can't catch a kill). Set an explicit `timeout` on the settings entry; soften "cannot land red / no model in the loop" to carry the qualifiers (regex coverage of common invocations · config-removable · timeout-kill fail-open).
+4. **No dynamic suite discovery:** hardcode the explicit gate list (dynamic discovery silently skips a renamed/deleted scanner — fail-open-by-omission); Slice 2 adds itself as a one-line edit + a list-membership test.
+5. **The refusal-copy sweep is bigger than listed:** CLAUDE.md's "one mechanically enforced gate" claim (S1) + ALL autopilot-refusal touch-points at S3 (build SKILL :57 + step-2 parenthetical :140-141 + Guardrails ~:368 · README :20/:22 ×2 · PRODUCT mirror) — else the flagship honesty line becomes false when S3 lands. *(Also: the user-memory note "harness-honesty-positioning" goes stale at S1 — flag at Land.)*
+
+**Should-fix:** spec the matcher precisely (flags between `git` and subcommand; over-match-is-safe principle; name the uncovered landing paths — `gh pr merge`, Bash-spawned scripts) · hooks snapshot at session start — the live dogfood check needs a **fresh session** after wiring · own the state-file **clear** step (recommend: the land-gate clears it mechanically post-green-commit; else state the fail-closed trade). **Nits:** the `.gitignore` edit is redundant (`.claude/*` already covers it) · record the no-red-WIP-commits trade as a DECISIONS line.
+
+**yagni (OVER-BUILT):** keep **Slice 1** (the land-gate — genuinely warranted, the item's core); **Slice 2** a lean candidate; **defer Slice 3** (the characterization hook + state contract is the heaviest machinery for the narrowest case — revisit when autopilot/real use demands it). This independently corroborates the park decision.
+
+**honesty (OVERCLAIMS):** the "cannot land red / cannot pass through the agent's tools" claims need the escape-hatch qualifiers (hook removal · human terminals · regex misses · timeout fail-open · unhooked sessions); "mechanical after declaration" must say plainly that an undeclared refactor is never gated.
 
 ---
 
