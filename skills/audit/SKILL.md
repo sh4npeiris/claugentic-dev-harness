@@ -42,11 +42,13 @@ apparent fact, and never fabricate a finding to fill a tier.
   with the *current* snapshot — it gives you today's picture, not an ever-growing pile.
 - **Tier 3 is optional** polish; **an empty Tier 1 + Tier 2 means the code is sound** on the
   audited dimensions — that's the signal to stop, not a prompt to manufacture more work.
-- **The dial auto-sizes** to the repo (small → `quick`, larger → `standard`) and is reported
-  up front; **name `quick` / `standard` / `thorough` to override.** `quick` and `standard` run
-  the *same* lenses — they differ only in **how deep each lens digs** (`quick` surfaces the
-  clear issues fast; `standard` digs for the subtle ones). `standard` is a **single deep pass**,
-  not a repeat sweep — the deeper, fresh-angle *second look* lives in `thorough` (coming next).
+- **One thoroughness slider, three notches** — `quick` · `standard` · `thorough`. The **dial
+  auto-sizes** to the repo (small → `quick`, larger → `standard`) and is reported up front;
+  **name a level to override.** `thorough` is **named-only** — it's never auto-picked. Every level
+  runs the *same* lenses (one is never dropped to make a level cheaper); the slider changes **how
+  deep each lens digs** (`focused` → `deep` → `exhaustive`) and, at the top notch, adds two
+  fresh-angle adversarial passes (below). Whatever the level, **every surfaced finding is
+  independently re-checked** — that floor never moves.
 
 ---
 
@@ -187,44 +189,64 @@ discrete `(module × dir)` cells **audited once each** (no re-sweep), the status
 which are `done` vs `pending` (so a re-run continues, never restarts), and the single shared
 `max-cells-per-run` cap in step 8 **guarantees termination.**
 
-Every level runs the **same uniform pipeline — FIND → PRUNE → VERIFY → surface.** The dial's
-only lever is **depth-per-lens** (step 1): all relevant lenses run at every level; `quick`
-reads at `focused` depth, `standard` at `deep` depth — a lens is **never** dropped to make a
-level cheaper.
+Every level runs the **same uniform pipeline — FIND → PRUNE → VERIFY → surface.** The level is
+**one thoroughness slider** and each stage *responds* to it (step 1): **FIND** digs deeper per lens
+(`focused` → `deep` → `exhaustive`) and, at the top, *also* steps back for a cross-cutting
+**blind-spot sweep**; **PRUNE** changes *who* cuts (synthesis self-review → an **independent
+skeptic** at the top); **VERIFY is flat at every notch** — every surfaced finding is re-checked,
+even on `quick` (the honesty floor). All relevant lenses run at every level — a lens is **never**
+dropped to make a level cheaper.
 
 ### The 9-step procedure
 
-1. **Set the dial — named level wins, else auto-size from Phase 1.** The skill is
-   invoked in natural language, not with typed flags. First read the invocation for a
-   **named** level — **`quick`** or **`standard`** (e.g. "audit quick", "do a standard
-   audit"). **A named level always wins.** If none is named, **auto-pick from Phase 1's
-   repo sizing** (the audit-plan's structure / candidate-module count / monorepo signal):
-   a **small, simple repo → `quick`**; a **larger repo, many candidate modules, or a
-   monorepo → `standard`.** Keep this a **rough size/complexity judgment** from the
-   Understand phase — do not author a precise scoring formula. **Always report the chosen
-   level up front** so the user can steer — e.g. *"Auto-selected `quick` — small repo; say
-   `standard` (or `thorough`) to override"* (or *"Using `standard` as you asked"* when
-   named). These are the **only two live levels** — if the user names `thorough`, **run a
-   `standard`-depth pass** and tell them the deeper `thorough` pass — a diverse blind-spot
-   sweep plus an adversarial prune — **lands in the next release**, not built yet.
+1. **Set the dial — one thoroughness slider; named level wins, else auto-size from Phase 1.** The
+   skill is invoked in natural language, not with typed flags. First read the invocation for a
+   **named** level — **`quick`**, **`standard`**, or **`thorough`** (e.g. "audit quick", "do a
+   standard audit", "run a thorough audit"). **A named level always wins.** If none is named,
+   **auto-pick from Phase 1's repo sizing** (the audit-plan's structure / candidate-module count /
+   monorepo signal): a **small, simple repo → `quick`**; a **larger repo, many candidate modules,
+   or a monorepo → `standard`.** Keep this a **rough size/complexity judgment** from the Understand
+   phase — do not author a precise scoring formula. **`thorough` is never auto-picked — it is
+   named-only** (it costs more by design; the user opts in). **Always report the chosen level up
+   front** so the user can steer — e.g. *"Auto-selected `quick` — small repo; say `standard` or
+   `thorough` to override"* (or *"Using `thorough` as you asked"* when named).
 
-   **The dial scales on one axis: depth-per-lens.** All relevant lenses run at *every* level;
-   the level sets the **`depth`** each `lens-reviewer` reads at (passed in step 4). It does
-   **not** drop lenses, limit directories, or change how findings are verified.
+   **It is ONE slider, and each pipeline stage responds to it — not three separate pipelines.**
+   The same FIND → PRUNE → VERIFY runs at every notch; turning the slider up changes how each stage
+   behaves:
+   - **FIND responds by depth** — the level sets the **`depth`** each `lens-reviewer` reads at
+     (passed in step 4): `focused` → `deep` → `exhaustive`. **All relevant lenses run at every
+     level** — depth, never lens-count, is the lever. **At the top notch, FIND also steps back**
+     for a cross-cutting **blind-spot sweep** (a `blindspot-reviewer` over the whole scope — see
+     step 4): that sweep *is what FIND looks like at max*, not a bolt-on.
+   - **PRUNE responds by who cuts** — `quick`/`standard` right-size in synthesis (self-review);
+     `thorough` *additionally* runs an **independent skeptic** (`yagni-sentinel`) over the
+     consolidated findings in PRUNE (step 6), before VERIFY (step 7). The adversarial prune *is what
+     PRUNE looks like at max.*
+   - **VERIFY is flat — the honesty floor.** Every surfaced finding is independently re-checked at
+     **every** notch, even `quick` (step 7). The slider never weakens this.
 
-   | stage | `quick` | `standard` | `thorough` (next release) |
+   | stage | `quick` | `standard` | `thorough` (named-only) |
    |---|---|---|---|
    | **lenses** | all relevant | all relevant | all relevant |
-   | **depth per lens** | **`focused`** (clear gaps from a direct read) | **`deep`** (call-chains, edge cases, subtle issues) | `deep` |
-   | **prune (YAGNI)** | synthesis right-size | synthesis right-size | + adversarial `yagni-sentinel` sweep |
-   | **verify (refute, all tiers)** | attempt on **all surfaced** | attempt on **all surfaced** | attempt on **all surfaced** |
-   | **diverse blind-spot sweep** | — | — | ✓ |
+   | **FIND — depth per lens** | **`focused`** (clear gaps from a direct read) | **`deep`** (call-chains, edge cases, subtle issues) | **`exhaustive`** (`deep` + self-skeptical, every ambiguous lead) |
+   | **FIND — blind-spot sweep** | — | — | ✓ `blindspot-reviewer` over the scope |
+   | **PRUNE (YAGNI)** | synthesis right-size | synthesis right-size | **+ adversarial `yagni-sentinel` sweep** |
+   | **VERIFY (refute, all tiers)** | attempt on **all surfaced** | attempt on **all surfaced** | attempt on **all surfaced** |
    | **budget** | one shared backstop cap + resume | same | same |
 
-   `quick` and `standard` differ **only** by depth: `quick` shows the clear issues fast,
-   `standard` digs for the subtle ones. They converge only on a small/clean repo (fine — the
-   auto-dial picks `quick` there). `standard` is a **single deep pass**, not a repeat sweep;
-   the high-value *second-angle* look is `thorough`'s diverse sweep (next release).
+   `quick` and `standard` differ **only** by depth: `quick` shows the clear issues fast, `standard`
+   digs for the subtle ones; they converge only on a small/clean repo (fine — the auto-dial picks
+   `quick` there). `thorough` is `standard`'s deep pass taken to **`exhaustive`** depth **plus** the
+   two adversarial passes (the blind-spot sweep + the independent prune) — the genuine
+   *second-angle* look, opt-in by name.
+
+   **Where depth saves (be honest).** Each lens already targets its reads through
+   `ARCHITECTURE_TREE.md` (it doesn't re-walk the whole repo), so depth trims the *variable* cost —
+   call-chain chasing across files plus reasoning, not the base read. So `quick` is genuinely
+   lighter, but its biggest wins are on **small repos** (where it's auto-picked) and on **triage
+   noise** (fewer, clearer findings) — **not** a dramatic token cut on a big repo. Don't sell
+   `quick` as "much cheaper everywhere."
 
 2. **Load the audit-plan from Phase 1.** Take the four fields Phase 1 emitted:
    **exclude-set · prioritized directory order · monorepo / package boundaries ·
@@ -252,14 +274,26 @@ level cheaper.
    and spawn a **`lens-reviewer` subagent in audit-scope mode** per batch, **in parallel**. Each
    cell is audited **exactly once** — there is no re-sweep. Pass each subagent: its **module**,
    the **scoped dir/package list** for that batch, the **exclude-set**, and the dial's **`depth`**
-   (`focused` for `quick`, `deep` for `standard`/`thorough` — see step 1; the contract is in
-   `.claude/agents/lens-reviewer.md`). Each returns a **per-dimension digest** (met/gap +
-   `file:line` + confidence + a plain-English line). Cell granularity keeps each subagent's
-   read-set small, so the fan-out stays in-budget even on a big repo. **As batches complete, emit
-   at most one light "still working" beat naming cells already *done*** (e.g. *"swept the API
-   routes…"*) — report **completed** work, **never an ETA or a "nearly finished"** (a budget
+   (`focused` for `quick`, `deep` for `standard`, `exhaustive` for `thorough` — see step 1; the
+   contract is in `.claude/agents/lens-reviewer.md`). Each returns a **per-dimension digest**
+   (met/gap + `file:line` + confidence + a plain-English line). Cell granularity keeps each
+   subagent's read-set small, so the fan-out stays in-budget even on a big repo. **As batches
+   complete, emit at most one light "still working" beat naming cells already *done*** (e.g. *"swept
+   the API routes…"*) — report **completed** work, **never an ETA or a "nearly finished"** (a budget
    checkpoint can land `PARTIAL` at any point — see step 8). These beats are **conversational only
    — never written into a fence.**
+
+   - **`thorough` only — also spawn the blind-spot sweep (FIND's top-notch step-back).** Alongside
+     the per-module `lens-reviewer` fan-out, spawn **one `blindspot-reviewer` over the whole audited
+     scope** (the included dirs/packages + the exclude-set), **in parallel** with the lenses. Where
+     each lens owns exactly one module, this sweep hunts the cross-cutting / between-the-modules risk
+     **no single lens owns** — emergent architectural smells, integration gaps at the seams,
+     inconsistently-applied cross-cutting concerns, systemic issues. It always reads at
+     `exhaustive` depth (its contract is in `.claude/agents/blindspot-reviewer.md`) and returns the
+     **same per-finding shape** as a lens (gap + `file:line` + confidence + a plain-English line), so
+     its findings join the **same** dedup → prune → verify path with no special handling. It **FINDS
+     only** — it does not verify; its findings are re-checked by `finding-verifier` like any other.
+     On `quick`/`standard` there is **no** blind-spot sweep.
 
 5. **Dedup + synthesize.** Combine the lenses' returns into one consolidated set. Key dedup
    on **issue-class** (the *kind* of problem — e.g.
@@ -276,15 +310,23 @@ level cheaper.
    backlog's whole value is that its cited locations are trustworthy (the same discipline
    as the Phase-1 count-guard).
 
-6. **PRUNE — YAGNI right-size the consolidated set.** Over the consolidated findings, do one
-   right-sizing pass — the harness's own YAGNI applied to its own output: **keep only findings
-   with real impact; cut marginal "nice-to-haves" that don't earn their keep; never manufacture
-   a finding to fill a tier.** A sound codebase legitimately yields few or no items — a valid,
-   expected result. This is a synthesis discipline, *not* a fan-out (no extra subagents; the
-   adversarial `yagni-sentinel` sweep over the findings is `thorough`-only, lands next release —
-   don't build it here). The prune runs **before** VERIFY so the set re-checked in step 7 is
-   already right-sized. (Exception: never prune the Tier-1 "establish a test baseline" item for
-   untested behavior-bearing code — see step 8.)
+6. **PRUNE — YAGNI right-size the consolidated set (who cuts responds to the dial).** Over the
+   consolidated findings, do one right-sizing pass — the harness's own YAGNI applied to its own
+   output: **keep only findings with real impact; cut marginal "nice-to-haves" that don't earn
+   their keep; never manufacture a finding to fill a tier.** A sound codebase legitimately yields
+   few or no items — a valid, expected result.
+   - **`quick`/`standard` — synthesis self-review.** This is a synthesis discipline, *not* a
+     fan-out: the orchestrator right-sizes the consolidated set itself (no extra subagents).
+   - **`thorough` only — additionally spawn the adversarial `yagni-sentinel` prune (PRUNE's
+     top-notch).** On `thorough`, *after* the synthesis self-review, also spawn **one
+     `yagni-sentinel`** over the consolidated findings — a real fan-out, the **independent skeptic**
+     that argues the set down from a clean context. Apply its cut-list as a second, adversarial
+     right-size before verify. This is *what PRUNE looks like at max*, not a bolt-on; on
+     `quick`/`standard` there is no such sweep.
+
+   The prune runs **before** VERIFY so the set re-checked in step 7 is already right-sized.
+   (Exception: never prune the Tier-1 "establish a test baseline" item for untested
+   behavior-bearing code — see step 8.)
 
 7. **VERIFY — attempt to re-check every surfaced finding (all tiers, every level).** After the
    prune, for **every** finding that will be surfaced — all tiers, on `quick` and `standard`
@@ -386,7 +428,7 @@ insert it once (below the overview fence), headed
 A single line at the very top of the fence:
 
 ```
-status: COMPLETE | PARTIAL · level: quick|standard · done-cells: [module×dir, …] · pending-cells: [module×dir, …] · date: YYYY-MM-DD
+status: COMPLETE | PARTIAL · level: quick|standard|thorough · done-cells: [module×dir, …] · pending-cells: [module×dir, …] · date: YYYY-MM-DD
 ```
 
 - **`status`** — `COMPLETE` if every enumerated cell was audited; `PARTIAL` if the run
