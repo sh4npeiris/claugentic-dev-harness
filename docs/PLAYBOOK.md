@@ -61,7 +61,7 @@ Ask the agent to **explain what it just did and why** — it's built to teach yo
 - **Author → adversarial verify** — one agent writes; a *different, skeptical* agent tries to **refute** it. The model that wrote something is the worst judge of it. *This is the core trust move.*
 - **Trust the oracle, not the model** — wherever a fact can be checked mechanically (a test, a `grep`, a web-lookup), check it that way. Models produce confident, professional-looking errors; deterministic checks don't.
 - **Effort dial** — match review depth to the change's risk; don't run the whole machine on a typo.
-- **Loop-until-dry** — for open-ended hunts, keep going until a pass finds nothing new (the long tail is where the real problems hide).
+- **Diverse panel + cross-model judge** — a contested or trust-touching change is critiqued by several *different* lenses at once (a skeptic, an over-claim checker, a product eye), and the gating judges run by default on a **different model family** than the builder — fewer shared blind spots than one reviewer, one model.
 - **Judge-panel / best-of-N** — for a big design fork, generate several approaches, score them, combine the best of each.
 
 **A few terms you'll see.**
