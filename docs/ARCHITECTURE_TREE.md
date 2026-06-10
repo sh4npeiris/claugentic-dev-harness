@@ -49,6 +49,7 @@ This repo builds the **`claugentic-dev-harness`** Claude Code plugin. The only e
 - `.claude/agents/yagni-sentinel.md` — the anti-over-engineering skeptic: argues a plan/diff is too much (speculative abstraction, premature infra, gold-plating); read-only, returns a cut-list. (Also the audit's `thorough`-only adversarial prune over consolidated findings.)
 - `.claude/agents/finding-verifier.md` — the audit's adversarial-verify counterpart to `lens-reviewer`: given ONE surfaced audit finding (claim + `file:line`, never the finder's rationale), independently reads the cited code and tries to **refute** it → `Verified` / `Refuted` / `Unconfirmed`; invoked on **every** finding the audit is about to surface (all tiers, every dial level), after the prune; read-only, opus. A false-confidence reduction, not a deterministic gate.
 - `.claude/agents/blindspot-reviewer.md` — the audit's **cross-cutting / between-the-modules** sweep (the `thorough` dial's diverse blind-spot finder): its lens is the *whole scope*, red-teaming for the risk **no single module-lens owns** (emergent architectural smells, integration gaps at the seams, systemic cross-cutting issues); always `exhaustive` depth, read-only, opus. **FINDS only** (re-checked by `finding-verifier` like any finding) and returns the **same per-finding shape** as `lens-reviewer`, so the dedup → prune → verify path is unchanged. Designed to generalize to a Verify-diff mode later (ROADMAP).
+- `.claude/agents/honesty-reviewer.md` — the harness's **claims / over-claim** lens: refutes **copy** (not code), flagging text that launders model-or-human-upheld judgment into apparent mechanical fact (the verb discipline · `[D]`/`[J]` label integrity · dimension-scoped success claims); the bar is **embedded in the prompt** (no standards module — promote when a 2nd consumer appears). Part of the diverse panel at Plan + Verify on trust/honesty surfaces; read-only, opus. A reduction of false confidence, not a deterministic gate (does **not** mechanically cross-check).
 
 ## .claude/plans/ — plan template
 
@@ -60,7 +61,7 @@ This repo builds the **`claugentic-dev-harness`** Claude Code plugin. The only e
 
 ## .claude-plugin/ — plugin manifest (makes this repo installable)
 
-- `.claude-plugin/plugin.json` — plugin manifest (name `claugentic-dev-harness`, version, metadata); exposes the 8 specialist agents via the `agents` field pointing at `.claude/agents/*` (DRY — no duplicate `agents/` dir). Skills live under `skills/`; bundled hooks/gates not yet shipped.
+- `.claude-plugin/plugin.json` — plugin manifest (name `claugentic-dev-harness`, version, metadata); exposes the 9 specialist agents via the `agents` field pointing at `.claude/agents/*` (DRY — no duplicate `agents/` dir). Skills live under `skills/`; bundled hooks/gates not yet shipped.
 - `.claude-plugin/marketplace.json` — single-plugin marketplace (`name: sh4npeiris`) so `/plugin marketplace add sh4npeiris/claugentic-dev-harness` → `/plugin install claugentic-dev-harness@sh4npeiris` works.
 
 ## skills/ — harness entry points (the `/claugentic-dev-harness:*` family)
