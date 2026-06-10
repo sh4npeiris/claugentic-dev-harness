@@ -58,10 +58,10 @@ load-bearing — and nowhere else (decision-fatigue is a failure mode, not a saf
   sitting** when the user asks to *spec everything first* (the batch ask), (3) before land /
   any irreversible action.
 - **`autopilot` — DESIGNED, refuses honestly.** Running unwatched is **not earned yet**: the
-  cross-model judge (ROADMAP #4) is now **wired** — a reduction of shared-blind-spot risk, not a
-  mechanical guarantee — but the deterministic trust-gates (ROADMAP #5) are **not built yet**.
-  Until #5 lands, autopilot **declines and offers checkpoint instead** — honestly, naming *why*
-  it isn't trustworthy yet, never silently degrading to a weaker promise.
+  cross-model judge is now **wired** — a reduction of shared-blind-spot risk, not a mechanical
+  guarantee — but the deterministic trust-gates (a demand-gated roadmap item) are **not built
+  yet**. Until they land, autopilot **declines and offers checkpoint instead** — honestly,
+  naming *why* it isn't trustworthy yet, never silently degrading to a weaker promise.
 
 ## The key flows (end-to-end)
 
