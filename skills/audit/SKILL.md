@@ -330,18 +330,26 @@ dropped to make a level cheaper.
 
 7. **VERIFY — attempt to re-check every surfaced finding (all tiers, every level).** After the
    prune, for **every** finding that will be surfaced — all tiers, on `quick` and `standard`
-   alike — spawn an independent **`finding-verifier`** to **try to refute** it against the code.
-   **Tier and scope no longer gate which findings are re-checked:** the set has already survived
-   the prune, so re-checking all of it is the simplest, most honest rule. This is an **attempt to
-   refute and tag the outcome** — an honest reduction of false confidence, **not** a mechanical
-   guarantee; never present an unconfirmed claim as fact.
+   alike — spawn a **`finding-verifier`** to **try to refute** it against the code, **with the
+   `fable` model override** (a different model family than the builder — the cross-model judge; the
+   mechanism, the self-report comparison, the verbatim same-model tag, and the on-error
+   respawn+tag all live in **`docs/WORKFLOW.md` → Principles → "Convene the panel's judge roles
+   with the `fable` model override"** — read it there; do not restate it). **Tier and scope no
+   longer gate which findings are re-checked:** the set has already survived the prune, so
+   re-checking all of it is the simplest, most honest rule. This is an **attempt to refute and tag
+   the outcome** — an honest reduction of false confidence, **not** a mechanical guarantee; never
+   present an unconfirmed claim as fact.
    - **Independence is enforced by the input contract.** Pass each verifier **only**
      `{claim (plain + technical), file:line, source module, confidence label, exclude-set}` and
      the refute-first posture — **never** the finder's transcript or rationale, and **never** let
      a lens verify its own finding (route it to a verifier seeded from a clean context). With a
-     clean-context subagent given just the claim + location, independence is *structural*. (See
+     clean-context subagent given just the claim + location, independence is *structural* (a
+     separate, accurate claim about **context isolation** — not model-family independence; the
+     `fable` override above is what reduces shared-blind-spot risk). (See
      `.claude/agents/finding-verifier.md`.) **You (the orchestrator) spawn these directly** —
      they are not nested under the `lens-reviewer`s. Fan them out **in parallel.**
+   - **Compare each verifier's `RUNNING AS:` self-report to the builder family and tag a
+     same-model run** per the WORKFLOW bullet — carry that tag into the run-report line (step 9).
    - **Apply the verdicts:**
      - **Refuted** → **drop** the finding from the backlog (it was a false positive); record it
        for the run report (step 9's report line). Refuted findings are **not** persisted durably
@@ -393,11 +401,14 @@ dropped to make a level cheaper.
    loosely) so an empty result reads as the success it is, scoped to the covered cells on a
    `PARTIAL` run. Include the **verification run-report line** for the findings re-checked in
    step 7 — frame the dropped ones as a **trust signal that the check bit**, reported as a
-   **count, not a list**: *"Independently re-checked every finding I surfaced against the code;
-   dropped M that couldn't be confirmed — verified N · unconfirmed K · deferred J."* **Do not
-   list the specific refuted claims** (that invites re-litigating dropped noise) and **do not
-   persist them** — a count in the run report is the only trace a refuted finding leaves, since
-   refuted findings aren't persisted.
+   **count, not a list**: *"Re-checked every finding I surfaced against the code (the cross-model
+   judge — by default a different model family than the builder); dropped M that couldn't be
+   confirmed — verified N · unconfirmed K · deferred J."* **When the verifiers ran same-model** (the
+   `RUNNING AS:` self-report matched the builder family — the override fell back or was unavailable),
+   **replace** the parenthetical with the verbatim tag — never emit both clauses: *"same-model review
+   on this run — the judge and the builder are the same model family here."* **Do not list the specific refuted claims** (that invites re-litigating dropped
+   noise) and **do not persist them** — a count in the run report is the only trace a refuted
+   finding leaves, since refuted findings aren't persisted.
 
 ---
 
@@ -452,8 +463,9 @@ most-read trust statement on the backlog — so it MUST carry the not-a-guarante
 - **Line 2 (verification — one line, caveat included):** `(checked against the code)` = a
   separate agent re-read the code and couldn't refute it · `(could not confirm independently —
   model's assertion)` = still just the model's claim · `(⚠ not yet verified — re-run to confirm)`
-  = budget ran out before checking — **an independent re-check by the same kind of model, a
-  reduction of false confidence, not a mechanical guarantee.**
+  = budget ran out before checking — **a re-check by a different model family than the builder (the
+  cross-model judge; on a same-family run, tagged as such) — a reduction of shared-blind-spot risk,
+  not a mechanical guarantee.**
 
 (Author it in plain prose on those two lines — the bullets above are the *content*, not the
 required layout. Don't expand it into a section; the inline tags stay self-explanatory.)
