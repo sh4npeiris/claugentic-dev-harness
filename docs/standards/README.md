@@ -21,14 +21,14 @@ touches its concern (see each module's `load_scope`), so the catalog can grow to
 
 Standards are **copied into each adopting repo on init**, not read from the plugin at runtime (copy-on-init — see `DECISIONS.md` → "Copy standards on init").
 
-- **Global modules — this directory.** Universal standards. They are **bundled in the plugin** (the source of truth) and **copied by the `init` skill** into the adopter's local `docs/standards/`, version-stamped and headed **"managed — do not edit."** Agents read the **local copy**. They are **pristine**: `/claugentic-dev-harness:update` re-copies newer versions, so a hand-edit inside an adopting repo is lost on the next sync — **never hand-edit a managed copy.** (The modules in *this* repo are the editable source, so they carry no such stamp.)
+- **Global modules — this directory.** Universal standards. They are **bundled in the plugin** (the source of truth) and **copied by the `init` skill** into the adopter's local `docs/standards/`, version-stamped and headed **"managed — do not edit."** Agents read the **local copy**. They are **pristine**: a hand-edit inside an adopting repo is lost whenever a newer plugin version's copy replaces it — **never hand-edit a managed copy.** (The modules in *this* repo are the editable source, so they carry no such stamp.)
 - **Local artifacts — the adopting repo (`${CLAUDE_PROJECT_DIR}`).** The **Current scope** snapshot (which dimensions are live in this repo), `CANDIDATES.md` (lessons awaiting promotion), and repo lessons in `CLAUDE.md` / `DECISIONS.md`. These **never propagate** to other repos.
-- **Promotion path.** A lesson that's *universal* is staged in `CANDIDATES.md`, reviewed, then promoted upstream into a global module (with a version bump) — so every repo gets it on its next `/claugentic-dev-harness:update`. A lesson that's *repo-specific* stays local. This is the two-tier learning loop; the local half is manual for now (see `docs/WORKFLOW.md` → learning loop).
+- **Promotion path.** A lesson that's *universal* is staged in `CANDIDATES.md`, reviewed, then promoted upstream into a global module (with a version bump) — so every repo gets it on its next plugin update. A lesson that's *repo-specific* stays local. This is the two-tier learning loop; the promotion is manual (see `docs/WORKFLOW.md` → learning loop).
 
 ## Versioning
 
 - Each module is **semver**-versioned in its frontmatter; bump on any content change (patch = fix/clarify · minor = add a dimension · major = restructure).
-- `/claugentic-dev-harness:update` compares versions and re-copies newer **global** modules into the adopter's local `docs/standards/`; **local** artifacts are never touched.
+- Newer plugin versions carry updated **global** modules (the version stamp records which release a local copy came from); **local** artifacts are never touched.
 
 ## Module index
 

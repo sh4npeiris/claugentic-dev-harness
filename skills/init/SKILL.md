@@ -22,23 +22,23 @@ write would destroy user content, **stop and report rather than guess.**
 
 ### Two durable conventions this skill establishes
 
-These are contracts the `init` skill's own re-run idempotency **and** the later
-`/claugentic-dev-harness:update` depend on — they are deliberate, not incidental:
+These are contracts the `init` skill's own re-run idempotency depends on — they are
+deliberate, not incidental:
 
 1. **The managed-stamp** — every file the `init` skill *copies* gets a stamp on its **first
    line** so a managed copy is unmistakable and machine-parseable:
-   - **Markdown:** `<!-- claugentic-dev-harness@{VERSION} managed — do not edit; run /claugentic-dev-harness:update to refresh -->`
-   - **Python:** `# claugentic-dev-harness@{VERSION} managed — do not edit; run /claugentic-dev-harness:update to refresh`
+   - **Markdown:** `<!-- claugentic-dev-harness@{VERSION} managed — do not edit (copied from the claugentic-dev-harness plugin) -->`
+   - **Python:** `# claugentic-dev-harness@{VERSION} managed — do not edit (copied from the claugentic-dev-harness plugin)`
    - `{VERSION}` is read from the plugin's `plugin.json` `version` field (e.g. `0.1.0`).
    - The greppable token is **`claugentic-dev-harness@<semver>`**. Idempotency detects an
-     already-copied managed file by the presence of `claugentic-dev-harness@`; `/claugentic-dev-harness:update`
-     (later) regexes the semver to compare versions. Do **not** vary this format.
+     already-copied managed file by the presence of `claugentic-dev-harness@`; the semver in the
+     stamp records which plugin version the copy came from. Do **not** vary this format.
 
 2. **The CLAUDE.md `harness:managed` fence** — the harness section the `init` skill writes
    into the adopter's `CLAUDE.md` lives between exact HTML-comment markers:
    ```
    <!-- harness:managed:start -->
-   …managed pointer block — refreshed by /claugentic-dev-harness:update…
+   …managed pointer block…
    <!-- harness:managed:end -->
    ```
    **Replace only inside the fence; everything outside it is human-owned and never
@@ -189,8 +189,7 @@ Three cases — **never touch anything above an existing fence:**
   **end-of-file**, touching **nothing above** (the user's existing CLAUDE.md is preserved
   verbatim). Seed the Current-scope block after the fence.
 - **Present *with* the fence →** **skip** (the re-run path) — the managed block is already
-  there; leave it. *(Refreshing the managed block's content to a newer version is
-  `/claugentic-dev-harness:update`'s job, not init's — init is copy/seed-if-absent.)*
+  there; leave it. *(init never rewrites an existing managed block — it is copy/seed-if-absent.)*
 
 **What goes in the managed fence** (`<!-- harness:managed:start -->…:end`) — **stable, no
 volatile content** so a re-write is byte-identical:
@@ -206,8 +205,8 @@ volatile content** so a re-write is byte-identical:
 - A **Current scope** block, seeded once — a short, non-capping snapshot of which
   standards dimensions are LIVE in this repo today (it grows as the stack grows; relevance
   is always a per-change judgment). This is the per-repo scope the standards catalog
-  refers to (it deliberately does **not** live in the managed `ENGINEERING_STANDARDS.md`,
-  which `/claugentic-dev-harness:update` overwrites). Seed it from step 1's detected ecosystem (e.g. for
+  refers to (it deliberately does **not** live in the managed `ENGINEERING_STANDARDS.md` — that file
+  is a managed copy, never the home of per-repo content). Seed it from step 1's detected ecosystem (e.g. for
   a JS web app: `maintainability-structure`, `testing`, `security`, `api-and-contracts`,
   `product-ux`).
 - The **detected existing tooling** block (from step 8) — the project's own gates.
@@ -277,8 +276,7 @@ an idempotency guard is missing — that is a bug, not expected behavior.
 
 - It does **not** install or reconfigure your linters/test runner — it **detects and
   records** them (step 8) so the workflow composes with them.
-- It does **not** refresh an already-copied managed file to a newer version — that is
-  **`/claugentic-dev-harness:update`**'s job (it parses the `claugentic-dev-harness@<semver>` stamp, compares
-  versions, overwrites managed files, and re-merges hooks). The `init` skill is
-  copy/seed-**if-absent** only.
+- It does **not** refresh an already-copied managed file to a newer version — the `init`
+  skill is copy/seed-**if-absent** only (the `claugentic-dev-harness@<semver>` stamp records
+  which plugin version a copy came from).
 - It does **not** audit your code or write a backlog — that is **`/claugentic-dev-harness:audit`**.

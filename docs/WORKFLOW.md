@@ -59,7 +59,7 @@ Starter library (`.claude/agents/`):
 - **`architect-reviewer`** — owns the Verify gate (Stage 7): **solo** for small changes, or **synthesizer** over fan-out findings for risky ones.
 - **`lens-reviewer`** — audits a **diff (Verify) or an audit-scope (the `audit` skill)** against **one** `docs/standards/` module; invoked once per relevant lens in a fan-out review.
 - **`finding-verifier`** — refutes **one** audit finding against the code: given only the claim + `file:line` (never the finder's rationale), it tries to prove the finding wrong and returns `Verified` / `Refuted` / `Unconfirmed`. The audit's adversarial-verify counterpart to `lens-reviewer`.
-- **`blindspot-reviewer`** — the audit's cross-cutting / between-the-modules sweep (the `thorough` dial's diverse blind-spot finder): its lens is the *whole scope*, red-teaming for the risk **no single module-lens owns** (emergent architectural smells, integration gaps, systemic cross-cutting issues). Returns the same finding shape as `lens-reviewer`, so it joins the same dedup → prune → verify path; always `exhaustive` depth. *(Designed to generalize to a Verify-diff mode later — ROADMAP.)*
+- **`blindspot-reviewer`** — the audit's cross-cutting / between-the-modules sweep (the `thorough` dial's diverse blind-spot finder): its lens is the *whole scope*, red-teaming for the risk **no single module-lens owns** (emergent architectural smells, integration gaps, systemic cross-cutting issues). Returns the same finding shape as `lens-reviewer`, so it joins the same dedup → prune → verify path; always `exhaustive` depth.
 - **`yagni-sentinel`** — the anti-over-engineering skeptic; argues a plan/diff is *too much*. The deliberate counterweight to the quality lenses. (Also the audit's `thorough`-only adversarial prune over consolidated findings.)
 - **`honesty-reviewer`** — the claims / over-claim lens; refutes **copy** (not code), flagging text that launders model-or-human-upheld judgment into apparent mechanical fact (the verb discipline · `[D]`/`[J]` label integrity · dimension-scoped success claims). Part of the diverse panel at Plan + Verify on trust/honesty surfaces.
 
@@ -86,7 +86,7 @@ Also available without new files: built-in **`Explore`** (fan-out search), **`Pl
 | 5 | **Approval gate** | APPROVE | **user** | sign-off on the spec — *no code before this* |
 | 6 | **Implement** | BUILD | `implementer-architect` | one slice/session, isolated worktree/branch; upholds CLAUDE.md; updates ARCHITECTURE_TREE inline |
 | 7 | **Verify** | BUILD | `architect-reviewer` (+ lenses) | **effort-dialed** on the same triggers that flip Stage-0 to *substantial* — a security/trust boundary · a shared contract/pattern/standard · ~8+ files · any trust/honesty surface (per the diverse-panel principle): a **small/local** change → `architect-reviewer` audits solo; any of those triggers → fan out `lens-reviewer`s (one per relevant `docs/standards/` module) **+** `yagni-sentinel` (**+ the diverse panel** the principle names for a trust surface), then `architect-reviewer` **synthesizes**. **All Definition-of-Done gates green** (see below); run **`/simplify`** + **`/code-review`**; confirm spec match. Findings are **dual-layer** (technical + plain-English). |
-| 8 | **Land & archive** | CLOSE | orchestrator | conventional commit/PR; move plan → `docs/archive/<year>/`; append DECISIONS |
+| 8 | **Land** | CLOSE | orchestrator | conventional commit/PR; remove the completed plan from `.claude/plans/` (git history keeps it); append DECISIONS |
 | 9 | **Retrospect & evolve** | CLOSE | orchestrator | harvest learnings into the harness (see below) |
 
 **Stage 3 gate — a plan may not pass review until:** it is correct & sound (SOLID/patterns), each slice is **session-sized and lands complete with no debt**, the right path was chosen, risks + test strategy are stated, and any harness impact (new STANDARD/agent/doc) is noted. The reviewer writes a verdict + required changes into the plan; the orchestrator iterates.
@@ -155,4 +155,4 @@ A **finite harvest checklist the orchestrator RUNS at Land** (manual discipline,
 
 ## Plan file lifecycle
 
-`​.claude/plans/NNNN-<slug>.md` (active, contains Plan + Review + Spec + slice checklist) → on completion, move to `docs/archive/<year>/`. One plan per substantial change; the slices inside it are the per-session units. Numbering is sequential (`0001`, `0002`, …).
+`​.claude/plans/NNNN-<slug>.md` (active, contains Plan + Review + Spec + slice checklist) → on completion, **remove it** — git history keeps it. One plan per substantial change; the slices inside it are the per-session units. Numbering is sequential (`0001`, `0002`, …).

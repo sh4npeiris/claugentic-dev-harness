@@ -10,4 +10,4 @@ The engineering quality bar is a **modular catalog** under [`docs/standards/`](s
 
 ---
 
-> **Current scope (per repo).** This file is a **managed copy** (`/claugentic-dev-harness:update` overwrites it), so the per-repo scope does **not** live here. The `init` skill seeds it in the adopter repo's **`CLAUDE.md` `harness:` section** (a local, non-managed spot that survives `/claugentic-dev-harness:update`): a living, non-capping snapshot of which dimensions/modules are LIVE in *that* repo today (relevance is always a per-change judgment; it grows as the stack grows). The plugin ships only the universal catalog and does **not** ship a populated Current scope.
+> **Current scope (per repo).** This file is a **managed copy**, so the per-repo scope does **not** live here. The `init` skill seeds it in the adopter repo's **`CLAUDE.md` `harness:` section** (a local, non-managed spot): a living, non-capping snapshot of which dimensions/modules are LIVE in *that* repo today (relevance is always a per-change judgment; it grows as the stack grows). The plugin ships only the universal catalog and does **not** ship a populated Current scope.
