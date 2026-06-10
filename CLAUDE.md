@@ -24,9 +24,6 @@ Substantial work follows the staged pipeline in **`docs/WORKFLOW.md`** — Triag
 
 ## Definition of Done
 
-A slice **lands** only when acceptance criteria are met, **no new tech debt** is introduced, and both groups below pass:
-
-- **Deterministic gates** (pass/fail, can't be argued around): full tests via `python -m pytest` (incl. any regression/snapshot tests) · `python scripts/check_architecture_tree.py` · the project's lint / type-check / security gates.
-- **Reviewer sign-offs** (model judgment): the in-scope `docs/standards/` dimensions (incl. SOLID) pass the `architect-reviewer` audit.
+A slice **lands** only when its acceptance criteria are met, **no new tech debt** is introduced, and both gate groups pass: the **deterministic gates** (tests, architecture-tree, version-sync, lint/type/security) and the **reviewer sign-offs** (the in-scope `docs/standards/` dimensions). **`docs/WORKFLOW.md` → Definition of Done is the single source of truth** for the full gate list — don't restate it here (index, don't duplicate).
 
 The engineering quality bar is the in-scope `docs/standards/` modules (entry point: `docs/ENGINEERING_STANDARDS.md`) — a project-agnostic, ever-growing catch-all; the spec names the in-scope dimensions per slice and the reviewer audits against them.

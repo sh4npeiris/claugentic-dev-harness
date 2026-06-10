@@ -31,23 +31,16 @@ When unsure, default to full; the plan-reviewer (Stage 3) confirms the path was 
 - **No new tech debt.** A landed slice leaves the codebase at least as clean as it found it: tests added, docs/ARCHITECTURE_TREE updated, no dead code, no silenced errors.
 - **The harness is living.** Any task may improve STANDARDS / CLAUDE.md / the `.claude/agents/` role library / this workflow. Stage 9 is how that happens; treat harness improvements as first-class output, not a chore.
 - **Delegate liberally to preserve orchestrator context.** Use subagents freely and in parallel — **no resource constraints** — so the orchestrator's own context stays lean for synthesis and decisions (fan out reads, reviews, and implementation to specialists). The orchestrator picks whichever role(s) fit from the `.claude/agents/` library; as the library grows it has more specialists to choose from.
-- **Effort-dial the machine.** Scale review/verification depth to the change's risk and size, and load only the standards modules the change *touches* (relevance-gating). A one-line fix gets a quick solo look; a security boundary gets the full lens fan-out. Don't run the whole machine on a trivial change — that's how a harness kills the velocity it's meant to protect.
+- **Effort-dial the machine.** Scale review/verification depth to the change's risk and size, and load only the standards modules the change *touches* (relevance-gating). The dial flips on the **same triggers Stage 0 uses to call work *substantial*** — a **security/trust boundary · a shared contract/pattern/standard · ~8+ files · or any trust/honesty surface** (per the diverse-critics principle below): a small/local change gets a quick **solo `architect-reviewer`** look; any of those triggers fans out the lenses (and, on a trust surface, the diverse panel — that principle names *who* joins; this names *when* to fan out). Don't run the whole machine on a trivial change — that's how a harness kills the velocity it's meant to protect.
 - **Diverse critics on contested or trust-surface changes.** A contested design fork OR a trust/honesty surface (claims, `[D]`/`[J]` labels, proof-vs-attempt wording, a security boundary) triggers the **diverse panel** — `plan-reviewer`/`architect-reviewer` + `yagni-sentinel` + `honesty-reviewer`, **plus `product-designer` when the change is user-facing** (so the review confirms the plan still achieves what the user is trying to achieve, not just that it's technically sound) — at **every gate that change passes** (Plan **and** Verify); else a lone reviewer suffices. The panel is model-upheld — the orchestrator must convene it; it does not fire by itself.
 - Plus the CLAUDE.md non-negotiables: SOLID > DRY > KISS > YAGNI · fail loudly · validate at boundaries · configurable-over-hardcoded · single source of truth.
 
 ---
 
-## Context, parallelism & handoff
+## Context & handoff
 
-Keep the **orchestrator's context lean** so it rarely hits the compaction wall mid-work:
-- **Delegate the token-heavy work to subagents** (exploration, implementation, review) — they burn *their* context and return digests. This is the main defense.
-- **Run in parallel git worktrees** when useful (e.g. implementer + reviewer at once) — isolated checkouts, no clobbering. *(Boris Cherny calls parallel worktrees his "biggest productivity unlock.")*
-- **`/clear` between unrelated tasks** — don't carry one feature's context into the next.
-
-If context still runs low, **don't fear auto-compaction** — Claude Code summarizes and continues the same session. But it's *lossy*, so:
-- **Keep the plan file current as you go** — the plan + `DECISIONS.md` + `ARCHITECTURE_TREE.md` are the real memory.
-- For **long** work, a **fresh session resuming from the plan** beats a deeply-compacted context — `/clear` (or open a new session) and pick up from the plan checklist. No manual "handover" of the orchestrator is needed: a fresh agent upholds quality by reading the plan + DECISIONS + tree + standards.
-- Prefer `/compact` **proactively** (with focus, e.g. *"preserve the plan checklist + test commands"*) over hitting the wall. (Auto-compaction has **no configurable threshold** — it just triggers near-full; the real lever is delegation + slicing.)
+- **The durable memory is the plan file + `DECISIONS.md` + `ARCHITECTURE_TREE.md`** — keep them current as you go. For long work, a **fresh session resuming from the plan checklist beats a deeply-compacted context**; no manual orchestrator "handover" is needed.
+- **Delegate token-heavy work to subagents** to keep the orchestrator lean (the *Delegate liberally* principle above — this is its context payoff).
 
 ---
 
@@ -72,18 +65,25 @@ Also available without new files: built-in **`Explore`** (fan-out search), **`Pl
 
 ## The pipeline
 
-| # | Stage | Owner | Output |
-|---|-------|-------|--------|
-| 0 | **Triage** | orchestrator | full vs lightweight path |
-| 1 | **Discuss & brainstorm** | orchestrator + **user** | learn the endeavour from multiple **angles** before planning — technical scope **+ product-discovery** (who's the user · the job-to-be-done · what success/"delight" looks like · the key flows & their states); these surface the user-story gaps a technical-only intake misses. User-facing work pulls in `product-designer` → `docs/PRODUCT.md`. Crystal-clear scope; tangents→ROADMAP, decisions→DECISIONS |
-| 2 | **Draft plan** | orchestrator / `Plan` | `.claude/plans/NNNN-<slug>.md` from `TEMPLATE.md`, **sliced into ≤1-session units** |
-| 3 | **Review the plan** | `plan-reviewer` (+ others as fit) | critique written into the plan's *Review* section; iterate until it passes the gate |
-| 4 | **Spec** | orchestrator | plan upgraded to implementation-ready spec **per slice**: opens with a short plain-English block (*what this builds · what "done" means for you · what you're accepting — risks/trade-offs*), then file-by-file changes, signatures, test list, acceptance criteria, **+ the in-scope `docs/standards/` dimensions & target bar (entry point: `docs/ENGINEERING_STANDARDS.md`)** |
-| 5 | **Approval gate** | **user** | sign-off on the spec — *no code before this* |
-| 6 | **Implement** | `implementer-architect` | one slice/session, isolated worktree/branch; upholds CLAUDE.md; updates ARCHITECTURE_TREE inline |
-| 7 | **Verify** | `architect-reviewer` (+ lenses) | **effort-dialed:** small change → `architect-reviewer` audits solo; risky/cross-cutting → fan out `lens-reviewer`s (one per relevant `docs/standards/` module) **+** `yagni-sentinel`, then `architect-reviewer` **synthesizes**. All gates green (full tests + regression/snapshot + `check-tree` + lint/type-check/security); run **`/simplify`** + **`/code-review`**; confirm spec match. Findings are **dual-layer** (technical + plain-English). |
-| 8 | **Land & archive** | orchestrator | conventional commit/PR; move plan → `docs/archive/<year>/`; append DECISIONS |
-| 9 | **Retrospect & evolve** | orchestrator | harvest learnings into the harness (see below) |
+**The ten stages group into four beats — `FRAME → APPROVE → BUILD → CLOSE`** (a one-glance map; no stage is cut or renumbered):
+
+- **FRAME** (0 Triage · 1 Discuss · 2 Plan · 3 Review · 4 Spec) — converge on *what to build and how*.
+- **APPROVE** (5) — the user's sign-off; *no code before this*.
+- **BUILD** (6 Implement · 7 Verify) — build it and check it.
+- **CLOSE** (8 Land · 9 Retrospect) — ship it, harvest the lessons.
+
+| # | Stage | Beat | Owner | Output |
+|---|-------|------|-------|--------|
+| 0 | **Triage** | FRAME | orchestrator | full vs lightweight path |
+| 1 | **Discuss & brainstorm** | FRAME | orchestrator + **user** | learn the endeavour from multiple **angles** before planning — technical scope **+ product-discovery** (who's the user · the job-to-be-done · what success/"delight" looks like · the key flows & their states); these surface the user-story gaps a technical-only intake misses. User-facing work pulls in `product-designer` → `docs/PRODUCT.md`. Crystal-clear scope; tangents→ROADMAP, decisions→DECISIONS |
+| 2 | **Draft plan** | FRAME | orchestrator / `Plan` | `.claude/plans/NNNN-<slug>.md` from `TEMPLATE.md`, **sliced into ≤1-session units** |
+| 3 | **Review the plan** | FRAME | `plan-reviewer` (+ others as fit) | critique written into the plan's *Review* section; iterate until it passes the gate |
+| 4 | **Spec** | FRAME | orchestrator | plan upgraded to implementation-ready spec **per slice**: opens with a short plain-English block (*what this builds · what "done" means for you · what you're accepting — risks/trade-offs*), then file-by-file changes, signatures, test list, acceptance criteria, **+ the in-scope `docs/standards/` dimensions & target bar (entry point: `docs/ENGINEERING_STANDARDS.md`)** |
+| 5 | **Approval gate** | APPROVE | **user** | sign-off on the spec — *no code before this* |
+| 6 | **Implement** | BUILD | `implementer-architect` | one slice/session, isolated worktree/branch; upholds CLAUDE.md; updates ARCHITECTURE_TREE inline |
+| 7 | **Verify** | BUILD | `architect-reviewer` (+ lenses) | **effort-dialed** on the same triggers that flip Stage-0 to *substantial* — a security/trust boundary · a shared contract/pattern/standard · ~8+ files · any trust/honesty surface (per the diverse-panel principle): a **small/local** change → `architect-reviewer` audits solo; any of those triggers → fan out `lens-reviewer`s (one per relevant `docs/standards/` module) **+** `yagni-sentinel` (**+ the diverse panel** the principle names for a trust surface), then `architect-reviewer` **synthesizes**. **All Definition-of-Done gates green** (see below); run **`/simplify`** + **`/code-review`**; confirm spec match. Findings are **dual-layer** (technical + plain-English). |
+| 8 | **Land & archive** | CLOSE | orchestrator | conventional commit/PR; move plan → `docs/archive/<year>/`; append DECISIONS |
+| 9 | **Retrospect & evolve** | CLOSE | orchestrator | harvest learnings into the harness (see below) |
 
 **Stage 3 gate — a plan may not pass review until:** it is correct & sound (SOLID/patterns), each slice is **session-sized and lands complete with no debt**, the right path was chosen, risks + test strategy are stated, and any harness impact (new STANDARD/agent/doc) is noted. The reviewer writes a verdict + required changes into the plan; the orchestrator iterates.
 
