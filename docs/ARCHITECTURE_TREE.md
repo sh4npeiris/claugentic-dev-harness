@@ -7,7 +7,7 @@ This repo builds the **`claugentic-dev-harness`** Claude Code plugin. The only e
 ## Root
 
 - `README.md` — what `claugentic-dev-harness` is + the concrete value it delivers (the two commands), how it installs, how it works (init → audit → reviewed pipeline), and an honest status section.
-- `CLAUDE.md` — lean, generalized guidance for agents working in THIS repo: engineering principles, harness discipline, workflow pointer, Definition of Done.
+- `CLAUDE.md` — lean, generalized guidance for agents working in THIS repo: engineering principles, harness discipline, workflow pointer, and a one-line Definition-of-Done pointer to `docs/WORKFLOW.md` (the canonical gate list).
 - `.gitignore` — ignores local junk + build artifacts; **shares** `.claude/agents/`, `.claude/plans/`, `.claude/settings.json` (ignores only `.claude/settings.local.json`).
 - `.gitattributes` — normalizes line endings (`* text=auto eol=lf`; scripts forced LF) for a cross-platform plugin.
 - `LICENSE` — Apache License 2.0 (the repo is public; © 2026 Shan Peiris).
@@ -15,7 +15,7 @@ This repo builds the **`claugentic-dev-harness`** Claude Code plugin. The only e
 
 ## docs/ — process, standards, and project memory
 
-- `docs/WORKFLOW.md` — the staged agent development workflow (Triage → Discuss → Plan → Review → Spec → Approve → Implement → Verify → Land → Retrospect); source of truth for process.
+- `docs/WORKFLOW.md` — the staged agent development workflow (10 stages grouped as the `FRAME → APPROVE → BUILD → CLOSE` 4-beat model); source of truth for process **and the canonical Definition of Done** (the full gate list).
 - `docs/ENGINEERING_STANDARDS.md` — thin entry point pointing to the `docs/standards/` catalog (the real quality bar); the per-repo Current scope is added by the `init` skill.
 - `docs/ARCHITECTURE_TREE.md` — this file: one-line-per-file index of the repo.
 - `docs/DECISIONS.md` — dated, one-line records of non-trivial decisions (newest at top); consult before re-litigating.
