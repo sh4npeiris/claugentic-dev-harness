@@ -21,6 +21,7 @@ This repo builds the **`claugentic-dev-harness`** Claude Code plugin. The only e
 - `docs/DECISIONS.md` — dated, one-line records of non-trivial decisions (newest at top); consult before re-litigating.
 - `docs/ROADMAP.md` — backlog of substantial work; tangents land here, never silently into the current change.
 - `docs/PLAYBOOK.md` — plain-English guide for a non-engineer driving the harness: the pipeline, your three leverage points, the orchestration patterns (fan-out, adversarial-verify, effort dial), a worked example, and a mini-glossary.
+- `docs/PRODUCT.md` — durable product/UX context (Stage-1 `product-designer` output): the harness user + design language, plus the **Build mode** brief — user/JTBD, key flows, per-flow states (incl. non-happy), what-good-feels-like + top UX failure modes, and the honesty surface.
 
 ## docs/standards/ — the modular quality catalog
 
