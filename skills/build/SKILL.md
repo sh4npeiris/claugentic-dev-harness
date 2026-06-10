@@ -56,16 +56,17 @@ Build mode has **one live mode** and **one named-but-not-built mode**:
   asks to run unwatched / on autopilot, return **EXACTLY** this and then continue in
   checkpoint if they wish:
 
-  > Running unwatched still needs deterministic trust-gates (Roadmap #5). The cross-model judge
+  > Running unwatched still needs the deterministic trust-gates (a roadmap item — the
+  > mechanical layer that blocks a red commit without a human watching). The cross-model judge
   > is now wired (same-model runs are tagged as such), but it's a reduction of shared-blind-spot
-  > risk, not a mechanical guarantee — so unwatched runs stay gated on #5. Here's checkpoint
-  > instead.
+  > risk, not a mechanical guarantee — so unwatched runs stay gated on those mechanical gates.
+  > Here's checkpoint instead.
 
   **This refusal is autopilot's only behavior.** Do **not** build a mode-dispatch layer, a
-  config flag, or any autopilot execution path — there is nothing to dispatch to. When
-  Roadmap #5 lands (the cross-model judge, #4, is now wired), a future slice makes autopilot
-  real; until then it is a named mode whose whole implementation is this honest "not yet,
-  here's why, here's checkpoint."
+  config flag, or any autopilot execution path — there is nothing to dispatch to. When the
+  deterministic trust-gates land (the roadmap's demand-gated item; the cross-model judge is
+  already wired), a future slice makes autopilot real; until then it is a named mode whose
+  whole implementation is this honest "not yet, here's why, here's checkpoint."
 
 ---
 
@@ -472,6 +473,6 @@ that could drift from the backlog).
   "proven correct" / "guaranteed" / "bug-free." **"done" is scoped to the audited
   dimensions** (and the deterministic gates that ran), never a blanket claim. Progress is
   **completed-beat narration, never an ETA** or a "nearly finished." The autopilot refusal
-  names exactly what's missing (Roadmap #5 — the cross-model judge, #4, is now wired, but it's
-  a reduction of shared-blind-spot risk, not a mechanical guarantee) — never a vague "coming
-  soon," never a silent degrade to a weaker promise.
+  names exactly what's missing (the deterministic trust-gates — the cross-model judge is wired,
+  but it's a reduction of shared-blind-spot risk, not a mechanical guarantee) — never a vague
+  "coming soon," never a silent degrade to a weaker promise.
