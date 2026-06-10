@@ -24,15 +24,16 @@ If you were not told the mode, infer it from what you were given: a **diff** →
 - **`docs/ARCHITECTURE_TREE.md`** — to locate code without reading whole files.
 - **Then your audit target:**
   - *Verify-diff:* the **diff** and the slice's **spec** (the in-scope dimensions it named).
-  - *Audit-scope:* the **scoped dirs/packages**, the **exclude-set**, and a **`depth`** the orchestrator passes — `focused` or `deep` (see *Audit* below for what each demands); survey the scope (manifests, entry points, then the source files in scope) — read what your lens needs, not the whole repo.
+  - *Audit-scope:* the **scoped dirs/packages**, the **exclude-set**, and a **`depth`** the orchestrator passes — `focused`, `deep`, or `exhaustive` (see *Audit* below for what each demands); survey the scope (manifests, entry points, then the source files in scope) — read what your lens needs, not the whole repo.
 
 ## Audit (both modes)
 
 Audit the **audit target** against **your module's dimensions only** — do not stray into other lenses' concerns (the synthesizer combines lenses). Apply only the dimensions *relevant* to what the target contains (KISS/YAGNI): in Verify-diff, the dimensions the diff touches; in Audit-scope, the dimensions the scoped code exercises. Never wave through a relevant gap; never gold-plate an irrelevant one.
 
-**In Audit-scope mode, read at the `depth` the orchestrator passed** (depth, never which dimensions you apply, is the dial — apply every relevant dimension at either depth):
+**In Audit-scope mode, read at the `depth` the orchestrator passed** (depth, never which dimensions you apply, is the dial — apply every relevant dimension at any depth; the ladder is monotonic `focused` → `deep` → `exhaustive`):
 - **`focused`** — report the **clear gaps visible from a direct read** of the scoped code; **don't** trace deep call-chains or chase subtle/ambiguous issues. Surface what an experienced reviewer spots quickly.
 - **`deep`** — **follow call-chains, weigh edge cases and subtle issues**; report the full picture, not just the obvious gaps.
+- **`exhaustive`** — `deep` **plus self-skeptical**: question your own conclusions, chase **every** ambiguous lead rather than the obvious ones, and stay **adversarial per-dimension** (assume a gap exists until the code proves it doesn't). The most demanding read — for the `thorough` dial.
 
 (Verify-diff has no `depth` — it always reads the change in full.)
 

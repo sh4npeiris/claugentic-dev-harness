@@ -61,7 +61,8 @@ Starter library (`.claude/agents/`):
 - **`architect-reviewer`** — owns the Verify gate (Stage 7): **solo** for small changes, or **synthesizer** over fan-out findings for risky ones.
 - **`lens-reviewer`** — audits a **diff (Verify) or an audit-scope (the `audit` skill)** against **one** `docs/standards/` module; invoked once per relevant lens in a fan-out review.
 - **`finding-verifier`** — refutes **one** audit finding against the code: given only the claim + `file:line` (never the finder's rationale), it tries to prove the finding wrong and returns `Verified` / `Refuted` / `Unconfirmed`. The audit's adversarial-verify counterpart to `lens-reviewer`.
-- **`yagni-sentinel`** — the anti-over-engineering skeptic; argues a plan/diff is *too much*. The deliberate counterweight to the quality lenses.
+- **`blindspot-reviewer`** — the audit's cross-cutting / between-the-modules sweep (the `thorough` dial's diverse blind-spot finder): its lens is the *whole scope*, red-teaming for the risk **no single module-lens owns** (emergent architectural smells, integration gaps, systemic cross-cutting issues). Returns the same finding shape as `lens-reviewer`, so it joins the same dedup → prune → verify path; always `exhaustive` depth. *(Designed to generalize to a Verify-diff mode later — ROADMAP.)*
+- **`yagni-sentinel`** — the anti-over-engineering skeptic; argues a plan/diff is *too much*. The deliberate counterweight to the quality lenses. (Also the audit's `thorough`-only adversarial prune over consolidated findings.)
 
 Also available without new files: built-in **`Explore`** (fan-out search), **`Plan`** (drafting), and `/code-review` · `/simplify` for diff cleanup. **Add new role files as needs emerge** — the library grows (Stage 9).
 
