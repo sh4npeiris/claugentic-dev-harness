@@ -96,7 +96,7 @@ Also available without new files: built-in **`Explore`** (fan-out search), **`Pl
 **Keep the docs current — it's part of each stage (no hooks needed beyond the tree check):**
 - **Implement (6):** update `ARCHITECTURE_TREE.md` for any file add/move/remove (also hook-nudged); touch `CLAUDE.md` only for a genuinely new gotcha/command/pattern — *concisely; index, don't duplicate code*.
 - **Verify (7) — honesty register:** the report says what the verify **attempted and tagged**, never what it "proved." Deterministic gates passed; reviewer sign-offs are model-upheld judgment, not a guarantee.
-- **Land (8):** append a dated one-liner to `DECISIONS.md` for non-trivial choices; update `ROADMAP.md` if scope shifted.
+- **Land (8):** append a dated one-liner to `DECISIONS.md` for non-trivial choices; update `ROADMAP.md` if scope shifted; **run the Stage-9 harvest checklist** (below) before moving on.
 - **Land (8) — honesty register:** the close-out names **which gate-class passed** — the *deterministic gates* (tests, tree-check, lint/type/security) vs the *reviewer sign-offs* (the audited dimensions) — never a blanket "verified/done."
 - **Land (8) — close out for the user:** after the slice lands, say it plainly — *"This one's done. Next: pick another item the same way, or re-run `/claugentic-dev-harness:audit` for a fresh picture — you're finished when Tier 1 and Tier 2 come back empty."*
 - **Retrospect (9):** promote durable learnings into the `docs/standards/` modules (entry point: `docs/ENGINEERING_STANDARDS.md`) / `CLAUDE.md` / agent files.
@@ -111,10 +111,11 @@ A slice is **done** — and may land (Stage 8) — only when **all** hold. Two g
 1. **Full test suite** (`python -m pytest`) + any regression/snapshot tests green.
 2. **`python scripts/check_architecture_tree.py`** green (the one mechanically-enforced harness gate — file-index presence, staleness, and **glob-drift detection**).
    - **Updating the codebase map (the handled drift case).** When this gate reports *glob drift* — it's watching no files while the repo now contains source (e.g. an `init`'d empty repo that has since grown real code) — surface it to the user in plain English: *"I'm updating your codebase map to match your new code"* — then re-detect the layout and reset `INCLUDE_GLOBS` (init step 5's terminating self-correction). **Scope the claim honestly:** this is the *handled* drift path reading as plain English — a **genuine gate crash still fails loud by design** (CLAUDE.md: never swallow errors); don't promise "no error ever," only that this one case is plain.
-3. **The project's lint / type-check / security gates** green.
+3. **`python scripts/check_versions_synced.py`** green — enforces `plugin.json` ↔ `marketplace.json` version equality (`plugin.json` is the source of truth). A **run-gate** executed in this gate suite (like `pytest`), not hook-wired; scope is the two manifest versions only.
+4. **The project's lint / type-check / security gates** green.
 
 **Reviewer sign-offs** (model judgment, not a mechanical gate):
-4. **In-scope `docs/standards/` dimensions pass** the `architect-reviewer` audit (incl. SOLID) — solo, or synthesized from `lens-reviewer`s + `yagni-sentinel` — for what this slice touches; `/simplify` + `/code-review` run.
+5. **In-scope `docs/standards/` dimensions pass** the `architect-reviewer` audit (incl. SOLID) — solo, or synthesized from `lens-reviewer`s + `yagni-sentinel` — for what this slice touches; `/simplify` + `/code-review` run.
 
 **Plus:** acceptance criteria met (the spec's checklist) **+ no new tech debt.**
 
@@ -138,21 +139,15 @@ Iterate to meet this **fixed** bar, then **stop** — it terminates because the 
 
 ## 9. The learning loop (how the harness grows)
 
-After a slice lands, **harvest** before moving on:
+A **finite harvest checklist the orchestrator RUNS at Land** (manual discipline, not automation — the orchestrator runs it; it does not trigger by itself). Sweep these five; for each, **emit the edit** or an explicit *"nothing durable this slice"*:
 
-- A convention that recurred across review findings → promote to **STANDARDS / CLAUDE.md**.
-- A prompt tweak that made a specialist sharper → fold into the **`.claude/agents/` role file**.
-- Friction in the process itself → edit **this `WORKFLOW.md`**.
-- A notably clean implementation → record it as the **reference pattern** to copy (promotion rule).
-- Every non-trivial choice → one dated line in **`DECISIONS.md`**.
+- **(a)** A convention that recurred across review findings → **promote to STANDARDS / CLAUDE.md**.
+- **(b)** A manual/lens catch that a gate or checklist **could have made** → **open a gate item on `ROADMAP.md`** (not just a `DECISIONS.md` line — a logged decision doesn't become a check by itself). *(Worked example: the `plugin.json`↔`marketplace.json` drift was hand-caught at Verify, logged to DECISIONS, then re-surfaced — this slice's `check_versions_synced.py` is that lesson finally made into a gate.)*
+- **(c)** A prompt tweak that sharpened a specialist → **fold into the `.claude/agents/` role file**.
+- **(d)** Process friction → **edit this `WORKFLOW.md`**.
+- **(e)** Every non-trivial choice → **one dated line in `DECISIONS.md`**.
 
-**Two tiers (manual for now).** A *universal* lesson → propose it as a candidate **global** standard: stage it in `docs/standards/CANDIDATES.md`, then promote upstream into the plugin so **every** repo gets it on the next update. A *codebase-specific* lesson → keep it **local** (`CLAUDE.md` / `DECISIONS.md` / the repo's Current-scope), never propagated. Either way, **the user approves** before promotion.
-
-Periodically run a **consolidation pass** (merge duplicates, prune stale guidance, keep the index lean). The intent: each task starts smarter than the last. Feedback flows *upstream* from any stage — a plan-reviewer finding, an implementer surprise, a verification failure can all become a permanent harness improvement.
-
-```
-task → DECISIONS/ROADMAP → (periodic) consolidation → STANDARDS · CLAUDE.md · agents · WORKFLOW updated → next task starts smarter ↺
-```
+**Promotion is two-tier (manual, user-approved):** a *universal* lesson → stage in `docs/standards/CANDIDATES.md`, then promote upstream so every repo gets it on update; a *codebase-specific* lesson stays **local** (`CLAUDE.md` / `DECISIONS.md`), never propagated.
 
 ---
 

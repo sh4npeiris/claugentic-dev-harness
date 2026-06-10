@@ -20,6 +20,7 @@ This repo builds the **`claugentic-dev-harness`** Claude Code plugin. The only e
 - `docs/ARCHITECTURE_TREE.md` — this file: one-line-per-file index of the repo.
 - `docs/DECISIONS.md` — dated, one-line records of non-trivial decisions (newest at top); consult before re-litigating.
 - `docs/ROADMAP.md` — backlog of substantial work; tangents land here, never silently into the current change.
+- `docs/RELEASE_CHECKLIST.md` — 3-line stub: releases are gated by the Definition of Done in `WORKFLOW.md` (links, doesn't restate); bump BOTH manifests together (`plugin.json` is the source of truth; `scripts/check_versions_synced.py` enforces the pair).
 - `docs/PLAYBOOK.md` — plain-English guide for a non-engineer driving the harness: the pipeline, your three leverage points, the orchestration patterns (fan-out, adversarial-verify, effort dial), a worked example, and a mini-glossary.
 - `docs/PRODUCT.md` — durable product/UX context (Stage-1 `product-designer` output): the harness user + design language, plus the **Build mode** brief — user/JTBD, key flows, per-flow states (incl. non-happy), what-good-feels-like + top UX failure modes, and the honesty surface.
 
@@ -72,8 +73,10 @@ This repo builds the **`claugentic-dev-harness`** Claude Code plugin. The only e
 ## scripts/ — tooling
 
 - `scripts/check_architecture_tree.py` — deterministic (no-LLM) gate enforcing that this index lists every in-scope source file (presence), references no deleted file (staleness), and **detects glob drift** (flags — does not auto-fix — when `INCLUDE_GLOBS` watches no files while the repo contains non-harness-managed source, the zero-coverage rot); `--hook` / `--hook-write` modes wired in `.claude/settings.json`. `INCLUDE_GLOBS` is the only per-repo knob for presence/staleness (set by `init`); the valid-extension set `EXTS` is derived from it. Drift detection uses a separate, stable `SOURCE_EXTS` allow-list + the `claugentic-dev-harness@` managed-stamp exclusion (no per-repo knob).
+- `scripts/check_versions_synced.py` — deterministic (no-LLM) version-sync gate: `.claude-plugin/plugin.json`'s `version` is the single source of truth; FAILS LOUD (exit 1, plain message) if `.claude-plugin/marketplace.json`'s plugin entry `version` disagrees, or on any broken input (missing file / garbled JSON / absent `version`). Scope = the two manifest versions only — no stamp scan. A DoD run-gate (like `pytest`), not hook-wired. The two files are parsed independently (one broken cannot mask the other).
 
 ## tests/ — gate test suite
 
 - `tests/test_check_architecture_tree.py` — characterization tests for the tree-check gate (presence, staleness incl. the `.ts/.tsx` regression, mode dispatch + exit codes, `--hook-write` stdin); hermetic via mocked `_git`. *(Out of `INCLUDE_GLOBS` — listed for the map, not gate-enforced.)*
+- `tests/test_check_versions_synced.py` — characterization + fail-loud tests for the version-sync gate (synced/drift/missing-file/garbled-JSON/missing-version/independent-read cases + main() exit codes); hermetic via tmp_path manifests + monkeypatched path constants. *(Out of `INCLUDE_GLOBS` — listed for the map, not gate-enforced.)*
 - `tests/conftest.py` — puts `scripts/` on `sys.path` so the gate imports as a module under pytest.
