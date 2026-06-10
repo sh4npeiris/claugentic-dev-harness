@@ -1,13 +1,15 @@
 ---
-description: Drive one named backlog item through the full reviewed pipeline — plan → adversarial review → spec → your approval → implement → verify → land — pausing only at the decisions that are yours. Checkpoint mode, one item at a time. Honest about its limits: it pauses at the spec and before anything irreversible, and unwatched "autopilot" is not earned yet (it names exactly what's missing and offers checkpoint instead).
+description: Drive your audit backlog through the full reviewed pipeline — plan → adversarial review → spec → your approval → implement → verify → land — pausing only at the decisions that are yours. Pick one item, several, or a whole tier; it works them one by one, re-checking the code it touched between items and pausing for you only when new important work surfaces, to the honest "sound on the audited dimensions" stop-signal. Checkpoint mode. Honest about its limits: it pauses at the spec and before anything irreversible, and unwatched "autopilot" is not earned yet (it names exactly what's missing and offers checkpoint instead).
 ---
 
 # /claugentic-dev-harness:build
 
-The **go-button for a backlog item.** Point it at one item from your `docs/ROADMAP.md`
-backlog and it drives the whole professional pipeline for you — plan → adversarial review
-→ spec → **your approval** → build → review-the-work → land — pausing only where your
-judgment is load-bearing.
+The **go-button for your backlog.** Point it at one item from your `docs/ROADMAP.md`
+backlog — or pick several, or a whole tier — and it drives the whole professional pipeline
+for you — plan → adversarial review → spec → **your approval** → build → review-the-work →
+land — pausing only where your judgment is load-bearing. A single named item stays the fast
+path (no triage ceremony); ask for more than one and it confirms an ordered worklist, then
+works it item-by-item to the honest stop-signal.
 
 ## How this skill works
 
@@ -25,16 +27,20 @@ carry). Invoke it in plain English — *"build Tier-1 item 2"*, *"build the inpu
 item"*, *"/claugentic-dev-harness:build the test-baseline item"*.
 
 **What "checkpoint mode" means for you:** you can name one item and get back a landed,
-reviewed change with **at most three interruptions** — each in plain English (*what was
-just done · what's being decided · your options*). Everything between those three pauses
+reviewed change with **at most three interruptions per item** — each in plain English (*what
+was just done · what's being decided · your options*). Everything between those three pauses
 auto-drives. A failed item **pauses and tells you plainly that nothing partial landed**.
 The three pauses are: (1) the spec, before any code · (2) before land · (3) before any
 irreversible action. *(Two further pauses fire only on exceptions — a mid-build re-slice
 and a failed item — never on the happy path.)*
 
-**This release does one item at a time.** The full-backlog loop (pick several, work them
-to the honest stop-signal) is the next slice — this one is the honest, shippable per-item
-engine.
+**The full-backlog loop is live.** Pick several items (or "all of Tier-1"), confirm the
+ordered worklist, and it works them one by one — after each landed item it **re-checks the
+code that item touched**, pausing to let you re-pick **only when new important work surfaces**
+(otherwise it just continues the agreed list); when the worklist is done it runs **one full
+audit** and tells you honestly whether you've reached *"sound on the audited dimensions."*
+The single-named-item path above stays the fast path — the loop is opt-in by asking for more
+than one.
 
 ---
 
@@ -59,17 +65,12 @@ Build mode has **one live mode** and **one named-but-not-built mode**:
 
 ---
 
-## The procedure *(one item, checkpoint mode)*
+## The procedure *(checkpoint mode)*
 
-### 1. Locate the item
+### 1. Triage — locate the item(s) and confirm the worklist
 
 Read the **`harness-audit:backlog` fence** in `docs/ROADMAP.md` (the item universe the
-`audit` skill wrote). Match the user's words to exactly one item — by tier+number
-(*"Tier-1 item 2"*) or by its title/topic (*"the input-validation item"*). **If the match
-is ambiguous, ask** — name the candidates and let the user pick; never guess which item
-they meant.
-
-Two stop-conditions before you proceed:
+`audit` skill wrote). Two stop-conditions hold **before** any selection, single or multi:
 
 - **No backlog, or it's stale** (no `harness-audit:backlog` fence, or it predates the
   current code) → **don't invent one.** Say so plainly and suggest running
@@ -81,6 +82,41 @@ Two stop-conditions before you proceed:
   *"Sound on the audited dimensions — what remains is optional polish; you don't need to
   keep re-auditing. From here you can start something new — just tell me what you want to
   build — or stop."*
+
+Otherwise, branch on **how many items the ask names:**
+
+**(a) One named item — the fast path (no triage ceremony).** When the ask is specific —
+*"build Tier-1 item 2"*, *"build the input-validation item"* — match the user's words to
+exactly one item, by tier+number or by its title/topic. **If the match is ambiguous, ask**
+— name the candidates and let the user pick; never guess which item they meant. Then go
+straight to step 2 with a one-item worklist. **No tiered list, no "start now?" gate** — a
+specific ask is already the go-ahead.
+
+**(b) More than one item, a tier shortcut, or no item named — multi-item triage.** When the
+user asks for several items, a **tier-level shortcut** (*"all of Tier-1"*, *"do Tiers 1 and
+2"*, *"build my backlog"*), or doesn't name a specific one, run the triage:
+
+1. **Present the tiered backlog** in plain English — the items as the `audit` skill wrote
+   them (tier · title · tag · the one-line "why it matters"). Don't re-audit; you are
+   reading the existing fence, not regenerating it.
+2. **Let the user pick** — **individual items and/or tier shortcuts** (*"Tier-1 item 1 and
+   item 3, plus all of Tier-2"*). A tier shortcut expands to that tier's items in their
+   backlog order.
+3. **Confirm the ordered worklist in plain English** — read the selection back as a numbered
+   list in the order it'll be built (*"so I'll build, in order: 1) the test baseline · 2)
+   input validation · 3) …"*), and let the user re-order or drop any before you start. The
+   **recommended default order** is the backlog's own order (Tier-1 #1 first — the test
+   baseline gates later refactors), but the user's order wins.
+4. **"Start now?" — the explicit gate into the loop.** Nothing is built until the user says
+   go. This is triage selection (the first of build mode's load-bearing decisions); on "yes"
+   you enter the loop (step 9), on "no" you stop.
+
+---
+
+## The per-item engine *(steps 2–8 — one worklist item, start to landed)*
+
+Steps 2–8 build **one** item end-to-end. The fast path (a single named item) runs them once;
+the loop (step 9) runs them per worklist item. They are the same engine either way.
 
 ### 2. Tag → discipline
 
@@ -176,7 +212,7 @@ On approval, land per the WORKFLOW Stage 8: a **conventional commit**, move the 
 choice, and **run the Stage-9 harvest checklist** (the five sweeps — see `docs/WORKFLOW.md`
 §9; point at it, don't restate it).
 
-### 8. Close-out
+### 8. Close-out *(per item)*
 
 Tell the user, in plain English, **what landed** and **which gate-class passed — separately,
 never a blanket "verified/done":**
@@ -187,9 +223,119 @@ never a blanket "verified/done":**
   `architect-reviewer` audited) — model-upheld judgment, **"passed the checks and the
   reviewer's audit,"** never "proven correct."
 
-Then the next step: **another backlog item the same way, or re-run
-`/claugentic-dev-harness:audit`** for a fresh picture — you're finished when Tier 1 and
-Tier 2 come back empty.
+**Then branch on the worklist:**
+
+- **Single named item (the fast path), or the worklist is now exhausted** → the next step:
+  **another backlog item the same way, or re-run `/claugentic-dev-harness:audit`** for a
+  fresh picture — you're finished when Tier 1 and Tier 2 come back empty. (When a loop's
+  worklist is exhausted, the **stop/done** flow below runs the closing audit first — that's
+  what confirms "finished.")
+- **More worklist items remain** → don't run the full next-step prompt; this item's close-out
+  is **one completed beat** (*"landed item 2 of 5"*), and you continue into the **scoped
+  re-audit** (step 10) before the next item.
+
+---
+
+## The loop *(steps 9–11 — multi-item, entered from step 1b's "start now?")*
+
+### 9. The build loop *(the worklist, item by item)*
+
+On "start now?" yes (step 1b), work the **confirmed ordered worklist** one item at a time,
+each through the per-item engine above (steps 2–8). After each item lands, run the **scoped
+re-audit** (step 10), which decides whether to **pause and re-triage** or **auto-continue**
+to the next item. When the worklist is exhausted with no re-triage pending, run **stop/done**
+(step 11).
+
+**Between items, narrate completed beats only — never an ETA.** As each item lands and its
+re-check clears, emit one calm beat naming **what's done**: *"Landed item 2 of 5 —
+re-checking the code it touched…"*, then *"clean — moving to item 3."* This is the same
+completed-beat discipline steps 3–7 use within an item, now spanning the worklist. **Never**
+estimate how long the remaining items will take, never say "nearly through the list."
+
+The three per-item checkpoint pauses (spec · before-land · irreversible) **fire on every
+item** — the loop does not suppress them. The autopilot refusal, the irreversible hard-stop
+set, and no-invented-scope all hold unchanged across the whole loop.
+
+### 10. The scoped re-audit + re-triage *(flow 3 — after each landed item)*
+
+After an item lands, **re-run the audit scoped to the touched cells** — the
+`(module × dir)` cells (the `audit` skill's existing granularity) that cover the files the
+item changed. Spawn the audit's existing machinery over **only those cells** (the
+`lens-reviewer`s for the relevant modules over the touched dirs, then the universal
+`finding-verifier` re-check) — not a full repo sweep.
+
+**Be honest about this re-audit's scope.** It covers the cells the item touched. **Cross-file
+fallout beyond those cells — a change rippling into code the item didn't touch — is owned by
+the closing full audit (step 11), not claimed here.** Say so if it matters; do **not** imply
+the scoped re-check covers the whole repo, and do **not** describe it as chasing "dependents"
+(the harness has no dependency graph — that claim would be a trust-surface over-claim; the
+closing audit is what catches cross-file fallout).
+
+Carry each re-audit finding's **verification tag unchanged** — `(checked against the code)` /
+`(could not confirm independently — model's assertion)` / `(⚠ not yet verified — re-run to
+confirm)` mean exactly what they mean in the `audit` skill: a reduction of false confidence by
+an independent re-check of the same model class, **not** a deterministic guarantee. Don't
+upgrade the framing because it's the loop re-checking its own work.
+
+**Then decide — continue or re-triage:**
+
+- **Any NEW Tier-1 or Tier-2 finding** (one the original backlog didn't already carry) →
+  **pause to re-triage.** Show, in plain English, **what changed** — the new important
+  finding(s) and where — framed as **the safety feature it is**: *"The re-check found new
+  important work — that's the system catching things early, not a failure. Here's what
+  surfaced; do you want to fold it into the list, re-order, or carry on as planned?"* The user
+  **re-picks / re-orders** the remaining worklist (same triage interaction as step 1b,
+  including the option to add the new finding) — then **confirm the updated worklist back as
+  a numbered list and re-fire "start now?"** before continuing (the interruption ends on the
+  same explicit go-ahead the first triage does; the new list's count also resets the "item
+  N of M" beats, so position narration never silently drifts). Never silently absorb new
+  scope, and never silently skip it.
+- **Nothing new, or only Tier-3 polish** → **auto-continue** the agreed list. No pause — just
+  the completed beat (*"clean — moving to item 3"*) and on to the next item. A clean re-check
+  is **not** a checkpoint; interruptions taper as the criticals clear. (This is the deliberate
+  safety-over-fatigue trade: any new Tier-1/2 interrupts, a clean or polish-only re-check does
+  not.)
+
+### 11. Stop / done *(flow 4 — the worklist is exhausted)*
+
+When the worklist is worked through and **no re-triage is pending**, run **one `standard` full
+audit** (the `audit` skill, repo-wide — this is what owns the cross-file fallout the scoped
+re-audits didn't claim). Then:
+
+- **Tier 1 and Tier 2 both empty** → surface the audit's terminal signal **verbatim**, plus
+  the fork (never a dead end):
+
+  > Sound on the audited dimensions — what remains is optional polish; you don't need to keep
+  > re-auditing.
+
+  …then: **start something new — just tell me what you want to build — or stop.**
+- **Tier 1 or Tier 2 not empty** → **surface the remainder for a final triage decision.** Show
+  what the closing audit found and ask plainly: **build more now (re-enter triage on the new
+  list), or stop here.** **Never silently continue past the agreed worklist** — no-invented-scope
+  applies to the worklist itself; the user decides whether the new findings become new work.
+
+---
+
+## The resume contract *(derive the worklist — don't store it)*
+
+A resumed `/claugentic-dev-harness:build` **reconstructs** the worklist from the two state
+stores the harness already keeps — **there is no build-session state file, and this slice
+adds none.** Derive, don't store:
+
+- **The item universe + status** = the **`harness-audit:backlog` fence** in `docs/ROADMAP.md`
+  (its status block + tiered items — exactly what triage reads in step 1).
+- **An in-flight item** = its **plan file in `.claude/plans/`** with unchecked slices. **Offer
+  to continue it first** before re-confirming the rest of the list — it's the item that was
+  mid-build when the session ended.
+- **A done item** = its **plan archived in `docs/archive/`** (the Land convention — step 7
+  moves a landed item's plan there).
+
+From those, **re-confirm the remaining selection + order with the user** (the step-1b
+confirm + "start now?"). Be honest: the **picked order is the one thing not durably stored** —
+the backlog and the plan files tell you *what's left and what's in flight*, but not the
+sequence you'd agreed. A **5-second re-confirm** ("here's what's left — same order?") replaces
+a third state store; that's the deliberate trade (derive-don't-store beats a worklist file
+that could drift from the backlog).
 
 ---
 
