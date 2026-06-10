@@ -6,8 +6,8 @@
     {
       "name": "claugentic-dev-harness",
       "source": ".",
-      "description": "Reusable, self-improving Claude Code development harness: a staged workflow, specialist agent roles, an ISO/IEC 25010 standards catalog, and deterministic architecture enforcement — with two live skills, /claugentic-dev-harness:init (scaffold) and /claugentic-dev-harness:audit (audit → backlog).",
-      "version": "0.1.8",
+      "description": "Reusable, self-improving Claude Code development harness: a staged workflow, specialist agent roles, an ISO/IEC 25010 standards catalog, and deterministic architecture enforcement — with three live skills, /claugentic-dev-harness:init (scaffold), /claugentic-dev-harness:audit (audit → backlog), and /claugentic-dev-harness:build (drive one backlog item through the reviewed pipeline).",
+      "version": "0.1.9",
       "category": "development",
       "homepage": "https://github.com/sh4npeiris/claugentic-dev-harness"
     }

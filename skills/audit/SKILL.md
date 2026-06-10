@@ -531,4 +531,7 @@ After the Recommended-starting-point, **close the backlog with this plain "how t
 (verbatim, so the user always has the go-button in front of them): *"To start anything — a
 backlog item or a brand-new project — just tell the agent in plain English what you want
 (e.g. 'Let's do Tier-1 item 1' or 'I want to build X'). It will ask you questions (Discuss),
-then write a plan and spec for you to approve before any code."*
+then write a plan and spec for you to approve before any code. For a backlog item, the
+go-button is **`/claugentic-dev-harness:build`** — point it at one item ('build Tier-1
+item 1') and it drives the whole reviewed pipeline for you, pausing only at the spec (before
+any code) and before anything irreversible."*
