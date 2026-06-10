@@ -1,5 +1,5 @@
 ---
-description: Audit this codebase against the engineering-standards catalog and write a prioritized, plain-English backlog to docs/ROADMAP.md. Builds a "what your app is & does" map first, then sweeps the code through the relevant standards lenses (bounded, dedup, loop-until-dry).
+description: Audit this codebase against the engineering-standards catalog and write a prioritized, plain-English backlog to docs/ROADMAP.md. Builds a "what your app is & does" map first, then sweeps the code through the relevant standards lenses (bounded, dedup, depth-dialed) and tries to independently re-check every finding before it reaches the backlog.
 ---
 
 # /claugentic-dev-harness:audit
@@ -16,8 +16,9 @@ Three phases, cheap → expensive, run end-to-end in one pass:
    a plain-English **"what your app is & does"** overview and an **audit-plan** (what to
    look at, in what order, with what excluded). No fan-out.
 2. **Audit** *(LIVE)* — the expensive fan-out: `lens-reviewer`s (in **audit-scope mode**)
-   sweep the included code through the relevant standards modules; dedup, loop-until-dry,
-   **deterministically resumable** under a per-run budget cap.
+   sweep the included code through the relevant standards modules at the dial's **depth**;
+   dedup, then a single uniform pipeline — **FIND → PRUNE → VERIFY → surface** —
+   **deterministically resumable** under a shared budget cap.
 3. **Backlog** *(LIVE)* — the audit findings, written as a **tiered, tagged,
    plain-English** backlog into the `harness-audit:backlog` fence in `docs/ROADMAP.md`,
    ending with a recommended starting point.
@@ -25,12 +26,13 @@ Three phases, cheap → expensive, run end-to-end in one pass:
 Run the full flow: Understand → Audit → Backlog. The fan-out in Phase 2 spawns
 `lens-reviewer` subagents, so **a top-level agent (the orchestrator) runs this skill** —
 subagents can't spawn subagents. Audit findings are **model-asserted, then independently
-verified for the high-stakes ones (Tier-1 + security), and human-triaged**: a separate
-`finding-verifier` reads the cited code and tries to *refute* each critical/security claim
-before it reaches the backlog (Phase 2's verify step) — an honest **reduction of false
-confidence**, not a deterministic gate. Carry each finding's confidence honestly (see
-*Confidence* in the Phase 3 item format) — never launder a judgment call into apparent fact,
-and never fabricate a finding to fill a tier.
+re-checked, and human-triaged**: after the prune, a separate `finding-verifier` reads the
+cited code and **attempts to refute every surfaced finding** (all tiers) before it reaches
+the backlog (Phase 2's verify step) — an honest **reduction of false confidence**, not a
+deterministic gate. Carry each finding's confidence label honestly through synthesis (Phase 2
+step 5) — the per-item *display* is the verification tag, but lenses still emit
+`deterministic`/`judgment` and it is recorded internally; never launder a judgment call into
+apparent fact, and never fabricate a finding to fill a tier.
 
 ### How to use it (a periodic snapshot, not a treadmill)
 
@@ -41,7 +43,10 @@ and never fabricate a finding to fill a tier.
 - **Tier 3 is optional** polish; **an empty Tier 1 + Tier 2 means the code is sound** on the
   audited dimensions — that's the signal to stop, not a prompt to manufacture more work.
 - **The dial auto-sizes** to the repo (small → `quick`, larger → `standard`) and is reported
-  up front; **name `quick` / `standard` / `thorough` to override.**
+  up front; **name `quick` / `standard` / `thorough` to override.** `quick` and `standard` run
+  the *same* lenses — they differ only in **how deep each lens digs** (`quick` surfaces the
+  clear issues fast; `standard` digs for the subtle ones). `standard` is a **single deep pass**,
+  not a repeat sweep — the deeper, fresh-angle *second look* lives in `thorough` (coming next).
 
 ---
 
@@ -178,11 +183,16 @@ their findings. **You (the orchestrator) run this** — Phase 2 spawns subagents
 subagents can't spawn subagents.
 
 The whole pass is **deterministically bounded and resumable**: work is a finite set of
-discrete `(module × dir)` cells, the status block tracks which are `done` vs `pending`
-(so a re-run continues, never restarts), and the caps in steps 6 + 9 (max-rounds +
-max-cells-per-run) **guarantee termination.**
+discrete `(module × dir)` cells **audited once each** (no re-sweep), the status block tracks
+which are `done` vs `pending` (so a re-run continues, never restarts), and the single shared
+`max-cells-per-run` cap in step 8 **guarantees termination.**
 
-### The 10-step procedure
+Every level runs the **same uniform pipeline — FIND → PRUNE → VERIFY → surface.** The dial's
+only lever is **depth-per-lens** (step 1): all relevant lenses run at every level; `quick`
+reads at `focused` depth, `standard` at `deep` depth — a lens is **never** dropped to make a
+level cheaper.
+
+### The 9-step procedure
 
 1. **Set the dial — named level wins, else auto-size from Phase 1.** The skill is
    invoked in natural language, not with typed flags. First read the invocation for a
@@ -194,14 +204,27 @@ max-cells-per-run) **guarantee termination.**
    Understand phase — do not author a precise scoring formula. **Always report the chosen
    level up front** so the user can steer — e.g. *"Auto-selected `quick` — small repo; say
    `standard` (or `thorough`) to override"* (or *"Using `standard` as you asked"* when
-   named). These are the **only two live levels** — if the user names `thorough`, run `standard`
-   and tell them the deeper `thorough` pass (a second adversarial sweep) is a deferred
-   roadmap item, not built yet. The level sets two caps used below:
+   named). These are the **only two live levels** — if the user names `thorough`, **run a
+   `standard`-depth pass** and tell them the deeper `thorough` pass — a diverse blind-spot
+   sweep plus an adversarial prune — **lands in the next release**, not built yet.
 
-   | level | max-rounds (loop-until-dry) | scope |
-   |---|---|---|
-   | `quick` | **1** (single pass, no re-sweep) | the **top** candidate modules over the highest-priority dirs only |
-   | `standard` | **N** (re-sweep until a round is dry, capped — see step 6) | **all** relevant candidate modules over the full prioritized order |
+   **The dial scales on one axis: depth-per-lens.** All relevant lenses run at *every* level;
+   the level sets the **`depth`** each `lens-reviewer` reads at (passed in step 4). It does
+   **not** drop lenses, limit directories, or change how findings are verified.
+
+   | stage | `quick` | `standard` | `thorough` (next release) |
+   |---|---|---|---|
+   | **lenses** | all relevant | all relevant | all relevant |
+   | **depth per lens** | **`focused`** (clear gaps from a direct read) | **`deep`** (call-chains, edge cases, subtle issues) | `deep` |
+   | **prune (YAGNI)** | synthesis right-size | synthesis right-size | + adversarial `yagni-sentinel` sweep |
+   | **verify (refute, all tiers)** | attempt on **all surfaced** | attempt on **all surfaced** | attempt on **all surfaced** |
+   | **diverse blind-spot sweep** | — | — | ✓ |
+   | **budget** | one shared backstop cap + resume | same | same |
+
+   `quick` and `standard` differ **only** by depth: `quick` shows the clear issues fast,
+   `standard` digs for the subtle ones. They converge only on a small/clean repo (fine — the
+   auto-dial picks `quick` there). `standard` is a **single deep pass**, not a repeat sweep;
+   the high-value *second-angle* look is `thorough`'s diverse sweep (next release).
 
 2. **Load the audit-plan from Phase 1.** Take the four fields Phase 1 emitted:
    **exclude-set · prioritized directory order · monorepo / package boundaries ·
@@ -215,30 +238,31 @@ max-cells-per-run) **guarantee termination.**
 3. **Enumerate work as `(module × dir-or-package)` cells** — the deterministic unit of
    the whole pass. For each candidate module, pair it with each in-scope directory (or,
    for a **monorepo, each package**) it should cover, in the prioritized order. This
-   finite cell set is what the budget cap counts, what the loop sweeps, and what the
-   status block tracks.
+   finite cell set is what the budget cap counts, what the fan-out audits once each, and what
+   the status block tracks.
    - **On a resume run:** read the **status block** at the top of the existing backlog
      fence (see Phase 3). Take the **`pending`** cells and continue from there; **never
      redo a `done` cell.** If the backlog has no status block (or it says `COMPLETE`),
      this is a fresh full run — enumerate all cells.
 
-4. **Fan out lenses (delegation = the primary budget defense).** **Tell the user first, in
-   plain English** (so a multi-minute pass isn't a silent stall): *"This can take several minutes
-   on a larger repo — I'm reading the code through several quality lenses in parallel."* Group cells
-   into **batches by module** (one module over its scoped dirs/packages) and spawn a
-   **`lens-reviewer` subagent in audit-scope mode** per batch, **in parallel**. Pass each
-   subagent: its **module**, the **scoped dir/package list** for that batch, and the
-   **exclude-set**. Each returns a **per-dimension digest** (met/gap + `file:line` +
-   confidence + a plain-English line). Cell granularity keeps each subagent's read-set
-   small, so the fan-out stays in-budget even on a big repo. **As rounds complete, emit at most one
-   light "still working" beat per round naming cells already *done*** (e.g. *"swept the API routes…"*)
-   — report **completed** work, **never an ETA or a "nearly finished"** (a budget checkpoint can land
-   `PARTIAL` at any round — see step 9). These beats are **conversational only — never written into a
-   fence.**
+4. **Fan out lenses — one look per cell (delegation = the primary budget defense).** **Tell
+   the user first, in plain English** (so a multi-minute pass isn't a silent stall): *"This can
+   take several minutes on a larger repo — I'm reading the code through several quality lenses in
+   parallel."* Group cells into **batches by module** (one module over its scoped dirs/packages)
+   and spawn a **`lens-reviewer` subagent in audit-scope mode** per batch, **in parallel**. Each
+   cell is audited **exactly once** — there is no re-sweep. Pass each subagent: its **module**,
+   the **scoped dir/package list** for that batch, the **exclude-set**, and the dial's **`depth`**
+   (`focused` for `quick`, `deep` for `standard`/`thorough` — see step 1; the contract is in
+   `.claude/agents/lens-reviewer.md`). Each returns a **per-dimension digest** (met/gap +
+   `file:line` + confidence + a plain-English line). Cell granularity keeps each subagent's
+   read-set small, so the fan-out stays in-budget even on a big repo. **As batches complete, emit
+   at most one light "still working" beat naming cells already *done*** (e.g. *"swept the API
+   routes…"*) — report **completed** work, **never an ETA or a "nearly finished"** (a budget
+   checkpoint can land `PARTIAL` at any point — see step 8). These beats are **conversational only
+   — never written into a fence.**
 
-5. **Dedup + synthesize.** Maintain a **persisted seen-set** of findings across rounds
-   (so "did this round add anything new?" is judged against what's already been seen, not
-   re-discovered). Key dedup on **issue-class** (the *kind* of problem — e.g.
+5. **Dedup + synthesize.** Combine the lenses' returns into one consolidated set. Key dedup
+   on **issue-class** (the *kind* of problem — e.g.
    "missing-input-validation"), **not** on file·location alone — so two **distinct** issues
    at the *same* spot (say a security gap and a perf gap on the same lines) are **kept
    separate**, and only same-class findings merge. **Roll up systemic cross-file
@@ -252,32 +276,23 @@ max-cells-per-run) **guarantee termination.**
    backlog's whole value is that its cited locations are trustworthy (the same discipline
    as the Phase-1 count-guard).
 
-6. **Loop-until-dry (`standard` only).** Re-sweep the cells that aren't yet dry; a round
-   is **dry** when it adds **nothing new** to the seen-set. Stop the loop when a round is
-   dry **or** when the **max-rounds cap** for the level is hit (see step 1) — whichever
-   comes first. The finite cell set **plus** the integer cap **guarantee the loop
-   terminates** (it cannot oscillate, because "new" is judged against the persisted
-   seen-set). For **`quick`**, max-rounds = 1: a single pass, no re-sweep.
+6. **PRUNE — YAGNI right-size the consolidated set.** Over the consolidated findings, do one
+   right-sizing pass — the harness's own YAGNI applied to its own output: **keep only findings
+   with real impact; cut marginal "nice-to-haves" that don't earn their keep; never manufacture
+   a finding to fill a tier.** A sound codebase legitimately yields few or no items — a valid,
+   expected result. This is a synthesis discipline, *not* a fan-out (no extra subagents; the
+   adversarial `yagni-sentinel` sweep over the findings is `thorough`-only, lands next release —
+   don't build it here). The prune runs **before** VERIFY so the set re-checked in step 7 is
+   already right-sized. (Exception: never prune the Tier-1 "establish a test baseline" item for
+   untested behavior-bearing code — see step 8.)
 
-7. **YAGNI right-size the consolidated set (post-dry).** After the loop has gone dry /
-   hit max-rounds, do one final right-sizing pass over the consolidated findings — the
-   harness's own YAGNI applied to its own output: **keep only findings with real impact;
-   cut marginal "nice-to-haves" that don't earn their keep; never manufacture a finding to
-   fill a tier.** A sound codebase legitimately yields few or no items — a valid, expected
-   result. This is a synthesis discipline, *not* a fan-out (no extra subagents; a full
-   adversarial `yagni-sentinel` sweep over the findings is a deferred `thorough`-level
-   item — don't build it here). It runs only after dry-detection, so it trims the
-   already-finished set and cannot affect loop termination. (Exception: never prune the
-   Tier-1 "establish a test baseline" item for untested behavior-bearing code — see step 9.)
-
-8. **Verify high-stakes findings (Tier-1 + security).** For every survivor of the prune that
-   will be **Tier-1 (correctness / security / data-loss)** *or* comes from the **`security`
-   lens** — determinable from the finding's nature/module before final tiering — spawn an
-   independent **`finding-verifier`** to try to **refute** it against the code. **One rule,
-   every dial:** Tier-1 + security on `quick` *and* `standard` alike — **no dial-scaling**
-   (verifying `deterministic`-labeled findings on `standard`, or *all* findings on `thorough`,
-   is a deferred roadmap item — don't build it here). The trust floor is dial-independent:
-   never present an unverified critical/security claim as fact.
+7. **VERIFY — attempt to re-check every surfaced finding (all tiers, every level).** After the
+   prune, for **every** finding that will be surfaced — all tiers, on `quick` and `standard`
+   alike — spawn an independent **`finding-verifier`** to **try to refute** it against the code.
+   **Tier and scope no longer gate which findings are re-checked:** the set has already survived
+   the prune, so re-checking all of it is the simplest, most honest rule. This is an **attempt to
+   refute and tag the outcome** — an honest reduction of false confidence, **not** a mechanical
+   guarantee; never present an unconfirmed claim as fact.
    - **Independence is enforced by the input contract.** Pass each verifier **only**
      `{claim (plain + technical), file:line, source module, confidence label, exclude-set}` and
      the refute-first posture — **never** the finder's transcript or rationale, and **never** let
@@ -287,29 +302,33 @@ max-cells-per-run) **guarantee termination.**
      they are not nested under the `lens-reviewer`s. Fan them out **in parallel.**
    - **Apply the verdicts:**
      - **Refuted** → **drop** the finding from the backlog (it was a false positive); record it
-       for the run report (step 10's report line). Refuted findings are **not** persisted durably
+       for the run report (step 9's report line). Refuted findings are **not** persisted durably
        (regenerate-don't-accumulate — see step 5 / Phase 3); their only trace is the run report.
      - **Verified** → **keep** + attach the verifier's **proof snippet** (`file:line`); tag it
        inline `(checked against the code)` in Phase 3.
      - **Unconfirmed** → **keep** + **flag** it inline `(could not confirm independently —
        model's assertion)` in Phase 3 — never silently presented as fact.
-   - **Budget — verification draws from `max-cells-per-run`** (see step 9), **not** a separate
-     uncapped burst. Size the cap to leave headroom to verify the criticals found (they are
-     few). If the budget is **exhausted** before a Tier-1/security finding can be verified, mark
-     it **`deferred`**: write the finding with an explicit **"⚠ not yet verified — re-run to
-     confirm"** flag and list it in `pending-cells`. A critical is **never** silently presented
-     as verified — its representable states are `verified` · `unconfirmed` · `deferred`.
+   - **Budget — verification draws from the shared `max-cells-per-run` cap** (see step 8), **not**
+     a separate uncapped burst. The prune-first order keeps the set small, so re-checking all of
+     it is cheap; verifiers fan out in parallel and scale with *findings* (post-prune), not files.
+     If the budget is **exhausted** before a finding can be re-checked, mark it **`deferred`**:
+     write the finding with an explicit **"⚠ not yet verified — re-run to confirm"** flag and list
+     it in `pending-cells`. A finding's representable verification states are
+     `verified` · `unconfirmed` · `deferred` — never silently presented as checked.
    - **Persistence + resume.** A verdict **persists in the backlog fence alongside its finding**
      (its inline tag *is* the persisted verdict). On a **resume** run a finding already carrying
      a verdict is **not re-verified**, and `done` cells are not re-swept — so refuted findings
-     don't reappear and there is no O(rounds) re-verify cost. (A fresh re-run regenerates the
+     don't reappear and there is no needless re-verify cost. (A fresh re-run regenerates the
      backlog from scratch, so it may legitimately re-find and re-refute — an accepted cost.)
 
-9. **Budget checkpoint = deterministic (no "sensing context").** Each **run** has a
-   **max-cells-per-run cap** — a hard integer ceiling on how many cells one run audits
-   (size it to stay comfortably within context for the repo; the prioritized order means
-   the highest-value cells are spent first). **When the cap is hit — or cells remain
-   `pending` after max-rounds — checkpoint:**
+8. **Budget checkpoint = deterministic (no "sensing context").** Each **run** has a single
+   shared **max-cells-per-run cap** — one hard integer ceiling on how many cells one run audits
+   (no per-level cap and no directory-limiting; the prioritized order is only the **order budget
+   is spent in**, so the highest-value cells go first). The cap rarely fires; it exists to bound
+   the run's cost/time, keep the orchestrator's synthesis within its own context, and enable
+   `PARTIAL`/resume — **not** to bound any single subagent's context (each has its own). Size it
+   to stay comfortably within the orchestrator's synthesis context for the repo. **When the cap
+   is hit — or cells remain `pending` — checkpoint:**
    - write the **partial backlog** of what was found so far (Phase 3),
    - set the status block to **`PARTIAL`** with the explicit **`done`** and **`pending`**
      cell lists,
@@ -324,20 +343,19 @@ max-cells-per-run) **guarantee termination.**
    code seen in the covered (`done`) cells** — a partial audit must never green-light an
    unguarded refactor.
 
-10. **Author the backlog** (Phase 3) into the `harness-audit:backlog` fence, **recommend a
-    starting point**, and **report the dial level + coverage** to the user (which cells
-    ran, `COMPLETE` or `PARTIAL`, and — if any — which modules fell back to baseline). **When
-    Tier 1 + Tier 2 both come back empty, surface the Phase-3 "Sound on the audited dimensions"
-    terminal signal in this conversational report** (reuse that exact phrasing — don't restate it
-    loosely) so an empty result reads as the success it is, scoped to the covered cells on a
-    `PARTIAL` run. Include
-    the **verification run-report line** for the high-stakes findings checked in step 8 —
-    frame the refuted ones as a **trust signal that the check bit**, reported as a **count, not
-    a list**: e.g. *"Independently re-checked the Tier-1/security findings; dropped N that
-    couldn't be confirmed against the code."* Keep `verified N · unconfirmed K` in the same
-    line. **Do not list the specific refuted claims** (that invites re-litigating dropped
-    noise) and **do not persist them** — a count in the run report is the only trace a refuted
-    finding leaves, since refuted findings aren't persisted.
+9. **Author the backlog** (Phase 3) into the `harness-audit:backlog` fence, **recommend a
+   starting point**, and **report the dial level + coverage** to the user (which cells
+   ran, `COMPLETE` or `PARTIAL`, and — if any — which modules fell back to baseline). **When
+   Tier 1 + Tier 2 both come back empty, surface the Phase-3 "Sound on the audited dimensions"
+   terminal signal in this conversational report** (reuse that exact phrasing — don't restate it
+   loosely) so an empty result reads as the success it is, scoped to the covered cells on a
+   `PARTIAL` run. Include the **verification run-report line** for the findings re-checked in
+   step 7 — frame the dropped ones as a **trust signal that the check bit**, reported as a
+   **count, not a list**: *"Independently re-checked every finding I surfaced against the code;
+   dropped M that couldn't be confirmed — verified N · unconfirmed K · deferred J."* **Do not
+   list the specific refuted claims** (that invites re-litigating dropped noise) and **do not
+   persist them** — a count in the run report is the only trace a refuted finding leaves, since
+   refuted findings aren't persisted.
 
 ---
 
@@ -382,14 +400,18 @@ status: COMPLETE | PARTIAL · level: quick|standard · done-cells: [module×dir,
 
 Immediately under the status line — still **inside the fence**, before Tier 1 — write a
 **short 2-line legend** so a non-engineer can read the tags without a glossary. Keep it to
-**2 lines, not a wall** — one short phrase per tag, plus what the verification phrases mean:
+**2 lines, not a wall** — one short phrase per tag, then the verification phrases on a single
+line. **Because every item now carries a verification tag, the verification line is the
+most-read trust statement on the backlog — so it MUST carry the not-a-guarantee caveat:**
 
 - **Line 1 (tags):** `refactor` = tidy without changing behavior · `capability-upgrade` =
   add/upgrade a technology · `dependency-health` = update/patch dependencies · `bug` = fix
   wrong behavior · `feature` = new behavior.
-- **Line 2 (verification):** `(checked against the code)` = a separate agent confirmed it
-  against the actual code · `(could not confirm independently — model's assertion)` = still
-  just the model's claim, not independently confirmed.
+- **Line 2 (verification — one line, caveat included):** `(checked against the code)` = a
+  separate agent re-read the code and couldn't refute it · `(could not confirm independently —
+  model's assertion)` = still just the model's claim · `(⚠ not yet verified — re-run to confirm)`
+  = budget ran out before checking — **an independent re-check by the same kind of model, a
+  reduction of false confidence, not a mechanical guarantee.**
 
 (Author it in plain prose on those two lines — the bullets above are the *content*, not the
 required layout. Don't expand it into a section; the inline tags stay self-explanatory.)
@@ -408,7 +430,7 @@ leave the user guessing — it is the explicit "stop" signal. State it in the st
 Recommended-starting-point, e.g.: *"Sound on the audited dimensions — what remains is
 optional polish; you don't need to keep re-auditing."* (On a `COMPLETE` run this is a
 genuine all-clear; on a `PARTIAL` run, scope it to the covered cells.) This pairs with the
-step-7 YAGNI prune: a clean codebase legitimately produces few or no items, and that is a
+step-6 YAGNI prune: a clean codebase legitimately produces few or no items, and that is a
 *result*, not a gap to fill.
 
 ### Item format (every item)
@@ -423,25 +445,23 @@ step-7 YAGNI prune: a clean codebase legitimately produces few or no items, and 
   *why it matters / how bad it is / what could break.*
 - **Impact + rough effort** — plain-English ("medium impact; ~half a day"), so the user
   can prioritize.
-- **Verification + Confidence — one status axis per item, in plain English.** These are two
-  *different* axes: **Confidence** = *could a gate prove this* (`deterministic` vs `judgment`);
-  **Verification** = *was this checked against the code, and what came back* (Phase 2 step 8).
-  To spare a non-engineer reconciling two labels, **show only one per item:**
-  - A **verified-scope item** (Tier-1 or security — the findings step 8 checks) shows its
-    **inline verification tag**, and that tag **supersedes** the `deterministic`/`judgment`
-    confidence label for display:
-    - `(checked against the code)` — a `finding-verifier` confirmed it (proof snippet attached
-      to the technical finding).
-    - `(could not confirm independently — model's assertion)` — the verifier returned
-      `Unconfirmed`; kept, but honestly flagged as still just the model's claim.
-    - `(⚠ not yet verified — re-run to confirm)` — `deferred`: budget ran out before it could be
-      checked (it sits in `pending-cells`; a re-run verifies it).
-  - An **out-of-scope item** (everything else — not Tier-1, not security) keeps its
-    **confidence label** (`deterministic` / `judgment`) exactly as today.
-  - **No item shows both**, and there is **no badge/legend system** — the inline phrase is
-    self-explanatory. Findings the verifier **Refuted** are dropped entirely (they never appear
-    here; their only trace is step 10's run-report line). Be honest either way: a verification
-    tag is a *reduction of false confidence*, not a deterministic guarantee — never overstate it.
+- **Verification — one tag per item, in plain English.** Every surfaced finding is re-checked
+  in Phase 2 step 7, so **every item carries exactly one inline verification tag** — the
+  outcome of the attempt to refute it:
+  - `(checked against the code)` — a `finding-verifier` re-read the code and couldn't refute it
+    (proof snippet attached to the technical finding).
+  - `(could not confirm independently — model's assertion)` — the verifier returned
+    `Unconfirmed`; kept, but honestly flagged as still just the model's claim.
+  - `(⚠ not yet verified — re-run to confirm)` — `deferred`: budget ran out before it could be
+    checked (it sits in `pending-cells`; a re-run re-checks it).
+
+  There is **no badge/legend system** beyond this single inline phrase, and **no verified-scope
+  vs out-of-scope split** — universal re-checking makes the verification tag the one trust
+  signal, so it is shown on every item and the per-finding `deterministic`/`judgment` confidence
+  label is **no longer shown per item** (lenses still emit it, and it is recorded internally for
+  the future Trust track). Findings the verifier **Refuted** are dropped entirely (they never
+  appear here; their only trace is step 9's run-report line). Be honest: a verification tag is a
+  *reduction of false confidence*, not a deterministic guarantee — never overstate it.
 
 ### Tag → discipline  *(the tag→discipline mapping in `docs/WORKFLOW.md` — enforcement is not yet automated)*
 

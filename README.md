@@ -5,7 +5,7 @@ A Claude Code plugin that makes AI-assisted coding **disciplined and reviewable*
 **Two commands:**
 
 - **`/claugentic-dev-harness:init`** — scaffold the harness into your repo. Idempotent and **never clobbers** your files (re-running is a safe no-op): it adds an always-current architecture index + an enforcement hook, a quality-standards catalog, and the workflow docs — and **composes with your existing linters/tests** instead of replacing them.
-- **`/claugentic-dev-harness:audit`** — point it at the repo and it explains, in plain English, what your app is and does, then writes a **prioritized to-do list** (a backlog) of the work worth doing. It **auto-sizes its effort to the codebase**, tells you plainly when the code is already sound, and **independently verifies its most serious findings** — a separate agent reads the cited code and tries to *disprove* each security/correctness item before it reaches your list (false alarms get dropped; the rest carry their proof).
+- **`/claugentic-dev-harness:audit`** — point it at the repo and it explains, in plain English, what your app is and does, then writes a **prioritized to-do list** (a backlog) of the work worth doing. It **auto-sizes its effort to the codebase**, tells you plainly when the code is already sound, and **independently re-checks every finding it surfaces** — a separate agent reads the cited code and tries to *disprove* each one before it reaches your list (false alarms get dropped; each survivor is tagged with what came back — confirmed against the code, or still just the model's claim).
 
 ## What you actually get
 
@@ -16,7 +16,7 @@ A Claude Code plugin that makes AI-assisted coding **disciplined and reviewable*
 
 ## Status (honest about what's real)
 
-The functional core is **live**: both `init` and `audit` work, and `init` installs cleanly into a fresh repo. The audit **independently verifies its Tier-1 + security findings** — a separate agent tries to refute each one against the code, so false positives are dropped and the rest arrive with proof.
+The functional core is **live**: both `init` and `audit` work, and `init` installs cleanly into a fresh repo. The audit **tries to independently re-check every finding it surfaces** — a separate agent attempts to refute each one against the code, so false positives are dropped and each survivor is tagged with what came back (confirmed against the code, or still just the model's claim — never presented as proof when it isn't).
 
 That finding-verification is an honest *reduction* of false confidence, **not** a deterministic guarantee (it's the same model class, run independently and adversarially). The genuinely **mechanical, model-independent trust-gates** — a characterization-tests-first hook + a secret-scan — are **not built yet** — they're the top of the [roadmap](docs/ROADMAP.md). Today the review discipline is upheld by independent skeptical agents + the deterministic architecture-tree gate. The harness's whole pitch is honesty, so it states only what's real.
 
