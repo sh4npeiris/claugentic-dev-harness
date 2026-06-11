@@ -1,20 +1,27 @@
 ---
-description: Scaffold the claugentic-dev-harness into the current repo — copy the managed harness set (standards catalog, workflow, playbook, tree-check), generate docs/ARCHITECTURE_TREE.md, set the tree-check globs, wire the hook, git-init if needed, seed ROADMAP/DECISIONS, write a CLAUDE.md harness section, and compose with existing lint/type-check/test tooling. Idempotent; never clobbers — re-running is a safe no-op.
+description: Scaffold the claugentic-dev-harness into the current repo — upsert the managed harness set (standards catalog, workflow, playbook, tree-check) to the installed plugin version, generate docs/ARCHITECTURE_TREE.md, set the tree-check globs, wire the hook, git-init if needed, seed ROADMAP/DECISIONS, refresh the CLAUDE.md harness fence, and compose with existing lint/type-check/test tooling. Re-running converges the repo to the installed version and never clobbers user content; a true no-op only when already at the installed version.
 ---
 
 # /claugentic-dev-harness:init
 
-Scaffold this harness into the current repo, **without clobbering anything**. Every
-write is **detect → create-if-absent / merge-inside-a-fence / report** — the `init` skill
-**never** overwrites user content, and **running it twice is a provable no-op** (the 2nd
-run creates nothing, merges nothing new, and reports everything as already present).
+Scaffold this harness into the current repo, **without clobbering user content**. Every
+write is **detect → upsert-to-installed / refresh-inside-a-fence / report** — the `init`
+skill **never** overwrites *your* content, and **re-running converges the repo to the
+installed plugin version**: it refreshes any managed file whose content changed since it
+was copied, and is a **true no-op only when the repo is already at the installed version**
+(then it creates nothing, refreshes nothing, and reports everything as already current).
+The drift decision and the writes are **`init`'s judgment** — rule-bound and
+never-clobber-guarded by the stop-if-ambiguous invariant below — not a mechanical oracle;
+**idempotent-at-a-fixed-version is checked by a dogfood run, not a wired gate.**
 
 ## How this skill works
 
 A top-level agent (the orchestrator) follows the **9-step procedure** below in order.
-Each step is guarded — it detects the current state first, acts only if something is
-absent (or merges into a fence if present), and reports what it did. The output is a
-clear **created / skipped / merged / detected** summary.
+Each step is guarded — it detects the current state first, then acts: it creates what is
+absent, **refreshes a genuine managed copy whose content drifted from the installed
+source**, refreshes the managed fence in place, and **leaves user content untouched**. It
+reports what it did. The output is a clear **created / refreshed / skipped / merged /
+detected** summary.
 
 **Never-clobber is the load-bearing safety invariant** (this writes into someone else's
 repo — a careless overwrite is data loss). If any step is ambiguous about whether a
@@ -25,14 +32,18 @@ write would destroy user content, **stop and report rather than guess.**
 These are contracts the `init` skill's own re-run idempotency depends on — they are
 deliberate, not incidental:
 
-1. **The managed-stamp** — every file the `init` skill *copies* gets a stamp on its **first
-   line** so a managed copy is unmistakable and machine-parseable:
+1. **The managed-stamp** — every file the `init` skill *copies or refreshes* gets a stamp on
+   its **first line** so a managed copy is unmistakable and machine-parseable:
    - **Markdown:** `<!-- claugentic-dev-harness@{VERSION} managed — do not edit (copied from the claugentic-dev-harness plugin) -->`
    - **Python:** `# claugentic-dev-harness@{VERSION} managed — do not edit (copied from the claugentic-dev-harness plugin)`
    - `{VERSION}` is read from the plugin's `plugin.json` `version` field (e.g. `0.1.0`).
-   - The greppable token is **`claugentic-dev-harness@<semver>`**. Idempotency detects an
-     already-copied managed file by the presence of `claugentic-dev-harness@`; the semver in the
-     stamp records which plugin version the copy came from. Do **not** vary this format.
+   - The greppable token is **`claugentic-dev-harness@<semver>`**. A target counts as a
+     **genuine managed copy** only when **line 1 is the exact stamp form above with a
+     parseable semver** (one leg of the step-3 predicate — the other is
+     path-in-the-managed-set) — not merely a line that *contains* the token; a line that
+     quotes it, a foreign stamp, or a garbled semver is a **user file**. The semver in the
+     stamp records which plugin version the copy came from.
+     Do **not** vary this format.
 
 2. **The CLAUDE.md `harness:managed` fence** — the harness section the `init` skill writes
    into the adopter's `CLAUDE.md` lives between exact HTML-comment markers:
@@ -44,15 +55,16 @@ deliberate, not incidental:
    **Replace only inside the fence; everything outside it is human-owned and never
    touched.** Mirrors the established `harness-audit:overview` / `harness-audit:backlog`
    fences. **No volatile content (timestamps, counters, run-dates) goes inside the
-   managed fence** — so a re-run with identical inputs is **byte-identical** and the
-   "zero diffs on the 2nd run" guarantee holds. The seeded **Current scope** block lives
+   managed fence** — so a re-run at the same installed version regenerates a
+   byte-identical inner block — the zero-diffs-on-a-2nd-run acceptance
+   (dogfood-checked) holds. The seeded **Current scope** block lives
    **outside** this fence (local, editable, never overwritten — see step 6).
 
 ---
 
 ## The 9-step procedure
 
-Run these in order. Each is **detect → create-if-absent / merge-in-fence → report.**
+Run these in order. Each is **detect → upsert-to-installed / refresh-in-fence → report.**
 
 ### 1. Preflight
 
@@ -75,10 +87,12 @@ Run these in order. Each is **detect → create-if-absent / merge-in-fence → r
   VCS to land slices against).
 - If `.git` **already exists**, **skip** and report "git already initialized."
 
-### 3. Copy the managed harness set (copy-if-absent, stamped)
+### 3. Upsert the managed harness set to the installed version (stamped)
 
-Copy each of the following from the source (step 1) into the target, **copy-if-absent /
-skip-if-present**, **stamping the first line** with the managed-stamp (convention 1):
+**Upsert** each file in the managed set from the source (step 1) into the target — create
+it if absent, **refresh it if a genuine managed copy has drifted from the installed
+source**, and leave it byte-untouched if it is already current — **stamping the first
+line** with the managed-stamp (convention 1). The managed set is exactly:
 
 | Source path | What it is |
 |---|---|
@@ -88,17 +102,86 @@ skip-if-present**, **stamping the first line** with the managed-stamp (conventio
 | `docs/PLAYBOOK.md` | the plain-English guide for the human driving the harness |
 | `scripts/check_architecture_tree.py` | the deterministic architecture-tree gate |
 
+**Per file, decide one of four verdicts (this is `init`'s judgment, rule-bound — there is
+no oracle):**
+
+| Detected state | Verdict | Action | Report line |
+|---|---|---|---|
+| target **absent** | `CREATE` | copy + stamp (installed version) | `created` |
+| present, **not a genuine managed copy** (see predicate) | `USER_FILE` | **skip — never overwrite** | `skipped (user file / unrecognized stamp) — reconcile manually` |
+| genuine managed copy, **body differs from source** | `REFRESH` | overwrite the whole file with freshly-stamped source (stamp = installed version) | `refreshed <path>: <old-semver> → <installed>` |
+| genuine managed copy, **body identical to source** | `CURRENT` | **leave byte-for-byte untouched** — even if its stamp semver is older than installed (**no RESTAMP**) | `skipped (already current)` |
+
+**The genuine-managed predicate (never-clobber-critical — rule-bound, not eyeballed
+loosely).** A target file is a **genuine managed copy** — and therefore a REFRESH/CURRENT
+candidate — **only when all** hold:
+1. its **path is in the managed set above** (a path outside the set is never a refresh
+   candidate, whatever its first line);
+2. **line 1 is the exact stamp form** — `claugentic-dev-harness@<semver> managed — do not
+   edit (copied from the claugentic-dev-harness plugin)` in the file's comment syntax
+   (markdown `<!-- … -->`, Python `# …`) — **with a parseable semver**.
+
+**Anything else is `USER_FILE` → skip and report (never overwrite):** an unstamped
+same-named file, a line-1 that merely *quotes* the token (without being the exact stamp
+form), a *foreign* plugin's stamp, or a **garbled/unparseable semver**. This wires
+directly to the load-bearing **stop-if-ambiguous invariant** (above): with no mechanical
+oracle, REFRESH only when the file is **unambiguously** a genuine managed copy; on **any**
+ambiguity about whether a write would destroy user content, **stop and report rather than
+guess.** That stop-if-ambiguous rule **is** the never-clobber safety net here.
+
+**The body compare (the off-by-one + CRLF traps — get this exactly right):**
+- **Asymmetric, unambiguous:** `target body = target minus line 1` (the stamp); `source
+  body = the pristine source as-is` (sources carry **no** stamp). For
+  `check_architecture_tree.py`, strip **only line 1** (the stamp) — the
+  `#!/usr/bin/env python3` shebang on line 2 **stays in the body** (it is part of the
+  pristine source). Stripping the shebang too would misalign every Python compare by one
+  line and false-REFRESH it.
+- **Newline-insensitive:** compare **normalized for line endings** (LF/CRLF equivalent +
+  trailing-newline insensitive) so an adopter's checkout settings (Windows `autocrlf` →
+  CRLF) never trigger a false REFRESH. This repo's `.gitattributes` does **not** reach an
+  adopter's repo, so a CRLF checkout with an identical body must read `CURRENT`, not
+  `REFRESH`.
+
+**The one hybrid managed file — `check_architecture_tree.py`'s `INCLUDE_GLOBS` (the named
+exception to "managed files carry zero user content").** Four of the five managed files are
+pure verbatim copies, but `scripts/check_architecture_tree.py` carries **one per-repo
+region**: its `INCLUDE_GLOBS = [ … ]` assignment (the **only** per-repo knob — `init`
+itself writes it per-adopter in step 5a, re-derives it on glob-drift, and **invites the
+user to refine it**). A correctly-configured adopter's globs therefore differ from this
+repo's source value, so without a carve-out the file would **always** read REFRESH and the
+overwrite would **reset their globs to this repo's value** — a never-clobber violation plus
+a broken tree-check for them. Treat it as a **hybrid, exactly like the `CLAUDE.md` fence**
+(protect the per-repo region, refresh the managed rest):
+- **The body compare for `check_architecture_tree.py` excludes the `INCLUDE_GLOBS = [ … ]`
+  assignment** (from the line beginning `INCLUDE_GLOBS =` through its closing `]`) on
+  **both** sides. So an adopter with custom globs reads **CURRENT** when the rest of the
+  managed body matches — no false REFRESH.
+- **A REFRESH preserves (re-injects) the adopter's existing `INCLUDE_GLOBS`:** write `the
+  new source body, minus its INCLUDE_GLOBS assignment` + `the adopter's current
+  INCLUDE_GLOBS assignment` + the installed stamp — never the source's globs. (Then init's
+  existing step-5 glob-drift self-correction runs as today.) With this carve-out the
+  never-clobber and idempotent-at-a-fixed-version claims stand **as written**.
+- **Assumption (stated so the carve-out is well-defined):** `INCLUDE_GLOBS` is the single,
+  stable per-repo knob in this file. If a future plugin version restructures it, that's a
+  version-migration concern — **out of scope** here (it becomes a migration task only if
+  such a restructure ever ships).
+
+**Per-file upsert only — `init` never deletes.** Each managed-set path is created,
+refreshed, or left alone independently; nothing is removed. A user-added file under
+`docs/standards/` (e.g. `docs/standards/my-custom.md`) is **left untouched** (it is not in
+the managed set). A managed module the **installed version no longer ships** is **left in
+place and reported**, never deleted (this is upsert, not `rsync --delete`).
+
 Rules:
-- **Per file: if the target path already exists, skip it and report "skipped (present)."**
-  Detect an already-copied managed file by the **`claugentic-dev-harness@` marker** on its
-  first line (convention 1) — a present-but-unstamped same-named file is a **user file**;
-  do **not** overwrite it, skip and report it so the user can reconcile.
-- **Stamp on copy**, not in the source. The source modules are pristine (editable
-  upstream) and carry **no** stamp; the `init` skill adds the stamp as the copied file's
+- **Stamp on copy/refresh**, not in the source. The source modules are pristine (editable
+  upstream) and carry **no** stamp; the `init` skill adds the stamp as the written file's
   first line — markdown files get the `<!-- … -->` form, the Python script gets the `# …`
   form (as its first line, after which the existing `#!/usr/bin/env python3` shebang and
-  body follow — keep the file runnable).
-- **Security / exclude-set:** copy **only** the managed set above. **Never** copy the
+  body follow — keep the file runnable). A REFRESH writes the **installed** version into the
+  stamp; a CURRENT file keeps its older stamp untouched (the authoritative repo-version
+  readout is the `CLAUDE.md` managed fence — step 6 — not the per-file stamps; mixed
+  per-file stamps are expected and correct).
+- **Security / exclude-set:** upsert **only** the managed set above. **Never** copy the
   adopter's `node_modules`, build output, `vendor`, or secrets (`.env*`, keys,
   credentials) into the repo or surface their contents. This step copies *from the
   harness source*, so it touches none of those — but the same exclude discipline governs
@@ -178,18 +261,35 @@ its valid extensions from it (`EXTS`), so there is no second regex to keep in sy
 - **Idempotency key:** a hook whose `command` **contains `check_architecture_tree.py`** is
   "already present." If a `PostToolUse(Write)` entry and a `Stop` entry both already match,
   **skip** (don't append a duplicate) and report "hook already present." This makes a
-  re-run a provable no-op on this file.
+  re-run a no-op on this file (skip-if-present, keyed on the substring — dogfood-checked
+  like the rest of idempotency, not a wired gate).
 
-### 6. Write the CLAUDE.md harness section (create / append-at-EOF / skip)
+### 6. Write the CLAUDE.md harness section (create / append-at-EOF / refresh-inside-fence)
 
-Three cases — **never touch anything above an existing fence:**
+Three cases — **never modify existing content outside the managed fence** (the
+Current-scope and detected-tooling blocks are *seeded* outside it on first run, but an
+existing one is never rewritten — see below):
 - **`CLAUDE.md` absent →** create it with the managed pointer block (in the fence) + the
   Current-scope block (outside the fence) below it.
 - **Present, *no* `<!-- harness:managed:start -->` fence →** **append** the fenced block at
   **end-of-file**, touching **nothing above** (the user's existing CLAUDE.md is preserved
   verbatim). Seed the Current-scope block after the fence.
-- **Present *with* the fence →** **skip** (the re-run path) — the managed block is already
-  there; leave it. *(init never rewrites an existing managed block — it is copy/seed-if-absent.)*
+- **Present *with* the fence → refresh inside the fence (the re-run path).** Regenerate the
+  managed block from the **current** template and **replace only the text between
+  `<!-- harness:managed:start -->` and `<!-- harness:managed:end -->`**, preserving
+  everything outside the markers **byte-for-byte** (the Current-scope block, the
+  detected-tooling block, and all human content above/below). Content-aware: if the
+  regenerated inner block is **byte-identical** to what's there, it's a **no-op**; if it
+  **differs**, replace it. The fence embeds `claugentic-dev-harness@{VERSION}`, so a
+  version bump alone makes it differ → the fence refreshes. **This refreshed fence is the
+  authoritative repo-version readout** (the reason per-file stamps need no RESTAMP — step 3).
+  - **Malformed fence → stop and report (never guess the extent).** If a
+    `<!-- harness:managed:start -->` marker exists **without** its matching
+    `<!-- harness:managed:end -->`, or either marker is **duplicated**, the block's extent
+    is **ambiguous** — a replace could destroy human content. Per the load-bearing
+    never-clobber / stop-if-ambiguous invariant, **stop and report it for manual
+    reconciliation**; do **not** guess where the block ends. (Mirrors step 3's explicit
+    clobber-edge wiring.)
 
 **What goes in the managed fence** (`<!-- harness:managed:start -->…:end`) — **stable, no
 volatile content** so a re-write is byte-identical:
@@ -210,6 +310,9 @@ volatile content** so a re-write is byte-identical:
   a JS web app: `maintainability-structure`, `testing`, `security`, `api-and-contracts`,
   `product-ux`).
 - The **detected existing tooling** block (from step 8) — the project's own gates.
+  **Seeded create-if-absent, like the Current-scope block:** a re-run **skips** an existing
+  detected-tooling block (leaves it byte-untouched), and writes it only when none is present
+  — it is never rewritten on a re-run.
 
 ### 7. Create `docs/ROADMAP.md` + `docs/DECISIONS.md` if absent
 
@@ -227,18 +330,34 @@ volatile content** so a re-write is byte-identical:
   tooling detection** (DRY) — it already identifies these by config.
 - **Record** what you find in the CLAUDE.md Current-scope-adjacent **detected-tooling
   block** (step 6, outside the managed fence) as **the project's gates** — the workflow
-  uses *these*, not new ones imposed on top.
+  uses *these*, not new ones imposed on top. **Create-if-absent:** write this block only
+  when none exists; a re-run **skips** (leaves) an existing detected-tooling block
+  untouched, never rewrites it (it lives outside the fence — local, editable, user-owned).
 - **Detect + record only — never install, never reconfigure** the adopter's tooling. The
   harness *composes* with what's there.
 
 ### 9. Report
 
 **Lead with a plain-English headline** — before the grouped technical summary — so a
-non-engineer reads the reassurance first: *"Done — I added a code map, a quality checklist,
-and a safety check. I did NOT change any of your code or overwrite your files."* Then the
-**next step, branched on whether the repo already has application source** — the *Application
-source present* predicate defined in `/claugentic-dev-harness:audit` Phase 1 (step 5), the same
-detection this skill reuses in step 5:
+non-engineer reads the reassurance first. **Branch the headline on the Refreshed group:**
+- **Refreshed is empty (nothing was overwritten) →** *"Done — I added (or brought up to
+  date) a code map, a quality checklist, and a safety check. I did NOT change any of your
+  code or overwrite your own files — only my own managed files were refreshed to the
+  installed version."*
+- **Refreshed is non-empty →** keep the same lead, then **append the honest caveat:**
+  *"Files marked `claugentic-dev-harness managed — do not edit` were refreshed to the
+  installed version; if you had edited one of those, your edits were replaced — they're
+  listed in the Refreshed group below, and git history keeps any version you committed
+  (uncommitted edits to a managed file are not recoverable — commit before re-running
+  `init`)."* Never assert "I did NOT overwrite your own files" unconditionally when a
+  managed file was refreshed — that would be false for anyone who edited one. (The
+  `CLAUDE.md` fence is separate: only the content between the markers is replaced —
+  everything you wrote outside it is preserved.)
+
+Then the **next step, branched on whether the repo already has application
+source** — the *Application source present* predicate defined in
+`/claugentic-dev-harness:audit` Phase 1 (step 5), the same detection this skill reuses in
+step 5:
 - **Has app source →** *"Start a fresh chat, then run `/claugentic-dev-harness:audit` — I'll
   explain your codebase in plain English and write a prioritized backlog of the work worth doing."*
 - **No app source yet (empty / docs-only) →** *"Start a fresh chat, then just tell me what you
@@ -246,37 +365,62 @@ detection this skill reuses in step 5:
   to run `/claugentic-dev-harness:audit` until there's code to audit."*
 
 Then emit the clear summary, grouped:
-- **Created** — files written from scratch (e.g. `ARCHITECTURE_TREE.md`, `ROADMAP.md`).
-- **Copied + stamped** — the managed set that was absent (or "all skipped — already
-  copied").
-- **Skipped (already present)** — everything that existed (user files left untouched).
+- **Created** — files written from scratch (e.g. `ARCHITECTURE_TREE.md`, `ROADMAP.md`) +
+  the managed files that were absent and copied + stamped.
+- **Refreshed** — managed files (and the CLAUDE.md fence) brought up to the installed
+  version because their content had drifted; **each reported by path** (`<old> → <installed>`).
+- **Skipped (already current)** — managed files whose body already matched the installed
+  source (left byte-untouched, even if the stamp semver was older).
+- **Skipped (user file / unrecognized stamp)** — present files that are not genuine managed
+  copies; left untouched, reported so the user can reconcile.
 - **Merged** — the settings.json hook entries appended (or "already present").
 - **Detected** — the ecosystem, the interpreter, and the existing tooling recorded.
 
-**On a fully-initialized repo, the whole run is a safe no-op** that reports "already
-initialized — nothing to do." That re-run safety is the hard gate (below).
+**On a repo already at the installed version, the whole run is a true no-op** that reports
+"already at the installed version — nothing to refresh." When managed content had drifted,
+the run **converges the repo to the installed version** (the Refreshed group lists what
+moved). Idempotency-at-a-fixed-version is the hard check (below) — dogfood-checked, not a
+wired gate.
 
 ---
 
-## Idempotency — the hard safety gate
+## Idempotency at a fixed version — the hard safety check
 
-Running the `init` skill twice on the same repo is **safe and a provable no-op**:
-- Every **copy** is copy-if-absent (detected by the `claugentic-dev-harness@` stamp).
-- Every **generate/create** (tree, ROADMAP, DECISIONS) is create-if-absent.
+Re-running `init` **converges the repo to the installed version**, and is a **true no-op
+only when the repo is already at the installed version**. The drift decision and the writes
+are **`init`'s judgment** (rule-bound, never-clobber-guarded by stop-if-ambiguous), **not a
+mechanical oracle** — so idempotency here is **checked by a dogfood run, not a wired gate.**
+At a fixed installed version it holds because:
+- Every **managed file** is upserted: absent → create; genuine managed copy with an
+  identical body → `CURRENT` (byte-untouched); a drifted body → `REFRESH` once to the
+  installed version, after which a re-run reads `CURRENT`.
+- Every **generate/create** (tree, ROADMAP, DECISIONS) is create-if-absent (user-owned —
+  never refreshed).
 - The **settings.json** merge is keyed on a `command` containing `check_architecture_tree.py`
   (present → skip; never a duplicate append).
-- The **CLAUDE.md** merge is skip-if-fence-present, and the managed fence carries **no
-  volatile content**, so even a re-write would be byte-identical.
+- The **CLAUDE.md** fence is refreshed inside the markers from a template with **no volatile
+  content**, so once it embeds the installed `{VERSION}` a re-run regenerates a
+  byte-identical inner block → no-op (everything outside the markers is preserved
+  byte-for-byte).
 
-**Acceptance of a 2nd run:** `git status` in the target shows **zero changes** and the
-report says everything was skipped / "already initialized." If a re-run dirties the repo,
-an idempotency guard is missing — that is a bug, not expected behavior.
+**Acceptance of a 2nd run at the same installed version:** `git status` in the target shows
+**zero changes** and the report says everything was already current. If such a re-run
+dirties the repo, an idempotency guard is missing — that is a bug, not expected behavior.
+(A re-run *after a version bump* is expected to refresh — that is convergence, not a bug.)
 
 ## What this skill does NOT do (honest scope)
 
 - It does **not** install or reconfigure your linters/test runner — it **detects and
   records** them (step 8) so the workflow composes with them.
-- It does **not** refresh an already-copied managed file to a newer version — the `init`
-  skill is copy/seed-**if-absent** only (the `claugentic-dev-harness@<semver>` stamp records
-  which plugin version a copy came from).
+- It does **not** refresh your **user-owned** files — `docs/ARCHITECTURE_TREE.md`,
+  `docs/ROADMAP.md`, and `docs/DECISIONS.md` are seeded create-if-absent and then left to
+  you (they carry your content, not managed content).
+- It does **not** 3-way-merge a user-edited **managed** file — managed files are marked
+  *do not edit* and carry no user content by contract (sole exception: the
+  `check_architecture_tree.py` `INCLUDE_GLOBS` knob, preserved per step 3); on a genuine
+  drift the installed version wins (reported by path) and **git is the review/recovery
+  net** for content you committed (an uncommitted edit isn't recoverable — see the roadmap).
+- It does **not** reconcile the `settings.json` hook **command string** if its format
+  changes between versions — the hook is keyed only on the `check_architecture_tree.py`
+  substring (out of scope; tracked on the roadmap).
 - It does **not** audit your code or write a backlog — that is **`/claugentic-dev-harness:audit`**.
