@@ -33,17 +33,26 @@ These are contracts the `init` skill's own re-run idempotency depends on — the
 deliberate, not incidental:
 
 1. **The managed-stamp** — every file the `init` skill *copies or refreshes* gets a stamp on
-   its **first line** so a managed copy is unmistakable and machine-parseable:
+   its **first line** so a managed copy is unmistakable and machine-parseable. The current
+   full form `init` **writes** is:
    - **Markdown:** `<!-- claugentic-dev-harness@{VERSION} managed — do not edit (copied from the claugentic-dev-harness plugin) -->`
    - **Python:** `# claugentic-dev-harness@{VERSION} managed — do not edit (copied from the claugentic-dev-harness plugin)`
    - `{VERSION}` is read from the plugin's `plugin.json` `version` field (e.g. `0.1.0`).
-   - The greppable token is **`claugentic-dev-harness@<semver>`**. A target counts as a
-     **genuine managed copy** only when **line 1 is the exact stamp form above with a
-     parseable semver** (one leg of the step-3 predicate — the other is
+   - **Detection keys on the stable prefix, not the full form.** The trailing clause after
+     `do not edit` is **version-variable** — it has changed across releases (early copies
+     read `…; run /claugentic-dev-harness:update to refresh`; current copies read
+     `… (copied from the claugentic-dev-harness plugin)`). So the **identity test** is the
+     **stable managed-stamp prefix** — `claugentic-dev-harness@<semver> managed — do not
+     edit` (in the file's comment syntax: markdown `<!-- … -->`, Python `# …`) — **with a
+     parseable semver**. A target counts as a **genuine managed copy** only when **line 1
+     carries that stable prefix** (one leg of the step-3 predicate — the other is
      path-in-the-managed-set) — not merely a line that *contains* the token; a line that
-     quotes it, a foreign stamp, or a garbled semver is a **user file**. The semver in the
-     stamp records which plugin version the copy came from.
-     Do **not** vary this format.
+     merely quotes the token in prose, a foreign stamp, or a garbled semver is a **user
+     file**. The semver in the prefix records which plugin version the copy came from; the
+     trailing clause is **not** part of the identity test (a REFRESH normalizes an old
+     trailing clause to the current full form — step 3).
+   - **Only the DETECTION/identity test tolerates the variable trailing clause; what `init`
+     WRITES is always the current full form above.** Do **not** vary the written format.
 
 2. **The CLAUDE.md `harness:managed` fence** — the harness section the `init` skill writes
    into the adopter's `CLAUDE.md` lives between exact HTML-comment markers:
@@ -109,25 +118,42 @@ no oracle):**
 |---|---|---|---|
 | target **absent** | `CREATE` | copy + stamp (installed version) | `created` |
 | present, **not a genuine managed copy** (see predicate) | `USER_FILE` | **skip — never overwrite** | `skipped (user file / unrecognized stamp) — reconcile manually` |
-| genuine managed copy, **body differs from source** | `REFRESH` | overwrite the whole file with freshly-stamped source (stamp = installed version) | `refreshed <path>: <old-semver> → <installed>` |
-| genuine managed copy, **body identical to source** | `CURRENT` | **leave byte-for-byte untouched** — even if its stamp semver is older than installed (**no RESTAMP**) | `skipped (already current)` |
+| genuine managed copy, **body differs from source** OR **stamp not in the current full form** | `REFRESH` | overwrite the whole file with freshly-stamped source — **migrating the stamp to the current full form** (stamp = installed version) | `refreshed <path>: <old-semver> → <installed>` |
+| genuine managed copy, **body identical to source AND stamp already in the current full form** | `CURRENT` | **leave byte-for-byte untouched** — even if its stamp semver is older than installed (**no RESTAMP**) | `skipped (already current)` |
 
 **The genuine-managed predicate (never-clobber-critical — rule-bound, not eyeballed
 loosely).** A target file is a **genuine managed copy** — and therefore a REFRESH/CURRENT
 candidate — **only when all** hold:
 1. its **path is in the managed set above** (a path outside the set is never a refresh
    candidate, whatever its first line);
-2. **line 1 is the exact stamp form** — `claugentic-dev-harness@<semver> managed — do not
-   edit (copied from the claugentic-dev-harness plugin)` in the file's comment syntax
-   (markdown `<!-- … -->`, Python `# …`) — **with a parseable semver**.
+2. **line 1 leads with the stable managed-stamp prefix** (the prefix immediately follows
+   the comment opener — line 1 must *begin* with it, not merely *contain* it) —
+   `claugentic-dev-harness@<semver> managed — do not edit` in the file's comment syntax
+   (markdown `<!-- … -->`, Python `# …`) — **with a parseable semver**. The **trailing clause after `do not edit` is
+   version-variable** and is **NOT** part of the identity test: it has changed across
+   releases — early copies read `…; run /claugentic-dev-harness:update to refresh`, current
+   copies read `… (copied from the claugentic-dev-harness plugin)` — so the predicate
+   **matches the stable prefix only**. (This is why an old-format-but-genuine managed file —
+   e.g. an `0.1.1` adopter — is still recognized and refreshed, rather than misclassified as
+   a user file and skipped forever; a REFRESH then migrates its stamp to the current full
+   form.)
 
 **Anything else is `USER_FILE` → skip and report (never overwrite):** an unstamped
-same-named file, a line-1 that merely *quotes* the token (without being the exact stamp
-form), a *foreign* plugin's stamp, or a **garbled/unparseable semver**. This wires
-directly to the load-bearing **stop-if-ambiguous invariant** (above): with no mechanical
-oracle, REFRESH only when the file is **unambiguously** a genuine managed copy; on **any**
-ambiguity about whether a write would destroy user content, **stop and report rather than
-guess.** That stop-if-ambiguous rule **is** the never-clobber safety net here.
+same-named file; a **line 1 that does NOT lead with the `claugentic-dev-harness@<semver>
+managed — do not edit` prefix** — a mere quote of the token (`claugentic-dev-harness@<semver>`)
+in prose, or the token sitting elsewhere on the line, does **not** match (the full
+`@<semver> managed — do not edit` prefix must lead line 1); a *foreign* plugin's stamp; or a
+**garbled/unparseable semver**. (A bare token quote stays excluded precisely because the
+full prefix on line 1 of a managed-set path is required — the trailing-clause tolerance does
+**not** weaken this: leg 1 path-in-set + leg 2 line-1 prefix are both still mandatory. One
+honest narrowing vs 0010's exact-form rule: text a user appended *after* `do not edit` on
+line 1 of a managed file — incidentally `USER_FILE` under the old exact match — is now part
+of the version-variable trailing clause, so a REFRESH replaces it and reports it, like any
+other edit to a do-not-edit file.) This wires directly to the
+load-bearing **stop-if-ambiguous invariant** (above): with no mechanical oracle, REFRESH
+only when the file is **unambiguously** a genuine managed copy; on **any** ambiguity about
+whether a write would destroy user content, **stop and report rather than guess.** That
+stop-if-ambiguous rule **is** the never-clobber safety net here.
 
 **The body compare (the off-by-one + CRLF traps — get this exactly right):**
 - **Asymmetric, unambiguous:** `target body = target minus line 1` (the stamp); `source
@@ -141,6 +167,12 @@ guess.** That stop-if-ambiguous rule **is** the never-clobber safety net here.
   CRLF) never trigger a false REFRESH. This repo's `.gitattributes` does **not** reach an
   adopter's repo, so a CRLF checkout with an identical body must read `CURRENT`, not
   `REFRESH`.
+- **Stamp-format check sits *alongside* the body compare for the CURRENT/REFRESH split:**
+  `CURRENT` requires **both** an identical body **and** line 1 already in the **current full
+  form**. The body compare strips line 1, so an old-format-but-genuine copy with a matching
+  body would compare body-identical — but its line-1 stamp is still in an old trailing-clause
+  format, so it reads `REFRESH` (a one-time stamp-format migration, above), not `CURRENT`.
+  After that migration the file is in the current full form and re-reads `CURRENT`.
 
 **The one hybrid managed file — `check_architecture_tree.py`'s `INCLUDE_GLOBS` (the named
 exception to "managed files carry zero user content").** Four of the five managed files are
@@ -178,9 +210,21 @@ Rules:
   first line — markdown files get the `<!-- … -->` form, the Python script gets the `# …`
   form (as its first line, after which the existing `#!/usr/bin/env python3` shebang and
   body follow — keep the file runnable). A REFRESH writes the **installed** version into the
-  stamp; a CURRENT file keeps its older stamp untouched (the authoritative repo-version
-  readout is the `CLAUDE.md` managed fence — step 6 — not the per-file stamps; mixed
-  per-file stamps are expected and correct).
+  stamp **in the current full form** (`… (copied from the claugentic-dev-harness plugin)`),
+  **migrating any old trailing-clause stamp** to that form; a CURRENT file keeps its older
+  stamp untouched (the authoritative repo-version readout is the `CLAUDE.md` managed fence —
+  step 6 — not the per-file stamps; mixed per-file stamps are expected and correct).
+- **A stamp-format migration is itself a legitimate REFRESH — even when the body matches.**
+  A genuine managed copy whose body is otherwise identical to source but whose **stamp line
+  is in an old trailing-clause format** still reads `REFRESH`: the write is a **one-time
+  format normalization** of line 1 to the current full form (the body is rewritten from
+  pristine source, so the result is byte-identical to a fresh copy — **except the hybrid
+  `check_architecture_tree.py`, whose REFRESH still re-injects the adopter's `INCLUDE_GLOBS`
+  per the carve-out above**, so it is byte-identical apart from the preserved globs). This is **distinct
+  from the no-RESTAMP rule**: no-RESTAMP is about *not bumping the version semver* of a
+  byte-identical, **already-current-format** file; stamp-format migration is about
+  *normalizing the line-1 format* of an old-format file. After it runs once, the file is in
+  the current full form and a re-run reads `CURRENT` (idempotent at a fixed version).
 - **Security / exclude-set:** upsert **only** the managed set above. **Never** copy the
   adopter's `node_modules`, build output, `vendor`, or secrets (`.env*`, keys,
   credentials) into the repo or surface their contents. This step copies *from the
@@ -368,7 +412,8 @@ Then emit the clear summary, grouped:
 - **Created** — files written from scratch (e.g. `ARCHITECTURE_TREE.md`, `ROADMAP.md`) +
   the managed files that were absent and copied + stamped.
 - **Refreshed** — managed files (and the CLAUDE.md fence) brought up to the installed
-  version because their content had drifted; **each reported by path** (`<old> → <installed>`).
+  version because their content had drifted **or their stamp was in an old trailing-clause
+  format** (a one-time format migration); **each reported by path** (`<old> → <installed>`).
 - **Skipped (already current)** — managed files whose body already matched the installed
   source (left byte-untouched, even if the stamp semver was older).
 - **Skipped (user file / unrecognized stamp)** — present files that are not genuine managed
@@ -392,8 +437,9 @@ are **`init`'s judgment** (rule-bound, never-clobber-guarded by stop-if-ambiguou
 mechanical oracle** — so idempotency here is **checked by a dogfood run, not a wired gate.**
 At a fixed installed version it holds because:
 - Every **managed file** is upserted: absent → create; genuine managed copy with an
-  identical body → `CURRENT` (byte-untouched); a drifted body → `REFRESH` once to the
-  installed version, after which a re-run reads `CURRENT`.
+  identical body **and a current-form stamp** → `CURRENT` (byte-untouched); a drifted body
+  **or an old-format stamp** → `REFRESH` once to the installed version (the stamp is
+  migrated to the current full form), after which a re-run reads `CURRENT`.
 - Every **generate/create** (tree, ROADMAP, DECISIONS) is create-if-absent (user-owned —
   never refreshed).
 - The **settings.json** merge is keyed on a `command` containing `check_architecture_tree.py`
