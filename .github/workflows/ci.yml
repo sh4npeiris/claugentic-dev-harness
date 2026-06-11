@@ -27,6 +27,27 @@ jobs:
       - name: Run the test suite
         run: python -m pytest
 
+  node-tests:
+    name: node --test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Assert helper tests exist (a zero-match glob exits 0 — vacuous green is forbidden)
+        shell: bash
+        run: ls tests/workflows/*.test.mjs
+      - name: Run the workflow-script helper tests
+        # Node globs the spec internally (cross-platform, no shell expansion) — the bare
+        # directory form `tests/workflows/` is broken on Windows Node 22 (it tries to
+        # require the dir as a module), so we pass the explicit test-file glob.
+        run: node --test tests/workflows/*.test.mjs
+
   gates:
     name: deterministic gates (tree + version-sync)
     runs-on: ubuntu-latest

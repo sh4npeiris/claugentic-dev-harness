@@ -126,6 +126,58 @@ class TestExtsFromGlobs:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# INCLUDE_GLOBS widening — the `workflows/**/*.js` coverage (plan 0012, Slice 2)
+# ─────────────────────────────────────────────────────────────────────────────
+class TestWorkflowsGlobWidening:
+    """The slice widens this repo's INCLUDE_GLOBS to also watch `workflows/**/*.js`, so the
+    executable Workflow scripts are tree-enforced exactly like the gate scripts. `EXTS`
+    derives `js` automatically; presence/staleness then cover .js files too."""
+
+    def test_exts_derives_py_and_js_from_widened_globs(self):
+        # The repo's actual INCLUDE_GLOBS (NOT monkeypatched) must derive {"py", "js"}.
+        assert cat._exts_from_globs(
+            [":(glob)scripts/**/*.py", ":(glob)workflows/**/*.js"]
+        ) == {"py", "js"}
+        # And the module-level EXTS (derived from the live INCLUDE_GLOBS) carries js.
+        assert cat.EXTS == {"py", "js"}
+
+    def test_in_scope_workflow_js_absent_from_tree_is_missing(self, repo, monkeypatch):
+        _set_scope(
+            monkeypatch,
+            [":(glob)scripts/**/*.py", ":(glob)workflows/**/*.js"],
+            ["workflows/verify.js"],
+        )
+        _touch(repo, "workflows/verify.js")
+        _write_tree(repo, "# Tree\n(no workflows section yet)\n")
+        problems, _ = cat.evaluate()
+        assert any("MISSING an entry" in p for p in problems)
+        assert any("workflows/verify.js" in p for p in problems)
+
+    def test_in_scope_workflow_js_indexed_is_ok(self, repo, monkeypatch):
+        _set_scope(
+            monkeypatch,
+            [":(glob)scripts/**/*.py", ":(glob)workflows/**/*.js"],
+            ["workflows/verify.js"],
+        )
+        _touch(repo, "workflows/verify.js")
+        _write_tree(repo, "# Tree\n- `workflows/verify.js` — the Verify panel script.\n")
+        problems, summary = cat.evaluate()
+        assert problems == []
+        assert "indexes all 1 in-scope files" in summary
+
+    def test_dangling_workflow_js_reference_is_stale(self, repo, monkeypatch):
+        _set_scope(
+            monkeypatch,
+            [":(glob)scripts/**/*.py", ":(glob)workflows/**/*.js"],
+            [],
+        )
+        _write_tree(repo, "# Tree\n- `workflows/gone.js` — was removed.\n")
+        problems, _ = cat.evaluate()
+        assert any("NO LONGER EXIST" in p for p in problems)
+        assert any("workflows/gone.js" in p for p in problems)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # evaluate() — PRESENCE
 # ─────────────────────────────────────────────────────────────────────────────
 class TestPresence:

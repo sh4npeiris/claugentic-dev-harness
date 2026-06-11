@@ -25,6 +25,9 @@ The harness grows as it meets more codebases. Neither track is ever "done" — t
 
 ## Later
 
+- **Bound the tree-gate git subprocess with `timeout=`** and map `TimeoutExpired` onto the existing `RuntimeError` boundary (Slice-2 Verify lens note; local read-only git hang is unlikely — low priority).
+- **Pin the workflow-script output schemas to their agent `.md` contracts.** The schemas' required field-sets are test-pinned in-script (Slice 2), but nothing links them to the agent files' prose contracts — a doc-side contract change can still drift silently. Decide one home or add a cross-pin when a second script consumes the same contracts.
+
 - **Silence the pre-existing `pytest-asyncio` deprecation warning** (set `asyncio_default_fixture_loop_scope` in `pyproject.toml`) — surfaced during Slice 1; unrelated to any gate.
 - **CI installs only `pytest`** — if the test suite ever gains a third-party dependency, add a requirements file + install step to `.github/workflows/ci.yml` (today's suite is pure-stdlib; noted by the Slice-1 re-verify).
 
