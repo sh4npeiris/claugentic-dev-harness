@@ -11,7 +11,11 @@ This repo builds the **`claugentic-dev-harness`** Claude Code plugin. The only e
 - `.gitignore` — ignores local junk + build artifacts; **shares** `.claude/agents/`, `.claude/plans/`, `.claude/settings.json` (ignores only `.claude/settings.local.json`).
 - `.gitattributes` — normalizes line endings (`* text=auto eol=lf`; scripts forced LF) for a cross-platform plugin.
 - `LICENSE` — Apache License 2.0 (the repo is public; © 2026 Shan Peiris).
-- `pyproject.toml` — minimal pytest config (`testpaths=["tests"]`) so `python -m pytest` runs the gate's test suite.
+- `pyproject.toml` — minimal pytest config (`testpaths=["tests"]` + the `integration` marker) so `python -m pytest` runs the gate's test suite.
+
+## .github/ — CI
+
+- `.github/workflows/ci.yml` — GitHub Actions CI: on push/PR to `main`, runs the test suite (`pytest`, ubuntu + windows, Python 3.12) and the two deterministic gate scripts (the architecture-tree + version-sync checks) — the DoD's deterministic gates, now machine-run unconditionally.
 
 ## docs/ — process, standards, and project memory
 

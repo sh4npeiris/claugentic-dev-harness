@@ -1,2 +1,5 @@
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+markers = [
+    "integration: exercises a real git repo on disk (no mocked _git); slower, hermetic via tmp_path.",
+]
