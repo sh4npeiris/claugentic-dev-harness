@@ -110,6 +110,23 @@ EXTS = _exts_from_globs(INCLUDE_GLOBS)
 # then matched against EXTS, which is what makes a token an in-scope reference.
 TOKEN_PATTERN = re.compile(r"`([\w./\\-]+\.\w+)`")
 
+# Any single backtick-delimited token in the tree's markdown (the inline-code span),
+# used for PRESENCE: a file is indexed iff its path appears as an EXACT backtick token,
+# never as a raw substring (so a root `a.py` is NOT read as indexed merely because
+# `scripts/a.py` appears somewhere, and a prose word in prose — no backticks — never
+# counts as a path entry). The tree format already backticks every file path.
+BACKTICK_TOKEN_PATTERN = re.compile(r"`([^`]+)`")
+
+
+def _backtick_tokens(text: str) -> set[str]:
+    """All backtick-delimited tokens in `text`, normalized `\\`→`/` (the tree is markdown
+    text; a Windows path may carry backslashes — mirror the FS-side `/`-normalization).
+
+    The single source of truth for "is this path an EXACT entry in the tree" — used by
+    both the presence check and the `--hook-write` nudge so the two never drift.
+    """
+    return {t.replace("\\", "/") for t in BACKTICK_TOKEN_PATTERN.findall(text)}
+
 
 def _git(*args: str) -> list[str]:
     """Run a git command, failing loud on genuine git failure.
@@ -119,11 +136,32 @@ def _git(*args: str) -> list[str]:
     empty stdout is LEGITIMATE (empty repo, or a pathspec that matched nothing) and
     returns an empty list — only missing-git / non-zero is treated as a failure, so the
     gate can never silently read a broken git as a green "0 in-scope files".
+
+    `-c core.quotepath=false` is prepended so git emits non-ASCII paths VERBATIM (UTF-8)
+    instead of its default octal-escaped `"\\303\\251"` form — otherwise a file like
+    `café.py` would never literal-match the tree text and read as perma-MISSING. We pair
+    it with an explicit `encoding="utf-8"` so the bytes decode as UTF-8 on every platform,
+    not via the host's locale codepage (cp1252 on Windows would mangle the same paths).
     """
     try:
-        result = subprocess.run(["git", *args], capture_output=True, text=True, check=False)
+        result = subprocess.run(
+            ["git", "-c", "core.quotepath=false", *args],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            check=False,
+        )
     except FileNotFoundError as exc:
         raise RuntimeError("git unavailable or not a repository: git executable not found") from exc
+    except UnicodeDecodeError as exc:
+        # Strict UTF-8 decode: a tracked filename whose bytes are not valid UTF-8 must land on
+        # the same loud, controlled boundary as every other git failure (a UnicodeDecodeError is
+        # a ValueError — without this re-raise it would bypass the RuntimeError handlers and
+        # break the --hook-write "a git failure must NOT block a file write" contract).
+        raise RuntimeError(
+            "git output was not valid UTF-8 — a tracked filename is not UTF-8-encoded; "
+            f"rename that file or fix its encoding ({exc})"
+        ) from exc
     if result.returncode != 0:
         raise RuntimeError(f"git unavailable or not a repository: {result.stderr.strip()}")
     return [line.strip() for line in result.stdout.splitlines() if line.strip()]
@@ -207,7 +245,12 @@ def evaluate() -> tuple[list[str], str]:
         return ([f"ERROR: {TREE_PATH} is missing — create the architecture index."], "")
     text = TREE_PATH.read_text(encoding="utf-8")
     files = in_scope_files()
-    missing = sorted(f for f in files if f not in text)
+    # Presence: a file is indexed iff its path appears as an EXACT backtick-delimited
+    # token — NOT a raw substring. The old `f not in text` false-green'd a root `a.py`
+    # whenever a longer `scripts/a.py` appeared anywhere in the tree, and would have
+    # counted a bare-prose mention as an entry. Whole-token equality kills both.
+    entries = _backtick_tokens(text)
+    missing = sorted(f for f in files if f not in entries)
     # Staleness: extract candidate tokens, normalize `\`→`/` (the tree is markdown
     # text; the FS may be Windows — mirror in_scope_files()'s normalization on this
     # side too), and keep only those whose last-dot extension is in EXTS. Whole-
@@ -249,6 +292,22 @@ def _written_path_from_stdin() -> str | None:
     return path or None
 
 
+def _stop_hook_active_from_stdin() -> bool:
+    """True if the Stop-hook JSON on stdin reports `stop_hook_active` — the loop-breaker.
+
+    A blocking Stop hook (exit 2) re-runs the agent, which can Stop again; the platform sets
+    `stop_hook_active: true` on that re-entry. Honouring it lets the SECOND stop pass (exit 0)
+    so the gate reports the problem ONCE rather than wedging the agent in a re-block loop — the
+    first block already surfaced it. Stdin may be empty or non-JSON (manual/CI run, no payload):
+    that decodes to not-active, so the full scan runs as before (fail-loud preserved).
+    """
+    try:
+        data = json.loads(sys.stdin.read() or "{}")
+    except (ValueError, OSError):
+        return False
+    return bool(isinstance(data, dict) and data.get("stop_hook_active"))
+
+
 def _check_written_file() -> int:
     """PostToolUse(Write): nudge ONLY if the just-written file is a new, in-scope, undocumented file.
 
@@ -263,8 +322,8 @@ def _check_written_file() -> int:
     if rel is None:
         return 0  # out of scope, or an excluded/__init__ file
     text = TREE_PATH.read_text(encoding="utf-8") if TREE_PATH.exists() else ""
-    if rel in text:
-        return 0  # already documented
+    if rel in _backtick_tokens(text):
+        return 0  # already documented (an EXACT backtick entry, not a substring)
     print(
         f"New file `{rel}` is not in docs/ARCHITECTURE_TREE.md.\n"
         f"Add `- `{rel}` — <one-line description>.` under the right section (CLAUDE.md -> Harness Discipline).",
@@ -282,6 +341,9 @@ def main(argv: list[str]) -> int:
             return 0
 
     hook_mode = "--hook" in argv
+    if hook_mode and _stop_hook_active_from_stdin():
+        # Loop-breaker: a prior blocking Stop already reported; never re-block the same stop.
+        return 0
     try:
         problems, summary = evaluate()
     except RuntimeError as exc:

@@ -151,6 +151,45 @@ class TestPresence:
         assert any("MISSING an entry" in p for p in problems)
         assert any("scripts/a.py" in p for p in problems)
 
+    def test_root_file_not_false_green_by_longer_path(self, repo, monkeypatch):
+        """FAILS on pre-fix code (raw `f in text` substring): a root `a.py` reads as
+        indexed merely because a longer `scripts/a.py` entry contains the substring
+        `a.py`. Whole backtick-token equality flags the un-indexed root file."""
+        _set_scope(
+            monkeypatch,
+            [":(glob)**/*.py"],
+            ["a.py", "scripts/a.py"],
+        )
+        _touch(repo, "a.py")
+        _touch(repo, "scripts/a.py")
+        # The tree indexes ONLY scripts/a.py; the root a.py has no entry of its own.
+        _write_tree(repo, "# Tree\n- `scripts/a.py` — the indexed one.\n")
+        problems, _ = cat.evaluate()
+        assert any("MISSING an entry" in p for p in problems)
+        assert any(p.strip() == "+ a.py" for p in problems), problems
+
+    def test_prose_mention_without_backticks_not_indexed(self, repo, monkeypatch):
+        """FAILS on pre-fix code: a bare prose mention (no backticks) of the path
+        substring satisfied `f in text`. An entry must be an EXACT backtick token, so
+        prose alone never counts as documenting the file."""
+        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], ["scripts/a.py"])
+        _touch(repo, "scripts/a.py")
+        _write_tree(repo, "# Tree\nThe file scripts/a.py does a thing (no backticks).\n")
+        problems, _ = cat.evaluate()
+        assert any("MISSING an entry" in p for p in problems)
+        assert any("scripts/a.py" in p for p in problems)
+
+    def test_non_ascii_filename_indexed_is_ok_hermetic(self, repo, monkeypatch):
+        """Hermetic non-ASCII case: with `_git` returning the path VERBATIM (what the
+        `core.quotepath=false` fix guarantees from real git), a UTF-8 backtick entry is
+        matched and presence passes. Pins the backtick-token path on non-ASCII input."""
+        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], ["scripts/café.py"])
+        _touch(repo, "scripts/café.py")
+        _write_tree(repo, "# Tree\n- `scripts/café.py` — a non-ASCII filename.\n")
+        problems, summary = cat.evaluate()
+        assert problems == [], f"non-ASCII entry wrongly flagged: {problems}"
+        assert "indexes all 1 in-scope files" in summary
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # evaluate() — STALENESS (the bug-prone path)
@@ -344,6 +383,21 @@ class TestHookWrite:
         self._feed_stdin(monkeypatch, '{"tool_input": {}}')
         assert cat._written_path_from_stdin() is None
         assert cat.main(["--hook-write"]) == 0
+
+    def test_root_file_nudged_despite_longer_path_in_tree(self, repo, monkeypatch, capsys):
+        """FAILS on pre-fix code (`rel in text` substring): writing an un-indexed root
+        `a.py` is wrongly read as already-documented because a longer `scripts/a.py`
+        entry contains the substring `a.py`. Whole backtick-token equality nudges it."""
+        _set_scope(monkeypatch, [":(glob)**/*.py"], ["a.py"])
+        # The tree documents scripts/a.py, NOT the freshly-written root a.py.
+        _write_tree(repo, "# Tree\n- `scripts/a.py` — a different, indexed file.\n")
+        self._feed_stdin(
+            monkeypatch,
+            '{"tool_input": {"file_path": "/abs/repo/a.py"}}',
+        )
+        rc = cat.main(["--hook-write"])
+        assert rc == 2
+        assert "not in docs/ARCHITECTURE_TREE.md" in capsys.readouterr().err
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -629,3 +683,166 @@ class TestGlobDrift:
         stale_idx = next(i for i, p in enumerate(problems) if "NO LONGER EXIST" in p)
         drift_idx = next(i for i, p in enumerate(problems) if "watches no files" in p)
         assert stale_idx < drift_idx  # ordering: missing → stale → drift, no masking
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# main(--hook) — the `stop_hook_active` loop-breaker
+# ─────────────────────────────────────────────────────────────────────────────
+class TestStopHookLoopBreaker:
+    def _feed_stdin(self, monkeypatch, payload: str) -> None:
+        import io
+
+        monkeypatch.setattr(cat.sys, "stdin", io.StringIO(payload))
+
+    def test_stop_hook_active_exits_0_without_scanning(self, repo, monkeypatch, capsys):
+        """FAILS on pre-fix code (`--hook` ignored `stop_hook_active`): a re-entrant Stop
+        with a real, blocking problem (an undocumented in-scope file) used to re-block (exit
+        2) forever. The loop-breaker exits 0 on the re-entry — the first block already
+        reported — and never runs the scan (so the problem is NOT re-printed)."""
+        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], ["scripts/a.py"])
+        _touch(repo, "scripts/a.py")
+        _write_tree(repo, "# Tree\n(undocumented — would be a blocking problem)\n")
+        self._feed_stdin(monkeypatch, '{"stop_hook_active": true}')
+        rc = cat.main(["--hook"])
+        assert rc == 0
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert captured.err == ""  # the re-block was broken; nothing re-printed
+
+    def test_stop_hook_inactive_still_blocks_on_problem(self, repo, monkeypatch, capsys):
+        """The flip side: a FIRST stop (stop_hook_active false/absent) with a real problem
+        still blocks (exit 2, stderr) — the loop-breaker must not swallow the first report."""
+        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], ["scripts/a.py"])
+        _touch(repo, "scripts/a.py")
+        _write_tree(repo, "# Tree\n(undocumented)\n")
+        self._feed_stdin(monkeypatch, '{"stop_hook_active": false}')
+        rc = cat.main(["--hook"])
+        assert rc == 2
+        assert "MISSING an entry" in capsys.readouterr().err
+
+    def test_empty_stdin_treated_as_not_active(self, repo, monkeypatch):
+        """Manual/CI run with no payload: empty stdin → not-active → the scan runs as before.
+        (Asserted directly on the helper; the full-scan path is covered above.)"""
+        self._feed_stdin(monkeypatch, "")
+        assert cat._stop_hook_active_from_stdin() is False
+
+    def test_non_json_stdin_treated_as_not_active(self, repo, monkeypatch):
+        """Malformed payload must NOT crash the hook — it degrades to not-active."""
+        self._feed_stdin(monkeypatch, "{not valid json")
+        assert cat._stop_hook_active_from_stdin() is False
+
+    def test_non_dict_json_treated_as_not_active(self, repo, monkeypatch):
+        """A well-formed but non-object JSON (e.g. a bare list) → not-active, no crash."""
+        self._feed_stdin(monkeypatch, "[1, 2, 3]")
+        assert cat._stop_hook_active_from_stdin() is False
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# _git — invocation flags (quotepath off + explicit UTF-8 decode)
+# ─────────────────────────────────────────────────────────────────────────────
+class TestGitInvocationFlags:
+    def test_git_called_with_quotepath_off_and_utf8(self, monkeypatch):
+        """FAILS on pre-fix code: `_git` invoked `["git", *args]` with `text=True` and NO
+        `encoding=`. Without `-c core.quotepath=false` real git octal-escapes non-ASCII paths
+        (perma-MISSING); without `encoding="utf-8"` it decodes via the host locale codepage
+        (mojibake on a non-UTF-8 locale). Assert BOTH are on every invocation."""
+        captured: dict = {}
+
+        def fake_run(cmd, *_args, **kwargs):
+            captured["cmd"] = cmd
+            captured["encoding"] = kwargs.get("encoding")
+            return _FakeCompleted(0, stdout="scripts/a.py\n")
+
+        monkeypatch.setattr(cat, "_git", _REAL_GIT)
+        monkeypatch.setattr(cat.subprocess, "run", fake_run)
+
+        out = cat._git("ls-files")
+        assert out == ["scripts/a.py"]
+        # -c core.quotepath=false must sit BEFORE the subcommand (a `git -c k=v <cmd>` flag).
+        cmd = captured["cmd"]
+        assert cmd[:4] == ["git", "-c", "core.quotepath=false", "ls-files"], cmd
+        assert captured["encoding"] == "utf-8"
+
+    def test_undecodable_git_output_raises_runtime_error(self, monkeypatch):
+        """FAILS on pre-fix code: the strict UTF-8 decode raises UnicodeDecodeError — a
+        ValueError, NOT FileNotFoundError — which escaped `_git`'s handlers and bypassed the
+        RuntimeError boundary every mode relies on (breaking the --hook-write "a git failure
+        must NOT block a file write" contract with a raw traceback). `_git` must convert it."""
+
+        def fake_run(*_args, **_kwargs):
+            raise UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte")
+
+        monkeypatch.setattr(cat, "_git", _REAL_GIT)
+        monkeypatch.setattr(cat.subprocess, "run", fake_run)
+
+        with pytest.raises(RuntimeError, match="not valid UTF-8"):
+            cat._git("ls-files")
+
+    def test_hook_write_undecodable_git_output_exit_0_not_blocked(self, monkeypatch, capsys, tmp_path):
+        """The --hook-write contract under the decode failure: a git failure (now including
+        undecodable output) must NOT block a file write — exit 0, no traceback."""
+        import io
+
+        def fake_run(*_args, **_kwargs):
+            raise UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte")
+
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr(cat, "_git", _REAL_GIT)
+        monkeypatch.setattr(cat.subprocess, "run", fake_run)
+        monkeypatch.setattr(cat.sys, "stdin", io.StringIO('{"tool_input": {"file_path": "scripts/a.py"}}'))
+
+        assert cat.main(["--hook-write"]) == 0
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Real-git integration — a non-ASCII filename, end to end (no mocked _git)
+# ─────────────────────────────────────────────────────────────────────────────
+@pytest.mark.integration
+class TestNonAsciiIntegration:
+    def test_non_ascii_filename_not_perma_missing(self, tmp_path, monkeypatch):
+        """Real git, real disk: a tracked `scripts/café.py` indexed in the tree must read as
+        PRESENT. FAILS on pre-fix code — git's default `core.quotepath=true` emits the path
+        octal-escaped (`"scripts/caf\\303\\251.py"`), which never matches the UTF-8 backtick
+        entry, so the file is flagged MISSING forever. The quotepath+utf8 fix unquotes it.
+
+        Hermetic: a throwaway repo under tmp_path; `_git` runs for real (NOT mocked here).
+        The ambient git environment is fully isolated — GIT_CONFIG_GLOBAL/SYSTEM point at an
+        empty file and gpgsign/hooks/precomposeunicode are pinned per-command — so pass/fail
+        depends only on the code under test, never on this machine's git config; both sides of
+        the path assertion are NFC-normalized (macOS filesystems report NFD)."""
+        import subprocess as sp
+        import unicodedata
+
+        empty_cfg = tmp_path / "empty-gitconfig"
+        empty_cfg.write_text("", encoding="utf-8")
+        monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(empty_cfg))
+        monkeypatch.setenv("GIT_CONFIG_SYSTEM", str(empty_cfg))
+        pin = ["-c", "commit.gpgsign=false", "-c", "core.hooksPath=", "-c", "core.precomposeunicode=true"]
+
+        repo = tmp_path
+        sp.run(["git", *pin, "init", "-q"], cwd=repo, check=True)
+        sp.run(["git", *pin, "config", "user.email", "t@t.t"], cwd=repo, check=True)
+        sp.run(["git", *pin, "config", "user.name", "t"], cwd=repo, check=True)
+        scripts = repo / "scripts"
+        scripts.mkdir()
+        (scripts / "café.py").write_text("print('x')\n", encoding="utf-8")
+        sp.run(["git", *pin, "add", "-A"], cwd=repo, check=True)
+        sp.run(["git", *pin, "commit", "-qm", "add non-ascii file"], cwd=repo, check=True)
+
+        docs = repo / "docs"
+        docs.mkdir()
+        (docs / "ARCHITECTURE_TREE.md").write_text(
+            "# Tree\n- `scripts/café.py` — a non-ASCII filename, indexed.\n",
+            encoding="utf-8",
+        )
+
+        monkeypatch.chdir(repo)
+        monkeypatch.setattr(cat, "INCLUDE_GLOBS", [":(glob)scripts/**/*.py"])
+        monkeypatch.setattr(cat, "EXTS", cat._exts_from_globs([":(glob)scripts/**/*.py"]))
+        monkeypatch.setattr(cat, "TREE_PATH", cat.Path("docs/ARCHITECTURE_TREE.md"))
+
+        got = {unicodedata.normalize("NFC", p) for p in cat.in_scope_files()}
+        assert got == {unicodedata.normalize("NFC", "scripts/café.py")}
+        problems, summary = cat.evaluate()
+        assert problems == [], f"non-ASCII file wrongly flagged: {problems}"
+        assert "indexes all 1 in-scope files" in summary

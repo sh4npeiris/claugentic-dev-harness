@@ -1,0 +1,45 @@
+name: CI
+
+# Run the harness's own deterministic gates on every change to main — so the
+# Definition-of-Done "deterministic gates" actually run by machine, not only when
+# a model remembers (the honesty register's whole point). See docs/WORKFLOW.md.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: pytest (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install pytest
+        run: python -m pip install --upgrade pip pytest
+      - name: Run the test suite
+        run: python -m pytest
+
+  gates:
+    name: deterministic gates (tree + version-sync)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The architecture-tree gate inspects git ls-files; a shallow single-commit
+          # checkout is sufficient (it reads the working tree's tracked files, not history).
+          fetch-depth: 1
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Architecture-tree index check
+        run: python scripts/check_architecture_tree.py
+      - name: Plugin-version sync check
+        run: python scripts/check_versions_synced.py
