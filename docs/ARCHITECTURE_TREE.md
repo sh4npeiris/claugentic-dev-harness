@@ -57,6 +57,7 @@ This repo builds the **`claugentic-dev-harness`** Claude Code plugin. The only e
 - `.claude/plans/TEMPLATE.md` — the plan template (Problem / Goals / Approach / Affected files / Risks / Tests / Decomposition / Review / Spec) every plan starts from. Completed plans are not kept here once landed — they live in git history.
 - `.claude/plans/0010-init-version-aware-refresh.md` — plan: `init` becomes version-aware (upsert-to-installed / refresh-on-drift / never-clobber); Done, awaiting land.
 - `.claude/plans/0011-managed-stamp-prefix-predicate.md` — plan: the genuine-managed predicate keys on the STABLE stamp prefix (trailing clause version-variable; a REFRESH migrates it); follow-up to 0010 fixing the an adopter old-format-skip bug; Done, awaiting land.
+- `.claude/plans/0012-harness-v2-executable-choreography.md` — plan: Harness v2 — choreography re-platformed to Workflow scripts (`workflows/`), CI + gate-bug fixes, earned build-to-green autonomy ladder, runtime-verification (QA) workflow, product layer (spec-as-contract + gap audit), eval fixture; Draft, in Stage-3 review.
 
 ## .claude/ — harness config
 

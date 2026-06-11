@@ -17,6 +17,12 @@ The harness grows as it meets more codebases. Neither track is ever "done" — t
 
 ---
 
+## Now
+
+- **Harness v2 — re-platform the choreography (plan `0012`).** The audit pipeline, Verify panel, and build loop become executable Workflow scripts (invoked from the plugin install path); deterministic trust-gates (CI, land-gate, secret-scan, characterization-first) unlock an earned **build-to-green** autonomy ladder; a runtime-verification (QA) workflow drives the real app against acceptance criteria; a product layer (spec rebuild + product-gap audit) answers "is this product what it intended to be." Then: the **an adopter pilot** (spec rebuild with the user → gap audit → build-to-green to release-ready) before rolling across the the team suite. (Decisions: `DECISIONS.md` → Harness v2.)
+- **Standards-catalog integrity pass** (from the 2026-06-11 multi-lens review, all verified): bring the four `migrated` modules to the deep-module bar; make dimension-level Confidence labels match per-check tags (security.md has six "deterministic" dimensions containing `[J]` checks); replace the 14 dangling `ENGINEERING_STANDARDS.md §` sources; fix the verifiable citation errors (WCAG 2.4.13 is AAA not AA; AWS REL-9/idempotency; SRE-book ch. 5).
+- **README first-screen rewrite + one real artifact** (verified DX findings): short plain sentences for the three commands, hedges stated once in Status, an embedded sample backlog excerpt + init report; document uninstall, update, and add a CHANGELOG.
+
 ## Later
 
 - **Reconcile the `settings.json` tree-check hook *command string* on format change.** Today `init` keys hook-presence only on the `check_architecture_tree.py` substring (idempotency key, step 5b), so a managed copy whose hook *command format* drifts between plugin versions (flags, interpreter convention, quoting) is detected as "already present" and never updated. When a hook-command format change ships, `init` should reconcile the managed hook entry — without clobbering a user-customized command — rather than leaving the old form in place. (Deferred from plan 0010 — out of scope for the version-aware init slice.)
