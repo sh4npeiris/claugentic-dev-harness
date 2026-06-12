@@ -151,6 +151,8 @@ Re-checked every finding I surfaced against the code (the cross-model judge — 
 
 ## Later
 
+- **audit.js housekeeping (from the Slice-4a Verify panel, out of that diff's scope):** remove the orphaned `cellKey` comment stranded at its old location; drop `renderItem`'s unconditional trailing period; consider unifying the LEGEND/VERIFICATION_PHRASE two-copy trust strings (both test-pinned today, so drift is caught); reconcile `dedupFindings`' opposite-direction confidence merge between `verify.js` (upgrades to deterministic) and `audit.js` (weakest wins) — decide one semantic or document why they differ.
+
 - **Bound the tree-gate git subprocess with `timeout=`** and map `TimeoutExpired` onto the existing `RuntimeError` boundary (Slice-2 Verify lens note; local read-only git hang is unlikely — low priority).
 - **Pin the workflow-script output schemas to their agent `.md` contracts.** The schemas' required field-sets are test-pinned in-script (Slice 2), but nothing links them to the agent files' prose contracts — a doc-side contract change can still drift silently. Decide one home or add a cross-pin when a second script consumes the same contracts.
 
