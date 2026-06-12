@@ -58,7 +58,7 @@ Build-to-green is **a reduction of unwatched-run risk, never a substitute for th
 **The unlock conditions — judgment with stated evidence.** These checks are the skill reading your repo and saying what it found — honestly labeled model judgment, never a mechanical gate:
 
 1. **CI runs the deterministic gates.** Evidence: a CI config (e.g. `.github/workflows/*.yml`) whose steps run this repo's Definition-of-Done deterministic gates (the test suite + the gate scripts). Name the file and the commands found.
-2. **A test baseline covers the code this item touches.** Evidence: named test files that exercise the files/behavior the item will change. (The `refactor` characterization-tests-first precondition is this condition's hard case — unchanged.)
+2. **A test baseline covers the code this item touches.** Evidence: named test files that assert observable behavior of the files the item will change (not merely execute them) — so a regression in that behavior would fail a test. (The `refactor` characterization-tests-first precondition is this condition's hard case — unchanged.)
 3. **The item traces to an approved spec with testable acceptance criteria.** Evidence: a plan in `.claude/plans/` with `Status: Approved` whose acceptance criteria are all checkable without a human mid-run — each maps to a deterministic gate or test, or to a `docs/PRODUCT_SPEC.md` criterion whose `check` is `e2e` or `api`. A `check: "manual"` criterion needs a human, so it keeps that item in checkpoint.
 
 **And one session precondition (not a repo rung):** build-to-green runs **only** via `workflows/build-item.js` through the Workflow tool — there is **no prose-orchestrated build-to-green, ever** (an unwatched prose loop is exactly the unearned autonomy this ladder exists to prevent). The Workflow tool or the script unavailable → named in the decline like any other missing condition.
@@ -74,6 +74,46 @@ The fixed per-condition lines (angle-bracket slots filled per run from the evide
 - *a test baseline for the code this item touches — I found no tests exercising <the touched files/behavior>.*
 - *an approved spec with testable acceptance criteria — <no plan with `Status: Approved` traces to this item | the spec's criteria include ones I can't check without you: <ids>>.*
 - *the engine itself — <the Workflow tool isn't available in this session | `workflows/build-item.js` isn't in the installed plugin>; build-to-green never runs as prose.*
+
+### The build-to-green run *(the engine contract)*
+
+All unlock conditions met → invoke the engine (`${CLAUDE_PLUGIN_ROOT}/workflows/build-item.js`
+via the Workflow tool). **The skill invokes the engine; the engine then runs the loop
+mechanically — invoking it is still model-upheld** (the platform doesn't auto-fire workflows).
+Once invoked, the engine runs implement (in a worktree) → deterministic gates → the `verify.js`
+panel → `qa.js` (when criteria exist) → fix, until green or the iteration/budget cap.
+
+**The args the skill assembles** (the engine validates them at the boundary and throws on any
+invalid field — fail loud):
+
+- `item` — `{ id, title, tag, planPath, specText` (the approved spec section, verbatim) `,
+  acceptanceCriteria }`. `acceptanceCriteria` is the item's frozen-schema criteria
+  (`{id,feature,flow,expect,states,check}`) from the item's spec / `docs/PRODUCT_SPEC.md`; `[]`
+  when the item has none. Optional `dimensions` (the in-scope `docs/standards/` slugs for the
+  Verify panel), `trustSurface`, `appUrl`.
+- `repo` — `{ root, baseBranch, gateCommands` (this repo's **DoD deterministic gate commands** —
+  the test suite + the gate scripts, from the WORKFLOW DoD / `init`-recorded tooling; **non-empty**,
+  zero gates would make "green" a lie) `, runApp` (the recorded run-the-app command, or `null`) `,
+  pluginRoot` (the expanded `${CLAUDE_PLUGIN_ROOT}`, for the child-workflow paths) `}`.
+- `caps` — `{ maxIterations` (default 3 — the bounded 2–3) `, budget }`.
+- `builderFamily` — the orchestrator's session model family (the cross-model fallback).
+
+**The engine's pauses are returns — map each returned status to its pause/interaction:**
+
+- **`green`** → the **before-land pause** (pause 2). The engine NEVER lands or pushes — landing,
+  the commit, and any push stay **the orchestrator's act**, behind the irreversible hard-stop
+  set. The green close-out carries the register verbatim: *"passed the deterministic gates and
+  the reviewers' audit on this run — a reduction of unwatched-run risk, never a substitute for
+  the unbuilt deterministic trust-gates."*
+- **`needs-irreversible`** → **pause 3's** verbatim guardrail flow (name the action + its
+  consequence in plain English, ask; never proceed on silence).
+- **`new-tier12`** → the **step-10 re-triage** interaction (a finding outside the item — show
+  what surfaced, let the user fold it in / re-order / carry on; never silently absorbed).
+- **`not-green`** (the cap) → the **item-failure pause**: *"not green; here is the residual"* +
+  **nothing partial landed** — the branch is left for inspection, nothing merged. Offer
+  retry / skip / stop.
+- **`blocked`** → report the boundary error plainly (e.g. a `check:"manual"` criterion needs a
+  human, or criteria exist with no run-the-app command) and run the item in checkpoint instead.
 
 ---
 
