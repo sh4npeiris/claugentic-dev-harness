@@ -898,3 +898,47 @@ class TestNonAsciiIntegration:
         problems, summary = cat.evaluate()
         assert problems == [], f"non-ASCII file wrongly flagged: {problems}"
         assert "indexes all 1 in-scope files" in summary
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Fenced ```-block handling — the v0.1.26 AskBase regression
+# ─────────────────────────────────────────────────────────────────────────────
+class TestFencedDiagrams:
+    def test_entry_after_a_fenced_diagram_is_still_found(self, repo, monkeypatch):
+        """FAILS on pre-fix code: a ```-fenced ASCII directory diagram flips backtick-pair
+        parity, so a correctly-formatted entry AFTER it reads as MISSING. The real adopter
+        regression (AskBase's tree carries 893 lines of diagram fences)."""
+        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], ["scripts/after.py"])
+        _touch(repo, "scripts/after.py")
+        _write_tree(
+            repo,
+            "# Tree\n"
+            "## Layout diagram\n"
+            "```\n"
+            "repo/\n"
+            "  scripts/after.py\n"
+            "```\n"
+            "- `scripts/after.py` - documented AFTER the diagram, correct format.\n",
+        )
+        problems, summary = cat.evaluate()
+        assert problems == [], f"entry after a fenced diagram wrongly flagged: {problems}"
+        assert "indexes all 1 in-scope files" in summary
+
+    def test_backticked_path_inside_a_fence_is_not_a_stale_reference(self, repo, monkeypatch):
+        """A historical path backticked INSIDE a fenced changelog block must not be
+        extracted as a live reference and flagged STALE — fenced content is documentation,
+        not the index. FAILS on pre-fix code (TOKEN_PATTERN matched it through the fence)."""
+        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], ["scripts/a.py"])
+        _touch(repo, "scripts/a.py")
+        _write_tree(
+            repo,
+            "# Tree\n"
+            "- `scripts/a.py` - the live file.\n"
+            "## Changelog\n"
+            "```\n"
+            "removed `scripts/gone.py` in an earlier release\n"
+            "```\n",
+        )
+        problems, summary = cat.evaluate()
+        assert problems == [], f"a path inside a fence was wrongly treated as live: {problems}"
+        assert "indexes all 1 in-scope files" in summary

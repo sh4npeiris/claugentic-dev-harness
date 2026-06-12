@@ -122,14 +122,40 @@ TOKEN_PATTERN = re.compile(r"`([\w./\\-]+\.\w+)`")
 BACKTICK_TOKEN_PATTERN = re.compile(r"`([^`]+)`")
 
 
+def _strip_fenced_blocks(text: str) -> str:
+    """Drop ```-fenced code/diagram blocks before any backtick tokenizing.
+
+    A markdown fence (a line whose first non-space run is ```` ``` ````) opens a literal
+    region; a real index ENTRY never lives inside one. Leaving fences in desyncs the
+    sequential backtick-pair tokenizers (`BACKTICK_TOKEN_PATTERN` / `TOKEN_PATTERN` both
+    `findall` non-overlapping): a fence's stray backticks flip pairing parity for every
+    entry AFTER it, so correctly-formatted entries past an ASCII-diagram block read as
+    MISSING and backticked tokens inside a diagram read as live references. This was the
+    v0.1.26 AskBase regression — a real adopter tree carrying ASCII directory diagrams in
+    fences. Strip whole fenced regions line-wise; an unterminated fence strips to EOF
+    (fail safe: under-tokenize a malformed tail rather than desync the whole document).
+    """
+    out: list[str] = []
+    in_fence = False
+    for line in text.splitlines():
+        if line.lstrip().startswith("```"):
+            in_fence = not in_fence
+            continue
+        if not in_fence:
+            out.append(line)
+    return "\n".join(out)
+
+
 def _backtick_tokens(text: str) -> set[str]:
     """All backtick-delimited tokens in `text`, normalized `\\`→`/` (the tree is markdown
     text; a Windows path may carry backslashes — mirror the FS-side `/`-normalization).
+    Fenced blocks are stripped first (see `_strip_fenced_blocks`) so a diagram never
+    desyncs the pairing.
 
     The single source of truth for "is this path an EXACT entry in the tree" — used by
     both the presence check and the `--hook-write` nudge so the two never drift.
     """
-    return {t.replace("\\", "/") for t in BACKTICK_TOKEN_PATTERN.findall(text)}
+    return {t.replace("\\", "/") for t in BACKTICK_TOKEN_PATTERN.findall(_strip_fenced_blocks(text))}
 
 
 def _git(*args: str) -> list[str]:
@@ -247,7 +273,10 @@ def evaluate() -> tuple[list[str], str]:
     """Return (problem_lines, success_summary). Empty problem_lines == OK."""
     if not TREE_PATH.exists():
         return ([f"ERROR: {TREE_PATH} is missing — create the architecture index."], "")
-    text = TREE_PATH.read_text(encoding="utf-8")
+    # Strip ```-fenced blocks once: both the presence tokenizer (_backtick_tokens, which
+    # re-strips defensively) and the staleness tokenizer (TOKEN_PATTERN.findall below) read
+    # this text, and an index entry never lives inside a diagram fence.
+    text = _strip_fenced_blocks(TREE_PATH.read_text(encoding="utf-8"))
     files = in_scope_files()
     # Presence: a file is indexed iff its path appears as an EXACT backtick-delimited
     # token — NOT a raw substring. The old `f not in text` false-green'd a root `a.py`
