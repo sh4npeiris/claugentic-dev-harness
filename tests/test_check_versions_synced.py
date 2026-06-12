@@ -192,3 +192,37 @@ class TestMainDispatch:
         rc = cvs.main([])  # must NOT raise — fail loud via exit code + message
         assert rc == 1
         assert "not valid JSON" in capsys.readouterr().out
+
+
+class TestReadErrorVsParseError:
+    """The 2026-06-11 thorough dogfood T2: an OSError (read failure) must not be reported
+    under the 'not valid JSON — fix the manifest' headline (a misdiagnosis)."""
+
+    def test_oserror_reports_could_not_be_read(self, tmp_path, monkeypatch):
+        import check_versions_synced as cvs
+        from pathlib import Path
+
+        plugin = tmp_path / "plugin.json"
+        plugin.write_text('{"version": "1.0.0"}', encoding="utf-8")
+
+        real_read = Path.read_text
+
+        def boom(self, *a, **k):
+            if self == plugin:
+                raise PermissionError("denied")
+            return real_read(self, *a, **k)
+
+        monkeypatch.setattr(Path, "read_text", boom)
+        version, err = cvs._read_plugin_version(plugin)
+        assert version is None
+        assert "could not be read" in err
+        assert "not valid JSON" not in err
+
+    def test_garbled_json_still_reports_not_valid_json(self, tmp_path, monkeypatch):
+        import check_versions_synced as cvs
+
+        plugin = tmp_path / "plugin.json"
+        plugin.write_text("{garbled", encoding="utf-8")
+        version, err = cvs._read_plugin_version(plugin)
+        assert version is None
+        assert "not valid JSON" in err

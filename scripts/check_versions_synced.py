@@ -43,7 +43,9 @@ def _read_plugin_version(path: Path) -> tuple[str | None, str | None]:
         return (None, f"{path} is missing — cannot read the source-of-truth version.")
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-    except (ValueError, OSError) as exc:
+    except OSError as exc:
+        return (None, f"{path} could not be read ({exc}) — check the file exists and is readable.")
+    except ValueError as exc:
         return (None, f"{path} is not valid JSON ({exc}) — fix the manifest.")
     version = data.get("version") if isinstance(data, dict) else None
     if not isinstance(version, str):
@@ -62,7 +64,9 @@ def _read_marketplace_version(path: Path) -> tuple[str | None, str | None]:
         return (None, f"{path} is missing — cannot check the marketplace version.")
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-    except (ValueError, OSError) as exc:
+    except OSError as exc:
+        return (None, f"{path} could not be read ({exc}) — check the file exists and is readable.")
+    except ValueError as exc:
         return (None, f"{path} is not valid JSON ({exc}) — fix the manifest.")
     plugins = data.get("plugins") if isinstance(data, dict) else None
     if not isinstance(plugins, list) or not plugins:

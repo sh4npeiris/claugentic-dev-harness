@@ -24,6 +24,52 @@ const SCRIPT_PATH = join(REPO_ROOT, "workflows", "audit.js");
 const EXPECTED_SAME_MODEL_TAG =
   "same-model review on this run — the judge and the builder are the same model family here.";
 
+// Independent verbatim fixtures for the fence's load-bearing copy — the renderer's source of truth
+// pinned by exact string compare (drift = test failure, not a model-discipline failure).
+const EXPECTED_LEGEND =
+  "`refactor` = tidy without changing behavior · `capability-upgrade` = add/upgrade a technology · `dependency-health` = update/patch dependencies · `bug` = fix wrong behavior · `feature` = new behavior.\n" +
+  "`(checked against the code)` = a separate agent re-read the code and couldn't refute it · `(could not confirm independently — model's assertion)` = still just the model's claim · `(⚠ not yet verified — re-run to confirm)` = budget ran out before checking — a re-check by a different model family than the builder (the cross-model judge; on a same-family run, tagged as such) — a reduction of shared-blind-spot risk, not a mechanical guarantee.";
+
+const EXPECTED_TERMINAL_SIGNAL =
+  "Sound on the audited dimensions — what remains is optional polish; you don't need to keep re-auditing.";
+
+const EXPECTED_GO_BUTTON =
+  "To start anything — a backlog item or a brand-new project — just tell the agent in plain English what you want (e.g. 'Let's do Tier-1 item 1' or 'I want to build X'). It will ask you questions (Discuss), then write a plan and spec for you to approve before any code. For a backlog item, the go-button is **`/claugentic-dev-harness:build`** — point it at one item ('build Tier-1 item 1') and it drives the whole reviewed pipeline for you, pausing only at the spec (before any code) and before anything irreversible.";
+
+const DEFERRED_PHRASE = "(⚠ not yet verified — re-run to confirm)";
+
+/** Build a result item; override fields per-case. */
+function makeItem(overrides = {}) {
+  return {
+    findingKey: "missing-validation",
+    modules: ["docs/standards/security.md"],
+    tier: 2,
+    tag: "bug",
+    titlePlain: "Add input validation",
+    claimTechnical: "no input validation on the body",
+    locations: ["api.js:40"],
+    whyPlain: "a bad request could crash the handler",
+    impactEffort: "high impact, low effort",
+    confidence: "judgment",
+    verification: { state: "verified", evidence: "no schema guard at api.js:40", plainLine: "checked" },
+    ...overrides,
+  };
+}
+
+/** Build a structured result for the renderer; override fields per-case. */
+function makeResult(overrides = {}) {
+  return {
+    status: "COMPLETE",
+    level: "standard",
+    doneCells: ["security×api", "testing×api"],
+    pendingCells: [],
+    items: [],
+    refutedCount: 0,
+    verification: { verified: 0, unconfirmed: 0, deferred: 0, refuted: 0, crossModel: true, sameModelTag: null },
+    ...overrides,
+  };
+}
+
 /** Extract the marked helpers block and evaluate it, returning the named helpers.
  *
  * Markers are matched line-anchored (`^// --- helpers ---$`) so a mention of the marker text
@@ -71,6 +117,23 @@ function loadHelpers() {
     "LENS_SCHEMA",
     "SYNTHESIS_SCHEMA",
     "VERIFIER_SCHEMA",
+    "SENTINEL_SCHEMA",
+    "BLINDSPOT_CELL",
+    "LEGEND",
+    "TERMINAL_SIGNAL",
+    "GO_BUTTON",
+    "DATE_PLACEHOLDER",
+    "VERIFICATION_PHRASE",
+    "buildBlindspotPrompt",
+    "buildSentinelPrompt",
+    "renderStatusLine",
+    "verificationPhrase",
+    "renderLocations",
+    "renderItem",
+    "renderTier",
+    "renderRecommendation",
+    "renderRunReport",
+    "renderBacklogFence",
   ];
   // No tool primitives are in scope inside this Function — so if any helper closed over
   // agent()/parallel()/phase()/log(), constructing or calling it would throw here.
@@ -138,17 +201,23 @@ test("validateArgs accepts a well-formed quick/standard args object", () => {
   assert.deepEqual(H.validateArgs(validArgs({ dial: "standard" })), []);
 });
 
-test("validateArgs rejects 'thorough' with the named not-yet-supported message", () => {
-  const errors = H.validateArgs(validArgs({ dial: "thorough" }));
-  assert.ok(
-    errors.some((e) => e.includes("thorough") && e.includes("Slice 3b") && e.includes("prose path")),
-    `expected a thorough/Slice-3b message, got: ${JSON.stringify(errors)}`,
-  );
+test("validateArgs accepts 'thorough' (Slice 3b — all three notches scripted)", () => {
+  assert.deepEqual(H.validateArgs(validArgs({ dial: "thorough" })), []);
 });
 
-test("validateArgs rejects an unknown dial", () => {
+test("validateArgs rejects an unknown dial naming the supported set", () => {
   const errors = H.validateArgs(validArgs({ dial: "ludicrous" }));
-  assert.ok(errors.some((e) => e.includes("ludicrous") && e.includes("not supported")));
+  assert.ok(
+    errors.some(
+      (e) =>
+        e.includes("ludicrous") &&
+        e.includes("not supported") &&
+        e.includes("quick") &&
+        e.includes("standard") &&
+        e.includes("thorough"),
+    ),
+    `expected an unknown-dial message naming the supported set, got: ${JSON.stringify(errors)}`,
+  );
 });
 
 test("validateArgs flags missing/empty modules", () => {
@@ -581,4 +650,308 @@ test("applyVerdicts carries each kept finding's own verifier self-report", () =>
   );
   assert.equal(kept[0].verifierRunningAs, "Opus 4.8");
   assert.equal(kept[1].verifierRunningAs, null); // deferred — no report, never a claim
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Slice 3b — thorough stages: the blind-spot pseudo-cell + the second-pass prune
+// ═════════════════════════════════════════════════════════════════════════════
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BLINDSPOT_CELL — the whole-scope pseudo-cell math (cap/done/pending honesty)
+// ─────────────────────────────────────────────────────────────────────────────
+test("BLINDSPOT_CELL is the fixed whole-scope pseudo-cell token", () => {
+  assert.equal(H.BLINDSPOT_CELL, "blindspot×(scope)");
+});
+
+test("enumerateCells appends BLINDSPOT_CELL only at thorough, last, after the module cells", () => {
+  const thorough = H.enumerateCells(["security", "testing"], ["a", "b"], [], "thorough");
+  assert.deepEqual(thorough, [
+    "security×a",
+    "security×b",
+    "testing×a",
+    "testing×b",
+    "blindspot×(scope)",
+  ]);
+  assert.equal(thorough[thorough.length - 1], H.BLINDSPOT_CELL); // strictly last
+});
+
+test("enumerateCells does NOT append BLINDSPOT_CELL at quick/standard or when dial is absent", () => {
+  assert.ok(!H.enumerateCells(["security"], ["a"], [], "quick").includes(H.BLINDSPOT_CELL));
+  assert.ok(!H.enumerateCells(["security"], ["a"], [], "standard").includes(H.BLINDSPOT_CELL));
+  assert.ok(!H.enumerateCells(["security"], ["a"], []).includes(H.BLINDSPOT_CELL));
+});
+
+test("enumerateCells is resume-aware for the pseudo-cell: omits BLINDSPOT_CELL when already done", () => {
+  const cells = H.enumerateCells(["security"], ["a"], ["blindspot×(scope)"], "thorough");
+  assert.deepEqual(cells, ["security×a"]); // the sweep already ran — never re-enumerated
+});
+
+test("applyCellBudget counts BLINDSPOT_CELL like any cell (a tight cap defers it to resume)", () => {
+  const pending = H.enumerateCells(["security"], ["a", "b"], [], "thorough");
+  // [security×a, security×b, blindspot×(scope)] capped at 2 → the sweep overflows to the resume.
+  const { run, overflow } = H.applyCellBudget(pending, 2);
+  assert.deepEqual(run, ["security×a", "security×b"]);
+  assert.deepEqual(overflow, [H.BLINDSPOT_CELL]);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// applyPrune — second-pass (sentinel) protection still cannot drop the baseline
+// ─────────────────────────────────────────────────────────────────────────────
+test("applyPrune (second pass, sentinel cuts) still cannot drop the missing-test-baseline item", () => {
+  // First pass: synthesis cuts. Second pass: the adversarial sentinel's cuts. The baseline must
+  // survive BOTH — the thorough run's extra prune does not weaken the never-prune guarantee.
+  const afterSynthesis = H.applyPrune(
+    [{ issueClass: "missing-test-baseline" }, { issueClass: "keep-me" }, { issueClass: "cut-1" }],
+    [{ findingKey: "cut-1", reason: "dup" }],
+  );
+  const afterSentinel = H.applyPrune(afterSynthesis, [
+    { findingKey: "missing-test-baseline", reason: "sentinel tried to cut the baseline" },
+    { findingKey: "keep-me", reason: "sentinel cuts this one" },
+  ]);
+  assert.deepEqual(afterSentinel.map((f) => f.issueClass), ["missing-test-baseline"]);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SENTINEL_SCHEMA — the adversarial-prune cut-list contract
+// ─────────────────────────────────────────────────────────────────────────────
+test("SENTINEL_SCHEMA requires a cuts array of { findingKey, reason }", () => {
+  assert.deepEqual(H.SENTINEL_SCHEMA.required, ["cuts"]);
+  assert.deepEqual(H.SENTINEL_SCHEMA.properties.cuts.items.required, ["findingKey", "reason"]);
+});
+
+test("buildSentinelPrompt names the clean-context skeptic posture and asks ONLY for cuts", () => {
+  const prompt = H.buildSentinelPrompt([{ issueClass: "x" }]);
+  assert.ok(prompt.includes("YAGNI"));
+  assert.ok(/clean context/i.test(prompt));
+  assert.ok(prompt.includes("cuts list") || prompt.includes("cuts"));
+});
+
+test("buildBlindspotPrompt is whole-scope, exhaustive, red-team, FIND-only, lens-shaped", () => {
+  const prompt = H.buildBlindspotPrompt(["src", "api"], ["node_modules"]);
+  assert.ok(/whole/i.test(prompt));
+  assert.ok(prompt.includes("exhaustive"));
+  assert.ok(/red-team/i.test(prompt));
+  assert.ok(prompt.includes("issueClass")); // same shape as a lens return
+  assert.ok(prompt.includes("node_modules")); // exclude-set threaded
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Slice 3b — the fence renderer (the backlog fence body's single source of truth)
+// ═════════════════════════════════════════════════════════════════════════════
+
+// ─────────────────────────────────────────────────────────────────────────────
+// renderStatusLine — the documented shape + verbatim cellKey tokens
+// ─────────────────────────────────────────────────────────────────────────────
+test("renderStatusLine matches the documented shape (regex) with the date placeholder", () => {
+  const line = H.renderStatusLine(makeResult({ level: "thorough", pendingCells: ["testing×api"], status: "PARTIAL" }));
+  assert.match(
+    line,
+    /^status: (COMPLETE|PARTIAL) · level: \w+ · done-cells: \[.*\] · pending-cells: \[.*\] · date: \{\{DATE\}\}$/,
+  );
+});
+
+test("renderStatusLine carries the verbatim cellKey tokens, comma-joined", () => {
+  const line = H.renderStatusLine(
+    makeResult({ doneCells: ["security×src/api", "testing×src"], pendingCells: ["blindspot×(scope)"] }),
+  );
+  assert.ok(line.includes("done-cells: [security×src/api, testing×src]"));
+  assert.ok(line.includes("pending-cells: [blindspot×(scope)]"));
+  assert.ok(line.endsWith("date: {{DATE}}"));
+});
+
+test("renderStatusLine renders empty cell lists as empty brackets", () => {
+  const line = H.renderStatusLine(makeResult({ doneCells: [], pendingCells: [] }));
+  assert.ok(line.includes("done-cells: []"));
+  assert.ok(line.includes("pending-cells: []"));
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LEGEND — exactly two lines, verbatim, with the not-a-guarantee caveat
+// ─────────────────────────────────────────────────────────────────────────────
+test("LEGEND is exactly two lines and verbatim (drift pin)", () => {
+  assert.equal(H.LEGEND, EXPECTED_LEGEND);
+  assert.equal(H.LEGEND.split("\n").length, 2);
+});
+
+test("LEGEND line 2 carries the cross-model / not-a-guarantee caveat", () => {
+  const line2 = H.LEGEND.split("\n")[1];
+  assert.ok(line2.includes("different model family than the builder"));
+  assert.ok(line2.includes("not a mechanical guarantee"));
+  assert.ok(line2.includes("⚠ not yet verified — re-run to confirm"));
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// renderItem — exactly one tag + exactly one verification phrase per state
+// ─────────────────────────────────────────────────────────────────────────────
+test("renderItem emits the title, exactly one tag, and the verified phrase + evidence", () => {
+  const out = H.renderItem(makeItem({ verification: { state: "verified", evidence: "no guard at api.js:40" } }));
+  assert.ok(out.includes("**Add input validation**"));
+  assert.ok(out.includes("`bug`"));
+  assert.ok(out.includes("(checked against the code)"));
+  assert.ok(out.includes("Evidence: no guard at api.js:40"));
+  // exactly one verification phrase: the other two must NOT appear
+  assert.ok(!out.includes("could not confirm independently"));
+  assert.ok(!out.includes("not yet verified"));
+});
+
+test("renderItem emits the unconfirmed phrase for an unconfirmed finding (no evidence line)", () => {
+  const out = H.renderItem(makeItem({ verification: { state: "unconfirmed", evidence: "" } }));
+  assert.ok(out.includes("(could not confirm independently — model's assertion)"));
+  assert.ok(!out.includes("Evidence:"));
+});
+
+test("renderItem emits the deferred phrase VERBATIM for a deferred finding", () => {
+  const out = H.renderItem(makeItem({ verification: { state: "deferred", evidence: "" } }));
+  assert.ok(out.includes(DEFERRED_PHRASE));
+  assert.equal(DEFERRED_PHRASE, "(⚠ not yet verified — re-run to confirm)");
+});
+
+test("renderItem renders a single location inline and a merged finding as 'recurs in N files'", () => {
+  const single = H.renderItem(makeItem({ locations: ["api.js:40"] }));
+  assert.ok(single.includes("(api.js:40)"));
+  assert.ok(!single.includes("recurs in"));
+  const merged = H.renderItem(makeItem({ locations: ["a.js:1", "b.js:2", "c.js:3"] }));
+  assert.ok(merged.includes("recurs in 3 files: a.js:1, b.js:2, c.js:3"));
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// renderTier — empty-tier honesty
+// ─────────────────────────────────────────────────────────────────────────────
+test("renderTier marks an empty tier explicitly rather than leaving a silent gap", () => {
+  assert.ok(H.renderTier("Tier 1 — critical", []).includes("_(empty)_"));
+  assert.ok(H.renderTier("Tier 2 — important", [makeItem()]).includes("Add input validation"));
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// renderRecommendation / TERMINAL_SIGNAL — the architecturally-sound stop signal
+// ─────────────────────────────────────────────────────────────────────────────
+test("TERMINAL_SIGNAL is the verbatim sound-on-the-audited-dimensions string", () => {
+  assert.equal(H.TERMINAL_SIGNAL, EXPECTED_TERMINAL_SIGNAL);
+});
+
+test("renderRecommendation emits the terminal signal iff Tiers 1+2 are both empty (COMPLETE run)", () => {
+  const rec = H.renderRecommendation([], [], "COMPLETE");
+  assert.ok(rec.includes(EXPECTED_TERMINAL_SIGNAL));
+  assert.ok(!rec.includes("scoped to the cells covered")); // no PARTIAL clause on COMPLETE
+});
+
+test("renderRecommendation appends the covered-cells scoping clause on a PARTIAL terminal run", () => {
+  const rec = H.renderRecommendation([], [], "PARTIAL");
+  assert.ok(rec.includes(EXPECTED_TERMINAL_SIGNAL));
+  assert.ok(rec.includes("scoped to the cells covered this run"));
+});
+
+test("renderRecommendation points at the first Tier-1 item when Tier 1 is non-empty", () => {
+  const t1 = [makeItem({ titlePlain: "Establish a test baseline", tier: 1 })];
+  const rec = H.renderRecommendation(t1, [], "COMPLETE");
+  assert.ok(rec.includes("Establish a test baseline"));
+  assert.ok(!rec.includes(EXPECTED_TERMINAL_SIGNAL));
+});
+
+test("renderRecommendation falls to the first Tier-2 item when Tier 1 is empty but Tier 2 is not", () => {
+  const t2 = [makeItem({ titlePlain: "Add the missing tests", tier: 2 })];
+  const rec = H.renderRecommendation([], t2, "COMPLETE");
+  assert.ok(rec.includes("Add the missing tests"));
+  assert.ok(!rec.includes(EXPECTED_TERMINAL_SIGNAL));
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// renderRunReport — same-model replacement rule (never both clauses)
+// ─────────────────────────────────────────────────────────────────────────────
+test("renderRunReport emits the cross-model parenthetical when crossModel is true", () => {
+  const line = H.renderRunReport({ verified: 4, unconfirmed: 1, deferred: 0, refuted: 2, crossModel: true });
+  assert.ok(line.includes("the cross-model judge — by default a different model family than the builder"));
+  assert.ok(line.includes("dropped 2 that couldn't be confirmed"));
+  assert.ok(line.includes("verified 4 · unconfirmed 1 · deferred 0"));
+  assert.ok(!line.includes(EXPECTED_SAME_MODEL_TAG)); // never both clauses
+});
+
+test("renderRunReport REPLACES the parenthetical with the verbatim same-model tag when crossModel is false", () => {
+  const line = H.renderRunReport({ verified: 1, unconfirmed: 0, deferred: 0, refuted: 0, crossModel: false });
+  assert.ok(line.includes(EXPECTED_SAME_MODEL_TAG));
+  assert.ok(!line.includes("a different model family than the builder")); // the parenthetical is gone
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// GO_BUTTON — verbatim and last
+// ─────────────────────────────────────────────────────────────────────────────
+test("GO_BUTTON is the verbatim closing how-to-start line", () => {
+  assert.equal(H.GO_BUTTON, EXPECTED_GO_BUTTON);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// renderBacklogFence — the complete body: status first, no markers, go-button last
+// ─────────────────────────────────────────────────────────────────────────────
+test("renderBacklogFence starts with the status line and contains the {{DATE}} placeholder", () => {
+  const body = H.renderBacklogFence(makeResult({ items: [makeItem()] }));
+  assert.ok(body.startsWith("status: "));
+  assert.ok(body.includes("{{DATE}}"));
+});
+
+test("renderBacklogFence contains NO fence markers and NO heading (those stay SKILL-owned)", () => {
+  const body = H.renderBacklogFence(makeResult({ items: [makeItem()] }));
+  assert.ok(!body.includes("harness-audit:backlog"));
+  assert.ok(!body.includes("<!--"));
+  assert.ok(!body.includes("## Backlog")); // the heading is SKILL-owned, inserted-if-absent
+});
+
+test("renderBacklogFence ends with the verbatim go-button line (italicized, last)", () => {
+  const body = H.renderBacklogFence(makeResult({ items: [makeItem()] }));
+  assert.ok(body.trimEnd().endsWith(`*${EXPECTED_GO_BUTTON}*`));
+});
+
+test("renderBacklogFence emits all three tier headings most-urgent-first and the legend", () => {
+  const body = H.renderBacklogFence(
+    makeResult({
+      items: [
+        makeItem({ tier: 1, titlePlain: "T1 item" }),
+        makeItem({ tier: 2, titlePlain: "T2 item" }),
+        makeItem({ tier: 3, titlePlain: "T3 item" }),
+      ],
+    }),
+  );
+  const i1 = body.indexOf("### Tier 1 — critical");
+  const i2 = body.indexOf("### Tier 2 — important");
+  const i3 = body.indexOf("### Tier 3 — polish");
+  assert.ok(i1 >= 0 && i2 > i1 && i3 > i2); // most-urgent-first ordering
+  assert.ok(body.includes(EXPECTED_LEGEND));
+});
+
+test("renderBacklogFence empty-backlog case: empty tiers + the terminal signal + go-button", () => {
+  const body = H.renderBacklogFence(makeResult({ items: [], status: "COMPLETE" }));
+  assert.ok(body.startsWith("status: "));
+  assert.ok(body.includes("### Tier 1 — critical\n\n_(empty)_"));
+  assert.ok(body.includes(EXPECTED_TERMINAL_SIGNAL)); // recommended-starting-point is the stop signal
+  assert.ok(body.trimEnd().endsWith(`*${EXPECTED_GO_BUTTON}*`));
+});
+
+test("verificationPhrase: an unknown or missing state falls back to the deferred phrase, never a false claim", () => {
+  const deferred = H.VERIFICATION_PHRASE.deferred;
+  assert.equal(H.verificationPhrase("bogus-state"), deferred);
+  assert.equal(H.verificationPhrase(undefined), deferred);
+});
+
+test("renderItem: a finding with no verification block renders the deferred phrase and no Evidence line", () => {
+  const item = {
+    titlePlain: "t", tag: "bug", tier: 1, claimTechnical: "c", whyPlain: "w",
+    impactEffort: "i", locations: ["a.js:1"],
+  };
+  const out = H.renderItem(item);
+  assert.ok(out.includes(H.VERIFICATION_PHRASE.deferred));
+  assert.ok(!out.includes("Evidence:"));
+});
+
+test("toResultItem: a tier-less finding defaults to Tier 2 — never silently dropped by the tier filter", () => {
+  const item = H.toResultItem({
+    issueClass: "x", titlePlain: "t", tag: "bug", claimTechnical: "c", whyPlain: "w",
+    impactEffort: "i", locations: [], confidence: "judgment",
+    verification: { state: "deferred", evidence: "", plainLine: "" },
+  });
+  assert.equal(item.tier, 2);
+  const fence = H.renderBacklogFence({
+    status: "COMPLETE", level: "standard", doneCells: ["a×b"], pendingCells: [],
+    items: [item],
+    verification: { verified: 0, unconfirmed: 0, deferred: 1, refuted: 0, crossModel: false, sameModelTag: H.SAME_MODEL_TAG },
+  });
+  assert.ok(fence.includes("t"), "the tier-defaulted item must appear in the rendered fence");
 });
