@@ -1,4 +1,4 @@
-// workflows/audit.js — the audit pipeline (FIND -> PRUNE -> VERIFY) as an executable
+// engine/audit.js — the audit pipeline (FIND -> PRUNE -> VERIFY) as an executable
 // Workflow script. All three notches are scripted: `quick` + `standard` run the per-module
 // lens sweep; `thorough` additionally runs a whole-scope blind-spot sweep (FIND) and an
 // adversarial yagni-sentinel prune (PRUNE) — both wired into the same dedup -> verify path.
@@ -6,9 +6,9 @@
 // fence format's single source of truth, unit-tested so it can't drift from the documented shape.
 //
 // Distribution: read-from-install-path. Adopters invoke this from the version-stamped plugin
-// install dir (`${CLAUDE_PLUGIN_ROOT}/workflows/audit.js`); this repo dogfoods it via the
-// repo-local `./workflows/audit.js` (the working tree IS the plugin source). Never copied into
-// an adopter repo (no managed-stamp/refresh surface) — see docs/DECISIONS.md -> Harness v2.
+// install dir (`${CLAUDE_PLUGIN_ROOT}/engine/audit.js`); this repo dogfoods it via the
+// repo-local `./engine/audit.js` (the working tree IS the plugin source). Never copied into
+// an adopter repo (no managed-stamp/refresh surface) — see docs/DECISIONS.md → Plugin identity & distribution.
 //
 // Workflow-script constraints (the tool runs this inside its sandbox): NO imports, NO
 // filesystem APIs, NO wall-clock / randomness (the orchestrator stamps dates AFTER the run —
@@ -70,7 +70,7 @@ const DEPTH_FOR_DIAL = { quick: "focused", standard: "deep", thorough: "exhausti
 //
 // The FROZEN acceptance-criteria schema — field names exact, may NEVER drift. Single source of
 // truth: docs/PRODUCT_SPEC_TEMPLATE.md embeds the same schema for humans; the runtime semantics
-// are owned by qa.js (docs/DECISIONS.md -> Harness v2, 2026-06-12). Here gap mode reads them
+// are owned by qa.js (runtime). Here gap mode reads them
 // STATICALLY against the code — it does NOT run the app (that is qa.js's job).
 const CRITERIA_KEYS = ["id", "feature", "flow", "expect", "states", "check"];
 const CRITERIA_CHECKS = ["e2e", "api", "manual"];

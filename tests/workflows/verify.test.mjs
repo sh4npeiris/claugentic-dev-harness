@@ -19,7 +19,7 @@ import { loadHelpersFrom } from "./_load-helpers.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(HERE, "..", "..");
-const SCRIPT_PATH = join(REPO_ROOT, "workflows", "verify.js");
+const SCRIPT_PATH = join(REPO_ROOT, "engine", "verify.js");
 const STANDARDS_DIR = join(REPO_ROOT, "docs", "standards");
 
 // The verbatim same-model tag — duplicated here on purpose as an independent fixture so a

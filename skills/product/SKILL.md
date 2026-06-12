@@ -79,12 +79,12 @@ checking is the QA workflow's job (`qa.js`); say so.**
    *"No product spec to audit against — run `/claugentic-dev-harness:product` spec mode first."*
    **Never audit against guessed intent.**
 
-2. **Invoke `workflows/audit.js` in criteria mode — an args mode, NOT a fork.** Gap is the same
+2. **Invoke `engine/audit.js` in criteria mode — an args mode, NOT a fork.** Gap is the same
    FIND → PRUNE → VERIFY pipeline with a **different lens source**; a second script would duplicate
    the dedup / budget / resume / verify machinery (DRY). Call the Workflow tool with:
-   - **`scriptPath`** = `${CLAUDE_PLUGIN_ROOT}/workflows/audit.js` (the version-stamped install
+   - **`scriptPath`** = `${CLAUDE_PLUGIN_ROOT}/engine/audit.js` (the version-stamped install
      path — read-from-install-path, never copied). **Dogfooding *this* repo:** the repo-local
-     `./workflows/audit.js`.
+     `./engine/audit.js`.
    - **`args`**:
      - `criteria` — the parsed acceptance-criteria array (the script enumerates **one cell per
        criterion**, keyed by its id; each lens call gets the criterion object + the instruction to

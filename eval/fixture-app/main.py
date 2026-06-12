@@ -1,7 +1,7 @@
 """Minimal QA fixture app — the smallest FastAPI list app that boots and shows a list.
 
-Purpose: a real, runnable target for `workflows/qa.js` (Slice 4a boot vertical; Slice 4b adds
-flow-driving + seeded UX defects). Deliberately minimal — `GET /` serves a static page that
+Purpose: a real, runnable target for `engine/qa.js` (the harness's runtime-verification
+workflow — boot + flow-driving against the seeded UX defects). Deliberately minimal — `GET /` serves a static page that
 fetches and renders the item list; `GET /api/items` returns an in-memory list; `POST /api/items`
 appends. The ONE knob `FIXTURE_SEED=0` boots empty (the zero-data condition Slice 4b's
 empty-state check needs).

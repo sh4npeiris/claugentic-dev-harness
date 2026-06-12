@@ -380,7 +380,7 @@ volatile content** so a re-write is byte-identical:
   untouched, never rewrites it (it lives outside the fence — local, editable, user-owned).
 - **Detect + record only — never install, never reconfigure** the adopter's tooling. The
   harness *composes* with what's there.
-- **Also detect + record how to RUN the app** (the one line `workflows/qa.js` consumes — the
+- **Also detect + record how to RUN the app** (the one line `engine/qa.js` consumes — the
   runtime-verification workflow can't read files, so the invoking skill reads-and-relays this
   line as `args`). **Detection order:**
   1. **A compose file at repo root** (`docker-compose.yml`/`.yaml`, `compose.yml`/`.yaml`) →

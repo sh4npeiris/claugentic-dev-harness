@@ -1,6 +1,6 @@
 # QA fixture app
 
-The minimal runnable target for the harness's runtime-verification workflow (`workflows/qa.js`).
+The minimal runnable target for the harness's runtime-verification workflow (`engine/qa.js`).
 It is the smallest thing that boots and shows a list: a FastAPI server that serves a static page
 which fetches and renders an in-memory item list.
 
@@ -46,7 +46,7 @@ pip install -r eval/fixture-app/requirements.txt
 
 This fixture carries two **permanent, intentional UX defects** in `static/index.html`. They are the
 targets the Slice-4b flow-driving run is supposed to **catch** — fixing them would silently disarm
-the run designed to exercise whether `workflows/qa.js`'s driver+verifier surface them (model-upheld, not a guaranteed catch). Each maps to a named `docs/standards/product-ux.md`
+the run designed to exercise whether `engine/qa.js`'s driver+verifier surface them (model-upheld, not a guaranteed catch). Each maps to a named `docs/standards/product-ux.md`
 dimension.
 
 | defect | issue class | where | product-ux dimension |
@@ -61,7 +61,7 @@ to be present (that is criterion AC-3's pass surface), and `GET /api/items` retu
 ## Acceptance criteria (`acceptance-criteria.json`)
 
 `acceptance-criteria.json` is the criteria instance — in the **frozen schema** (`id` / `feature` /
-`flow` / `expect` / `states` / `check`) — passed as `args.criteria` to a `workflows/qa.js` dogfood run:
+`flow` / `expect` / `states` / `check`) — passed as `args.criteria` to a `engine/qa.js` dogfood run:
 
 - **AC-1** — add-item flow (`e2e`). **Expected to FAIL** (the broken add flow above).
 - **AC-2** — home list empty state (`e2e`, `states: ["empty"]`, run with `FIXTURE_SEED=0`). **Expected

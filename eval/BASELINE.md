@@ -34,7 +34,7 @@ baseline entry records whether any contamination was declared.
 1. **Scratch worktree/branch** at the release-candidate commit (the eval's writes never
    land on `main`).
 2. **Invoke the audit skill at dial `standard`**, scoped to `eval/fixture-defects/app/`
-   — the skill invokes `workflows/audit.js`. If the Workflow tool is unavailable in the
+   — the skill invokes `engine/audit.js`. If the Workflow tool is unavailable in the
    session, **abort and note it**: a prose-orchestrated run is not comparable to a scripted
    baseline and is never recorded as one. The runner states the scope and states that the
    manifest (`SEED_MANIFEST.md`) and this baseline are outside it and must not be read.

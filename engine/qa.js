@@ -1,4 +1,4 @@
-// workflows/qa.js — runtime verification (QA) as an executable Workflow script.
+// engine/qa.js — runtime verification (QA) as an executable Workflow script.
 //
 // Slice 4a scope: the BOOT VERTICAL only — start the app with the recorded run command,
 // probe a readiness URL within a bounded wait, ALWAYS tear down (the port is verifiably
@@ -9,9 +9,9 @@
 // args fields are reserved-and-validated-absent, the output carries `mode: 'boot-only'`).
 //
 // Distribution: read-from-install-path. Adopters invoke this from the version-stamped plugin
-// install dir (`${CLAUDE_PLUGIN_ROOT}/workflows/qa.js`); this repo dogfoods it via the
-// repo-local `./workflows/qa.js` (the working tree IS the plugin source). Never copied into an
-// adopter repo (no managed-stamp/refresh surface) — see docs/DECISIONS.md -> Harness v2.
+// install dir (`${CLAUDE_PLUGIN_ROOT}/engine/qa.js`); this repo dogfoods it via the
+// repo-local `./engine/qa.js` (the working tree IS the plugin source). Never copied into an
+// adopter repo (no managed-stamp/refresh surface) — see docs/DECISIONS.md → Plugin identity & distribution.
 //
 // Workflow-script constraints (the tool runs this inside its sandbox): NO imports, NO
 // filesystem APIs, NO wall-clock / randomness (the orchestrator stamps times AFTER the run).

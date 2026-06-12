@@ -1,5 +1,5 @@
 // tests/workflows/build-item.test.mjs — node --test unit tests for the pure helpers of
-// workflows/build-item.js.
+// engine/build-item.js.
 //
 // Same extract-and-eval harness as verify.test.mjs / qa.test.mjs: build-item.js is a
 // Workflow-tool script (top-level control flow ending in a returned result; it calls the tool
@@ -18,7 +18,7 @@ import { loadHelpersFrom } from "./_load-helpers.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(HERE, "..", "..");
-const SCRIPT_PATH = join(REPO_ROOT, "workflows", "build-item.js");
+const SCRIPT_PATH = join(REPO_ROOT, "engine", "build-item.js");
 
 // The verbatim same-model tag — duplicated here on purpose as an independent fixture so a drift
 // in the script's wording is caught by an exact string compare (the test is the pin).
@@ -404,11 +404,11 @@ test("criteriaBlockers: e2e/api → empty; a manual criterion → its id", () =>
 // childScriptPath — joins/normalizes; throws on empty root
 // ─────────────────────────────────────────────────────────────────────────────
 test("childScriptPath joins the plugin root and the script name", () => {
-  assert.equal(H.childScriptPath("/plugins/x/0.1.23", "verify.js"), "/plugins/x/0.1.23/workflows/verify.js");
+  assert.equal(H.childScriptPath("/plugins/x/0.1.23", "verify.js"), "/plugins/x/0.1.23/engine/verify.js");
 });
 
 test("childScriptPath normalizes a trailing slash", () => {
-  assert.equal(H.childScriptPath("/plugins/x/0.1.23/", "qa.js"), "/plugins/x/0.1.23/workflows/qa.js");
+  assert.equal(H.childScriptPath("/plugins/x/0.1.23/", "qa.js"), "/plugins/x/0.1.23/engine/qa.js");
 });
 
 test("childScriptPath throws on an empty/whitespace root (fail loud)", () => {
