@@ -25,6 +25,25 @@
 // + the one-level `workflow()` child call. Pure decision logic lives in the marked
 // `// --- helpers ---` block and is unit-tested by tests/workflows/build-item.test.mjs
 // (extract-and-eval), so the prose->script move tests the judgment, not just inspects it.
+//
+// Per-stage duration bound (caps.stageTimeouts) — the THREE-WAY enforcement register (the
+// honesty contract; the three bounded stages do NOT enforce equally, and the copy must say so).
+// The script has no wall-clock, so it CANNOT time a stage itself; the only lever is the Bash
+// tool's `timeout` parameter on the commands the stage agents run — a PER-COMMAND bound, NEVER a
+// stage wall-clock total (a gates stage of k commands can legitimately take ~k×bound plus the
+// agent's reasoning). The register:
+//   - gates    — agent-applied per-command Bash-tool timeout + a MECHANICAL red decision: a
+//                timed-out command reports exitCode 124 (the named no-exit-observed convention)
+//                and `gatesGreen` reads that reported code as red. Strongest.
+//   - qaBoot   — a MECHANICAL clamp in qa.js (parseRunArgs Math.min ≤ 300s) + an agent-executed
+//                bounded readiness probe. Mechanical bound, agent-executed probe.
+//   - implement/fix — an INSTRUCTION-ONLY anti-hang nudge: IMPLEMENT_SCHEMA has NO exit-code
+//                channel, so there is no mechanical consumer; a runaway is left to surface
+//                downstream (the gates stage + the iteration cap) WHEN it manifests there —
+//                nothing in this stage bounds it. Model-upheld end to end (NOT "fail-closed").
+// Residual: a single legitimate command that genuinely exceeds the Bash-tool 600s hard max cannot
+// be bounded-and-completed in one foreground call — that repo's suite must be split, or it is not
+// bounded-runnable. No mechanism here bounds a stage's TOTAL wall-clock.
 
 export const meta = {
   name: "build-item",
@@ -109,6 +128,38 @@ function parseArgs(raw) {
 // 2–3 implement→verify attempts (docs/WORKFLOW.md / skills/build SKILL step 6).
 const DEFAULT_MAX_ITERATIONS = 3;
 
+// The Bash-tool hard max for a single command's `timeout` parameter (600000ms = 600s). The single
+// ceiling constant — referenced, never re-hardcoded as a bare 600. validateArgs rejects (never
+// silently clamps) a stageTimeout above it: a "configurable 800" that can't be honored is a lie.
+const MAX_STAGE_TIMEOUT_SEC = 600;
+
+// Per-stage DISTINCT defaults (a gate suite and a boot probe have very different legitimate
+// durations). implement/gates default to the loosest-safe Bash-tool max; `qaBoot` has NO engine
+// default (`null` = not set) — qa.js owns the boot default (60s) and clamp (300s), so no
+// 60/300 literal is duplicated into this script (DRY) and the engine's boot default is unchanged.
+const DEFAULT_STAGE_TIMEOUTS = { implement: MAX_STAGE_TIMEOUT_SEC, gates: MAX_STAGE_TIMEOUT_SEC, qaBoot: null };
+
+// The exact key set for caps.stageTimeouts — a typo'd stage (`qaboot`, `implment`) must fail loud,
+// never silently fall back to the default (the frozen-criterion exact-key precedent below). DERIVED
+// from DEFAULT_STAGE_TIMEOUTS (single source of truth — a new stage is added in ONE place, never a
+// second hand-maintained list that must agree with it forever).
+const STAGE_TIMEOUT_KEYS = Object.keys(DEFAULT_STAGE_TIMEOUTS);
+
+// Resolve the per-stage duration bounds from caps.stageTimeouts (per-stage distinct defaults).
+// PURE — the boundary already validated/rejected out-of-range values (validateArgs), so there is
+// NO clamping here; this just applies the defaults. implement/gates default to MAX_STAGE_TIMEOUT_SEC;
+// `qaBoot` stays `null` when unset (qa.js stays the sole boot default-and-clamp owner).
+function resolveStageTimeouts(caps) {
+  const st = caps && typeof caps.stageTimeouts === "object" && caps.stageTimeouts !== null ? caps.stageTimeouts : {};
+  // No re-validation here: validateArgs already rejected every invalid value at the boundary (the
+  // script throws before this helper runs), so re-checking the predicate would (a) duplicate the
+  // boundary contract (DRY) and (b) silently fall back to the default on a bad type — contradicting
+  // both this function's own no-clamping rule and the slice's fail-loud register. An explicit-null
+  // value is impossible to reach (validateArgs only accepts positive integers or `undefined`).
+  const pick = (key) => (st[key] !== undefined ? st[key] : DEFAULT_STAGE_TIMEOUTS[key]);
+  return { implement: pick("implement"), gates: pick("gates"), qaBoot: pick("qaBoot") };
+}
+
 // The frozen acceptance-criterion field names (must match qa.js's frozen schema EXACTLY — a
 // renamed field here would silently diverge the contract). validateArgs guards every criterion
 // against this set so a typo'd spec fails loud, not silently unchecked.
@@ -185,12 +236,38 @@ function validateArgs(args) {
   // caps
   if (args.caps !== undefined && args.caps !== null) {
     if (typeof args.caps !== "object") {
-      errors.push("caps, when provided, must be an object ({ maxIterations?, budget? })");
-    } else if (
-      args.caps.maxIterations !== undefined &&
-      (typeof args.caps.maxIterations !== "number" || !Number.isInteger(args.caps.maxIterations) || args.caps.maxIterations < 1)
-    ) {
-      errors.push("caps.maxIterations, when provided, must be a positive integer");
+      errors.push("caps, when provided, must be an object ({ maxIterations?, budget?, stageTimeouts? })");
+    } else {
+      if (
+        args.caps.maxIterations !== undefined &&
+        (typeof args.caps.maxIterations !== "number" || !Number.isInteger(args.caps.maxIterations) || args.caps.maxIterations < 1)
+      ) {
+        errors.push("caps.maxIterations, when provided, must be a positive integer");
+      }
+      // stageTimeouts (per-stage duration bound, seconds). Fail loud, never silent-clamp: a non-object,
+      // any unknown key (exact-key set — a typo'd stage can't fall back to default), a non-integer or
+      // ≤0 value, or a value > MAX_STAGE_TIMEOUT_SEC (a bound the Bash tool can't honor is rejected).
+      const st = args.caps.stageTimeouts;
+      if (st !== undefined && st !== null) {
+        if (typeof st !== "object" || Array.isArray(st)) {
+          errors.push("caps.stageTimeouts, when provided, must be an object ({ implement?, gates?, qaBoot? } — positive integer seconds)");
+        } else {
+          for (const k of Object.keys(st)) {
+            if (!STAGE_TIMEOUT_KEYS.includes(k)) {
+              errors.push(`caps.stageTimeouts: unknown stage '${k}' — must be one of {${STAGE_TIMEOUT_KEYS.join(", ")}}`);
+            }
+          }
+          for (const k of STAGE_TIMEOUT_KEYS) {
+            const v = st[k];
+            if (v === undefined) continue;
+            if (typeof v !== "number" || !Number.isInteger(v) || v <= 0) {
+              errors.push(`caps.stageTimeouts.${k}, when provided, must be a positive integer (seconds)`);
+            } else if (v > MAX_STAGE_TIMEOUT_SEC) {
+              errors.push(`caps.stageTimeouts.${k} must be ≤ ${MAX_STAGE_TIMEOUT_SEC} (the Bash-tool hard max; a higher bound cannot be honored — split the suite, never silently clamped)`);
+            }
+          }
+        }
+      }
     }
   }
   if (typeof args.builderFamily !== "string" || args.builderFamily.trim().length === 0) {
@@ -456,18 +533,22 @@ const GATES_SCHEMA = {
     },
   },
 };
-// --- end helpers ---
 
 // Build the implement/fix agent's prompt. Iteration 1 IMPLEMENTS the spec from scratch; later
 // iterations FIX the named residual on the same branch. The standing rules are identical on both
 // paths — they are the engine's non-negotiable safety contract (no scope invention, nothing
 // irreversible, update the tree, commit on the work branch). The branch is the durable artifact.
-function implementPrompt(item, repo, residual, branch) {
+// `implementTimeoutSec` is the per-command anti-hang bound — an INSTRUCTION-ONLY nudge here:
+// IMPLEMENT_SCHEMA has no exit-code channel, so there is no mechanical consumer; a runaway is left to
+// surface downstream (the gates stage + the iteration cap) WHEN it manifests there — nothing in this
+// stage bounds it (model-upheld, NOT a mechanical fail-closed).
+function implementPrompt(item, repo, residual, branch, implementTimeoutSec) {
   const isFirst = residual == null;
   const standingRules =
     `STANDING RULES (non-negotiable):\n` +
     `  - Build ONLY this item's spec. An out-of-scope finding is REPORTED in outOfScopeFindings (tier + claim + fileLine), NEVER built.\n` +
     `  - NEVER push, deploy, delete data, spend, or take any irreversible/external action. If the item genuinely needs one, set irreversibleNeeded {action, consequence} and STOP — the orchestrator decides, not you.\n` +
+    `  - Bound any long-running command (build, test, install) with the Bash tool's \`timeout\` PARAMETER, set to at most ${implementTimeoutSec}s — NOT a shell \`timeout\` command (unreliable cross-platform; a no-op delay on Windows). This is per-command, not a stage total. If a command hits the bound, treat it as a FAILURE and report it — NEVER hang waiting.\n` +
     `  - Update docs/ARCHITECTURE_TREE.md for any file add/move/remove, and docs/DECISIONS.md for any non-trivial decision.\n` +
     `  - Commit your work on the work branch (the branch is the durable artifact — later fix passes recreate the worktree from it if the platform tore it down). Report the branch name.\n` +
     `  - Report your model family (open with "RUNNING AS: <family>" and set modelFamily).`;
@@ -498,17 +579,44 @@ function implementPrompt(item, repo, residual, branch) {
 // Build the deterministic-gates agent's prompt — run EVERY gate command in the worktree and
 // return the RAW exit code per command (pass/fail is exit codes, not opinion — this is the
 // mechanical-once-invoked stage). The output tail feeds the fix brief on a red gate.
-function gatesPrompt(repo, branch, worktreePath) {
+// `gatesTimeoutSec` is the per-command Bash-tool `timeout` bound; a timed-out command observes NO
+// real exit code, so it is reported as the named 124 timeout convention (the one allowed
+// non-observed code) → `gatesGreen` reads it as red (mechanical). PER-COMMAND, never a stage total.
+function gatesPrompt(repo, branch, worktreePath, gatesTimeoutSec) {
   return (
     `Build-to-green — DETERMINISTIC GATES. Run each command below in the work tree for branch \`${branch}\`` +
     (worktreePath ? ` (worktree at ${worktreePath})` : "") +
     `, from the repo root ${repo.root}. Run them ALL even if an earlier one fails.\n\n` +
     `Commands:\n${repo.gateCommands.map((g, i) => `  ${i + 1}. ${g}`).join("\n")}\n\n` +
+    `Run EACH command via the Bash tool's \`timeout\` PARAMETER set to ${gatesTimeoutSec}s — NOT a shell \`timeout\` ` +
+    `command (unreliable cross-platform; a no-op delay on Windows). This bound is PER-COMMAND, never a stage total.\n\n` +
     `For EACH command return { command, exitCode (the ACTUAL process exit code — 0 = pass, non-zero = fail; ` +
-    `report the real number, never an opinion), outputTail (the last ~30 lines of its output, REQUIRED when ` +
-    `exitCode != 0 so the fix step has evidence) }. Do not interpret or summarize pass/fail — only the exit codes decide.`
+    `report the real number, never an opinion. The ONE exception: a command that hits the ${gatesTimeoutSec}s ` +
+    `timeout observes no real exit code — report exitCode 124, the named timeout convention, and note the timeout ` +
+    `in outputTail; this is a no-exit-observed convention, NOT an opinion about pass/fail), outputTail (the last ` +
+    `~30 lines of its output, REQUIRED when exitCode != 0 so the fix step has evidence) }. Do not interpret or ` +
+    `summarize pass/fail — only the exit codes decide.`
   );
 }
+
+// Build the qa.js child-workflow args (a PURE builder, extracted from the inline call so the
+// threading is unit-testable). `readinessTimeoutSec` is included ONLY when `qaBoot != null`
+// (pass-through-when-set): when unset, the key is omitted so qa.js applies its own 60s default —
+// qa.js stays the sole boot default-and-clamp owner (no 60/300 literal duplicated here).
+function qaChildArgs(item, repo, criteria, builderFamily, iteration, qaBoot) {
+  const out = {
+    criteria,
+    runCommand: repo.runApp,
+    appUrl: item.appUrl || (repo.appUrl || ""),
+    builderFamily,
+    runLabel: `build-${item.id}-iter${iteration}`,
+  };
+  if (qaBoot != null) {
+    out.readinessTimeoutSec = qaBoot;
+  }
+  return out;
+}
+// --- end helpers ---
 
 // ── Top-level control flow (Workflow scripts run in an async context; no module wrapper). ──
 //
@@ -526,6 +634,9 @@ const item = input.item;
 const repo = input.repo;
 const criteria = Array.isArray(item.acceptanceCriteria) ? item.acceptanceCriteria : [];
 const maxIterations = maxIterationsFor(input.caps);
+// The per-stage duration bounds — see the three-way register in the header. (qaBoot stays null when
+// unset → qa.js's own default.)
+const stageTimeouts = resolveStageTimeouts(input.caps);
 const builderFamily = input.builderFamily;
 
 // Boundary blocks (terminal `blocked` — never an unwatched run that can't honestly complete):
@@ -588,7 +699,7 @@ for (let iteration = 1; iteration <= maxIterations; iteration++) {
   //    later iterations reuse the branch). agent() returns null AND can throw — guard both.
   let report = null;
   try {
-    report = await agent(implementPrompt(item, repo, residual, branch), {
+    report = await agent(implementPrompt(item, repo, residual, branch, stageTimeouts.implement), {
       agentType: "implementer-architect",
       // Worktree ownership: the platform auto-reclaims an UNCHANGED worktree; a changed one
       // survives every terminal return — the ORCHESTRATOR reclaims it after land (green) or
@@ -647,7 +758,7 @@ for (let iteration = 1; iteration <= maxIterations; iteration++) {
   phase(`iteration-${iteration}-gates`);
   let gatesReport = null;
   try {
-    gatesReport = await agent(gatesPrompt(repo, branch, worktreePath), {
+    gatesReport = await agent(gatesPrompt(repo, branch, worktreePath, stageTimeouts.gates), {
       agentType: "general-purpose",
       schema: GATES_SCHEMA,
       label: `build:gates:${iteration}`,
@@ -718,13 +829,7 @@ for (let iteration = 1; iteration <= maxIterations; iteration++) {
     try {
       qaResult = await workflow(
         { scriptPath: qaScript },
-        {
-          criteria,
-          runCommand: repo.runApp,
-          appUrl: item.appUrl || (repo.appUrl || ""),
-          builderFamily: implementerFamily || builderFamily,
-          runLabel: `build-${item.id}-iter${iteration}`,
-        },
+        qaChildArgs(item, repo, criteria, implementerFamily || builderFamily, iteration, stageTimeouts.qaBoot),
       );
     } catch (e) {
       log(`build-item: qa child workflow threw on iteration ${iteration}: ${e && e.message ? e.message : e}`);
