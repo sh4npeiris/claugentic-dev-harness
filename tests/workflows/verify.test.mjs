@@ -450,3 +450,7 @@ test("dedupFindings: a three-way duplicate collapses to one, first non-empty fix
   assert.deepEqual(merged[0].sources, ["d"]);
   assert.equal(merged[0].fix, "the fix");
 });
+
+test("sameModelTag: a whitespace-only report is the MISSING floor (same-model tag), not unresolved", () => {
+  assert.equal(H.sameModelTag("Fable 5", "   "), EXPECTED_SAME_MODEL_TAG);
+});
