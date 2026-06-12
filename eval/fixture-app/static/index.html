@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>QA fixture — items</title>
+  </head>
+  <body>
+    <h1>Items</h1>
+    <ul id="items"></ul>
+
+    <script>
+      // Deliberately minimal: fetch the list and render each item as an <li>. No add form and
+      // no empty-state branch — Slice 4b adds/declares those as the seeded UX defects. Nothing
+      // is written here only to be deleted there.
+      async function load() {
+        const res = await fetch("/api/items");
+        const items = await res.json();
+        const ul = document.getElementById("items");
+        for (const item of items) {
+          const li = document.createElement("li");
+          li.textContent = item.name;
+          ul.appendChild(li);
+        }
+      }
+      load();
+    </script>
+  </body>
+</html>

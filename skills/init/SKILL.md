@@ -379,6 +379,27 @@ volatile content** so a re-write is byte-identical:
   untouched, never rewrites it (it lives outside the fence — local, editable, user-owned).
 - **Detect + record only — never install, never reconfigure** the adopter's tooling. The
   harness *composes* with what's there.
+- **Also detect + record how to RUN the app** (the one line `workflows/qa.js` consumes — the
+  runtime-verification workflow can't read files, so the invoking skill reads-and-relays this
+  line as `args`). **Detection order:**
+  1. **A compose file at repo root** (`docker-compose.yml`/`.yaml`, `compose.yml`/`.yaml`) →
+     record `docker compose up -d`. Derive the **App URL** from the first published host port
+     when it parses cheaply (e.g. `8000:8000` → `http://localhost:8000`); when it doesn't, use
+     the fill-in placeholder and add a report line asking the user to complete it.
+  2. **Else a dev-server command** via the **same Phase-1 ecosystem detection steps 5/8 already
+     reuse** (DRY): `package.json` `dev` script (then `start`) run via the detected package
+     manager; a Python ASGI/Django heuristic (e.g. `uvicorn <module>:app` / `python manage.py
+     runserver`). Pick the App URL from the framework's conventional dev port.
+  3. **Undetectable** → record the honest placeholder and report it:
+     `- Run the app: (not detected — fill in: \`<command>\` · App URL: \`<url>\`)`.
+- **The ONE durable home** is a labeled line in the **detected-tooling block** (the same
+  outside-the-fence block from step 6 — already the single user-editable home for "the project's
+  own tooling," so no new artifact class is introduced; **DRY**):
+  `- Run the app: \`<command>\` · App URL: \`<url>\`` (optionally ` · Stop: \`<command>\``).
+- **Never-clobber-safe extension:** the detected-tooling block stays **create-if-absent**, but a
+  block that exists **without** a `- Run the app:` line gets that one line **appended**
+  (append-if-line-absent, keyed on the `Run the app:` label) — an existing `Run the app:` line is
+  **never modified**. Pure addition: no existing content in the block is edited.
 
 ### 9. Report
 
