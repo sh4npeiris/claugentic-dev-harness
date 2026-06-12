@@ -11,9 +11,11 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync } from "node:fs";
+import { readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+
+import { loadHelpersFrom } from "./_load-helpers.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(HERE, "..", "..");
@@ -29,51 +31,29 @@ const EXPECTED_SAME_MODEL_TAG =
 const EXPECTED_UNRESOLVED_FAMILY_TAG =
   "could not resolve the judge's model family on this run — no cross-model claim is made (treated as the same-model trust floor, not asserted as fact).";
 
-/** Extract the marked helpers block and evaluate it, returning the named helpers.
- *
- * Markers are matched line-anchored (`^// --- helpers ---$`) so a mention of the marker text
- * inside the file's header comment (e.g. "the marked `// --- helpers ---` block") is NOT
- * mistaken for the real delimiter. */
-function loadHelpers() {
-  const src = readFileSync(SCRIPT_PATH, "utf8");
-  const startMatch = src.match(/^\/\/ --- helpers ---$/m);
-  const endMatch = src.match(/^\/\/ --- end helpers ---$/m);
-  assert.ok(startMatch, "helpers block start marker not found (line-anchored) in workflows/verify.js");
-  assert.ok(endMatch, "helpers block end marker not found (line-anchored) in workflows/verify.js");
-  const start = startMatch.index;
-  const end = endMatch.index;
-  assert.ok(end > start, "helpers end marker precedes start marker");
-  const block = src.slice(start, end);
-  const names = [
-    "MODELS",
-    "SAME_MODEL_TAG",
-    "UNRESOLVED_FAMILY_TAG",
-    "KNOWN_FAMILIES",
-    "KNOWN_MODULES",
-    "validateArgs",
-    "modulesFor",
-    "modelFamily",
-    "sameModelTag",
-    "crossModelOutcome",
-    "dedupKey",
-    "dedupFindings",
-    "panelRoster",
-    "parseArgs",
-    "judgeOutcome",
-    "coverageGaps",
-    "splitPanelResults",
-    "LENS_SCHEMA",
-    "YAGNI_SCHEMA",
-    "HONESTY_SCHEMA",
-    "SYNTHESIS_SCHEMA",
-  ];
-  // No tool primitives are in scope inside this Function — so if any helper closed over
-  // agent()/parallel()/phase()/log(), constructing or calling it would throw here.
-  const factory = new Function(`${block}\n; return { ${names.join(", ")} };`);
-  return factory();
-}
-
-const H = loadHelpers();
+const H = loadHelpersFrom(SCRIPT_PATH, [
+  "MODELS",
+  "SAME_MODEL_TAG",
+  "UNRESOLVED_FAMILY_TAG",
+  "KNOWN_FAMILIES",
+  "KNOWN_MODULES",
+  "validateArgs",
+  "modulesFor",
+  "modelFamily",
+  "sameModelTag",
+  "crossModelOutcome",
+  "dedupKey",
+  "dedupFindings",
+  "panelRoster",
+  "parseArgs",
+  "judgeOutcome",
+  "coverageGaps",
+  "splitPanelResults",
+  "LENS_SCHEMA",
+  "YAGNI_SCHEMA",
+  "HONESTY_SCHEMA",
+  "SYNTHESIS_SCHEMA",
+]);
 
 /** Build a valid args object; override fields per-case. */
 function validArgs(overrides = {}) {
