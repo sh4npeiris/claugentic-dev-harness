@@ -1,6 +1,6 @@
 # 0012 — Harness v2: executable choreography, earned autonomy, runtime verification, product layer
 
-- **Status:** Approved (batch sitting 2026-06-11 — all 10 slices; landing pre-authorized to main after green Verify; autonomous continuation through Slice 7 authorized by the user 2026-06-11; ALL SLICES LANDED 2026-06-12 — closing audit next)
+- **Status:** Done (all 10 slices landed 2026-06-11→12; closing standard audit COMPLETE 20/20 cells — 9 verified findings, 1 refuted-dropped; the 2 in-machinery bugs fixed at the close; remainder = 1 T1-refactor + 3 T2 + 3 T3, surfaced in the backlog fence for triage)
 - **Roadmap item:** `docs/ROADMAP.md` → Now → "Harness v2 — re-platform the choreography (plan 0012)"
 - **References:** `docs/ARCHITECTURE_TREE.md` · `docs/DECISIONS.md` → "Harness v2 — the re-platform direction" · `docs/WORKFLOW.md` · plans 0010/0011 (init version-awareness, landed)
 

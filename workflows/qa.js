@@ -802,7 +802,7 @@ function driverPrompt(runConfig, criterion, runLabel, artifactDir) {
       "NEVER fake a pass.";
   return (
 
-    "STATES SCOPE: check ONLY the states listed for THIS criterion (${(criterion.states || []).join(', ') || 'none — perform NO state checks'}). Any other state observation you happen to make is informational evidence only — report it in a note, never as a states[] entry." +
+    `STATES SCOPE: check ONLY the states listed for THIS criterion (${(criterion.states || []).length ? criterion.states.join(", ") : "none — perform NO state checks"}). Any other state observation you happen to make is informational evidence only — report it in a note, never as a states[] entry.` +
         `Runtime QA — FLOW-DRIVING for one acceptance criterion (id ${criterion.id}, feature "${criterion.feature}").\n\n` +
     `App URL: ${runConfig.appUrl}\n` +
     `${toolingLine}\n\n` +
