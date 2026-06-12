@@ -56,6 +56,7 @@ Starter library (`.claude/agents/`):
 - **`plan-reviewer`** — adversarially critiques a plan (correctness, SOLID/patterns, risk, **sizing & completeness**, over-engineering/YAGNI, harness impact); writes findings into the plan file.
 - **`implementer-architect`** — implements an approved spec to standard, in an isolated worktree, landing one slice complete.
 - **`product-designer`** — the product/UX lens at Discuss (Stage 1) for user-facing work: user, job-to-be-done, flows, states, "what good feels like"; applies `docs/standards/product-ux.md`, persists to `docs/PRODUCT.md`.
+- **`product-critic`** — critiques a draft product spec by method and returns proposals the user decides on; the elevate counterpart to `product-designer` (builder-class, read-only).
 - **`architect-reviewer`** — owns the Verify gate (Stage 7): **solo** for small changes, or **synthesizer** over fan-out findings for risky ones.
 - **`lens-reviewer`** — audits a **diff (Verify) or an audit-scope (the `audit` skill)** against **one** `docs/standards/` module; invoked once per relevant lens in a fan-out review.
 - **`finding-verifier`** — refutes **one** audit finding against the code: given only the claim + `file:line` (never the finder's rationale), it tries to prove the finding wrong and returns `Verified` / `Refuted` / `Unconfirmed`. The audit's adversarial-verify counterpart to `lens-reviewer`.

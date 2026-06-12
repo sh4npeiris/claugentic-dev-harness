@@ -69,7 +69,7 @@ Works the same for a **mature codebase** (audit → incremental backlog) and a *
 You don't need any of this to use the three commands — it's the machinery they run on:
 
 - **Staged workflow** (`docs/WORKFLOW.md`) — Triage → Discuss → Plan → Review → Spec → **Approve** → Implement → Verify → Land → Retrospect. Small changes skip straight to Implement + Verify; only substantial work runs the full pipeline.
-- **9 specialist agents** (`.claude/agents/`) — a plan critic, a builder, a verifier, a product/UX lens, a per-standard lens reviewer, an anti-over-engineering skeptic, a finding-verifier that refutes audit findings against the code, a blind-spot reviewer that hunts the cross-cutting risks no single lens owns (the thorough audit's diverse sweep), and an honesty reviewer that flags copy presenting model judgment as mechanical fact. The orchestrator delegates to them so your attention stays on decisions.
+- **10 specialist agents** (`.claude/agents/`) — a plan critic, a builder, a verifier, a product/UX lens, a **product critic** that pushes a draft product spec to be more ambitious — proposing flows, value, and even cuts, as questions you decide on, never imposed, a per-standard lens reviewer, an anti-over-engineering skeptic, a finding-verifier that refutes audit findings against the code, a blind-spot reviewer that hunts the cross-cutting risks no single lens owns (the thorough audit's diverse sweep), and an honesty reviewer that flags copy presenting model judgment as mechanical fact. The orchestrator delegates to them so your attention stays on decisions.
 - **The standards catalog** (`docs/standards/`) — ISO/IEC 25010-anchored, loaded by relevance, with each finding labeled by how confidently it was checked.
 
 ## License & layout
