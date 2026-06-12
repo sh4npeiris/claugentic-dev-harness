@@ -24,6 +24,10 @@ const SCRIPT_PATH = join(REPO_ROOT, "workflows", "build-item.js");
 const EXPECTED_SAME_MODEL_TAG =
   "same-model review on this run — the judge and the builder are the same model family here.";
 
+// The verbatim UNRESOLVED tag — the third disclosure state. Independent fixture (exact-compare pin).
+const EXPECTED_UNRESOLVED_FAMILY_TAG =
+  "could not resolve the judge's model family on this run — no cross-model claim is made (treated as the same-model trust floor, not asserted as fact).";
+
 /** Extract the marked helpers block and evaluate it, returning the named helpers. */
 function loadHelpers() {
   const src = readFileSync(SCRIPT_PATH, "utf8");
@@ -37,6 +41,8 @@ function loadHelpers() {
   const block = src.slice(start, end);
   const names = [
     "SAME_MODEL_TAG",
+    "UNRESOLVED_FAMILY_TAG",
+    "KNOWN_FAMILIES",
     "modelFamily",
     "sameModelTag",
     "parseArgs",
@@ -133,14 +139,31 @@ test("sameModelTag: same family → the verbatim tag (string equality)", () => {
   assert.equal(H.sameModelTag("Opus 4.8", "Opus 4.1"), EXPECTED_SAME_MODEL_TAG);
 });
 
-test("sameModelTag: a missing/unresolvable report → the verbatim tag", () => {
-  assert.equal(H.sameModelTag("Fable 5", "unknown thing"), EXPECTED_SAME_MODEL_TAG);
+test("sameModelTag: a MISSING judge report (null/empty) is the same-model floor", () => {
   assert.equal(H.sameModelTag("Fable 5", ""), EXPECTED_SAME_MODEL_TAG);
-  assert.equal(H.sameModelTag(null, "Opus 4.8"), EXPECTED_SAME_MODEL_TAG);
+  assert.equal(H.sameModelTag("Fable 5", null), EXPECTED_SAME_MODEL_TAG);
+});
+
+test("sameModelTag: a PRESENT but unrecognized family reports UNRESOLVED (never same-model fact)", () => {
+  assert.equal(H.sameModelTag("Fable 5", "unknown thing"), EXPECTED_UNRESOLVED_FAMILY_TAG);
+  assert.notEqual(H.sameModelTag("Fable 5", "unknown thing"), EXPECTED_SAME_MODEL_TAG);
 });
 
 test("sameModelTag: a confirmed different family → null (the sole cross-model case)", () => {
   assert.equal(H.sameModelTag("Fable 5", "Opus 4.8"), null);
+});
+
+test("UNRESOLVED_FAMILY_TAG is the verbatim third-state string (drift pin)", () => {
+  assert.equal(H.UNRESOLVED_FAMILY_TAG, EXPECTED_UNRESOLVED_FAMILY_TAG);
+  assert.notEqual(H.UNRESOLVED_FAMILY_TAG, H.SAME_MODEL_TAG);
+});
+
+test("KNOWN_FAMILIES is the one named source the modelFamily regex derives from", () => {
+  assert.deepEqual(H.KNOWN_FAMILIES, ["fable", "opus", "sonnet", "haiku"]);
+  for (const fam of H.KNOWN_FAMILIES) {
+    assert.equal(H.modelFamily(`RUNNING AS: ${fam}`), fam);
+  }
+  assert.equal(H.modelFamily("RUNNING AS: gemini"), null);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

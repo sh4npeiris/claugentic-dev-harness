@@ -25,6 +25,10 @@ const STANDARDS_DIR = join(REPO_ROOT, "docs", "standards");
 const EXPECTED_SAME_MODEL_TAG =
   "same-model review on this run — the judge and the builder are the same model family here.";
 
+// The verbatim UNRESOLVED tag — the third disclosure state. Independent fixture (exact-compare pin).
+const EXPECTED_UNRESOLVED_FAMILY_TAG =
+  "could not resolve the judge's model family on this run — no cross-model claim is made (treated as the same-model trust floor, not asserted as fact).";
+
 /** Extract the marked helpers block and evaluate it, returning the named helpers.
  *
  * Markers are matched line-anchored (`^// --- helpers ---$`) so a mention of the marker text
@@ -43,6 +47,8 @@ function loadHelpers() {
   const names = [
     "MODELS",
     "SAME_MODEL_TAG",
+    "UNRESOLVED_FAMILY_TAG",
+    "KNOWN_FAMILIES",
     "KNOWN_MODULES",
     "validateArgs",
     "modulesFor",
@@ -88,6 +94,8 @@ test("extraction harness finds the marked block and all helper names", () => {
   for (const name of [
     "MODELS",
     "SAME_MODEL_TAG",
+    "UNRESOLVED_FAMILY_TAG",
+    "KNOWN_FAMILIES",
     "KNOWN_MODULES",
     "validateArgs",
     "modulesFor",
@@ -209,10 +217,32 @@ test("sameModelTag returns null only when both resolve and differ", () => {
   assert.equal(H.sameModelTag("Fable 5", "Opus 4.8"), null);
 });
 
-test("sameModelTag returns the tag when either family fails to resolve", () => {
-  assert.equal(H.sameModelTag("Fable 5", "unknown thing"), EXPECTED_SAME_MODEL_TAG);
-  assert.equal(H.sameModelTag("", "Opus 4.8"), EXPECTED_SAME_MODEL_TAG);
-  assert.equal(H.sameModelTag(null, "Opus 4.8"), EXPECTED_SAME_MODEL_TAG);
+test("sameModelTag returns the UNRESOLVED tag (the third state) when either family fails to resolve", () => {
+  assert.equal(H.sameModelTag("Fable 5", "unknown thing"), EXPECTED_UNRESOLVED_FAMILY_TAG);
+  assert.equal(H.sameModelTag("", "Opus 4.8"), EXPECTED_UNRESOLVED_FAMILY_TAG);
+  assert.equal(H.sameModelTag(null, "Opus 4.8"), EXPECTED_UNRESOLVED_FAMILY_TAG);
+  // An unresolved family is NEVER asserted as same-model fact.
+  assert.notEqual(H.sameModelTag("Fable 5", "unknown thing"), EXPECTED_SAME_MODEL_TAG);
+});
+
+test("sameModelTag returns SAME_MODEL_TAG only on a resolved-same match (not unresolved)", () => {
+  assert.equal(H.sameModelTag("Opus 4.8", "Opus 4.1"), EXPECTED_SAME_MODEL_TAG);
+});
+
+test("UNRESOLVED_FAMILY_TAG is the verbatim third-state string (drift pin)", () => {
+  assert.equal(H.UNRESOLVED_FAMILY_TAG, EXPECTED_UNRESOLVED_FAMILY_TAG);
+  // The three disclosure states are distinct strings.
+  assert.notEqual(H.UNRESOLVED_FAMILY_TAG, H.SAME_MODEL_TAG);
+});
+
+test("KNOWN_FAMILIES is the one named source the modelFamily regex derives from", () => {
+  assert.deepEqual(H.KNOWN_FAMILIES, ["fable", "opus", "sonnet", "haiku"]);
+  // Every named family resolves through the derived regex (the regex IS this list).
+  for (const fam of H.KNOWN_FAMILIES) {
+    assert.equal(H.modelFamily(`RUNNING AS: ${fam}`), fam);
+  }
+  // A family NOT in the list does not resolve — the list is the sole gate.
+  assert.equal(H.modelFamily("RUNNING AS: gemini"), null);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -229,10 +259,24 @@ test("crossModelOutcome does NOT claim when any judge is same-family", () => {
   assert.equal(out.tag, EXPECTED_SAME_MODEL_TAG);
 });
 
-test("crossModelOutcome does NOT claim when any judge report is missing/unresolved", () => {
+test("crossModelOutcome does NOT claim when a judge report is missing (null) → same-model floor", () => {
   const out = H.crossModelOutcome("Fable 5", ["Opus 4.8", null]);
   assert.equal(out.claimed, false);
+  // A MISSING (null) report is the no-self-report same-model floor, not the unresolved state.
   assert.equal(out.tag, EXPECTED_SAME_MODEL_TAG);
+});
+
+test("crossModelOutcome reports UNRESOLVED (never same-model fact) when a judge family is unrecognized", () => {
+  const out = H.crossModelOutcome("Fable 5", ["Opus 4.8", "RUNNING AS: gemini"]);
+  assert.equal(out.claimed, false);
+  assert.equal(out.tag, EXPECTED_UNRESOLVED_FAMILY_TAG);
+  assert.notEqual(out.tag, EXPECTED_SAME_MODEL_TAG);
+});
+
+test("crossModelOutcome reports UNRESOLVED when the BUILDER family is unrecognized", () => {
+  const out = H.crossModelOutcome("some-unknown-builder", ["Opus 4.8"]);
+  assert.equal(out.claimed, false);
+  assert.equal(out.tag, EXPECTED_UNRESOLVED_FAMILY_TAG);
 });
 
 test("crossModelOutcome does NOT claim on an empty report list", () => {
@@ -359,10 +403,11 @@ test("coverageGaps: all lenses ran → no gaps", () => {
   assert.deepEqual(H.coverageGaps([ok, ok], ["a", "b"]), []);
 });
 
-test("crossModelOutcome: an unresolvable BUILDER family degrades to the tag, never a claim", () => {
+test("crossModelOutcome: an unresolvable BUILDER family reports UNRESOLVED, never a claim", () => {
   const r = H.crossModelOutcome("unknown-builder", ["Opus 4.8"]);
   assert.equal(r.claimed, false);
-  assert.ok(r.tag && r.tag.includes("same-model review on this run"));
+  // Unresolved is reported AS unresolved — never asserted as same-model fact.
+  assert.equal(r.tag, EXPECTED_UNRESOLVED_FAMILY_TAG);
 });
 
 test("splitPanelResults: input-order arithmetic, honesty on", () => {

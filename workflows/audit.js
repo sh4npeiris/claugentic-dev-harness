@@ -42,6 +42,19 @@ const MODELS = { judge: "opus" };
 const SAME_MODEL_TAG =
   "same-model review on this run — the judge and the builder are the same model family here.";
 
+// The verbatim UNRESOLVED disclosure tag — the THIRD state, distinct from SAME_MODEL_TAG. When a
+// judge's self-reported family can't be recognized, the run is reported as unresolved (the
+// conservative same-model trust floor still holds — no cross-model claim) rather than ASSERTED to
+// be same-model fact. Defined once so the wording cannot drift (honesty trust surface). Copied
+// byte-identical across the workflow scripts (cross-script drift pin).
+const UNRESOLVED_FAMILY_TAG =
+  "could not resolve the judge's model family on this run — no cross-model claim is made (treated as the same-model trust floor, not asserted as fact).";
+
+// The recognized model families — the ONE named source the modelFamily regex derives from (single
+// source of truth: a new family is added HERE, never in a hand-built regex). Copied byte-identical
+// across the workflow scripts (cross-script drift pin).
+const KNOWN_FAMILIES = ["fable", "opus", "sonnet", "haiku"];
+
 // The dial -> depth ladder (one map, complete for all three notches). The ALLOWED-dial set is
 // the boundary check (validateArgs); the map itself is total so depthForDial never returns
 // undefined for a valid dial.
@@ -408,22 +421,31 @@ function buildVerifierPrompt(input) {
   );
 }
 
-// The same-model disclosure decision — copied verbatim from verify.js. Returns the verbatim tag
-// when families match OR either fails to resolve; null ONLY when both resolve and differ (the
-// sole cross-model case).
+// Normalize a self-reported model family to a canonical lowercase token. First KNOWN_FAMILIES
+// match wins (the regex derives from that one named source — no second hand-built family list);
+// empty / unknown → null (conservative — an unresolved family degrades to the trust floor, never
+// to a false cross-model claim). Copied verbatim from verify.js.
 function modelFamily(report) {
   if (typeof report !== "string") {
     return null;
   }
-  const match = report.match(/(fable|opus|sonnet|haiku)/i);
+  const match = report.match(new RegExp(`(${KNOWN_FAMILIES.join("|")})`, "i"));
   return match ? match[1].toLowerCase() : null;
 }
 
+// The disclosure decision — THREE states, one rule (detection included). The distinction is
+// between a MISSING self-report (the deliberate no-report / forced-respawn floor) and a PRESENT
+// self-report that FAILED to resolve (a genuine "could not resolve the family"). Copied verbatim
+// from verify.js (see there for the full state table).
 function sameModelTag(builderFamily, judgeFamily) {
+  const judgeReported = typeof judgeFamily === "string" && judgeFamily.trim().length > 0;
+  if (!judgeReported) {
+    return SAME_MODEL_TAG; // no judge self-report at all → the conservative same-model floor
+  }
   const b = modelFamily(builderFamily);
   const j = modelFamily(judgeFamily);
   if (b === null || j === null) {
-    return SAME_MODEL_TAG;
+    return UNRESOLVED_FAMILY_TAG; // a present report could not be resolved → reported as unresolved
   }
   return b === j ? SAME_MODEL_TAG : null;
 }
@@ -482,18 +504,29 @@ function applyVerdicts(findings, results) {
 // Fold the verifier results into the run's verification summary. `crossModel` is true ONLY when
 // EVERY verifier returned a confirming self-report of a different family (sameModelTag null for
 // each AND every finding got a result) — the run claims cross-model only then; otherwise it
-// carries the verbatim same-model tag. Counts the kept verification states + the refuted drops.
+// carries the disclosure tag for WHY. The non-cross-model tag is now THREE-state: a present-but-
+// UNRESOLVED verifier family yields UNRESOLVED_FAMILY_TAG (reported unresolved, never asserted
+// same-model fact); a resolved-same (or missing-report) verifier yields SAME_MODEL_TAG. Any
+// unresolved report taints the whole run's disclosure to UNRESOLVED. Counts the kept verification
+// states + the refuted drops.
 function verificationSummary(findings, refutedCount, builderFamily) {
   let verified = 0;
   let unconfirmed = 0;
   let deferred = 0;
   let allConfirmingDifferentFamily = findings.length > 0;
+  let sawUnresolved = false;
   findings.forEach((finding) => {
     const v = finding && finding.verification ? finding.verification.state : null;
     if (v === "verified") verified += 1;
     else if (v === "unconfirmed") unconfirmed += 1;
     else deferred += 1;
     const reported = finding && finding.verifierRunningAs != null ? finding.verifierRunningAs : null;
+    // A PRESENT non-empty report that does not resolve to a KNOWN family is the unresolved case —
+    // distinct from a missing/empty report (a forced-respawn / no self-report) which stays the
+    // same-model floor (the same missing-vs-present split sameModelTag uses).
+    if (typeof reported === "string" && reported.trim().length > 0 && modelFamily(reported) === null) {
+      sawUnresolved = true;
+    }
     if (reported === null || sameModelTag(builderFamily, reported) !== null) {
       allConfirmingDifferentFamily = false;
     }
@@ -505,7 +538,7 @@ function verificationSummary(findings, refutedCount, builderFamily) {
     deferred,
     refuted: refutedCount,
     crossModel,
-    sameModelTag: crossModel ? null : SAME_MODEL_TAG,
+    sameModelTag: crossModel ? null : sawUnresolved ? UNRESOLVED_FAMILY_TAG : SAME_MODEL_TAG,
   };
 }
 
@@ -746,7 +779,9 @@ function renderRecommendation(tier1, tier2, status) {
 
 // The verification run-report line — driven by the result's verification block. Frames the dropped
 // findings as a trust signal (a COUNT, never a list). When crossModel is false the parenthetical
-// cross-model clause is REPLACED by the verbatim same-model tag (never both clauses).
+// cross-model clause is REPLACED by the disclosure tag the summary computed — the THREE-state tag
+// (SAME_MODEL_TAG for resolved-same, UNRESOLVED_FAMILY_TAG when a verifier family was unresolved),
+// so an unresolved run never reads as asserted same-model fact (never both clauses).
 function renderRunReport(verification) {
   const v = verification || {};
   const refuted = v.refuted != null ? v.refuted : 0;
@@ -755,7 +790,9 @@ function renderRunReport(verification) {
   const deferred = v.deferred != null ? v.deferred : 0;
   const judgeClause = v.crossModel
     ? "(the cross-model judge — by default a different model family than the builder)"
-    : SAME_MODEL_TAG;
+    : v.sameModelTag != null
+      ? v.sameModelTag
+      : SAME_MODEL_TAG;
   return (
     `Re-checked every finding I surfaced against the code ${judgeClause}; ` +
     `dropped ${refuted} that couldn't be confirmed — ` +
@@ -1020,6 +1057,17 @@ const verifyTasks = toVerify.map((finding) => () =>
 const verifyResults = await parallel(verifyTasks);
 
 const { kept, refutedCount } = applyVerdicts(toVerify, verifyResults);
+// Observability: a verifier self-report that is present but does not resolve to a KNOWN family is
+// LOGGED, never silently degraded — the disclosure becomes UNRESOLVED, not asserted same-model.
+for (const finding of kept) {
+  const reported = finding && finding.verifierRunningAs != null ? finding.verifierRunningAs : null;
+  if (typeof reported === "string" && reported.trim().length > 0 && modelFamily(reported) === null) {
+    log(
+      `audit: a finding-verifier self-reported an UNRECOGNIZED model family ` +
+        `(${JSON.stringify(reported)}) — reported as unresolved, no cross-model claim made.`,
+    );
+  }
+}
 const summary = verificationSummary(kept, refutedCount, input.builderFamily);
 
 // --- Assemble the structured result (the Phase-3 contract; no timestamps — the orchestrator
