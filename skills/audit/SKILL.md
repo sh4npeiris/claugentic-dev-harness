@@ -12,149 +12,144 @@ can act on.
 
 Three phases, cheap → expensive, run end-to-end in one pass:
 
-1. **Understand** *(LIVE)* — one cheap inline pass over manifests + structure to produce
-   a plain-English **"what your app is & does"** overview and an **audit-plan** (what to
-   look at, in what order, with what excluded). No fan-out.
-2. **Audit** *(LIVE)* — the expensive fan-out: `lens-reviewer`s (in **audit-scope mode**)
-   sweep the included code through the relevant standards modules at the dial's **depth**;
-   dedup, then a single uniform pipeline — **FIND → PRUNE → VERIFY → surface** —
-   **deterministically resumable** under a shared budget cap.
-3. **Backlog** *(LIVE)* — the audit findings, written as a **tiered, tagged,
-   plain-English** backlog into the `harness-audit:backlog` fence in `docs/ROADMAP.md`,
-   ending with a recommended starting point.
+1. **Understand** *(LIVE, conversational)* — one cheap inline pass over manifests + structure to
+   produce a plain-English **"what your app is & does"** overview and an **audit-plan** (what to
+   look at, in what order, with what excluded). No fan-out. *(This phase genuinely needs you —
+   it stays a conversation.)*
+2. **Audit** *(LIVE)* — **the orchestrator invokes `workflows/audit.js`** (the Workflow tool) with
+   the audit-plan as args; the script runs the FIND → PRUNE → VERIFY pipeline mechanically: a
+   `lens-reviewer` fan-out per `(module × dir)` cell at the dial's **depth**, coded dedup, a
+   synthesis self-review prune, and **exactly one `finding-verifier` per surviving finding**
+   (cross-model judge), with a deterministic budget cap + resume.
+3. **Backlog** *(LIVE)* — the script's **structured return** is rendered into the
+   `harness-audit:backlog` fence in `docs/ROADMAP.md` as a **tiered, tagged, plain-English**
+   backlog, ending with a recommended starting point.
 
-Run the full flow: Understand → Audit → Backlog. The fan-out in Phase 2 spawns
-`lens-reviewer` subagents, so **a top-level agent (the orchestrator) runs this skill** —
-subagents can't spawn subagents. Audit findings are **model-asserted, then independently
-re-checked, and human-triaged**: after the prune, a separate `finding-verifier` reads the
-cited code and **attempts to refute every surfaced finding** (all tiers) before it reaches
-the backlog (Phase 2's verify step) — an honest **reduction of false confidence**, not a
-deterministic gate. Carry each finding's confidence label honestly through synthesis (Phase 2
-step 5) — the per-item *display* is the verification tag, but lenses still emit
-`deterministic`/`judgment` and it is recorded internally; never launder a judgment call into
-apparent fact, and never fabricate a finding to fill a tier.
+**The honest formula (verbatim):** *the skill invokes the script, and the script then runs the
+fan-out, the prune, and one independent re-check per surfaced finding mechanically.* Invoking the
+script is still the model's act — what's mechanical is everything **after** the invocation.
+
+Findings are **model-asserted, then independently re-checked, and human-triaged**: after the
+prune, a separate `finding-verifier` reads the cited code and **attempts to refute every surviving
+finding** before it reaches the backlog — an honest **reduction of false confidence**, not a
+deterministic gate. The script enforces *one verifier per finding*; the model can no longer forget
+a verification, skip the prune, or silently truncate a run.
 
 ### How to use it (a periodic snapshot, not a treadmill)
 
 - **Run it periodically** — after meaningful changes, **not obsessively.** It's a snapshot
   of where the codebase stands, not a chore to keep chasing to zero.
 - **The backlog regenerates, it doesn't accumulate.** A re-run replaces the fenced backlog
-  with the *current* snapshot — it gives you today's picture, not an ever-growing pile.
+  with the *current* snapshot — today's picture, not an ever-growing pile.
 - **Tier 3 is optional** polish; **an empty Tier 1 + Tier 2 means the code is sound** on the
   audited dimensions — that's the signal to stop, not a prompt to manufacture more work.
 - **One thoroughness slider, three notches** — `quick` · `standard` · `thorough`. The **dial
   auto-sizes** to the repo (small → `quick`, larger → `standard`) and is reported up front;
-  **name a level to override.** `thorough` is **named-only** — it's never auto-picked. Every level
-  runs the *same* lenses (one is never dropped to make a level cheaper); the slider changes **how
-  deep each lens digs** (`focused` → `deep` → `exhaustive`) and, at the top notch, adds two
-  fresh-angle adversarial passes (below). Whatever the level, **every surfaced finding is
-  independently re-checked** — that floor never moves.
+  **name a level to override.** `thorough` is **named-only** — never auto-picked. The slider sets
+  **how deep each lens digs** (`focused` → `deep` → `exhaustive`) and, at the top notch, adds two
+  fresh-angle adversarial passes. Whatever the level, **every surfaced finding is independently
+  re-checked** — that floor never moves.
+
+> **Which path runs (be honest about it):** `quick` and `standard` run through `workflows/audit.js`
+> (the script). **`thorough` runs on the legacy prose path** (the *Prose-orchestrated fallback*
+> below) **until Slice 3b adds its script stages** — and the run report says so, tagged
+> "prose-orchestrated". If the **Workflow tool is unavailable** in this session, *any* level falls
+> back to the prose path, stated to you and tagged the same way. Never claim script guarantees on a
+> prose run.
 
 ---
 
-## Phase 1 — Understand  *(LIVE)*
+## Phase 1 — Understand  *(LIVE, conversational)*
 
-A single cheap, inline pass. **Budget discipline:** read **manifests, configs, entry
-points, and READMEs — not every source file.** You are building a map, not reviewing code.
+A single cheap, inline pass. **Budget discipline:** read **manifests, configs, entry points, and
+READMEs — not every source file.** You are building a map, not reviewing code.
 
 ### Output contract — what this phase produces
 
-- **(A) User-facing overview** — plain-English, **text-only** (no diagram), written
-  into the ROADMAP overview fence (see *Where the overview goes* below). For a
-  non-engineer. Sections, in order:
-  *what it is · what it does · how it's built · how it's organized ·
-  safety-net signals (tests / CI / types) · confidence & caveats.*
-  Be **honest that it's inferred from structure, not from running the app.**
-- **(B) Audit-plan** — audit-internal, handed to Phase 2; also shown to the user
-  in-conversation as the proof this phase ran. Five fields:
-  *exclude-set · prioritized directory order · monorepo / package boundaries ·
-  detected ecosystem + existing tooling · candidate standards modules.*
+- **(A) User-facing overview** — plain-English, **text-only** (no diagram), written into the
+  ROADMAP overview fence (see *Where the overview goes* below). For a non-engineer. Sections, in
+  order: *what it is · what it does · how it's built · how it's organized · safety-net signals
+  (tests / CI / types) · confidence & caveats.* Be **honest that it's inferred from structure, not
+  from running the app.**
+- **(B) Audit-plan** — audit-internal, handed to Phase 2 as the script's args; also shown to the
+  user in-conversation as the proof this phase ran. Five fields: *exclude-set · prioritized
+  directory order · monorepo / package boundaries · detected ecosystem + existing tooling ·
+  candidate standards modules.*
 
 ### The 8-step procedure
 
 Run these in order. Each step feeds the output contract above.
 
-1. **Prefer existing signal.** If `docs/ARCHITECTURE_TREE.md` exists and is current
-   (DRY with the `init` skill, which generates it), use it as the file-level map — do
-   **not** re-walk the tree. Otherwise derive structure via a **bounded `Glob` walk**
-   (top-level dirs + one or two levels in; do not enumerate excluded trees). Either
-   way, read only manifests / configs / entry points / READMEs from here on.
-   **Count-guard:** when you state a count (files, modules, packages, tests), **prefer a
-   source-of-truth** — a manifest, an index like `ARCHITECTURE_TREE.md`, or a README —
-   over counting raw files yourself; if you can only infer the number, **say so and
-   hedge** ("~N, inferred") rather than asserting a precise figure.
+1. **Prefer existing signal.** If `docs/ARCHITECTURE_TREE.md` exists and is current (DRY with the
+   `init` skill, which generates it), use it as the file-level map — do **not** re-walk the tree.
+   Otherwise derive structure via a **bounded `Glob` walk** (top-level dirs + one or two levels in;
+   do not enumerate excluded trees). Either way, read only manifests / configs / entry points /
+   READMEs from here on. **Count-guard:** when you state a count, **prefer a source-of-truth** — a
+   manifest, an index like `ARCHITECTURE_TREE.md`, or a README — over counting raw files yourself;
+   if you can only infer, **say so and hedge** ("~N, inferred") rather than asserting a precise
+   figure.
 
-2. **Detect ecosystem & tooling.** Scan the root and significant subdirs for
-   **manifests** to identify language(s), framework(s), and package manager — the
-   general rule is *"identify by manifest,"* not an exhaustive list:
-   `package.json` (Node/JS/TS), `pyproject.toml` / `requirements.txt` / `setup.py`
-   (Python), `go.mod` (Go), `Cargo.toml` (Rust), `pom.xml` / `build.gradle` (JVM),
-   `Gemfile` (Ruby), `composer.json` (PHP), `*.csproj` / `*.sln` (.NET), … . In the
-   same pass, detect **existing lint / format / type-check / test tooling** from its
-   config (eslint, prettier, `tsconfig.json`, jest / vitest / pytest / go test, …)
-   and any CI workflows (`.github/workflows`, `.gitlab-ci.yml`). This dovetails with
-   the `init` skill's compose-with-existing-tooling and tells the audit **which gates
-   already exist** so it doesn't propose redundant ones.
+2. **Detect ecosystem & tooling.** Scan the root and significant subdirs for **manifests** to
+   identify language(s), framework(s), and package manager — the general rule is *"identify by
+   manifest"*: `package.json` (Node/JS/TS), `pyproject.toml` / `requirements.txt` / `setup.py`
+   (Python), `go.mod` (Go), `Cargo.toml` (Rust), `pom.xml` / `build.gradle` (JVM), `Gemfile`
+   (Ruby), `composer.json` (PHP), `*.csproj` / `*.sln` (.NET), … . In the same pass, detect
+   **existing lint / format / type-check / test tooling** from its config and any CI workflows
+   (`.github/workflows`, `.gitlab-ci.yml`) — this tells the audit **which gates already exist** so
+   it doesn't propose redundant ones.
 
 3. **Detect monorepo / package boundaries.** Look for `workspaces` (in `package.json`),
-   `pnpm-workspace.yaml`, `lerna.json`, `nx.json`, `turbo.json`, multiple manifests in
-   different dirs, or a `packages/` · `apps/` layout. **If monorepo, enumerate the
-   packages as separate audit units** (each gets its own slice of the directory order).
+   `pnpm-workspace.yaml`, `lerna.json`, `nx.json`, `turbo.json`, multiple manifests in different
+   dirs, or a `packages/` · `apps/` layout. **If monorepo, enumerate the packages as separate
+   audit units** (each gets its own slice of the directory order).
 
-4. **Build the exclude-set.** Honor **`.gitignore` as the primary signal** (read it
-   first), augmented by well-known dirs the audit must never spend budget on:
-   - VCS: `.git`
-   - dependencies: `node_modules`, `vendor`, `.venv` / `venv`, `__pycache__`,
-     `target`, `Pods`
-   - build / output: `dist`, `build`, `.next`, `out`, `coverage`, `.turbo`
-   - generated: `*.generated.*`, `*.min.js`, codegen output
-   - lockfiles and large binary / media assets
-   - **Security (hard rule):** **never read or echo secrets** — `.env*` files, keys,
-     credentials, certificates. Exclude them from the walk and **never surface their
-     contents** in the overview or the audit-plan. If you must mention one exists, name
-     the file, not its contents.
+4. **Build the exclude-set.** Honor **`.gitignore` as the primary signal** (read it first),
+   augmented by well-known dirs the audit must never spend budget on:
+   - VCS: `.git` · dependencies: `node_modules`, `vendor`, `.venv` / `venv`, `__pycache__`,
+     `target`, `Pods` · build / output: `dist`, `build`, `.next`, `out`, `coverage`, `.turbo` ·
+     generated: `*.generated.*`, `*.min.js`, codegen output · lockfiles and large binary / media
+     assets.
+   - **Security (hard rule):** **never read or echo secrets** — `.env*` files, keys, credentials,
+     certificates. Exclude them from the walk and **never surface their contents** in the overview
+     or the audit-plan. If you must mention one exists, name the file, not its contents.
 
-5. **Identify entry points & surfaces.** From the manifests and conventions, find how
-   the app is entered: `main` / `bin` / `scripts` (Node), `[project.scripts]` /
-   `__main__.py` (Python), `func main` (Go), framework conventions (`src/index.*`,
-   `app/`, `pages/`, `cmd/`), `Dockerfile` `CMD` / `ENTRYPOINT`. Use these to classify
-   the app's **type** — CLI · web server · library · SPA · service · (or, as here, a
-   plugin / docs-and-tooling repo) — and its external surfaces.
+5. **Identify entry points & surfaces.** From the manifests and conventions, find how the app is
+   entered (`main` / `bin` / `scripts`, `[project.scripts]` / `__main__.py`, `func main`, framework
+   conventions, `Dockerfile` `CMD` / `ENTRYPOINT`). Use these to classify the app's **type** —
+   CLI · web server · library · SPA · service · (or, as here, a plugin / docs-and-tooling repo) —
+   and its external surfaces.
 
    **Application source present — the shared predicate (single source of truth).** As a named
-   output of this detection, decide whether the repo *has application source*: **true iff there
-   is ≥1 non-harness-managed source file of a detected ecosystem** (a recognized manifest is
-   present **and/or** ≥1 file matches the detected source layout), **excluding** harness-managed
+   output of this detection, decide whether the repo *has application source*: **true iff there is
+   ≥1 non-harness-managed source file of a detected ecosystem** (a recognized manifest present
+   **and/or** ≥1 file matching the detected source layout), **excluding** harness-managed
    scaffolding (anything carrying the `claugentic-dev-harness@` managed stamp — e.g. the copied
    `scripts/check_architecture_tree.py` — plus the seeded `docs/standards/`, `WORKFLOW.md`,
-   `PLAYBOOK.md`) and the exclude-set (deps / build / generated). A repo of **only** docs +
-   config + harness scaffolding is **"no application source"** (e.g. a freshly-`init`'d empty
-   repo). **`/claugentic-dev-harness:init` reuses this exact predicate** — its step-9 next-step
-   branch and its step-5 empty-repo glob decision — so do **not** author a second detector.
+   `PLAYBOOK.md`) and the exclude-set (deps / build / generated). A repo of **only** docs + config
+   + harness scaffolding is **"no application source"** (e.g. a freshly-`init`'d empty repo).
+   **`/claugentic-dev-harness:init` reuses this exact predicate** — do **not** author a second
+   detector.
 
-6. **Map dependencies (high-level).** Name only the **architecturally-significant**
-   dependencies (web frameworks, DB drivers, HTTP / auth libraries, queues) — enough to
-   say *"an Express + Postgres API,"* not every transitive dep. These **pre-select the
-   likely standards modules**: a DB driver pulls in `data-and-persistence`; an HTTP
-   server pulls in `api-and-contracts` + `security`; a UI pulls in `product-ux`.
+6. **Map dependencies (high-level).** Name only the **architecturally-significant** dependencies
+   (web frameworks, DB drivers, HTTP / auth libraries, queues) — enough to say *"an Express +
+   Postgres API,"* not every transitive dep. These **pre-select the likely standards modules**: a
+   DB driver pulls in `data-and-persistence`; an HTTP server pulls in `api-and-contracts` +
+   `security`; a UI pulls in `product-ux`.
 
-7. **Prioritized directory order.** Rank the *included* directories by likely
-   risk / value for the audit's budget spend — highest first:
-   **entry points & core domain → data / persistence → API / routes → UI →
-   config / scripts → tests last.** This is what Phase 2 walks; spend lands where bugs
-   and standards violations cluster.
+7. **Prioritized directory order.** Rank the *included* directories by likely risk / value for the
+   audit's budget spend — highest first: **entry points & core domain → data / persistence → API /
+   routes → UI → config / scripts → tests last.** This is the `scopeDirs` order Phase 2 passes the
+   script; spend lands where bugs and standards violations cluster.
 
-8. **Compose & emit — or stop if there's nothing to audit.** **Empty-repo guard (the
-   Phase 1 → Phase 2 gate):** if *Application source present* (step 5) is **false** — only
-   docs / config / harness scaffolding, or a brand-new empty repo — **stop here: do NOT write
-   an overview and do NOT enter Phase 2.** Report, in conversation (never into a fence): *"Nothing
-   to audit yet — I don't see any application code here, just documentation and config files. When
-   you're ready, just tell me what you want to build and I'll run the workflow from your first
-   feature; re-run
-   `/claugentic-dev-harness:audit` once there's code."* (An empty repo is the new-project on-ramp,
-   not an audit target — this pairs with `init`'s empty-repo next-step.) **Otherwise**, write the
-   plain-English overview **(A)** into the ROADMAP fence (replacing only the fenced content — see
-   below), and present the audit-plan **(B)** to the user as this phase's proof and Phase 2's input.
+8. **Compose & emit — or stop if there's nothing to audit.** **Empty-repo guard (the Phase 1 →
+   Phase 2 gate):** if *Application source present* (step 5) is **false** — only docs / config /
+   harness scaffolding, or a brand-new empty repo — **stop here: do NOT write an overview and do
+   NOT enter Phase 2.** Report, in conversation (never into a fence): *"Nothing to audit yet — I
+   don't see any application code here, just documentation and config files. When you're ready,
+   just tell me what you want to build and I'll run the workflow from your first feature; re-run
+   `/claugentic-dev-harness:audit` once there's code."* **Otherwise**, write the plain-English
+   overview **(A)** into the ROADMAP fence (replacing only the fenced content — see below), and
+   present the audit-plan **(B)** to the user as this phase's proof and Phase 2's input.
 
 ### Where the overview goes — the ROADMAP fence  *(load-bearing convention)*
 
@@ -167,256 +162,137 @@ Phase 1 writes the overview into `docs/ROADMAP.md`, between exact HTML-comment m
 ```
 
 Rules:
-- On **re-run, replace only the content *inside* the fence.** Everything outside it
-  is **human-owned and must never be touched** — human-added roadmap items survive
-  every regeneration.
-- If the fence is **absent**, insert it once near the top of the ROADMAP (after the
-  intro block), headed
+- On **re-run, replace only the content *inside* the fence.** Everything outside it is
+  **human-owned and must never be touched** — human-added roadmap items survive every regeneration.
+- If the fence is **absent**, insert it once near the top of the ROADMAP (after the intro block),
+  headed
   `## What this app is & does  _(generated by /claugentic-dev-harness:audit · do not edit — re-run to refresh)_`.
-- Phase 3 writes the **backlog** into a **parallel `harness-audit:backlog` fence**,
-  governed by the same replace-only-inside rule (see *The backlog fence* in Phase 3).
+- Phase 3 writes the **backlog** into a **parallel `harness-audit:backlog` fence**, governed by the
+  same replace-only-inside rule.
+
+### Set the dial (a pre-invoke step)
+
+One thoroughness slider; **named level wins, else auto-size** from Phase 1's repo sizing (structure
+/ candidate-module count / monorepo signal): a small, simple repo → `quick`; a larger repo, many
+candidate modules, or a monorepo → `standard`. Keep this a **rough size/complexity judgment** — do
+not author a scoring formula. **`thorough` is never auto-picked — named-only.** **Always report the
+chosen level up front** so the user can steer — e.g. *"Auto-selected `quick` — small repo; say
+`standard` or `thorough` to override"* (or *"Using `thorough` as you asked"*).
+
+The dial is the **one lever**: it sets the `depth` each lens reads at (`focused` → `deep` →
+`exhaustive`). All relevant lenses run at every level — depth, never lens-count, is the lever.
+`thorough` *additionally* runs a cross-cutting blind-spot sweep and an independent adversarial
+prune — but those stages live on the prose path until Slice 3b (see the path note above).
 
 ---
 
-## Phase 2 — Audit  *(LIVE)*
+## Phase 2 — Audit  *(LIVE — invoke the script)*
 
-The expensive pass: fan out `lens-reviewer`s over the *included* code and synthesize
-their findings. **You (the orchestrator) run this** — Phase 2 spawns subagents, and
-subagents can't spawn subagents.
+**You (the orchestrator) run this** — the script's fan-out spawns subagents, and subagents can't
+spawn subagents. For `quick`/`standard` with the Workflow tool available, **invoke the script**;
+otherwise take the *Prose-orchestrated fallback*.
 
-The whole pass is **deterministically bounded and resumable**: work is a finite set of
-discrete `(module × dir)` cells **audited once each** (no re-sweep), the status block tracks
-which are `done` vs `pending` (so a re-run continues, never restarts), and the single shared
-`max-cells-per-run` cap in step 8 **guarantees termination.**
+### Invoke `workflows/audit.js`
 
-Every level runs the **same uniform pipeline — FIND → PRUNE → VERIFY → surface.** The level is
-**one thoroughness slider** and each stage *responds* to it (step 1): **FIND** digs deeper per lens
-(`focused` → `deep` → `exhaustive`) and, at the top, *also* steps back for a cross-cutting
-**blind-spot sweep**; **PRUNE** changes *who* cuts (synthesis self-review → an **independent
-skeptic** at the top); **VERIFY is flat at every notch** — every surfaced finding is re-checked,
-even on `quick` (the honesty floor). All relevant lenses run at every level — a lens is **never**
-dropped to make a level cheaper.
+Call the Workflow tool with:
 
-### The 9-step procedure
+- **`scriptPath`** = `${CLAUDE_PLUGIN_ROOT}/workflows/audit.js` (the version-stamped plugin install
+  path — read-from-install-path, never copied to an adopter). **When dogfooding *this* repo**, use
+  the repo-local `./workflows/audit.js` (the working tree *is* the plugin source).
+- **`args`** mapped from the audit-plan (Phase 1):
+  - `dial` — the chosen level (`quick` | `standard`; **`thorough` is rejected by the script** — it
+    routes to the prose path).
+  - `modules` — the candidate standards-module **names** (e.g. `["security","testing"]`; the script
+    maps each to `docs/standards/<name>.md`). **No clearly-relevant module?** fall back to the
+    baseline lenses — `docs-traceability` + `maintainability-structure` — and **say so in the
+    report**. Never audit nothing.
+  - `scopeDirs` — the prioritized directory order (step 7).
+  - `excludeSet` — the exclude-set (step 4); secrets are never passed or read.
+  - `maxCellsPerRun` — the single deterministic cap (one integer ceiling on cells per run; sized to
+    stay within your synthesis context for the repo — it bounds cost/time and enables `PARTIAL`/
+    resume, not any single subagent's context).
+  - `doneCells` — **on a resume run**, parse the existing backlog fence's status block (Phase 3)
+    and pass its `done-cells` list; `[]` on a fresh run. The script never re-sweeps a done cell.
+  - `deferredFindings` — prior-run findings carrying the `deferred` (`⚠ not yet verified`) tag, fed
+    straight to VERIFY for re-checking. Findings already carrying a *resolved* verdict tag
+    (`verified` / `unconfirmed`) are **not** re-passed — their verdicts persist in the fence.
+  - `builderFamily` — your (the orchestrator's) model family, for the same-model tag.
 
-1. **Set the dial — one thoroughness slider; named level wins, else auto-size from Phase 1.** The
-   skill is invoked in natural language, not with typed flags. First read the invocation for a
-   **named** level — **`quick`**, **`standard`**, or **`thorough`** (e.g. "audit quick", "do a
-   standard audit", "run a thorough audit"). **A named level always wins.** If none is named,
-   **auto-pick from Phase 1's repo sizing** (the audit-plan's structure / candidate-module count /
-   monorepo signal): a **small, simple repo → `quick`**; a **larger repo, many candidate modules,
-   or a monorepo → `standard`.** Keep this a **rough size/complexity judgment** from the Understand
-   phase — do not author a precise scoring formula. **`thorough` is never auto-picked — it is
-   named-only** (it costs more by design; the user opts in). **Always report the chosen level up
-   front** so the user can steer — e.g. *"Auto-selected `quick` — small repo; say `standard` or
-   `thorough` to override"* (or *"Using `thorough` as you asked"* when named).
+**Tell the user first, in plain English** (so a multi-minute pass isn't a silent stall): *"This can
+take several minutes on a larger repo — I'm reading the code through several quality lenses in
+parallel."* What the script then runs mechanically: **FIND** (one `lens-reviewer` per module batch
+at `depthForDial(dial)`), **PRUNE** (coded dedup → a synthesis self-review agent → cut-list, with
+the `missing-test-baseline` item **never** pruned), **VERIFY** (exactly one `finding-verifier` per
+surviving finding, cross-model judge-pinned, clean-context input — never the finder's rationale).
+A lens batch that errors after one retry sends its cells to `pending` (the run goes `PARTIAL` —
+never a silent skip); the cap forces `PARTIAL` with exact `done`/`pending` cell lists for a
+deterministic resume.
 
-   **It is ONE slider, and each pipeline stage responds to it — not three separate pipelines.**
-   The same FIND → PRUNE → VERIFY runs at every notch; turning the slider up changes how each stage
-   behaves:
-   - **FIND responds by depth** — the level sets the **`depth`** each `lens-reviewer` reads at
-     (passed in step 4): `focused` → `deep` → `exhaustive`. **All relevant lenses run at every
-     level** — depth, never lens-count, is the lever. **At the top notch, FIND also steps back**
-     for a cross-cutting **blind-spot sweep** (a `blindspot-reviewer` over the whole scope — see
-     step 4): that sweep *is what FIND looks like at max*, not a bolt-on.
-   - **PRUNE responds by who cuts** — `quick`/`standard` right-size in synthesis (self-review);
-     `thorough` *additionally* runs an **independent skeptic** (`yagni-sentinel`) over the
-     consolidated findings in PRUNE (step 6), before VERIFY (step 7). The adversarial prune *is what
-     PRUNE looks like at max.*
-   - **VERIFY is flat — the honesty floor.** Every surfaced finding is independently re-checked at
-     **every** notch, even `quick` (step 7). The slider never weakens this.
+### The structured return (what Phase 3 renders)
 
-   | stage | `quick` | `standard` | `thorough` (named-only) |
-   |---|---|---|---|
-   | **lenses** | all relevant | all relevant | all relevant |
-   | **FIND — depth per lens** | **`focused`** (clear gaps from a direct read) | **`deep`** (call-chains, edge cases, subtle issues) | **`exhaustive`** (`deep` + self-skeptical, every ambiguous lead) |
-   | **FIND — blind-spot sweep** | — | — | ✓ `blindspot-reviewer` over the scope |
-   | **PRUNE (YAGNI)** | synthesis right-size | synthesis right-size | **+ adversarial `yagni-sentinel` sweep** |
-   | **VERIFY (refute, all tiers)** | attempt on **all surfaced** | attempt on **all surfaced** | attempt on **all surfaced** |
-   | **budget** | one shared backstop cap + resume | same | same |
+```
+{ status, level, depth, doneCells, pendingCells,
+  items: [{ findingKey, modules, tier, tag, titlePlain, claimTechnical, locations,
+            whyPlain, impactEffort, confidence, verification: {state, evidence, plainLine} }],
+  refutedCount,
+  verification: { verified, unconfirmed, deferred, refuted, crossModel, sameModelTag } }
+```
 
-   `quick` and `standard` differ **only** by depth: `quick` shows the clear issues fast, `standard`
-   digs for the subtle ones; they converge only on a small/clean repo (fine — the auto-dial picks
-   `quick` there). `thorough` is `standard`'s deep pass taken to **`exhaustive`** depth **plus** the
-   two adversarial passes (the blind-spot sweep + the independent prune) — the genuine
-   *second-angle* look, opt-in by name.
+- `verification.state` per item is one of `verified` · `unconfirmed` · `deferred` — never a silent
+  "checked". Refuted findings are **dropped** (their only trace is `refutedCount`); no timestamps
+  anywhere (the orchestrator stamps the date when it renders).
+- `verification.crossModel` is true **only** when every verifier returned a confirming
+  different-family self-report; otherwise `verification.sameModelTag` carries the verbatim tag.
 
-   **Where depth saves (be honest).** Each lens already targets its reads through
-   `ARCHITECTURE_TREE.md` (it doesn't re-walk the whole repo), so depth trims the *variable* cost —
-   call-chain chasing across files plus reasoning, not the base read. So `quick` is genuinely
-   lighter, but its biggest wins are on **small repos** (where it's auto-picked) and on **triage
-   noise** (fewer, clearer findings) — **not** a dramatic token cut on a big repo. Don't sell
-   `quick` as "much cheaper everywhere."
+### Prose-orchestrated fallback  *(Workflow tool unavailable, OR `dial = thorough` until Slice 3b)*
 
-2. **Load the audit-plan from Phase 1.** Take the four fields Phase 1 emitted:
-   **exclude-set · prioritized directory order · monorepo / package boundaries ·
-   candidate standards modules.** (If Phase 1 didn't run this session, run it first —
-   the audit needs its plan.) **No clearly-relevant module?** If the repo matches no
-   standards module strongly (e.g. a pile of shell scripts), **fall back to the baseline
-   lenses — `docs-traceability` + `maintainability-structure`** — and **say so in the
-   report** ("no strongly-matched module; audited against the baseline lenses"). Never
-   audit nothing.
+State to the user which trigger applies, run the legacy 9-step pipeline below by hand, and **tag
+the conversational run report "prose-orchestrated"** — never claim the script's mechanical
+guarantees on a prose run. The pipeline (each agent's full contract is in its `.claude/agents/`
+file — read it there):
 
-3. **Enumerate work as `(module × dir-or-package)` cells** — the deterministic unit of
-   the whole pass. For each candidate module, pair it with each in-scope directory (or,
-   for a **monorepo, each package**) it should cover, in the prioritized order. This
-   finite cell set is what the budget cap counts, what the fan-out audits once each, and what
-   the status block tracks.
-   - **On a resume run:** read the **status block** at the top of the existing backlog
-     fence (see Phase 3). Take the **`pending`** cells and continue from there; **never
-     redo a `done` cell.** If the backlog has no status block (or it says `COMPLETE`),
-     this is a fresh full run — enumerate all cells.
-
-4. **Fan out lenses — one look per cell (delegation = the primary budget defense).** **Tell
-   the user first, in plain English** (so a multi-minute pass isn't a silent stall): *"This can
-   take several minutes on a larger repo — I'm reading the code through several quality lenses in
-   parallel."* Group cells into **batches by module** (one module over its scoped dirs/packages)
-   and spawn a **`lens-reviewer` subagent in audit-scope mode** per batch, **in parallel**. Each
-   cell is audited **exactly once** — there is no re-sweep. Pass each subagent: its **module**,
-   the **scoped dir/package list** for that batch, the **exclude-set**, and the dial's **`depth`**
-   (`focused` for `quick`, `deep` for `standard`, `exhaustive` for `thorough` — see step 1; the
-   contract is in `.claude/agents/lens-reviewer.md`). Each returns a **per-dimension digest**
-   (met/gap + `file:line` + confidence + a plain-English line). Cell granularity keeps each
-   subagent's read-set small, so the fan-out stays in-budget even on a big repo. **As batches
-   complete, emit at most one light "still working" beat naming cells already *done*** (e.g. *"swept
-   the API routes…"*) — report **completed** work, **never an ETA or a "nearly finished"** (a budget
-   checkpoint can land `PARTIAL` at any point — see step 8). These beats are **conversational only
-   — never written into a fence.**
-
-   - **`thorough` only — also spawn the blind-spot sweep (FIND's top-notch step-back).** Alongside
-     the per-module `lens-reviewer` fan-out, spawn **one `blindspot-reviewer` over the whole audited
-     scope** (the included dirs/packages + the exclude-set), **in parallel** with the lenses. Where
-     each lens owns exactly one module, this sweep hunts the cross-cutting / between-the-modules risk
-     **no single lens owns** — emergent architectural smells, integration gaps at the seams,
-     inconsistently-applied cross-cutting concerns, systemic issues. It always reads at
-     `exhaustive` depth (its contract is in `.claude/agents/blindspot-reviewer.md`) and returns the
-     **same per-finding shape** as a lens (gap + `file:line` + confidence + a plain-English line), so
-     its findings join the **same** dedup → prune → verify path with no special handling. It **FINDS
-     only** — it does not verify; its findings are re-checked by `finding-verifier` like any other.
-     On `quick`/`standard` there is **no** blind-spot sweep.
-
-5. **Dedup + synthesize.** Combine the lenses' returns into one consolidated set. Key dedup
-   on **issue-class** (the *kind* of problem — e.g.
-   "missing-input-validation"), **not** on file·location alone — so two **distinct** issues
-   at the *same* spot (say a security gap and a perf gap on the same lines) are **kept
-   separate**, and only same-class findings merge. **Roll up systemic cross-file
-   duplicates:** when one issue-class recurs across many files, collapse them into **one
-   backlog item that lists the locations** ("recurs in N files: …") rather than N noisy
-   items or one item that hides the spread. **Carry each finding's confidence label**
-   (`deterministic` vs `judgment` / verified-vs-asserted) **through synthesis unchanged**
-   — synthesis must not upgrade a judgment call into apparent fact.
-   **Citation-guard:** before any finding's `file:line` enters the backlog, **re-confirm it
-   against the actual file** — never carry a line number you haven't re-verified. The
-   backlog's whole value is that its cited locations are trustworthy (the same discipline
-   as the Phase-1 count-guard).
-
-6. **PRUNE — YAGNI right-size the consolidated set (who cuts responds to the dial).** Over the
-   consolidated findings, do one right-sizing pass — the harness's own YAGNI applied to its own
-   output: **keep only findings with real impact; cut marginal "nice-to-haves" that don't earn
-   their keep; never manufacture a finding to fill a tier.** A sound codebase legitimately yields
-   few or no items — a valid, expected result.
-   - **`quick`/`standard` — synthesis self-review.** This is a synthesis discipline, *not* a
-     fan-out: the orchestrator right-sizes the consolidated set itself (no extra subagents).
-   - **`thorough` only — additionally spawn the adversarial `yagni-sentinel` prune (PRUNE's
-     top-notch).** On `thorough`, *after* the synthesis self-review, also spawn **one
-     `yagni-sentinel`** over the consolidated findings — a real fan-out, the **independent skeptic**
-     that argues the set down from a clean context. Apply its cut-list as a second, adversarial
-     right-size before verify. This is *what PRUNE looks like at max*, not a bolt-on; on
-     `quick`/`standard` there is no such sweep.
-
-   The prune runs **before** VERIFY so the set re-checked in step 7 is already right-sized.
-   (Exception: never prune the Tier-1 "establish a test baseline" item for untested
-   behavior-bearing code — see step 8.)
-
-7. **VERIFY — attempt to re-check every surfaced finding (all tiers, every level).** After the
-   prune, for **every** finding that will be surfaced — all tiers, on `quick` and `standard`
-   alike — spawn a **`finding-verifier`** to **try to refute** it against the code, **with the
-   `fable` model override** (a different model family than the builder — the cross-model judge; the
-   mechanism, the self-report comparison, the verbatim same-model tag, and the on-error
-   respawn+tag all live in **`docs/WORKFLOW.md` → Principles → "Convene the panel's judge roles
-   with the `fable` model override"** — read it there; do not restate it). **Tier and scope no
-   longer gate which findings are re-checked:** the set has already survived the prune, so
-   re-checking all of it is the simplest, most honest rule. This is an **attempt to refute and tag
-   the outcome** — an honest reduction of false confidence, **not** a mechanical guarantee; never
-   present an unconfirmed claim as fact.
-   - **Independence is enforced by the input contract.** Pass each verifier **only**
-     `{claim (plain + technical), file:line, source module, confidence label, exclude-set}` and
-     the refute-first posture — **never** the finder's transcript or rationale, and **never** let
-     a lens verify its own finding (route it to a verifier seeded from a clean context). With a
-     clean-context subagent given just the claim + location, independence is *structural* (a
-     separate, accurate claim about **context isolation** — not model-family independence; the
-     `fable` override above is what reduces shared-blind-spot risk). (See
-     `.claude/agents/finding-verifier.md`.) **You (the orchestrator) spawn these directly** —
-     they are not nested under the `lens-reviewer`s. Fan them out **in parallel.**
-   - **Compare each verifier's `RUNNING AS:` self-report to the builder family and tag a
-     same-model run** per the WORKFLOW bullet — carry that tag into the run-report line (step 9).
-   - **Apply the verdicts:**
-     - **Refuted** → **drop** the finding from the backlog (it was a false positive); record it
-       for the run report (step 9's report line). Refuted findings are **not** persisted durably
-       (regenerate-don't-accumulate — see step 5 / Phase 3); their only trace is the run report.
-     - **Verified** → **keep** + attach the verifier's **proof snippet** (`file:line`); tag it
-       inline `(checked against the code)` in Phase 3.
-     - **Unconfirmed** → **keep** + **flag** it inline `(could not confirm independently —
-       model's assertion)` in Phase 3 — never silently presented as fact.
-   - **Budget — verification draws from the shared `max-cells-per-run` cap** (see step 8), **not**
-     a separate uncapped burst. The prune-first order keeps the set small, so re-checking all of
-     it is cheap; verifiers fan out in parallel and scale with *findings* (post-prune), not files.
-     If the budget is **exhausted** before a finding can be re-checked, mark it **`deferred`**:
-     write the finding with an explicit **"⚠ not yet verified — re-run to confirm"** flag and list
-     it in `pending-cells`. A finding's representable verification states are
-     `verified` · `unconfirmed` · `deferred` — never silently presented as checked.
-   - **Persistence + resume.** A verdict **persists in the backlog fence alongside its finding**
-     (its inline tag *is* the persisted verdict). On a **resume** run a finding already carrying
-     a verdict is **not re-verified**, and `done` cells are not re-swept — so refuted findings
-     don't reappear and there is no needless re-verify cost. (A fresh re-run regenerates the
-     backlog from scratch, so it may legitimately re-find and re-refute — an accepted cost.)
-
-8. **Budget checkpoint = deterministic (no "sensing context").** Each **run** has a single
-   shared **max-cells-per-run cap** — one hard integer ceiling on how many cells one run audits
-   (no per-level cap and no directory-limiting; the prioritized order is only the **order budget
-   is spent in**, so the highest-value cells go first). The cap rarely fires; it exists to bound
-   the run's cost/time, keep the orchestrator's synthesis within its own context, and enable
-   `PARTIAL`/resume — **not** to bound any single subagent's context (each has its own). Size it
-   to stay comfortably within the orchestrator's synthesis context for the repo. **When the cap
-   is hit — or cells remain `pending` — checkpoint:**
-   - write the **partial backlog** of what was found so far (Phase 3),
-   - set the status block to **`PARTIAL`** with the explicit **`done`** and **`pending`**
-     cell lists,
-   - **stop, and tell the user to re-run** to continue (the re-run resumes from
-     `pending`). **Frame it reassuringly in conversation** (not in a fence): *"I audited the
-     highest-priority areas and saved that backlog; there's more to sweep, so re-run
-     `/claugentic-dev-harness:audit` to continue where I left off. A partial pass is normal on a big
-     repo — not an error."*
-   **Never silently truncate** — a partial run must always say it's partial and record
-   where it stopped. **Test-baseline guarantee:** even on a `PARTIAL` run, the Tier-1
-   "establish a test baseline" item **still emits** for any **untested behavior-bearing
-   code seen in the covered (`done`) cells** — a partial audit must never green-light an
-   unguarded refactor.
-
-9. **Author the backlog** (Phase 3) into the `harness-audit:backlog` fence, **recommend a
-   starting point**, and **report the dial level + coverage** to the user (which cells
-   ran, `COMPLETE` or `PARTIAL`, and — if any — which modules fell back to baseline). **When
-   Tier 1 + Tier 2 both come back empty, surface the Phase-3 "Sound on the audited dimensions"
-   terminal signal in this conversational report** (reuse that exact phrasing — don't restate it
-   loosely) so an empty result reads as the success it is, scoped to the covered cells on a
-   `PARTIAL` run. Include the **verification run-report line** for the findings re-checked in
-   step 7 — frame the dropped ones as a **trust signal that the check bit**, reported as a
-   **count, not a list**: *"Re-checked every finding I surfaced against the code (the cross-model
-   judge — by default a different model family than the builder); dropped M that couldn't be
-   confirmed — verified N · unconfirmed K · deferred J."* **When the verifiers ran same-model** (the
-   `RUNNING AS:` self-report matched the builder family — the override fell back or was unavailable),
-   **replace** the parenthetical with the verbatim tag — never emit both clauses: *"same-model review
-   on this run — the judge and the builder are the same model family here."* **Do not list the specific refuted claims** (that invites re-litigating dropped
-   noise) and **do not persist them** — a count in the run report is the only trace a refuted
-   finding leaves, since refuted findings aren't persisted.
+1. **Set the dial** (above) — depth per lens; at `thorough`, also the blind-spot sweep + the
+   adversarial prune.
+2. **Load the audit-plan** from Phase 1.
+3. **Enumerate `(module × dir-or-package)` cells** — the deterministic unit; on resume, read the
+   status block and continue from `pending`, never redoing a `done` cell.
+4. **Fan out lenses — one look per cell.** One `lens-reviewer` (audit-scope mode) per module batch,
+   in parallel, passed its module + scoped dirs + exclude-set + the dial's `depth`
+   (`.claude/agents/lens-reviewer.md`). *(thorough only:* also one `blindspot-reviewer` over the
+   whole scope at `exhaustive` — it FINDS only; its findings join the same dedup → prune → verify
+   path. `.claude/agents/blindspot-reviewer.md`.)
+5. **Dedup + synthesize.** Key dedup on **issue-class**, not file·location alone; roll up systemic
+   cross-file duplicates into one "recurs in N files" item; carry each finding's confidence label
+   unchanged. **Citation-guard:** re-confirm every `file:line` against the actual file first.
+6. **PRUNE — YAGNI right-size** the consolidated set (keep real impact; cut nice-to-haves; never
+   manufacture a finding to fill a tier). *(thorough only:* additionally spawn one `yagni-sentinel`
+   over the set — the independent skeptic — and apply its cut-list. `.claude/agents/yagni-sentinel.md`.)
+   **Exception: never prune the Tier-1 "establish a test baseline" item.**
+7. **VERIFY — re-check every surfaced finding** (all tiers, every level). Spawn one
+   `finding-verifier` per finding **with the `fable` model override** (the cross-model judge — the
+   mechanism, the self-report comparison, the verbatim same-model tag, and the on-error respawn+tag
+   live in `docs/WORKFLOW.md` → Principles → *"Convene the panel's judge roles with the `fable`
+   model override"* — read it there). Pass each verifier **only** `{claim (plain + technical),
+   file:line, source module, confidence label, exclude-set}` and the refute-first posture — never
+   the finder's rationale, never a lens verifying its own finding (`.claude/agents/finding-verifier.md`).
+   Apply verdicts exactly as the script does (the *Item format* in Phase 3 is the verdict→tag map):
+   **Refuted** → drop (count it, don't persist) · **Verified** / **Unconfirmed** → keep with the
+   matching tag · **budget-exhausted** → `deferred` and list in `pending-cells`.
+8. **Budget checkpoint** — one shared `max-cells-per-run` cap; on a hit (or cells `pending`),
+   checkpoint `PARTIAL` with explicit `done`/`pending` lists and **tell the user to re-run**.
+   **Never silently truncate.** Even on `PARTIAL`, the Tier-1 test-baseline item still emits for
+   untested behavior-bearing code seen in the covered cells.
+9. **Author the backlog** (Phase 3) and **report the dial level + coverage** + the run-report line.
 
 ---
 
-## Phase 3 — Backlog  *(LIVE)*
+## Phase 3 — Backlog  *(LIVE — render the structured return)*
 
-Write the synthesized findings as a **tiered, tagged, plain-English** backlog a
-non-engineer can act on. The backlog is the deliverable; each item is **pipeline-ready**
-— enough that the user picks one and the existing workflow (Discuss → … → Land) runs it.
+Render the script's structured return (or, on the prose path, the synthesized findings) as a
+**tiered, tagged, plain-English** backlog a non-engineer can act on. Each item is **pipeline-ready**
+— enough that the user picks one and the existing workflow (Discuss → … → Land) runs it. **For this
+slice the format rules below are the source of truth** (Slice 3b moves the rendering into a
+unit-tested script helper).
 
 ### The backlog fence  *(load-bearing convention — mirrors the overview fence)*
 
@@ -428,122 +304,120 @@ The backlog lives in `docs/ROADMAP.md` between exact HTML-comment markers:
 <!-- harness-audit:backlog:end -->
 ```
 
-Same rules as the overview fence: **replace only the content *inside* the fence** on a
-re-run; everything outside is **human-owned and never touched** (human-added roadmap
-items and the `## Later` section survive every regeneration). If the fence is **absent**,
-insert it once (below the overview fence), headed
+Same rules as the overview fence: **replace only the content *inside* the fence** on a re-run;
+everything outside is **human-owned and never touched** (human-added roadmap items and the
+`## Later` section survive every regeneration). If the fence is **absent**, insert it once (below
+the overview fence), headed
 `## Backlog — the work worth doing  _(generated by /claugentic-dev-harness:audit · do not edit — re-run to refresh)_`.
 
 ### Status block  *(first thing inside the fence — what makes resume deterministic)*
 
-A single line at the very top of the fence:
+A single line at the very top of the fence, built from the return's `status` / `level` /
+`doneCells` / `pendingCells` (the date is **stamped by you**, the orchestrator, after the run — the
+script carries no clock):
 
 ```
 status: COMPLETE | PARTIAL · level: quick|standard|thorough · done-cells: [module×dir, …] · pending-cells: [module×dir, …] · date: YYYY-MM-DD
 ```
 
-- **`status`** — `COMPLETE` if every enumerated cell was audited; `PARTIAL` if the run
-  checkpointed with cells still `pending`.
-- **`done-cells` / `pending-cells`** — the explicit `(module × dir-or-package)` lists.
-  **These are the resume contract:** a re-run reads them, treats `done-cells` as finished,
-  and sweeps only `pending-cells` (Phase 2 step 3). On a `COMPLETE` run, `pending-cells`
-  is empty. Keep the lists concrete — `done: 3 dirs` is not enough to resume from.
+- **`status`** — `COMPLETE` if every enumerated cell was audited; `PARTIAL` if the run checkpointed
+  with cells still `pending`.
+- **`done-cells` / `pending-cells`** — the explicit `(module × dir-or-package)` lists from the
+  return, **verbatim `cellKey` tokens**. **These are the resume contract:** a re-run reads them,
+  treats `done-cells` as finished, and sweeps only `pending-cells`. Keep the lists concrete —
+  `done: 3 dirs` is not enough to resume from.
 
 ### "How to read this" legend  *(2 lines, just below the status block)*
 
-Immediately under the status line — still **inside the fence**, before Tier 1 — write a
-**short 2-line legend** so a non-engineer can read the tags without a glossary. Keep it to
-**2 lines, not a wall** — one short phrase per tag, then the verification phrases on a single
-line. **Because every item now carries a verification tag, the verification line is the
-most-read trust statement on the backlog — so it MUST carry the not-a-guarantee caveat:**
+Immediately under the status line — still **inside the fence**, before Tier 1 — write a **short
+2-line legend** so a non-engineer can read the tags without a glossary. Keep it to **2 lines** —
+one short phrase per tag, then the verification phrases on a single line. Because every item now
+carries a verification tag, the verification line is the **most-read trust statement** — so it MUST
+carry the not-a-guarantee caveat:
 
 - **Line 1 (tags):** `refactor` = tidy without changing behavior · `capability-upgrade` =
-  add/upgrade a technology · `dependency-health` = update/patch dependencies · `bug` = fix
-  wrong behavior · `feature` = new behavior.
-- **Line 2 (verification — one line, caveat included):** `(checked against the code)` = a
-  separate agent re-read the code and couldn't refute it · `(could not confirm independently —
-  model's assertion)` = still just the model's claim · `(⚠ not yet verified — re-run to confirm)`
-  = budget ran out before checking — **a re-check by a different model family than the builder (the
+  add/upgrade a technology · `dependency-health` = update/patch dependencies · `bug` = fix wrong
+  behavior · `feature` = new behavior.
+- **Line 2 (verification — one line, caveat included):** `(checked against the code)` = a separate
+  agent re-read the code and couldn't refute it · `(could not confirm independently — model's
+  assertion)` = still just the model's claim · `(⚠ not yet verified — re-run to confirm)` = budget
+  ran out before checking — **a re-check by a different model family than the builder (the
   cross-model judge; on a same-family run, tagged as such) — a reduction of shared-blind-spot risk,
   not a mechanical guarantee.**
 
-(Author it in plain prose on those two lines — the bullets above are the *content*, not the
-required layout. Don't expand it into a section; the inline tags stay self-explanatory.)
-
 ### Tiers (most urgent first)
 
-- **Tier 1 — critical:** correctness · security · data-loss. **Untested behavior-bearing
-  code → "establish a test baseline" is Tier-1 item #1** (it gates any later refactor —
-  see the tag→discipline note). This item emits even on a `PARTIAL` run.
+- **Tier 1 — critical:** correctness · security · data-loss. **Untested behavior-bearing code →
+  "establish a test baseline" is Tier-1 item #1** (it gates any later refactor — see tag→discipline).
+  This item emits even on a `PARTIAL` run (the script protects its `missing-test-baseline` key from
+  the prune).
 - **Tier 2 — important:** maintainability · missing tests · performance.
 - **Tier 3 — polish:** docs · style · cleanup.
 
-**Architecturally-sound terminal signal.** When **Tier 1 and Tier 2 both come back empty**
-(only Tier-3 polish, or nothing at all), the backlog must **say so plainly** rather than
-leave the user guessing — it is the explicit "stop" signal. State it in the status area /
-Recommended-starting-point, e.g.: *"Sound on the audited dimensions — what remains is
-optional polish; you don't need to keep re-auditing."* (On a `COMPLETE` run this is a
-genuine all-clear; on a `PARTIAL` run, scope it to the covered cells.) This pairs with the
-step-6 YAGNI prune: a clean codebase legitimately produces few or no items, and that is a
-*result*, not a gap to fill.
+Map each return `item` to its tier by `item.tier`; order tiers most-urgent-first.
+
+**Architecturally-sound terminal signal.** When **Tier 1 and Tier 2 both come back empty** (only
+Tier-3 polish, or nothing at all), the backlog must **say so plainly** — the explicit "stop"
+signal. State it in the Recommended-starting-point, e.g.: *"Sound on the audited dimensions — what
+remains is optional polish; you don't need to keep re-auditing."* (On a `COMPLETE` run this is a
+genuine all-clear; on a `PARTIAL` run, scope it to the covered cells.)
 
 ### Item format (every item)
 
-- **Title** — a short, plain action ("Add input validation to the request handlers").
-- **Tag** — exactly one of: **`refactor`** (behavior-preserving cleanup) · **`capability-upgrade`**
-  (introduce/upgrade a technology) · **`dependency-health`** (update/patch deps) ·
-  **`bug`** (fix incorrect behavior) · **`feature`** (new behavior). The tag selects the
-  discipline when the item runs (see below).
-- **Dual-layer** — (1) the **technical finding** with `file:line` (for a systemic item,
-  list the locations / "recurs in N files"); then (2) **one plain-English line** —
-  *why it matters / how bad it is / what could break.*
-- **Impact + rough effort** — plain-English ("medium impact; ~half a day"), so the user
-  can prioritize.
-- **Verification — one tag per item, in plain English.** Every surfaced finding is re-checked
-  in Phase 2 step 7, so **every item carries exactly one inline verification tag** — the
-  outcome of the attempt to refute it:
-  - `(checked against the code)` — a `finding-verifier` re-read the code and couldn't refute it
-    (proof snippet attached to the technical finding).
-  - `(could not confirm independently — model's assertion)` — the verifier returned
-    `Unconfirmed`; kept, but honestly flagged as still just the model's claim.
-  - `(⚠ not yet verified — re-run to confirm)` — `deferred`: budget ran out before it could be
-    checked (it sits in `pending-cells`; a re-run re-checks it).
+For each return `item`:
+- **Title** — `item.titlePlain` (a short, plain action).
+- **Tag** — exactly one of `refactor` · `capability-upgrade` · `dependency-health` · `bug` ·
+  `feature` (`item.tag`). The tag selects the discipline when the item runs (below).
+- **Dual-layer** — (1) the **technical finding** `item.claimTechnical` with `item.locations` (for a
+  systemic item, "recurs in N files: …"); then (2) **one plain-English line** `item.whyPlain` —
+  *why it matters / how bad / what could break.*
+- **Impact + rough effort** — `item.impactEffort` (plain-English, so the user can prioritize).
+- **Verification — exactly one inline tag per item**, from `item.verification.state`:
+  - `verified` → `(checked against the code)` — proof snippet (`item.verification.evidence`)
+    attached to the technical finding.
+  - `unconfirmed` → `(could not confirm independently — model's assertion)`.
+  - `deferred` → `(⚠ not yet verified — re-run to confirm)` (it sits in `pending-cells`; a re-run
+    re-checks it).
 
-  There is **no badge/legend system** beyond this single inline phrase, and **no verified-scope
-  vs out-of-scope split** — universal re-checking makes the verification tag the one trust
-  signal, so it is shown on every item and the per-finding `deterministic`/`judgment` confidence
-  label is **no longer shown per item** (lenses still emit it, and it is recorded internally for
-  the future Trust track). Findings the verifier **Refuted** are dropped entirely (they never
-  appear here; their only trace is step 9's run-report line). Be honest: a verification tag is a
-  *reduction of false confidence*, not a deterministic guarantee — never overstate it.
+  There is **no badge/legend system** beyond this single inline phrase, and the per-finding
+  `deterministic`/`judgment` confidence label is **not shown per item** (`item.confidence` is
+  carried internally only). Findings the verifier **Refuted** are dropped entirely — their only
+  trace is the run-report count below. A verification tag is a *reduction of false confidence*, not
+  a deterministic guarantee — never overstate it.
 
-### Tag → discipline  *(the tag→discipline mapping in `docs/WORKFLOW.md` — enforcement is not yet automated)*
+### Tag → discipline  *(the mapping lives in `docs/WORKFLOW.md` — enforcement is not yet automated)*
 
-When the user later runs a backlog item through the pipeline, its **tag selects the
-discipline** — the full mapping lives once in **`docs/WORKFLOW.md`** (→ *Executing an
-audit backlog item — tag → discipline*). The one part you must reflect when **authoring**
-the backlog: a **`refactor`** on untested behavior-bearing code is
-**characterization-tests-first — it cannot start until its Tier-1 "establish a test
-baseline" item is done.** Today that precondition is enforced by **the implementer
-stopping and asking**; the durable `PreToolUse` hook **does not exist yet** (the first
-Trust-track item, next phase) — so be honest in the backlog and **do not imply the hook
-(or any automatic gate) already exists.**
+When the user later runs a backlog item through the pipeline, its **tag selects the discipline** —
+the full mapping lives once in **`docs/WORKFLOW.md`** (→ *Executing an audit backlog item — tag →
+discipline*). The one part to reflect when **authoring**: a **`refactor`** on untested
+behavior-bearing code is **characterization-tests-first — it cannot start until its Tier-1
+"establish a test baseline" item is done.** Today that precondition is upheld by **the implementer
+stopping and asking**; the durable `PreToolUse` hook **does not exist yet** — so be honest in the
+backlog and **do not imply the hook (or any automatic gate) already exists.**
 
-### Recommended starting point
+### Recommended starting point + the verification run report
 
-End the backlog with a short **Recommended starting point** — usually Tier-1 #1 (the test
-baseline if there's untested behavior-bearing code), with one plain sentence on why to
-start there. This is the hand-off: the user picks it, and the pipeline takes it from
-Discuss. **If Tier 1 and Tier 2 are both empty**, the recommended-starting-point *is* the
-sound signal — say *"Sound on the audited dimensions — what remains is optional polish; you
-don't need to keep re-auditing"* instead of pointing at an item, so the stop signal is the
-last thing the user reads.
+End the backlog with a short **Recommended starting point** — usually Tier-1 #1 (the test baseline
+if there's untested behavior-bearing code), with one plain sentence on why. **If Tier 1 and Tier 2
+are both empty**, the recommended-starting-point *is* the sound signal — say *"Sound on the audited
+dimensions — what remains is optional polish; you don't need to keep re-auditing"* instead of
+pointing at an item.
 
-After the Recommended-starting-point, **close the backlog with this plain "how to start" line**
-(verbatim, so the user always has the go-button in front of them): *"To start anything — a
-backlog item or a brand-new project — just tell the agent in plain English what you want
-(e.g. 'Let's do Tier-1 item 1' or 'I want to build X'). It will ask you questions (Discuss),
-then write a plan and spec for you to approve before any code. For a backlog item, the
-go-button is **`/claugentic-dev-harness:build`** — point it at one item ('build Tier-1
-item 1') and it drives the whole reviewed pipeline for you, pausing only at the spec (before
-any code) and before anything irreversible."*
+Then **report the dial level + coverage** to the user (which cells ran, `COMPLETE` or `PARTIAL`,
+and any baseline fallback), and include the **verification run-report line** driven by the return's
+`verification` block — frame the dropped ones as a trust signal, reported as a **count, not a
+list**: *"Re-checked every finding I surfaced against the code (the cross-model judge — by default
+a different model family than the builder); dropped `refutedCount` that couldn't be confirmed —
+verified N · unconfirmed K · deferred J."* **When `verification.crossModel` is false** (the run
+carries `verification.sameModelTag`), **replace** the parenthetical with the verbatim tag — never
+emit both clauses: *"same-model review on this run — the judge and the builder are the same model
+family here."* **On a prose-orchestrated run, also state that** in the report. **Do not list the
+specific refuted claims** and **do not persist them.**
+
+Finally, **close the backlog with this plain "how to start" line** (verbatim, so the user always
+has the go-button): *"To start anything — a backlog item or a brand-new project — just tell the
+agent in plain English what you want (e.g. 'Let's do Tier-1 item 1' or 'I want to build X'). It
+will ask you questions (Discuss), then write a plan and spec for you to approve before any code.
+For a backlog item, the go-button is **`/claugentic-dev-harness:build`** — point it at one item
+('build Tier-1 item 1') and it drives the whole reviewed pipeline for you, pausing only at the spec
+(before any code) and before anything irreversible."*
