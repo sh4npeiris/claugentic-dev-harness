@@ -577,7 +577,8 @@ let terminal = null; // set to a result object when the loop reaches a terminal 
 
 const judgeFamilies = [];
 
-let qaConfirmedCrossModel = false; // qa.js folds to a string; tracked separately (no family to mirror) // children's self-reported judge families → the run-level cross-model claim
+// children's self-reported judge families → the run-level cross-model claim
+let qaConfirmedCrossModel = false; // qa.js folds to a string (no family to mirror) — read below + surfaced in the result
 
 for (let iteration = 1; iteration <= maxIterations; iteration++) {
   iterationsUsed = iteration;
@@ -732,13 +733,15 @@ for (let iteration = 1; iteration <= maxIterations; iteration++) {
     lastQa = qaGreen(qaResult);
     qaGreenOrNA = lastQa.green;
     if (qaResult && qaResult.crossModel) {
-      // qa.js exposes only the folded string, not per-judge reports — a confirmed QA fold
-      // contributes its builder-different signal via the engine's own builderFamily basis;
-      // without a real family to mirror, the conservative non-confirming signal is pushed
-      // on anything but confirmed (and confirmed alone cannot manufacture a family token).
-      judgeFamilies.push(null);
+      // qa.js exposes only its folded string, not per-judge reports. A CONFIRMED qa fold
+      // already required all-confirming different-family judges inside the child — it has no
+      // family token to mirror, so it contributes NOTHING to the engine-level family fold
+      // (never a manufactured token, never a false non-confirming null). Anything but
+      // confirmed pushes the conservative non-confirming signal.
       if (qaResult.crossModel === "confirmed") {
         qaConfirmedCrossModel = true;
+      } else {
+        judgeFamilies.push(null);
       }
     }
     log(`build-item: iteration ${iteration} qa ${qaGreenOrNA ? "GREEN" : `RED (${lastQa.failures.length} failing)`}.`);
@@ -815,6 +818,7 @@ const base = {
   qa: criteria.length > 0
     ? { ran: !!lastQa, green: lastQa ? lastQa.green : false, failures: lastQa ? lastQa.failures : [] }
     : { ran: false, reason: "QA not run — no acceptance criteria on this item" },
+  qaConfirmedCrossModel,
   crossModel,
   summary: implementReport ? implementReport.summary : null,
 };
