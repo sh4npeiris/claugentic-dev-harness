@@ -46,22 +46,41 @@ function loadHelpers() {
   const names = [
     "MODELS",
     "SAME_MODEL_TAG",
+    "modelFamily",
+    "sameModelTag",
     "READINESS_TIMEOUT_DEFAULT_SEC",
     "READINESS_TIMEOUT_CAP_SEC",
     "READINESS_PROBE_INTERVAL_SEC",
     "COULD_NOT_RUN_CLASS",
     "OBSERVED_THIS_RUN_TAG",
     "NO_RUN_COMMAND_REASON",
+    "CHECK_KINDS",
+    "STATE_KINDS",
+    "UX_ISSUE_CLASS",
+    "MANUAL_NOT_CHECKABLE_REASON",
+    "BROWSER_UNAVAILABLE_REASON",
     "parseArgs",
     "parseRunArgs",
     "isRunInputError",
+    "artifactBase",
+    "bootReportFromError",
     "isComposeCommand",
     "readinessPlan",
     "bootOutcome",
     "teardownPlan",
     "couldNotRunFinding",
+    "validateCriteria",
+    "criterionPlan",
+    "verdictFor",
+    "findingsFrom",
+    "dedupFindings",
+    "sanitizeForPath",
+    "screenshotPath",
+    "applyVerifierVerdicts",
     "BOOT_SCHEMA",
     "TEARDOWN_SCHEMA",
+    "DRIVER_SCHEMA",
+    "VERIFIER_SCHEMA",
   ];
   // No tool primitives are in scope inside this Function — so if any helper closed over
   // agent()/parallel()/phase()/log(), constructing or calling it would throw here.
@@ -363,4 +382,368 @@ test("isRunInputError: every parseRunArgs missing-input message is matched (prod
   for (const e of missing) {
     assert.equal(H.isRunInputError(e), true, `partition must route to the finding: ${e}`);
   }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Slice 4b — frozen-schema constants + cross-model helpers
+// ─────────────────────────────────────────────────────────────────────────────
+test("CHECK_KINDS / STATE_KINDS are the frozen enums", () => {
+  assert.deepEqual(H.CHECK_KINDS, ["e2e", "api", "manual"]);
+  assert.deepEqual(H.STATE_KINDS, ["empty", "loading", "error"]);
+});
+
+test("UX_ISSUE_CLASS maps each state + flow to the verbatim issueClass (drift pins)", () => {
+  assert.equal(H.UX_ISSUE_CLASS.empty, "ux-missing-empty-state");
+  assert.equal(H.UX_ISSUE_CLASS.loading, "ux-missing-loading-state");
+  assert.equal(H.UX_ISSUE_CLASS.error, "ux-missing-error-state");
+  assert.equal(H.UX_ISSUE_CLASS.flow, "ux-broken-flow");
+});
+
+test("MANUAL_NOT_CHECKABLE_REASON / BROWSER_UNAVAILABLE_REASON are verbatim (drift pins)", () => {
+  assert.equal(H.MANUAL_NOT_CHECKABLE_REASON, "manual by contract");
+  assert.equal(H.BROWSER_UNAVAILABLE_REASON, "browser tooling unavailable in this session");
+});
+
+test("sameModelTag: matching/missing families => the verbatim tag; differing => null", () => {
+  assert.equal(H.sameModelTag("Opus 4.8", "Opus 4.8"), EXPECTED_SAME_MODEL_TAG);
+  assert.equal(H.sameModelTag("Fable 5", ""), EXPECTED_SAME_MODEL_TAG); // missing report => tag
+  assert.equal(H.sameModelTag("Fable 5", "Opus 4.8"), null); // confirmed different family
+});
+
+test("modelFamily normalizes a self-report; garbage/empty => null", () => {
+  assert.equal(H.modelFamily("RUNNING AS: Opus 4.8"), "opus");
+  assert.equal(H.modelFamily("Fable 5"), "fable");
+  assert.equal(H.modelFamily("nonsense"), null);
+  assert.equal(H.modelFamily(""), null);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// validateCriteria — frozen field names, check enum, states enum, unique ids
+// ─────────────────────────────────────────────────────────────────────────────
+function validCriterion(overrides = {}) {
+  return {
+    id: "AC-1",
+    feature: "Add item",
+    flow: ["Open the home page", "Type 'milk'", "Click Add"],
+    expect: ["the list shows 'milk'"],
+    states: ["error"],
+    check: "e2e",
+    ...overrides,
+  };
+}
+
+test("validateCriteria: a valid set passes (empty error list)", () => {
+  assert.deepEqual(H.validateCriteria([validCriterion(), validCriterion({ id: "AC-2", check: "manual", states: [] })]), []);
+});
+
+test("validateCriteria: absent / empty list is valid (boot-only seam stays open)", () => {
+  assert.deepEqual(H.validateCriteria(undefined), []);
+  assert.deepEqual(H.validateCriteria(null), []);
+  assert.deepEqual(H.validateCriteria([]), []);
+});
+
+test("validateCriteria: a non-array fails loud", () => {
+  assert.deepEqual(H.validateCriteria("nope"), ["criteria must be an array"]);
+});
+
+test("validateCriteria: an unknown check is rejected naming the id (never silently filtered)", () => {
+  const errs = H.validateCriteria([validCriterion({ check: "snapshot" })]);
+  assert.ok(errs.some((e) => e.includes("AC-1") && e.includes("check must be one of")));
+});
+
+test("validateCriteria: a bad states value is rejected naming the id", () => {
+  const errs = H.validateCriteria([validCriterion({ states: ["empty", "spinning"] })]);
+  assert.ok(errs.some((e) => e.includes("AC-1") && e.includes("states entries")));
+});
+
+test("validateCriteria: each missing frozen field is named", () => {
+  const errs = H.validateCriteria([{ id: "AC-9" }]);
+  for (const field of ["feature", "flow", "expect", "states", "check"]) {
+    assert.ok(errs.some((e) => e.includes("AC-9") && e.includes(field)), `expected an error for missing ${field}`);
+  }
+});
+
+test("validateCriteria: an empty flow / expect array is rejected", () => {
+  const errs = H.validateCriteria([validCriterion({ flow: [], expect: [] })]);
+  assert.ok(errs.some((e) => e.includes("flow is required")));
+  assert.ok(errs.some((e) => e.includes("expect is required")));
+});
+
+test("validateCriteria: duplicate ids are rejected", () => {
+  const errs = H.validateCriteria([validCriterion(), validCriterion()]);
+  assert.ok(errs.some((e) => e.includes("duplicate id")));
+});
+
+test("validateCriteria: a missing id is named by index, never silently dropped", () => {
+  const errs = H.validateCriteria([{ feature: "x", flow: ["a"], expect: ["b"], states: [], check: "e2e" }]);
+  assert.ok(errs.some((e) => e.includes("criteria[0]") && e.includes("id is required")));
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// criterionPlan — the drivable / manual partition (manual NEVER driven)
+// ─────────────────────────────────────────────────────────────────────────────
+test("criterionPlan: e2e/api are drivable; manual is partitioned out (never driven)", () => {
+  const e2e = validCriterion({ id: "A", check: "e2e" });
+  const api = validCriterion({ id: "B", check: "api" });
+  const man = validCriterion({ id: "C", check: "manual" });
+  const { drivable, manual } = H.criterionPlan([e2e, api, man]);
+  assert.deepEqual(drivable.map((c) => c.id), ["A", "B"]);
+  assert.deepEqual(manual.map((c) => c.id), ["C"]);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// verdictFor — the precedence table (fail-loud; never default to pass)
+// ─────────────────────────────────────────────────────────────────────────────
+test("verdictFor: all steps/expects ok and no state-fail => pass", () => {
+  const r = { steps: [{ action: "x", ok: true }], expects: [{ expect: "y", ok: true }], states: [], screenshots: [] };
+  assert.equal(H.verdictFor(r).verdict, "pass");
+});
+
+test("verdictFor: a failed step => fail even with ok expects", () => {
+  const r = { steps: [{ action: "x", ok: false, note: "no Add button" }], expects: [{ expect: "y", ok: true }], states: [], screenshots: [] };
+  assert.equal(H.verdictFor(r).verdict, "fail");
+});
+
+test("verdictFor: a failed expect => fail", () => {
+  const r = { steps: [{ action: "x", ok: true }], expects: [{ expect: "y", ok: false }], states: [], screenshots: [] };
+  assert.equal(H.verdictFor(r).verdict, "fail");
+});
+
+test("verdictFor: a REQUESTED state verdict 'fail' => fail", () => {
+  const r = { steps: [{ action: "x", ok: true }], expects: [{ expect: "y", ok: true }], states: [{ state: "empty", verdict: "fail" }], screenshots: [] };
+  assert.equal(H.verdictFor(r, ["empty"]).verdict, "fail");
+});
+
+test("verdictFor: a not-checkable state with no failure => not-checkable (loading too-fast is honest, not a fail)", () => {
+  const r = { steps: [{ action: "x", ok: true }], expects: [{ expect: "y", ok: true }], states: [{ state: "loading", verdict: "not-checkable" }], screenshots: [] };
+  const v = H.verdictFor(r, ["loading"]);
+  assert.equal(v.verdict, "not-checkable");
+  assert.ok(typeof v.reason === "string" && v.reason.length > 0);
+});
+
+test("verdictFor: an explicit notCheckable (browser unavailable) => not-checkable + reason, never pass", () => {
+  const v = H.verdictFor({ notCheckable: true, notCheckableReason: H.BROWSER_UNAVAILABLE_REASON, steps: [], expects: [], states: [], screenshots: [] });
+  assert.equal(v.verdict, "not-checkable");
+  assert.equal(v.reason, H.BROWSER_UNAVAILABLE_REASON);
+});
+
+test("verdictFor: a missing/malformed report => not-checkable (loudly), never pass", () => {
+  assert.equal(H.verdictFor(null).verdict, "not-checkable");
+  assert.equal(H.verdictFor("nope").verdict, "not-checkable");
+  assert.equal(H.verdictFor(undefined).verdict, "not-checkable");
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// findingsFrom — each issueClass from its failure kind; confidence; evidence; no file:line
+// ─────────────────────────────────────────────────────────────────────────────
+test("findingsFrom: a flow failure with an observed 404 => ux-broken-flow, deterministic", () => {
+  const verdicts = [
+    {
+      id: "AC-1",
+      verdict: "fail",
+      route: "http://localhost:8123",
+      report: {
+        steps: [{ action: "Click Add", ok: false, note: "POST returned 404" }],
+        expects: [{ expect: "list shows milk", ok: false, evidence: "HTTP 404 from /api/item" }],
+        states: [],
+        screenshots: ["a.png"],
+      },
+    },
+  ];
+  const findings = H.findingsFrom(verdicts);
+  const flow = findings.find((f) => f.issueClass === "ux-broken-flow");
+  assert.ok(flow, "expected a ux-broken-flow finding");
+  assert.equal(flow.confidence, "deterministic");
+  assert.equal(flow.criterionId, "AC-1");
+  assert.ok(flow.evidence && Array.isArray(flow.evidence.screenshots));
+  assert.equal(flow.file_line, undefined, "runtime findings carry no file:line");
+  assert.ok(typeof flow.plainEnglish === "string" && flow.plainEnglish.length > 0);
+});
+
+test("findingsFrom: a failed empty state => ux-missing-empty-state, deterministic", () => {
+  const findings = H.findingsFrom([
+    { id: "AC-2", verdict: "fail", route: "http://localhost:8123", report: { steps: [], expects: [], states: [{ state: "empty", verdict: "fail", evidence: "blank <ul>" }], screenshots: ["e.png"] } },
+  ]);
+  const f = findings.find((x) => x.issueClass === "ux-missing-empty-state");
+  assert.ok(f);
+  assert.equal(f.confidence, "deterministic");
+});
+
+test("findingsFrom: an interpretive flow failure (no observed status) => judgment", () => {
+  const findings = H.findingsFrom([
+    { id: "AC-3", verdict: "fail", route: "/x", report: { steps: [{ action: "s", ok: false, note: "looked wrong" }], expects: [], states: [], screenshots: [] } },
+  ]);
+  assert.equal(findings[0].confidence, "judgment");
+});
+
+test("findingsFrom: pass / not-checkable verdicts yield no findings", () => {
+  const findings = H.findingsFrom([
+    { id: "P", verdict: "pass", report: { steps: [], expects: [], states: [], screenshots: [] } },
+    { id: "N", verdict: "not-checkable", report: null },
+  ]);
+  assert.deepEqual(findings, []);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// dedupFindings — same class+route merges; different route/class stays separate
+// ─────────────────────────────────────────────────────────────────────────────
+test("dedupFindings: same class + route merges (union of criterionIds + screenshots)", () => {
+  const merged = H.dedupFindings([
+    { issueClass: "ux-broken-flow", route: "/a", criterionId: "AC-1", confidence: "deterministic", evidence: { screenshots: ["1.png"] } },
+    { issueClass: "ux-broken-flow", route: "/a", criterionId: "AC-9", confidence: "judgment", evidence: { screenshots: ["2.png"] } },
+  ]);
+  assert.equal(merged.length, 1);
+  assert.deepEqual(merged[0].criterionIds.sort(), ["AC-1", "AC-9"]);
+  assert.equal(merged[0].confidence, "judgment", "weakest confidence wins");
+  assert.deepEqual(merged[0].evidence.screenshots.sort(), ["1.png", "2.png"]);
+});
+
+test("dedupFindings: same class, different route stays separate", () => {
+  const out = H.dedupFindings([
+    { issueClass: "ux-broken-flow", route: "/a", criterionId: "AC-1", evidence: { screenshots: [] } },
+    { issueClass: "ux-broken-flow", route: "/b", criterionId: "AC-2", evidence: { screenshots: [] } },
+  ]);
+  assert.equal(out.length, 2);
+});
+
+test("dedupFindings: same route, different class stays separate", () => {
+  const out = H.dedupFindings([
+    { issueClass: "ux-broken-flow", route: "/a", criterionId: "AC-1", evidence: { screenshots: [] } },
+    { issueClass: "ux-missing-empty-state", route: "/a", criterionId: "AC-1", evidence: { screenshots: [] } },
+  ]);
+  assert.equal(out.length, 2);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// screenshotPath — sanitization + stable shape under the artifact dir
+// ─────────────────────────────────────────────────────────────────────────────
+test("screenshotPath: stable shape under <artifactDir>/<runLabel>/", () => {
+  assert.equal(H.screenshotPath(".qa-artifacts", "qa-2026", "AC-1", "end"), ".qa-artifacts/qa-2026/ac-1-end.png");
+});
+
+test("screenshotPath: sanitizes spaces/slashes in ids (cannot escape the artifact dir)", () => {
+  const p = H.screenshotPath(".qa-artifacts", "qa run", "AC 1/../x", "broken flow");
+  assert.ok(!p.includes(".."), "must not contain a parent-dir escape");
+  assert.ok(!p.includes(" "), "must not contain spaces");
+  assert.ok(p.startsWith(".qa-artifacts/"), "stays under the artifact dir");
+  assert.ok(p.endsWith(".png"));
+});
+
+test("screenshotPath: trims a trailing slash on the artifact dir and defaults a blank runLabel", () => {
+  assert.equal(H.screenshotPath(".qa-artifacts/", "", "AC-1", "x"), ".qa-artifacts/run/ac-1-x.png");
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// applyVerifierVerdicts — refuted dropped+counted; tags applied; could-not-run exempt
+// ─────────────────────────────────────────────────────────────────────────────
+test("applyVerifierVerdicts: Refuted is dropped and counted", () => {
+  const findings = [{ issueClass: "ux-broken-flow", criterionId: "AC-1" }];
+  const { kept, refutedCount } = H.applyVerifierVerdicts(findings, [{ verdict: "Refuted", runningAs: "Opus 4.8" }]);
+  assert.equal(kept.length, 0);
+  assert.equal(refutedCount, 1);
+});
+
+test("applyVerifierVerdicts: Verified / Unconfirmed / deferred tags applied", () => {
+  const findings = [
+    { issueClass: "ux-broken-flow", criterionId: "A" },
+    { issueClass: "ux-missing-empty-state", criterionId: "B" },
+    { issueClass: "ux-missing-error-state", criterionId: "C" },
+  ];
+  const { kept } = H.applyVerifierVerdicts(findings, [
+    { verdict: "Verified", evidence: "POST /api/item 404s", runningAs: "Opus 4.8" },
+    { verdict: "Unconfirmed", runningAs: "Opus 4.8" },
+    null, // no verdict => deferred
+  ]);
+  assert.equal(kept[0].verificationState, "verified");
+  assert.equal(kept[0].verificationTag, "(checked against the code)");
+  assert.equal(kept[1].verificationState, "unconfirmed");
+  assert.equal(kept[1].verificationTag, "(could not confirm independently — model's assertion)");
+  assert.equal(kept[2].verificationState, "deferred");
+  assert.equal(kept[2].verificationTag, "(⚠ not yet verified — re-run to confirm)");
+});
+
+test("applyVerifierVerdicts: the could-not-run finding passes through untouched (exempt)", () => {
+  const findings = [
+    { issueClass: EXPECTED_COULD_NOT_RUN_CLASS, verificationTag: EXPECTED_OBSERVED_TAG },
+    { issueClass: "ux-broken-flow", criterionId: "A" },
+  ];
+  const { kept } = H.applyVerifierVerdicts(findings, [null, { verdict: "Verified", runningAs: "Opus 4.8" }]);
+  const cnr = kept.find((f) => f.issueClass === EXPECTED_COULD_NOT_RUN_CLASS);
+  assert.ok(cnr, "could-not-run finding kept");
+  assert.equal(cnr.verificationTag, EXPECTED_OBSERVED_TAG, "its observed-this-run tag is untouched");
+  assert.equal(cnr.verificationState, undefined, "no code-checked verification state is applied");
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Slice 4b schemas — required field-sets pinned
+// ─────────────────────────────────────────────────────────────────────────────
+test("DRIVER_SCHEMA requires the load-bearing report arrays", () => {
+  assert.deepEqual(H.DRIVER_SCHEMA.required, ["steps", "expects", "states", "screenshots"]);
+});
+
+test("VERIFIER_SCHEMA requires runningAs (the cross-model self-report)", () => {
+  assert.deepEqual(H.VERIFIER_SCHEMA.required, ["runningAs", "verdict", "evidence", "plainLine"]);
+  assert.deepEqual(H.VERIFIER_SCHEMA.properties.verdict.enum, ["Verified", "Refuted", "Unconfirmed"]);
+});
+
+test("parseRunArgs threads criteria / artifactDir / runLabel (the 4b args)", () => {
+  const { runConfig, errors } = H.parseRunArgs(
+    validArgs({ criteria: [validCriterion()], artifactDir: ".qa-artifacts", runLabel: "qa-x" }),
+  );
+  assert.deepEqual(errors, []);
+  assert.equal(runConfig.criteria.length, 1);
+  assert.equal(runConfig.artifactDir, ".qa-artifacts");
+  assert.equal(runConfig.runLabel, "qa-x");
+});
+
+test("artifactBase: one source for the artifact-dir default and trailing-slash trim", () => {
+  assert.equal(H.artifactBase(undefined), ".qa-artifacts");
+  assert.equal(H.artifactBase(""), ".qa-artifacts");
+  assert.equal(H.artifactBase("out/dir///"), "out/dir");
+  assert.equal(H.artifactBase(".qa-artifacts/"), ".qa-artifacts");
+});
+
+test("bootReportFromError: a thrown boot maps to the same failed-report shape a returned failure uses", () => {
+  const r = H.bootReportFromError(new Error("spawn failed"));
+  assert.equal(r.started, false);
+  assert.equal(r.ready, false);
+  assert.equal(r.attempts, 0);
+  assert.match(r.logTail, /boot agent error: spawn failed/);
+  // The downstream path is the SAME honest one: bootOutcome classifies failed, never pass.
+  assert.equal(H.bootOutcome(r), "failed");
+  const finding = H.couldNotRunFinding({ runCommand: "x", appUrl: "y" }, r);
+  assert.match(finding.evidence.logTail, /boot agent error/);
+});
+
+test("verdictFor: unrequested state checks never bear on the verdict (the AC-3 regression)", () => {
+  const report = {
+    steps: [{ action: "open", ok: true }],
+    expects: [{ expect: "heading visible", ok: true }],
+    states: [
+      { state: "empty", verdict: "fail" },
+      { state: "error", verdict: "fail" },
+    ],
+  };
+  // states: [] requested — the extra driver observations are informational only.
+  const v = H.verdictFor(report, []);
+  assert.equal(v.verdict, "pass");
+});
+
+test("verdictFor: a REQUESTED state fail still fails the criterion", () => {
+  const report = {
+    steps: [{ action: "open", ok: true }],
+    expects: [{ expect: "x", ok: true }],
+    states: [{ state: "empty", verdict: "fail" }],
+  };
+  assert.equal(H.verdictFor(report, ["empty"]).verdict, "fail");
+});
+
+test("verdictFor: a requested not-checkable state folds to not-checkable, unrequested does not", () => {
+  const report = {
+    steps: [{ action: "a", ok: true }],
+    expects: [{ expect: "x", ok: true }],
+    states: [{ state: "loading", verdict: "not-checkable" }],
+  };
+  assert.equal(H.verdictFor(report, ["loading"]).verdict, "not-checkable");
+  assert.equal(H.verdictFor(report, []).verdict, "pass");
 });

@@ -7,22 +7,60 @@
   </head>
   <body>
     <h1>Items</h1>
+
+    <!-- The add-item form (correct surface — the heading + form ARE supposed to be here; they are
+         the AC-3 pass surface). The FAILURE is in the handler below, on purpose. -->
+    <form id="add-form">
+      <input id="item-name" name="name" placeholder="New item" aria-label="New item" />
+      <button type="submit">Add</button>
+    </form>
+
     <ul id="items"></ul>
 
     <script>
-      // Deliberately minimal: fetch the list and render each item as an <li>. No add form and
-      // no empty-state branch — Slice 4b adds/declares those as the seeded UX defects. Nothing
-      // is written here only to be deleted there.
+      // ── SEEDED UX DEFECTS (intentional, permanent — see README "Seeded defects". MUST NOT be
+      //    "fixed": they are the targets the QA flow-driving run is supposed to CATCH.) ──
+      //
+      // Defect 1 — BROKEN FLOW (ux-broken-flow): the add handler POSTs to the typo'd route
+      //   `/api/item` (the real route is `/api/items`), so the server answers 404. The handler then
+      //   SWALLOWS the error — no message to the user, the input is kept, and the list is never
+      //   refreshed. To the user the Add button does nothing and nothing explains why. This is both
+      //   a broken user flow AND a missing error state (product-ux: user-flow-completeness + the
+      //   error state of the states bar).
+      //
+      // Defect 2 — MISSING EMPTY STATE (ux-missing-empty-state): `load()` renders one <li> per item
+      //   and has NO zero-data branch. With FIXTURE_SEED=0 the list is empty, so the <ul> renders as
+      //   a blank void — no "no items yet" message, no call-to-action (product-ux: the empty state
+      //   of the states bar — a designed zero-state, not a blank void).
       async function load() {
         const res = await fetch("/api/items");
         const items = await res.json();
         const ul = document.getElementById("items");
+        ul.replaceChildren();
+        // NOTE: no `if (items.length === 0)` empty-state branch — seeded missing-empty-state defect.
         for (const item of items) {
           const li = document.createElement("li");
           li.textContent = item.name;
           ul.appendChild(li);
         }
       }
+
+      document.getElementById("add-form").addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const name = document.getElementById("item-name").value;
+        try {
+          // Seeded broken-flow defect: POSTs to `/api/item` (typo) — the real route is `/api/items`.
+          await fetch("/api/item", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ name }),
+          });
+          // No status check, no list refresh — the 404 is ignored and the UI does not update.
+        } catch (_err) {
+          // Swallowed on purpose: no error message, no recovery path shown to the user.
+        }
+      });
+
       load();
     </script>
   </body>

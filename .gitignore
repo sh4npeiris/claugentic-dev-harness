@@ -33,3 +33,8 @@ Thumbs.db
 # ── Logs / local junk ──────────────────────────────────────────────────────────
 *.log
 *.tmp
+
+# ── QA runtime-verification artifacts (workflows/qa.js writes screenshots here) ──
+.qa-artifacts/
+.playwright-mcp/
+eval/.runtime-qa/

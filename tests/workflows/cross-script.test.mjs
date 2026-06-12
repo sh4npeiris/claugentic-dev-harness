@@ -4,10 +4,10 @@
 // same-model tag, modelFamily, sameModelTag, parseArgs) are COPIED between scripts.
 // This test makes the "copied verbatim" comment a gate: the copies must stay
 // byte-identical (parseArgs may differ ONLY by its own script name in the error
-// string). A divergent edit to any copy turns this red. qa.js (Slice 4a) carries the
-// MODELS + SAME_MODEL_TAG + parseArgs copies; it does not (yet) define modelFamily /
-// sameModelTag (those arrive with its cross-model verify stage in Slice 4b), so the pin
-// covers each helper across exactly the scripts that define it.
+// string). A divergent edit to any copy turns this red. As of Slice 4b, qa.js carries
+// the full cross-model contract (MODELS + SAME_MODEL_TAG + modelFamily + sameModelTag +
+// parseArgs) — the same set verify.js / audit.js define — so the pin now covers every
+// copied helper across all three scripts.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -29,10 +29,9 @@ function extract(text, name, path) {
 }
 
 // Each copied helper must stay byte-identical across EVERY script that defines it. A script may
-// legitimately not define a helper yet (qa.js's boot-only vertical defines MODELS / SAME_MODEL_TAG /
-// parseArgs but not the cross-model modelFamily / sameModelTag — those land with its 4b verify
-// stage). The pin requires the helper to be present in ≥2 scripts (so it IS actually pinned), then
-// asserts byte-identity across exactly those.
+// legitimately not define a helper (a script that spawns no judge would not carry the cross-model
+// helpers). The pin requires the helper to be present in ≥2 scripts (so it IS actually pinned),
+// then asserts byte-identity across exactly those.
 function scriptsDefining(name) {
   return ALL_SCRIPTS.map((s) => ({ path: s.path, code: extract(s.text, name, s.path) })).filter(
     (s) => s.code !== null,
