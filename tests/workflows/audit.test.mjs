@@ -1189,3 +1189,17 @@ test("mergePriorItems: no priorItems → current unchanged; tier-less prior defa
   const merged = H.mergePriorItems([], [{ findingKey: "p", titlePlain: "t" }]);
   assert.equal(merged[0].tier, 2);
 });
+
+test("render-level regression: a carried prior finding survives into the rendered fence body", () => {
+  const merged = H.mergePriorItems(
+    [{ findingKey: "b", tier: 2, titlePlain: "fresh", tag: "bug", claimTechnical: "c", whyPlain: "w", impactEffort: "i", locations: [], confidence: "judgment", verification: { state: "verified", evidence: "", plainLine: "" } }],
+    [{ findingKey: "a", tier: 1, titlePlain: "prior verified", tag: "bug", claimTechnical: "c", whyPlain: "w", impactEffort: "i", locations: [], confidence: "judgment", verification: { state: "verified", evidence: "", plainLine: "" } }],
+  );
+  const body = H.renderBacklogFence({
+    status: "PARTIAL", level: "gap", doneCells: ["AC-1"], pendingCells: [],
+    items: merged,
+    verification: { verified: 2, unconfirmed: 0, deferred: 0, refuted: 0, crossModel: false, sameModelTag: H.SAME_MODEL_TAG },
+  });
+  assert.ok(body.includes("prior verified"), "a carried prior finding must appear in the rendered fence");
+  assert.ok(body.includes("fresh"), "this run's finding must appear too");
+});
