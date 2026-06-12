@@ -57,11 +57,15 @@ load-bearing — and nowhere else (decision-fatigue is a failure mode, not a saf
   (Stage 5) — **per item as you go, or pre-satisfied per item up front in one approval
   sitting** when the user asks to *spec everything first* (the batch ask), (3) before land /
   any irreversible action.
-- **`autopilot` — DESIGNED, refuses honestly.** Running unwatched is **not earned yet**: the
-  cross-model judge is now **wired** — a reduction of shared-blind-spot risk, not a mechanical
-  guarantee — but the deterministic trust-gates are **not built**. Autopilot **declines and
-  offers checkpoint instead** — honestly, naming *why* it isn't trustworthy yet, never
-  silently degrading to a weaker promise.
+- **`build-to-green` — REQUESTABLE, evidence-checked.** The flat autopilot refusal is
+  superseded by the **autonomy ladder** (the contract lives in `skills/build/SKILL.md` →
+  Mode handling): checkpoint stays the default; an unwatched build-to-green run unlocks
+  per-repo only on three evidence-stated conditions (CI running the deterministic gates ·
+  a test baseline on the touched code · an approved spec with testable acceptance criteria)
+  plus the engine being installed (`workflows/build-item.js` — Slice 5b; until it ships,
+  every ask declines). Anything unmet → an honest decline naming exactly what's missing,
+  offering checkpoint — never silently degrading to a weaker promise. Build-to-green is a
+  reduction of unwatched-run risk, never a substitute for the unbuilt deterministic trust-gates.
 
 ## The key flows (end-to-end)
 
@@ -83,8 +87,9 @@ load-bearing — and nowhere else (decision-fatigue is a failure mode, not a saf
    user re-picks before more is built.
 4. **Stop / done** — when the agreed list is worked through, one **full audit** confirms
    Tier-1+2 empty → the terminal "Sound on the audited dimensions" signal. Stop.
-5. **Autopilot-refusal** — if the user asks for unwatched autopilot, decline honestly and
-   offer checkpoint.
+5. **Build-to-green ask** — if the user asks for an unwatched run, check the ladder's
+   unlock conditions with stated evidence; unmet → decline honestly (naming exactly what's
+   missing) and offer checkpoint.
 
 **Guardrails (both modes, non-negotiable):** hard-stop + ask before any **irreversible
 action** (push to a shared remote, deploy, delete data, spend money, external side-effect);
@@ -131,10 +136,10 @@ A surface is only finished when none of these is a blank screen or a dead end.
 - **The terminal "Tier-1+2 empty — done" state** — the honest success signal. One **full**
   audit confirms it; surface the audit's *"Sound on the audited dimensions"* phrasing,
   scoped honestly to the audited dimensions (not "your app is perfect / bug-free").
-- **The autopilot-refusal state** — honest about *why* unwatched running isn't earned yet
-  (the cross-model judge is now wired — a shared-blind-spot risk reduction, not a guarantee —
-  but the deterministic trust-gates aren't built), and offers checkpoint as the live,
-  trustworthy alternative. Not an apology, not a vague "coming soon" — a clear, true reason.
+- **The build-to-green decline state** — honest about *exactly which* unlock conditions this
+  repo hasn't met (per-condition evidence lines, per `skills/build/SKILL.md` → Mode handling),
+  and offers checkpoint as the live, trustworthy alternative. Not an apology, not a vague
+  "coming soon" — a clear, true, per-condition reason.
 
 ## What "good" feels like
 
@@ -178,11 +183,11 @@ exactly these points:
 - **"verified / done / safe" language** — the Verify gate is `architect-reviewer` judgment
   (plus the deterministic gates that exist), **not** a blanket mechanical proof. Say a slice
   "passed the checks and the reviewer's audit," not "is proven correct."
-- **The autopilot refusal** — be specific that unwatched running still needs the not-yet-built
-  deterministic trust-gates; the cross-model judge is now wired (a reduction of shared-blind-spot
-  risk, not a mechanical guarantee — same vendor), so don't claim it as independence, and don't
-  soften the refusal into a vague maybe. The honest "not yet, here's why, here's checkpoint
-  instead" is the trustworthy move.
+- **The build-to-green decline** — name the exact unmet unlock conditions with the evidence
+  checked (never a vague "not yet"); carry the verbatim scoping — a reduction of unwatched-run
+  risk, never a substitute for the unbuilt deterministic trust-gates; the cross-model judge is
+  wired (a shared-blind-spot risk reduction, not independence — same vendor). The honest
+  "here's exactly what's missing, here's checkpoint instead" is the trustworthy move.
 - **The "Tier-1+2 empty" success claim** — scope it to the **audited dimensions** and the
   covered cells (a scoped re-audit covers blast-radius; only the closing full audit is
   repo-wide). It means "sound on what we checked," never "bug-free" or "perfect."

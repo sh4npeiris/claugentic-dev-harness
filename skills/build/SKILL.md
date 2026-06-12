@@ -1,5 +1,5 @@
 ---
-description: Drive your audit backlog through the full reviewed pipeline — plan → adversarial review → spec → your approval → implement → verify → land — pausing only at the decisions that are yours. Pick one item, several, or a whole tier; it works them one by one, re-checking the code it touched between items and pausing for you only when new important work surfaces, to the honest "sound on the audited dimensions" stop-signal. Checkpoint mode. Honest about its limits: every item's spec needs your approval before any code — per item as you go, or all at once up front in a single approval sitting if you say "spec everything first" — and it stops before anything irreversible; unwatched "autopilot" is not earned yet (it names exactly what's missing and offers checkpoint instead).
+description: Drive your audit backlog through the full reviewed pipeline — plan → adversarial review → spec → your approval → implement → verify → land — pausing only at the decisions that are yours. Pick one item, several, or a whole tier; it works them one by one, re-checking the code it touched between items and pausing for you only when new important work surfaces, to the honest "sound on the audited dimensions" stop-signal. Checkpoint mode. Honest about its limits: every item's spec needs your approval before any code — per item as you go, or all at once up front in a single approval sitting if you say "spec everything first" — and it stops before anything irreversible; autonomy is a ladder — checkpoint is the default, and unwatched build-to-green is requestable but runs only where the repo has earned it (CI running the gates, a test baseline, a testable approved spec) and the engine is installed (it isn't yet, so today it declines); otherwise it declines naming exactly what's missing and offers checkpoint.
 ---
 
 # /claugentic-dev-harness:build
@@ -48,23 +48,32 @@ than one.
 
 ## Mode handling *(read this first)*
 
-Build mode has **one live mode** and **one named-but-not-built mode**:
+Build mode is an **autonomy ladder — earned per-repo, by evidence, never assumed:**
 
-- **`checkpoint` — the default and only live mode.** Everything below runs in checkpoint.
-  If the user names no mode, this is what runs.
-- **`autopilot` — named, but it has exactly one behavior: an honest decline.** If the user
-  asks to run unwatched / on autopilot, return **EXACTLY** this and then continue in
-  checkpoint if they wish:
+- **`checkpoint` — the default, and the only rung with no preconditions.** Everything below runs in checkpoint. If the user names no mode, this is what runs.
+- **`build-to-green` — the requestable rung.** Any ask to run unwatched — *"autopilot"*, *"run unwatched"*, *"build to green"* — is a build-to-green request. Before agreeing, check the **unlock conditions** below and **state the evidence per condition** (what you looked at, what you found). All met → run the item through the engine script (`${CLAUDE_PLUGIN_ROOT}/workflows/build-item.js` via the Workflow tool — the skill invokes the script, and the script then runs the implement → gates → verify → QA → fix loop mechanically), returning to you only at the retained pauses: **before land · before anything irreversible · on a new Tier-1/2 finding.** Any condition unmet → the decline below, naming exactly what's missing, then offer checkpoint.
 
-  > Running unwatched needs mechanical trust-gates that can block a bad change without a human
-  > watching — those don't exist, so I can't do this honestly. The cross-model judge is wired
-  > (same-model runs are tagged as such), but it's a reduction of shared-blind-spot risk, not a
-  > mechanical guarantee. Here's checkpoint instead.
+Build-to-green is **a reduction of unwatched-run risk, never a substitute for the unbuilt deterministic trust-gates** (the land-gate hook · the secret-scan · the characterization-first hook — `docs/DECISIONS.md` → The deterministic gates).
 
-  **This refusal is autopilot's only behavior.** Do **not** build a mode-dispatch layer, a
-  config flag, or any autopilot execution path — there is nothing to dispatch to. It is a
-  named mode whose whole implementation is this honest "not yet, here's why, here's
-  checkpoint."
+**The unlock conditions — judgment with stated evidence.** These checks are the skill reading your repo and saying what it found — honestly labeled model judgment, never a mechanical gate:
+
+1. **CI runs the deterministic gates.** Evidence: a CI config (e.g. `.github/workflows/*.yml`) whose steps run this repo's Definition-of-Done deterministic gates (the test suite + the gate scripts). Name the file and the commands found.
+2. **A test baseline covers the code this item touches.** Evidence: named test files that exercise the files/behavior the item will change. (The `refactor` characterization-tests-first precondition is this condition's hard case — unchanged.)
+3. **The item traces to an approved spec with testable acceptance criteria.** Evidence: a plan in `.claude/plans/` with `Status: Approved` whose acceptance criteria are all checkable without a human mid-run — each maps to a deterministic gate or test, or to a `docs/PRODUCT_SPEC.md` criterion whose `check` is `e2e` or `api`. A `check: "manual"` criterion needs a human, so it keeps that item in checkpoint.
+
+**And one session precondition (not a repo rung):** build-to-green runs **only** via `workflows/build-item.js` through the Workflow tool — there is **no prose-orchestrated build-to-green, ever** (an unwatched prose loop is exactly the unearned autonomy this ladder exists to prevent). The Workflow tool or the script unavailable → named in the decline like any other missing condition.
+
+**The decline (verbatim frame — the list carries ONLY the unmet conditions, each with the evidence checked):**
+
+> Build-to-green isn't earned here yet — here's exactly what's missing:
+> [one line per unmet condition, from the fixed lines below]
+> Build-to-green is a reduction of unwatched-run risk, never a substitute for the unbuilt deterministic trust-gates (the land-gate hook · the secret-scan · the characterization-first hook — none of these exist yet), and these checks are my judgment against the evidence I named, not a mechanical gate. Here's checkpoint instead — the same pipeline, with the three routine pauses.
+
+The fixed per-condition lines (angle-bracket slots filled per run from the evidence actually checked):
+- *CI running the deterministic gates — I found <no CI config | `<file>`, but it doesn't run <the missing gate commands>>.*
+- *a test baseline for the code this item touches — I found no tests exercising <the touched files/behavior>.*
+- *an approved spec with testable acceptance criteria — <no plan with `Status: Approved` traces to this item | the spec's criteria include ones I can't check without you: <ids>>.*
+- *the engine itself — <the Workflow tool isn't available in this session | `workflows/build-item.js` isn't in the installed plugin>; build-to-green never runs as prose.*
 
 ---
 
@@ -279,7 +288,7 @@ The per-item checkpoint pauses hold across the loop: the **before-land** and **i
 pauses **fire on every item**; the **spec** pause fires per item as you go, **or is
 pre-satisfied per item by a batch sitting** (see *Batch approval (on request)*) — never
 skipped, only satisfied earlier. **The loop never suppresses a pause that hasn't been
-explicitly satisfied.** The autopilot refusal, the irreversible hard-stop set, and
+explicitly satisfied.** The build-to-green unlock contract, the irreversible hard-stop set, and
 no-invented-scope all hold unchanged across the whole loop.
 
 ### 10. The scoped re-audit + re-triage *(flow 3 — after each landed item)*
@@ -462,7 +471,7 @@ that could drift from the backlog).
 - **Irreversible hard-stops.** Before any **push to a shared remote (incl. `main`),
   deploy, data deletion, spend, or external side-effect**: stop, name the action + its
   consequence in plain English, and **ask. Never proceed on silence.** This set holds in
-  checkpoint today and in any future autopilot — it is the line autonomy never crosses
+  checkpoint today and on the build-to-green rung — it is the line autonomy never crosses
   unasked.
 - **Never invent scope.** If a genuinely-new feature surfaces mid-build (something outside
   the item being built), it goes to **`docs/ROADMAP.md` for the user's approval** — it is
@@ -470,7 +479,8 @@ that could drift from the backlog).
 - **Honesty register.** Say a slice **"passed the checks and the reviewer's audit,"** never
   "proven correct" / "guaranteed" / "bug-free." **"done" is scoped to the audited
   dimensions** (and the deterministic gates that ran), never a blanket claim. Progress is
-  **completed-beat narration, never an ETA** or a "nearly finished." The autopilot refusal
-  names exactly what's missing (the deterministic trust-gates — the cross-model judge is wired,
-  but it's a reduction of shared-blind-spot risk, not a mechanical guarantee) — never a vague
-  "coming soon," never a silent degrade to a weaker promise.
+  **completed-beat narration, never an ETA** or a "nearly finished." A build-to-green decline
+  names exactly which unlock conditions are unmet and what evidence was checked — never a vague
+  "not yet," never a silent degrade to a weaker promise. Build-to-green, when it runs, is a
+  reduction of unwatched-run risk, never a substitute for the unbuilt deterministic trust-gates
+  (the cross-model judge stays a reduction of shared-blind-spot risk, not a mechanical guarantee).
