@@ -95,7 +95,20 @@ invalid field — fail loud):
   the test suite + the gate scripts, from the WORKFLOW DoD / `init`-recorded tooling; **non-empty**,
   zero gates would make "green" a lie) `, runApp` (the recorded run-the-app command, or `null`) `,
   pluginRoot` (the expanded `${CLAUDE_PLUGIN_ROOT}`, for the child-workflow paths) `}`.
-- `caps` — `{ maxIterations` (default 3 — the bounded 2–3) `, budget }`.
+- `caps` — `{ maxIterations` (default 3 — the bounded 2–3) `, budget, stageTimeouts }`.
+  `stageTimeouts` is the optional **per-stage duration bound** `{ implement?, gates?, qaBoot? }`
+  (positive-integer seconds; the engine rejects any unknown key, non-integer/≤0 value, or a value
+  **> 600** — the Bash-tool hard max — fail loud, never silently clamped). Defaults: `implement` and
+  `gates` default to **600s**; `qaBoot` has **no engine default** (`unset` ⇒ qa.js's own 60s default;
+  qa.js silently clamps any value to its 300s cap). **Honesty caveats — the three-way enforcement
+  register (the bounds do NOT enforce equally):** **gates** = agent-applied per-command Bash-tool
+  `timeout` **+ a mechanical red decision** (a timed-out command reports exitCode 124 → `gatesGreen`
+  reads it red); **qaBoot** = a **mechanical clamp** in qa.js + an agent-executed bounded readiness
+  probe; **implement/fix** = an **instruction-only** anti-hang nudge (IMPLEMENT_SCHEMA has no
+  exit-code channel, so a runaway surfaces only downstream via the gates stage + the iteration cap —
+  model-upheld, NOT a mechanical guarantee). The bound is **per-command within a stage, never a stage
+  wall-clock total**; residual: a single legitimate command exceeding the 600s hard max can't be
+  bounded-and-completed in one foreground call — split that repo's suite, or it isn't bounded-runnable.
 - `builderFamily` — the orchestrator's session model family (the cross-model fallback).
 
 **The engine's pauses are returns — map each returned status to its pause/interaction:**

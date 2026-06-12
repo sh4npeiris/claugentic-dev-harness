@@ -11,9 +11,10 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+
+import { loadHelpersFrom } from "./_load-helpers.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(HERE, "..", "..");
@@ -28,48 +29,36 @@ const EXPECTED_SAME_MODEL_TAG =
 const EXPECTED_UNRESOLVED_FAMILY_TAG =
   "could not resolve the judge's model family on this run — no cross-model claim is made (treated as the same-model trust floor, not asserted as fact).";
 
-/** Extract the marked helpers block and evaluate it, returning the named helpers. */
-function loadHelpers() {
-  const src = readFileSync(SCRIPT_PATH, "utf8");
-  const startMatch = src.match(/^\/\/ --- helpers ---$/m);
-  const endMatch = src.match(/^\/\/ --- end helpers ---$/m);
-  assert.ok(startMatch, "helpers block start marker not found (line-anchored) in workflows/build-item.js");
-  assert.ok(endMatch, "helpers block end marker not found (line-anchored) in workflows/build-item.js");
-  const start = startMatch.index;
-  const end = endMatch.index;
-  assert.ok(end > start, "helpers end marker precedes start marker");
-  const block = src.slice(start, end);
-  const names = [
-    "SAME_MODEL_TAG",
-    "UNRESOLVED_FAMILY_TAG",
-    "KNOWN_FAMILIES",
-    "modelFamily",
-    "sameModelTag",
-    "parseArgs",
-    "DEFAULT_MAX_ITERATIONS",
-    "CRITERION_KEYS",
-    "CHECK_KINDS",
-    "validateArgs",
-    "maxIterationsFor",
-    "criteriaBlockers",
-    "childScriptPath",
-    "gatesGreen",
-    "qaGreen",
-    "outOfScopeTier12",
-    "nextAction",
-    "residualReport",
-    "foldResidual",
-    "crossModelClaim",
-    "IMPLEMENT_SCHEMA",
-    "GATES_SCHEMA",
-  ];
-  // No tool primitives are in scope inside this Function — so if any helper closed over
-  // agent()/parallel()/phase()/log()/workflow(), constructing or calling it would throw here.
-  const factory = new Function(`${block}\n; return { ${names.join(", ")} };`);
-  return factory();
-}
-
-const H = loadHelpers();
+const H = loadHelpersFrom(SCRIPT_PATH, [
+  "SAME_MODEL_TAG",
+  "UNRESOLVED_FAMILY_TAG",
+  "KNOWN_FAMILIES",
+  "modelFamily",
+  "sameModelTag",
+  "parseArgs",
+  "DEFAULT_MAX_ITERATIONS",
+  "CRITERION_KEYS",
+  "CHECK_KINDS",
+  "validateArgs",
+  "maxIterationsFor",
+  "criteriaBlockers",
+  "childScriptPath",
+  "gatesGreen",
+  "qaGreen",
+  "outOfScopeTier12",
+  "nextAction",
+  "residualReport",
+  "foldResidual",
+  "crossModelClaim",
+  "IMPLEMENT_SCHEMA",
+  "GATES_SCHEMA",
+  "MAX_STAGE_TIMEOUT_SEC",
+  "DEFAULT_STAGE_TIMEOUTS",
+  "resolveStageTimeouts",
+  "qaChildArgs",
+  "implementPrompt",
+  "gatesPrompt",
+]);
 
 /** Build a valid args object; override fields per-case. */
 function validArgs(overrides = {}) {
@@ -250,6 +239,131 @@ test("validateArgs flags acceptanceCriteria that is not an array", () => {
   args.item.acceptanceCriteria = { id: "AC-1" };
   const { errors } = H.validateArgs(args);
   assert.ok(errors.some((e) => e.includes("acceptanceCriteria")));
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// validateArgs — caps.stageTimeouts (per-stage duration bound; fail loud, never silent-clamp)
+// ─────────────────────────────────────────────────────────────────────────────
+test("validateArgs accepts a valid caps.stageTimeouts", () => {
+  const args = validArgs();
+  args.caps.stageTimeouts = { implement: 600, gates: 300, qaBoot: 120 };
+  const { ok, errors } = H.validateArgs(args);
+  assert.deepEqual(errors, []);
+  assert.equal(ok, true);
+});
+
+test("validateArgs accepts an explicit-null stageTimeouts (null is an accepted absent-form)", () => {
+  const args = validArgs();
+  args.caps.stageTimeouts = null;
+  const { ok, errors } = H.validateArgs(args);
+  assert.deepEqual(errors, []);
+  assert.equal(ok, true);
+});
+
+test("validateArgs rejects a non-object stageTimeouts (named field)", () => {
+  const args = validArgs();
+  args.caps.stageTimeouts = 600;
+  const { ok, errors } = H.validateArgs(args);
+  assert.equal(ok, false);
+  assert.ok(errors.some((e) => e.includes("caps.stageTimeouts")));
+});
+
+test("validateArgs rejects an ARRAY stageTimeouts (an array must not silently mean 'all defaults')", () => {
+  const args = validArgs();
+  args.caps.stageTimeouts = []; // Array.isArray reject arm — without it, [] would slip through as an object
+  const { ok, errors } = H.validateArgs(args);
+  assert.equal(ok, false);
+  assert.ok(errors.some((e) => e.includes("caps.stageTimeouts") && e.includes("must be an object")));
+});
+
+test("validateArgs rejects an unknown stageTimeouts key (a typo can't fall back to default)", () => {
+  const args = validArgs();
+  args.caps.stageTimeouts = { qaboot: 120 }; // typo for qaBoot
+  const { ok, errors } = H.validateArgs(args);
+  assert.equal(ok, false);
+  assert.ok(errors.some((e) => e.includes("unknown stage 'qaboot'")));
+});
+
+test("validateArgs rejects a non-integer stageTimeouts value (named field)", () => {
+  const args = validArgs();
+  args.caps.stageTimeouts = { gates: 12.5 };
+  const { ok, errors } = H.validateArgs(args);
+  assert.equal(ok, false);
+  assert.ok(errors.some((e) => e.includes("caps.stageTimeouts.gates")));
+});
+
+test("validateArgs rejects a ≤0 stageTimeouts value (named field)", () => {
+  const args = validArgs();
+  args.caps.stageTimeouts = { implement: 0 };
+  const { ok, errors } = H.validateArgs(args);
+  assert.equal(ok, false);
+  assert.ok(errors.some((e) => e.includes("caps.stageTimeouts.implement")));
+});
+
+test("validateArgs rejects a stageTimeouts value > 600 (the Bash-tool hard max — never silently clamped)", () => {
+  const args = validArgs();
+  args.caps.stageTimeouts = { gates: 800 };
+  const { ok, errors } = H.validateArgs(args);
+  assert.equal(ok, false);
+  assert.ok(errors.some((e) => e.includes("caps.stageTimeouts.gates") && e.includes("600")));
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// resolveStageTimeouts — per-stage distinct defaults; qaBoot stays null when unset (no engine default)
+// ─────────────────────────────────────────────────────────────────────────────
+test("resolveStageTimeouts: defaults when caps/stageTimeouts absent (implement 600, gates 600, qaBoot null)", () => {
+  assert.deepEqual(H.resolveStageTimeouts(undefined), { implement: 600, gates: 600, qaBoot: null });
+  assert.deepEqual(H.resolveStageTimeouts({}), { implement: 600, gates: 600, qaBoot: null });
+  assert.deepEqual(H.resolveStageTimeouts({ stageTimeouts: {} }), { implement: 600, gates: 600, qaBoot: null });
+  assert.equal(H.MAX_STAGE_TIMEOUT_SEC, 600);
+  assert.deepEqual(H.DEFAULT_STAGE_TIMEOUTS, { implement: 600, gates: 600, qaBoot: null });
+});
+
+test("resolveStageTimeouts: a per-stage override wins", () => {
+  assert.deepEqual(
+    H.resolveStageTimeouts({ stageTimeouts: { implement: 300, gates: 120, qaBoot: 90 } }),
+    { implement: 300, gates: 120, qaBoot: 90 },
+  );
+  // a partial override leaves the others at their defaults
+  assert.deepEqual(
+    H.resolveStageTimeouts({ stageTimeouts: { gates: 200 } }),
+    { implement: 600, gates: 200, qaBoot: null },
+  );
+});
+
+test("resolveStageTimeouts: qaBoot stays null when unset (qa.js owns the boot default/clamp)", () => {
+  assert.equal(H.resolveStageTimeouts({ stageTimeouts: { implement: 300 } }).qaBoot, null);
+  assert.equal(H.resolveStageTimeouts({}).qaBoot, null);
+});
+
+test("resolveStageTimeouts: an explicit-null stageTimeouts maps to all defaults (the top-level guard)", () => {
+  // null is a legal absent-form (validateArgs accepts it) — only the `typeof === 'object' && !== null`
+  // guard keeps it from being read as a non-empty override; pin that it resolves to all defaults.
+  assert.deepEqual(H.resolveStageTimeouts({ stageTimeouts: null }), { implement: 600, gates: 600, qaBoot: null });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// qaChildArgs — readinessTimeoutSec iff qaBoot != null; threads the rest unchanged
+// ─────────────────────────────────────────────────────────────────────────────
+test("qaChildArgs: omits readinessTimeoutSec when qaBoot is null (qa.js applies its own 60s default)", () => {
+  const item = { id: "T1", appUrl: "" };
+  const repo = { runApp: "uvicorn main:app", appUrl: "http://localhost:8000" };
+  const criteria = [{ id: "AC-1" }];
+  const out = H.qaChildArgs(item, repo, criteria, "Opus 4.8", 2, null);
+  assert.equal("readinessTimeoutSec" in out, false);
+  assert.equal(out.criteria, criteria);
+  assert.equal(out.runCommand, "uvicorn main:app");
+  assert.equal(out.appUrl, "http://localhost:8000"); // falls back to repo.appUrl
+  assert.equal(out.builderFamily, "Opus 4.8");
+  assert.equal(out.runLabel, "build-T1-iter2");
+});
+
+test("qaChildArgs: includes readinessTimeoutSec when qaBoot is set (pass-through-when-set)", () => {
+  const item = { id: "T1", appUrl: "http://item-url" };
+  const repo = { runApp: "npm start", appUrl: "http://repo-url" };
+  const out = H.qaChildArgs(item, repo, [], "Fable 5", 1, 150);
+  assert.equal(out.readinessTimeoutSec, 150);
+  assert.equal(out.appUrl, "http://item-url"); // item.appUrl wins over repo.appUrl
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -554,4 +668,52 @@ test("residualReport: carries stageCouldNotRun through to the terminal report", 
 test("qaGreen: couldNotRun is true only when the stage produced no usable result", () => {
   assert.equal(H.qaGreen(null).couldNotRun, true);
   assert.equal(H.qaGreen({ verdicts: [], findings: [] }).couldNotRun, false);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// gatesPrompt / implementPrompt — the resolved bound + the Bash-tool `timeout` mandate
+// ─────────────────────────────────────────────────────────────────────────────
+const PROMPT_ITEM = { id: "T1", title: "An item", tag: "feat", specText: "Build the thing." };
+const PROMPT_REPO = { root: "/repo", baseBranch: "main", gateCommands: ["pytest", "node --test"], runApp: "npm start" };
+
+test("gatesPrompt: carries the resolved timeout + mandates the Bash tool's `timeout` parameter (not a shell command)", () => {
+  const p = H.gatesPrompt(PROMPT_REPO, "feat/x", "/wt", 300);
+  assert.match(p, /300s/);
+  assert.match(p, /Bash tool's `timeout` PARAMETER/);
+  assert.match(p, /NOT a shell `timeout` command/);
+  // names the Windows no-op trap so a future edit can't quietly drop it
+  assert.match(p, /Windows/);
+});
+
+test("gatesPrompt: carries the 124 timeout convention (the fail-closed leg) + per-command, never a stage total", () => {
+  // A NON-default timeout (217, not 600) so a mutant that hardcodes "600s" into either interpolation
+  // site dies: the value must appear at BOTH the per-command instruction AND the 124 timeout sentence.
+  const p = H.gatesPrompt(PROMPT_REPO, "feat/x", null, 217);
+  // per-command instruction site carries the resolved value
+  assert.match(p, /timeout` PARAMETER set to 217s/);
+  // the "hits the …s timeout" 124 sentence carries the SAME value (not a hardcoded 600s)
+  assert.match(p, /hits the 217s\s*\n?\s*timeout/);
+  assert.equal(p.includes("600s"), false); // no stray hardcoded default leaked into either site
+  assert.match(p, /exitCode 124/);
+  assert.match(p, /named timeout convention/);
+  // reconciled with the standing "report the real number, never an opinion" rule
+  assert.match(p, /never an opinion/);
+  assert.match(p, /PER-COMMAND, never a stage total/);
+});
+
+test("implementPrompt: carries the resolved bound + the Bash-tool `timeout` + treat-as-failure/never-hang (instruction-only)", () => {
+  const p = H.implementPrompt(PROMPT_ITEM, PROMPT_REPO, null, null, 450);
+  assert.match(p, /450s/);
+  assert.match(p, /Bash tool's `timeout` PARAMETER/);
+  assert.match(p, /NOT a shell `timeout` command/);
+  assert.match(p, /treat it as a FAILURE/);
+  assert.match(p, /NEVER hang/);
+});
+
+test("implementPrompt: the fix-iteration path also carries the anti-hang bound", () => {
+  const residual = { failingGates: [{ command: "pytest", exitCode: 1 }], verifyFindings: [], failingCriteria: [] };
+  const p = H.implementPrompt(PROMPT_ITEM, PROMPT_REPO, residual, "feat/x", 200);
+  assert.match(p, /Build-to-green — FIX/);
+  assert.match(p, /200s/);
+  assert.match(p, /Bash tool's `timeout` PARAMETER/);
 });
