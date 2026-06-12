@@ -50,12 +50,12 @@ a verification, skip the prune, or silently truncate a run.
   fresh-angle adversarial passes. Whatever the level, **every surfaced finding is independently
   re-checked** — that floor never moves.
 
-> **Which path runs (be honest about it):** `quick` and `standard` run through `workflows/audit.js`
-> (the script). **`thorough` runs on the legacy prose path** (the *Prose-orchestrated fallback*
-> below) **until Slice 3b adds its script stages** — and the run report says so, tagged
-> "prose-orchestrated". If the **Workflow tool is unavailable** in this session, *any* level falls
-> back to the prose path, stated to you and tagged the same way. Never claim script guarantees on a
-> prose run.
+> **Which path runs (be honest about it):** **all three notches run through `workflows/audit.js`**
+> (the script) — `thorough` adds a whole-scope blind-spot sweep (FIND) and an adversarial
+> yagni-sentinel prune (PRUNE) as script stages. The **only** fallback is the *Prose-orchestrated
+> fallback* below: if the **Workflow tool is unavailable** in this session, *any* level falls back
+> to the prose path, stated to you and tagged "prose-orchestrated". Never claim script guarantees on
+> a prose run.
 
 ---
 
@@ -181,16 +181,17 @@ chosen level up front** so the user can steer — e.g. *"Auto-selected `quick` �
 
 The dial is the **one lever**: it sets the `depth` each lens reads at (`focused` → `deep` →
 `exhaustive`). All relevant lenses run at every level — depth, never lens-count, is the lever.
-`thorough` *additionally* runs a cross-cutting blind-spot sweep and an independent adversarial
-prune — but those stages live on the prose path until Slice 3b (see the path note above).
+`thorough` *additionally* runs a cross-cutting blind-spot sweep (FIND) and an independent
+adversarial yagni-sentinel prune (PRUNE) — both are **script stages** the run executes mechanically,
+joining the same dedup → prune → verify path as any finding.
 
 ---
 
 ## Phase 2 — Audit  *(LIVE — invoke the script)*
 
 **You (the orchestrator) run this** — the script's fan-out spawns subagents, and subagents can't
-spawn subagents. For `quick`/`standard` with the Workflow tool available, **invoke the script**;
-otherwise take the *Prose-orchestrated fallback*.
+spawn subagents. For any level (`quick`/`standard`/`thorough`) with the Workflow tool available, **invoke the
+script**; only when the Workflow tool is unavailable take the *Prose-orchestrated fallback*.
 
 ### Invoke `workflows/audit.js`
 
@@ -200,8 +201,8 @@ Call the Workflow tool with:
   path — read-from-install-path, never copied to an adopter). **When dogfooding *this* repo**, use
   the repo-local `./workflows/audit.js` (the working tree *is* the plugin source).
 - **`args`** mapped from the audit-plan (Phase 1):
-  - `dial` — the chosen level (`quick` | `standard`; **`thorough` is rejected by the script** — it
-    routes to the prose path).
+  - `dial` — the chosen level (`quick` | `standard` | `thorough`; at `thorough` the script adds the
+    whole-scope blind-spot sweep and the adversarial yagni-sentinel prune).
   - `modules` — the candidate standards-module **names** (e.g. `["security","testing"]`; the script
     maps each to `docs/standards/<name>.md`). **No clearly-relevant module?** fall back to the
     baseline lenses — `docs-traceability` + `maintainability-structure` — and **say so in the
@@ -221,12 +222,16 @@ Call the Workflow tool with:
 **Tell the user first, in plain English** (so a multi-minute pass isn't a silent stall): *"This can
 take several minutes on a larger repo — I'm reading the code through several quality lenses in
 parallel."* What the script then runs mechanically: **FIND** (one `lens-reviewer` per module batch
-at `depthForDial(dial)`), **PRUNE** (coded dedup → a synthesis self-review agent → cut-list, with
-the `missing-test-baseline` item **never** pruned), **VERIFY** (exactly one `finding-verifier` per
-surviving finding, cross-model judge-pinned, clean-context input — never the finder's rationale).
-A lens batch that errors after one retry sends its cells to `pending` (the run goes `PARTIAL` —
-never a silent skip); the cap forces `PARTIAL` with exact `done`/`pending` cell lists for a
-deterministic resume.
+at `depthForDial(dial)`; **at `thorough`, also one `blindspot-reviewer` over the whole scope** as a
+pseudo-cell — it FINDS only, its findings join the same path), **PRUNE** (coded dedup → a synthesis
+self-review agent → cut-list, with the `missing-test-baseline` item **never** pruned; **at
+`thorough`, also an adversarial `yagni-sentinel` sweep** over the consolidated set, its cuts applied
+with the same never-prune-the-baseline protection), **VERIFY** (exactly one `finding-verifier` per
+surviving finding — **including blindspot-originated ones** — cross-model judge-pinned, clean-context
+input — never the finder's rationale). A lens batch (or the blind-spot pseudo-cell) that errors
+after one retry sends its cells to `pending` (the run goes `PARTIAL` — never a silent skip); the cap
+forces `PARTIAL` with exact `done`/`pending` cell lists for a deterministic resume (the blind-spot
+pseudo-cell `blindspot×(scope)` is capped/resumed like any cell).
 
 ### The structured return (what Phase 3 renders)
 
@@ -235,18 +240,25 @@ deterministic resume.
   items: [{ findingKey, modules, tier, tag, titlePlain, claimTechnical, locations,
             whyPlain, impactEffort, confidence, verification: {state, evidence, plainLine} }],
   refutedCount,
-  verification: { verified, unconfirmed, deferred, refuted, crossModel, sameModelTag } }
+  verification: { verified, unconfirmed, deferred, refuted, crossModel, sameModelTag },
+  renderedBacklog }   // the COMPLETE fence body to write between the markers (Phase 3)
 ```
 
+- `renderedBacklog` is the **complete inner fence body** — status line, legend, tiers, recommended
+  starting point, run report, go-button — built by the script's `renderBacklogFence` helper (the
+  fence format's single source of truth). It carries a `{{DATE}}` placeholder and **no markers/no
+  heading** (those stay SKILL-owned). Phase 3 is now: write this string between the markers and
+  replace `{{DATE}}` with today's date.
 - `verification.state` per item is one of `verified` · `unconfirmed` · `deferred` — never a silent
   "checked". Refuted findings are **dropped** (their only trace is `refutedCount`); no timestamps
   anywhere (the orchestrator stamps the date when it renders).
 - `verification.crossModel` is true **only** when every verifier returned a confirming
   different-family self-report; otherwise `verification.sameModelTag` carries the verbatim tag.
 
-### Prose-orchestrated fallback  *(Workflow tool unavailable, OR `dial = thorough` until Slice 3b)*
+### Prose-orchestrated fallback  *(Workflow tool unavailable — the ONLY fallback trigger)*
 
-State to the user which trigger applies, run the legacy 9-step pipeline below by hand, and **tag
+State to the user that the Workflow tool is unavailable, run the legacy 9-step pipeline below by
+hand (it covers all three levels — the `thorough`-only sub-steps fire at `thorough`), and **tag
 the conversational run report "prose-orchestrated"** — never claim the script's mechanical
 guarantees on a prose run. The pipeline (each agent's full contract is in its `.claude/agents/`
 file — read it there):
@@ -286,13 +298,16 @@ file — read it there):
 
 ---
 
-## Phase 3 — Backlog  *(LIVE — render the structured return)*
+## Phase 3 — Backlog  *(LIVE — write the rendered fence body)*
 
-Render the script's structured return (or, on the prose path, the synthesized findings) as a
-**tiered, tagged, plain-English** backlog a non-engineer can act on. Each item is **pipeline-ready**
-— enough that the user picks one and the existing workflow (Discuss → … → Land) runs it. **For this
-slice the format rules below are the source of truth** (Slice 3b moves the rendering into a
-unit-tested script helper).
+On the **script path**, Phase 3 is **file mechanics**, not free-hand authoring: the script's return
+carries `renderedBacklog` — the **complete fence body** built by the script's `renderBacklogFence`
+helper (status line, legend, tiers, recommended starting point, run report, go-button). **Write that
+string between the markers and replace `{{DATE}}` with today's date.** The format is the **renderer's**
+to own — **format source of truth: `renderBacklogFence` and its tests in
+`tests/workflows/audit.test.mjs`** — so it can no longer drift from the documented shape. (On the
+*prose-orchestrated fallback* only, you author the body by hand, following that same documented shape
+— see the renderer + its tests for the exact format.)
 
 ### The backlog fence  *(load-bearing convention — mirrors the overview fence)*
 
@@ -300,90 +315,35 @@ The backlog lives in `docs/ROADMAP.md` between exact HTML-comment markers:
 
 ```
 <!-- harness-audit:backlog:start -->
-…status block + tiered backlog here…
+…the rendered fence body (renderedBacklog) here…
 <!-- harness-audit:backlog:end -->
 ```
 
-Same rules as the overview fence: **replace only the content *inside* the fence** on a re-run;
-everything outside is **human-owned and never touched** (human-added roadmap items and the
-`## Later` section survive every regeneration). If the fence is **absent**, insert it once (below
-the overview fence), headed
+Same rules as the overview fence — **these rules govern the write and are NOT owned by the renderer:**
+**replace only the content *inside* the fence** on a re-run; everything outside is **human-owned and
+never touched** (human-added roadmap items and the `## Later` section survive every regeneration). If
+the fence is **absent**, insert it once (below the overview fence), headed
 `## Backlog — the work worth doing  _(generated by /claugentic-dev-harness:audit · do not edit — re-run to refresh)_`.
+The heading and the markers are **SKILL-owned** — the renderer emits neither.
 
-### Status block  *(first thing inside the fence — what makes resume deterministic)*
+### The three things to know about what you're writing  *(summary — the renderer is the source of truth)*
 
-A single line at the very top of the fence, built from the return's `status` / `level` /
-`doneCells` / `pendingCells` (the date is **stamped by you**, the orchestrator, after the run — the
-script carries no clock):
-
-```
-status: COMPLETE | PARTIAL · level: quick|standard|thorough · done-cells: [module×dir, …] · pending-cells: [module×dir, …] · date: YYYY-MM-DD
-```
-
-- **`status`** — `COMPLETE` if every enumerated cell was audited; `PARTIAL` if the run checkpointed
-  with cells still `pending`.
-- **`done-cells` / `pending-cells`** — the explicit `(module × dir-or-package)` lists from the
-  return, **verbatim `cellKey` tokens**. **These are the resume contract:** a re-run reads them,
-  treats `done-cells` as finished, and sweeps only `pending-cells`. Keep the lists concrete —
-  `done: 3 dirs` is not enough to resume from.
-
-### "How to read this" legend  *(2 lines, just below the status block)*
-
-Immediately under the status line — still **inside the fence**, before Tier 1 — write a **short
-2-line legend** so a non-engineer can read the tags without a glossary. Keep it to **2 lines** —
-one short phrase per tag, then the verification phrases on a single line. Because every item now
-carries a verification tag, the verification line is the **most-read trust statement** — so it MUST
-carry the not-a-guarantee caveat:
-
-- **Line 1 (tags):** `refactor` = tidy without changing behavior · `capability-upgrade` =
-  add/upgrade a technology · `dependency-health` = update/patch dependencies · `bug` = fix wrong
-  behavior · `feature` = new behavior.
-- **Line 2 (verification — one line, caveat included):** `(checked against the code)` = a separate
-  agent re-read the code and couldn't refute it · `(could not confirm independently — model's
-  assertion)` = still just the model's claim · `(⚠ not yet verified — re-run to confirm)` = budget
-  ran out before checking — **a re-check by a different model family than the builder (the
-  cross-model judge; on a same-family run, tagged as such) — a reduction of shared-blind-spot risk,
-  not a mechanical guarantee.**
-
-### Tiers (most urgent first)
-
-- **Tier 1 — critical:** correctness · security · data-loss. **Untested behavior-bearing code →
-  "establish a test baseline" is Tier-1 item #1** (it gates any later refactor — see tag→discipline).
-  This item emits even on a `PARTIAL` run (the script protects its `missing-test-baseline` key from
-  the prune).
-- **Tier 2 — important:** maintainability · missing tests · performance.
-- **Tier 3 — polish:** docs · style · cleanup.
-
-Map each return `item` to its tier by `item.tier`; order tiers most-urgent-first.
-
-**Architecturally-sound terminal signal.** When **Tier 1 and Tier 2 both come back empty** (only
-Tier-3 polish, or nothing at all), the backlog must **say so plainly** — the explicit "stop"
-signal. State it in the Recommended-starting-point, e.g.: *"Sound on the audited dimensions — what
-remains is optional polish; you don't need to keep re-auditing."* (On a `COMPLETE` run this is a
-genuine all-clear; on a `PARTIAL` run, scope it to the covered cells.)
-
-### Item format (every item)
-
-For each return `item`:
-- **Title** — `item.titlePlain` (a short, plain action).
-- **Tag** — exactly one of `refactor` · `capability-upgrade` · `dependency-health` · `bug` ·
-  `feature` (`item.tag`). The tag selects the discipline when the item runs (below).
-- **Dual-layer** — (1) the **technical finding** `item.claimTechnical` with `item.locations` (for a
-  systemic item, "recurs in N files: …"); then (2) **one plain-English line** `item.whyPlain` —
-  *why it matters / how bad / what could break.*
-- **Impact + rough effort** — `item.impactEffort` (plain-English, so the user can prioritize).
-- **Verification — exactly one inline tag per item**, from `item.verification.state`:
-  - `verified` → `(checked against the code)` — proof snippet (`item.verification.evidence`)
-    attached to the technical finding.
-  - `unconfirmed` → `(could not confirm independently — model's assertion)`.
-  - `deferred` → `(⚠ not yet verified — re-run to confirm)` (it sits in `pending-cells`; a re-run
-    re-checks it).
-
-  There is **no badge/legend system** beyond this single inline phrase, and the per-finding
-  `deterministic`/`judgment` confidence label is **not shown per item** (`item.confidence` is
-  carried internally only). Findings the verifier **Refuted** are dropped entirely — their only
-  trace is the run-report count below. A verification tag is a *reduction of false confidence*, not
-  a deterministic guarantee — never overstate it.
+1. **The status line is the resume contract.** Its `done-cells` / `pending-cells` are verbatim
+   `cellKey` tokens; a re-run reads them, treats `done-cells` as finished, and sweeps only
+   `pending-cells` (pass them back as the script's `doneCells` arg). The Tier-1
+   `missing-test-baseline` item emits even on a `PARTIAL` run (the script protects its key from the
+   prune). The `{{DATE}}` placeholder is the **only** thing you fill in.
+2. **Every item carries exactly one verification phrase** (`(checked against the code)` /
+   `(could not confirm independently — model's assertion)` / `(⚠ not yet verified — re-run to
+   confirm)`) — a *reduction of false confidence*, never a guarantee; refuted findings are dropped
+   (their only trace is the run-report count). When Tiers 1+2 are both empty, the recommended
+   starting point is the **terminal "sound" signal** — the explicit stop. The renderer handles all of
+   this; do not re-author it.
+3. **The closing run-report you say to the user** (conversationally, outside the fence) frames the
+   refuted count as a trust signal. The rendered fence already carries the run-report line; **when
+   `verification.crossModel` is false**, that line carries the verbatim same-model tag instead of the
+   cross-model parenthetical (never both) — and **on a prose-orchestrated run, also state that** in
+   your conversational report.
 
 ### Tag → discipline  *(the mapping lives in `docs/WORKFLOW.md` — enforcement is not yet automated)*
 
@@ -395,29 +355,10 @@ behavior-bearing code is **characterization-tests-first — it cannot start unti
 stopping and asking**; the durable `PreToolUse` hook **does not exist yet** — so be honest in the
 backlog and **do not imply the hook (or any automatic gate) already exists.**
 
-### Recommended starting point + the verification run report
+### After the write — report to the user
 
-End the backlog with a short **Recommended starting point** — usually Tier-1 #1 (the test baseline
-if there's untested behavior-bearing code), with one plain sentence on why. **If Tier 1 and Tier 2
-are both empty**, the recommended-starting-point *is* the sound signal — say *"Sound on the audited
-dimensions — what remains is optional polish; you don't need to keep re-auditing"* instead of
-pointing at an item.
-
-Then **report the dial level + coverage** to the user (which cells ran, `COMPLETE` or `PARTIAL`,
-and any baseline fallback), and include the **verification run-report line** driven by the return's
-`verification` block — frame the dropped ones as a trust signal, reported as a **count, not a
-list**: *"Re-checked every finding I surfaced against the code (the cross-model judge — by default
-a different model family than the builder); dropped `refutedCount` that couldn't be confirmed —
-verified N · unconfirmed K · deferred J."* **When `verification.crossModel` is false** (the run
-carries `verification.sameModelTag`), **replace** the parenthetical with the verbatim tag — never
-emit both clauses: *"same-model review on this run — the judge and the builder are the same model
-family here."* **On a prose-orchestrated run, also state that** in the report. **Do not list the
-specific refuted claims** and **do not persist them.**
-
-Finally, **close the backlog with this plain "how to start" line** (verbatim, so the user always
-has the go-button): *"To start anything — a backlog item or a brand-new project — just tell the
-agent in plain English what you want (e.g. 'Let's do Tier-1 item 1' or 'I want to build X'). It
-will ask you questions (Discuss), then write a plan and spec for you to approve before any code.
-For a backlog item, the go-button is **`/claugentic-dev-harness:build`** — point it at one item
-('build Tier-1 item 1') and it drives the whole reviewed pipeline for you, pausing only at the spec
-(before any code) and before anything irreversible."*
+After writing the fence and stamping the date, **report the dial level + coverage** conversationally
+(which cells ran, `COMPLETE` or `PARTIAL`, and any baseline fallback). The verification run-report
+line is already in the rendered fence; echo its trust framing to the user (count of dropped findings,
+the cross-model-or-same-model-tag clause exactly as the fence carries it). **Do not list the specific
+refuted claims** and **do not persist them.**

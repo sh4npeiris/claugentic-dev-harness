@@ -1,6 +1,9 @@
 // workflows/audit.js — the audit pipeline (FIND -> PRUNE -> VERIFY) as an executable
-// Workflow script. Slice 3a: `quick` + `standard` only (`thorough` is rejected at the
-// boundary and routes to the prose path until Slice 3b adds its stages).
+// Workflow script. All three notches are scripted: `quick` + `standard` run the per-module
+// lens sweep; `thorough` additionally runs a whole-scope blind-spot sweep (FIND) and an
+// adversarial yagni-sentinel prune (PRUNE) — both wired into the same dedup -> verify path.
+// The Phase-3 backlog fence body is rendered by a pure helper (renderBacklogFence) — the
+// fence format's single source of truth, unit-tested so it can't drift from the documented shape.
 //
 // Distribution: read-from-install-path. Adopters invoke this from the version-stamped plugin
 // install dir (`${CLAUDE_PLUGIN_ROOT}/workflows/audit.js`); this repo dogfoods it via the
@@ -21,7 +24,7 @@
 export const meta = {
   name: "audit",
   description:
-    "Audit pipeline (FIND -> PRUNE -> VERIFY) as a Workflow script: lens fan-out per (module x dir) cell at the dialed depth, coded dedup, synthesis self-review prune (the test-baseline item never pruned), exactly one finding-verifier per surviving finding (judge-pinned cross-model), deterministic budget cap + resume. quick/standard only (thorough -> prose path until Slice 3b).",
+    "Audit pipeline (FIND -> PRUNE -> VERIFY) as a Workflow script: lens fan-out per (module x dir) cell at the dialed depth, coded dedup, synthesis self-review prune (the test-baseline item never pruned), exactly one finding-verifier per surviving finding (judge-pinned cross-model), deterministic budget cap + resume. quick/standard/thorough — thorough adds a whole-scope blind-spot sweep (FIND) and an adversarial yagni-sentinel prune (PRUNE). Returns the rendered backlog fence body (renderBacklogFence) for the skill to write between the harness-audit:backlog markers.",
 };
 
 // --- helpers ---
@@ -44,34 +47,70 @@ const SAME_MODEL_TAG =
 // undefined for a valid dial.
 const DEPTH_FOR_DIAL = { quick: "focused", standard: "deep", thorough: "exhaustive" };
 
-// The dials this script SUPPORTS end-to-end. `thorough` is a known dial (in the depth map) but
-// not yet a supported run — Slice 3b adds its stages; until then the skill runs it on the prose
-// path. The boundary rejects it with a message that names Slice 3b.
-const SUPPORTED_DIALS = ["quick", "standard"];
+// The dials this script SUPPORTS end-to-end. All three notches are scripted: `thorough` adds the
+// blind-spot sweep (FIND) and the adversarial yagni-sentinel prune (PRUNE). The boundary rejects
+// any unknown dial with a message naming what's supported.
+const SUPPORTED_DIALS = ["quick", "standard", "thorough"];
 
 // The class of the script-synthesized "establish a test baseline" item. A finding with this
 // findingKey can NEVER be pruned (applyPrune enforces it) — a partial/right-sized audit must
 // never green-light an unguarded refactor.
 const TEST_BASELINE_CLASS = "missing-test-baseline";
 
+// The whole-scope blind-spot sweep, modeled as a single pseudo-cell so it participates in
+// maxCellsPerRun, the done/pending lists, and resume exactly like any (module × dir) cell. It is
+// appended LAST (after the prioritized module cells) at `thorough` only, runs once per audit, and
+// a capped run defers it to the resume run like any overflow cell. Module slug `blindspot`,
+// scope-marker dir `(scope)` — a fixed, never-a-real-dir token.
+function cellKey(moduleName, dir) {
+  return `${moduleName}×${dir}`;
+}
+
+// Derived via cellKey so the separator has exactly one definition.
+const BLINDSPOT_CELL = cellKey("blindspot", "(scope)");
+
+// The verbatim 2-line "how to read this" legend — the fence's single source of truth for the tag
+// + verification glossary (the most-read trust statement carries the not-a-guarantee / cross-model
+// caveat). Defined once here; renderBacklogFence emits it verbatim so it cannot drift.
+const LEGEND =
+  "`refactor` = tidy without changing behavior · `capability-upgrade` = add/upgrade a technology · `dependency-health` = update/patch dependencies · `bug` = fix wrong behavior · `feature` = new behavior.\n" +
+  "`(checked against the code)` = a separate agent re-read the code and couldn't refute it · `(could not confirm independently — model's assertion)` = still just the model's claim · `(⚠ not yet verified — re-run to confirm)` = budget ran out before checking — a re-check by a different model family than the builder (the cross-model judge; on a same-family run, tagged as such) — a reduction of shared-blind-spot risk, not a mechanical guarantee.";
+
+// The architecturally-sound terminal signal — emitted as the recommended-starting-point IFF Tiers
+// 1 and 2 both come back empty (the explicit "stop" signal). Verbatim; the PARTIAL covered-cells
+// scoping clause is appended by the renderer at run time.
+const TERMINAL_SIGNAL =
+  "Sound on the audited dimensions — what remains is optional polish; you don't need to keep re-auditing.";
+
+// The verbatim closing "how to start" line — the user's always-present go-button. Defined once so
+// the wording cannot drift.
+const GO_BUTTON =
+  "To start anything — a backlog item or a brand-new project — just tell the agent in plain English what you want (e.g. 'Let's do Tier-1 item 1' or 'I want to build X'). It will ask you questions (Discuss), then write a plan and spec for you to approve before any code. For a backlog item, the go-button is **`/claugentic-dev-harness:build`** — point it at one item ('build Tier-1 item 1') and it drives the whole reviewed pipeline for you, pausing only at the spec (before any code) and before anything irreversible.";
+
+// The date placeholder the renderer leaves in the status line — the script has no clock, so the
+// orchestrator replaces this token with today's date after the run (Phase 3 file mechanics).
+const DATE_PLACEHOLDER = "{{DATE}}";
+
+// The verbatim verification phrase per state — the inline tag every item carries (the verdict→tag
+// map). Defined once; renderItem emits exactly one, by item.verification.state.
+const VERIFICATION_PHRASE = {
+  verified: "(checked against the code)",
+  unconfirmed: "(could not confirm independently — model's assertion)",
+  deferred: "(⚠ not yet verified — re-run to confirm)",
+};
+
 // Validate the args contract at the boundary (fail loud — the caller throws on a non-empty
-// list). Returns every shape error; empty array = valid. `thorough` is rejected with the exact
-// not-yet-supported message naming Slice 3b (the headline 3a boundary).
+// list). Returns every shape error; empty array = valid. The dial must be one of the supported
+// notches (quick|standard|thorough); any other value is rejected naming the supported set.
 function validateArgs(args) {
   const errors = [];
   if (!args || typeof args !== "object") {
     return ["args must be an object"];
   }
   if (typeof args.dial !== "string" || !SUPPORTED_DIALS.includes(args.dial)) {
-    if (args.dial === "thorough") {
-      errors.push(
-        "dial 'thorough' is not supported by this script yet — Slice 3b adds thorough; the skill runs thorough via the prose path until then",
-      );
-    } else {
-      errors.push(
-        `dial '${args.dial}' is not supported by this script yet — Slice 3b adds thorough; the skill runs thorough via the prose path until then`,
-      );
-    }
+    errors.push(
+      `dial '${args.dial}' is not supported — supported dials are ${SUPPORTED_DIALS.join("/")}`,
+    );
   }
   if (!Array.isArray(args.modules) || args.modules.length === 0) {
     errors.push("modules is required (non-empty array of standards-module names)");
@@ -117,13 +156,12 @@ function modulePath(moduleName) {
 
 // The exact cell-key token format the fence's done-cells / pending-cells lists carry — this is
 // the resume contract with the SKILL. `<module>x<dir>` (a literal multiplication sign).
-function cellKey(moduleName, dir) {
-  return `${moduleName}×${dir}`;
-}
 
 // Enumerate the pending cells: module x prioritized dir, in (module, dir) order, MINUS any cell
-// already in doneCells (never re-enumerated). Returns ordered cell keys.
-function enumerateCells(modules, scopeDirs, doneCells) {
+// already in doneCells (never re-enumerated). At `thorough`, the whole-scope BLINDSPOT_CELL is
+// appended LAST (after the module cells) when not already done — so the sweep participates in the
+// cap, the done/pending lists, and resume exactly like any cell. Returns ordered cell keys.
+function enumerateCells(modules, scopeDirs, doneCells, dial) {
   const done = new Set(Array.isArray(doneCells) ? doneCells : []);
   const cells = [];
   for (const moduleName of modules) {
@@ -133,6 +171,9 @@ function enumerateCells(modules, scopeDirs, doneCells) {
         cells.push(key);
       }
     }
+  }
+  if (dial === "thorough" && !done.has(BLINDSPOT_CELL)) {
+    cells.push(BLINDSPOT_CELL);
   }
   return cells;
 }
@@ -273,6 +314,42 @@ function buildLensPrompt(moduleName, dirs, excludeSet, depth) {
     `Read at depth: ${depth}. ` +
     `Return per-issue findings: issueClass, claimPlain, claimTechnical, locations (file:line list), ` +
     `fix, confidence (deterministic|judgment).`
+  );
+}
+
+// Build the whole-scope blind-spot sweep prompt (`thorough` only — per
+// .claude/agents/blindspot-reviewer.md): no single module, the whole scope, red-team posture,
+// always exhaustive depth. It FINDS only; its findings carry `issueClass` like a lens return and
+// join the same dedupFindings path with no special handling.
+function buildBlindspotPrompt(scopeDirs, excludeSet) {
+  const exclude = Array.isArray(excludeSet) ? excludeSet : [];
+  return (
+    `Audit-scope mode (no diff). You have NO single standards module — your lens is the WHOLE ` +
+    `audited scope. Red-team posture: a checklist-driven per-module review just ran over this ` +
+    `scope — hunt what it would STRUCTURALLY miss (emergent architectural smells, integration ` +
+    `gaps between components, cross-cutting concerns applied inconsistently, systemic issues that ` +
+    `fall BETWEEN the per-module lenses). ` +
+    `Scope (prioritized dirs/packages): ${JSON.stringify(scopeDirs)}. ` +
+    `Exclude-set (never read — deps, build output, secrets): ${JSON.stringify(exclude)}. ` +
+    `Read at depth: exhaustive (you are a thorough-only finder). You FIND only — do NOT verify. ` +
+    `Return per-issue findings in the SAME shape as a lens-reviewer: issueClass, claimPlain, ` +
+    `claimTechnical, locations (file:line list), fix, confidence (deterministic|judgment).`
+  );
+}
+
+// Build the adversarial yagni-sentinel prune prompt (`thorough` only — per
+// .claude/agents/yagni-sentinel.md): the independent skeptic argues the kept consolidated finding
+// set down from a clean context. Returns ONLY a cut-list; the script applies it via applyPrune
+// (the TEST_BASELINE_CLASS protection holds on this second pass too).
+function buildSentinelPrompt(keptFindings) {
+  return (
+    `You are the YAGNI sentinel. An audit has consolidated and pruned a finding set; argue it does ` +
+    `TOO MUCH. Independently (clean context — you are NOT given the synthesis rationale) flag ` +
+    `findings that are speculative, gold-plating, premature infrastructure, over-generalization, ` +
+    `or scope creep — the marginal nice-to-haves that should NOT reach the backlog. Do NOT argue ` +
+    `against genuinely warranted quality (real security, real edge-cases, real resilience). ` +
+    `Return ONLY a cuts list of { findingKey, reason } for everything you would cut. ` +
+    `Kept findings: ${JSON.stringify(keptFindings)}.`
   );
 }
 
@@ -523,6 +600,27 @@ const VERIFIER_SCHEMA = {
   },
 };
 
+// The adversarial yagni-sentinel's cut-list schema (`thorough` PRUNE stage). It returns ONLY cuts
+// (same { findingKey, reason } shape the synthesis cuts use) — the script applies them via the
+// same applyPrune (TEST_BASELINE_CLASS still protected).
+const SENTINEL_SCHEMA = {
+  type: "object",
+  required: ["cuts"],
+  properties: {
+    cuts: {
+      type: "array",
+      items: {
+        type: "object",
+        required: ["findingKey", "reason"],
+        properties: {
+          findingKey: { type: "string" },
+          reason: { type: "string" },
+        },
+      },
+    },
+  },
+};
+
 // Apply the synthesis agent's tier/tag/plain-English item metadata onto a kept finding, by
 // findingKey. A finding the synthesis did not annotate keeps conservative defaults (tier 2,
 // refactor) — never silently dropped here (the cut-list is the only drop path, via applyPrune).
@@ -553,7 +651,7 @@ function toResultItem(finding) {
       : finding.sourceModule != null
         ? [finding.sourceModule]
         : [],
-    tier: finding.tier,
+    tier: Number.isInteger(finding.tier) ? finding.tier : 2,
     tag: finding.tag,
     titlePlain: finding.titlePlain != null ? finding.titlePlain : "",
     claimTechnical: finding.claimTechnical != null ? finding.claimTechnical : "",
@@ -563,6 +661,127 @@ function toResultItem(finding) {
     confidence: finding.confidence != null ? finding.confidence : "judgment",
     verification: finding.verification,
   };
+}
+
+// ── Fence renderer (the backlog fence body's single source of truth) ──
+// Pure string builders. Together they emit the COMPLETE inner fence body (NO markers, NO heading —
+// those stay SKILL-owned): status line, legend, tiers most-urgent-first, recommended starting
+// point, the closing go-button. {{DATE}} is a placeholder the orchestrator stamps after the run
+// (the script has no clock). The format rules in skills/audit/SKILL.md Phase 3 point HERE as the
+// source of truth — drift is now a unit-test failure, not a model-discipline failure.
+
+// The status line — the resume contract's first line. Cell lists are the verbatim cellKey tokens
+// from the result (done/pending), comma-joined inside [ ]. The date is the placeholder.
+function renderStatusLine(result) {
+  const done = Array.isArray(result.doneCells) ? result.doneCells : [];
+  const pending = Array.isArray(result.pendingCells) ? result.pendingCells : [];
+  return (
+    `status: ${result.status} · level: ${result.level} · ` +
+    `done-cells: [${done.join(", ")}] · pending-cells: [${pending.join(", ")}] · ` +
+    `date: ${DATE_PLACEHOLDER}`
+  );
+}
+
+// One verification phrase per item, by state (verbatim — the inline trust tag). An unknown/missing
+// state degrades to the deferred phrase (honest — never silently "checked").
+function verificationPhrase(state) {
+  return VERIFICATION_PHRASE[state] || VERIFICATION_PHRASE.deferred;
+}
+
+// The technical-finding line: the claim + its locations. A merged systemic finding (>1 location)
+// reads "recurs in N files: …"; a single location reads inline; no location is honestly omitted.
+function renderLocations(locations) {
+  const locs = Array.isArray(locations) ? locations : [];
+  if (locs.length === 0) {
+    return "";
+  }
+  if (locs.length === 1) {
+    return ` (${locs[0]})`;
+  }
+  return ` (recurs in ${locs.length} files: ${locs.join(", ")})`;
+}
+
+// Render one backlog item — the exact item format (SKILL Phase 3): title, exactly one tag, the
+// inline verification phrase, the dual-layer technical+plain finding, impact+effort, and (when
+// verified) the evidence snippet attached to the technical finding.
+function renderItem(item) {
+  const state = item.verification ? item.verification.state : "deferred";
+  const phrase = verificationPhrase(state);
+  const evidence =
+    state === "verified" && item.verification && item.verification.evidence
+      ? ` Evidence: ${item.verification.evidence}.`
+      : "";
+  const lines = [];
+  lines.push(`- **${item.titlePlain}** — \`${item.tag}\` *${phrase}*`);
+  lines.push(
+    `  - Technical: ${item.claimTechnical}${renderLocations(item.locations)}.${evidence}`,
+  );
+  lines.push(`  - Plain English: ${item.whyPlain}`);
+  lines.push(`  - Impact/effort: ${item.impactEffort}`);
+  return lines.join("\n");
+}
+
+// Render one tier section (most-urgent-first ordering is the caller's). An empty tier carries an
+// explicit "(empty)" note rather than a silent gap.
+function renderTier(heading, items) {
+  const body =
+    items.length > 0 ? items.map(renderItem).join("\n") : "_(empty)_";
+  return `### ${heading}\n\n${body}`;
+}
+
+// The recommended-starting-point line. When Tiers 1+2 are BOTH empty it IS the terminal "sound"
+// signal (with the covered-cells scoping clause appended on a PARTIAL run); otherwise it points at
+// the first Tier-1 item, else the first Tier-2 item.
+function renderRecommendation(tier1, tier2, status) {
+  if (tier1.length === 0 && tier2.length === 0) {
+    const scope =
+      status === "PARTIAL"
+        ? " (scoped to the cells covered this run — re-run to finish the rest)"
+        : "";
+    return `**Recommended starting point:** ${TERMINAL_SIGNAL}${scope}`;
+  }
+  const first = tier1.length > 0 ? tier1[0] : tier2[0];
+  return `**Recommended starting point:** ${first.titlePlain}.`;
+}
+
+// The verification run-report line — driven by the result's verification block. Frames the dropped
+// findings as a trust signal (a COUNT, never a list). When crossModel is false the parenthetical
+// cross-model clause is REPLACED by the verbatim same-model tag (never both clauses).
+function renderRunReport(verification) {
+  const v = verification || {};
+  const refuted = v.refuted != null ? v.refuted : 0;
+  const verified = v.verified != null ? v.verified : 0;
+  const unconfirmed = v.unconfirmed != null ? v.unconfirmed : 0;
+  const deferred = v.deferred != null ? v.deferred : 0;
+  const judgeClause = v.crossModel
+    ? "(the cross-model judge — by default a different model family than the builder)"
+    : SAME_MODEL_TAG;
+  return (
+    `Re-checked every finding I surfaced against the code ${judgeClause}; ` +
+    `dropped ${refuted} that couldn't be confirmed — ` +
+    `verified ${verified} · unconfirmed ${unconfirmed} · deferred ${deferred}.`
+  );
+}
+
+// Build the COMPLETE inner fence body from the structured result. Order: status line, legend,
+// the three tiers (most-urgent-first), the recommended starting point, the run report, the
+// go-button. NO fence markers, NO heading (SKILL-owned). {{DATE}} stays a placeholder.
+function renderBacklogFence(result) {
+  const items = Array.isArray(result.items) ? result.items : [];
+  const tier1 = items.filter((it) => it.tier === 1);
+  const tier2 = items.filter((it) => it.tier === 2);
+  const tier3 = items.filter((it) => it.tier === 3);
+  const parts = [
+    renderStatusLine(result),
+    LEGEND,
+    renderTier("Tier 1 — critical", tier1),
+    renderTier("Tier 2 — important", tier2),
+    renderTier("Tier 3 — polish", tier3),
+    renderRecommendation(tier1, tier2, result.status),
+    renderRunReport(result.verification),
+    `*${GO_BUTTON}*`,
+  ];
+  return parts.join("\n\n");
 }
 // --- end helpers ---
 
@@ -620,25 +839,54 @@ const excludeSet = Array.isArray(input.excludeSet) ? input.excludeSet : [];
 const doneCellsIn = Array.isArray(input.doneCells) ? input.doneCells : [];
 const deferredFindings = Array.isArray(input.deferredFindings) ? input.deferredFindings : [];
 
-// Enumerate the pending cells, then split against the per-run cap (the deterministic resume).
-const pending = enumerateCells(input.modules, input.scopeDirs, doneCellsIn);
+// Enumerate the pending cells (at `thorough` this appends the whole-scope BLINDSPOT_CELL last),
+// then split against the per-run cap (the deterministic resume — the pseudo-cell is capped/resumed
+// exactly like any cell).
+const pending = enumerateCells(input.modules, input.scopeDirs, doneCellsIn, dial);
 const { run: runCells, overflow: overflowCells } = applyCellBudget(pending, input.maxCellsPerRun);
-const batches = groupByModule(runCells);
+const runHasBlindspot = runCells.includes(BLINDSPOT_CELL);
+const moduleCells = runCells.filter((c) => c !== BLINDSPOT_CELL);
+const batches = groupByModule(moduleCells);
 log(
-  `audit dial=${dial} depth=${depth} — ${runCells.length} cell(s) this run across ` +
-    `${batches.length} module batch(es); ${overflowCells.length} deferred to resume.`,
+  `audit dial=${dial} depth=${depth} — ${moduleCells.length} module cell(s) this run across ` +
+    `${batches.length} module batch(es)${runHasBlindspot ? " + the blind-spot sweep" : ""}; ` +
+    `${overflowCells.length} deferred to resume.`,
 );
 
-// --- FIND: one lens-reviewer per module batch at the dialed depth, in parallel. ---
+// --- FIND: one lens-reviewer per module batch at the dialed depth, in parallel; at `thorough`,
+// the whole-scope blind-spot sweep joins the SAME parallel() as one more task (it FINDS only). ---
 phase("Find");
+// FIND-phase guard. The platform's parallel() already resolves a throwing thunk to null
+// (it never rejects) — this wrapper makes the never-crash-the-run property LOCAL and
+// auditable instead of resting on an out-of-repo tool contract; either way a failed batch
+// returns null and its cells go pending (PARTIAL), never a crashed run.
+async function guardedAgent(prompt, opts) {
+  try {
+    return await agent(prompt, opts);
+  } catch (e) {
+    log(`FIND batch failed (${opts && opts.label ? opts.label : "?"}): ${e && e.message ? e.message : e} — its cells go pending`);
+    return null;
+  }
+}
+
 const findTasks = batches.map((batch) => () =>
-  agent(buildLensPrompt(batch.module, batch.dirs, excludeSet, depth), {
+  guardedAgent(buildLensPrompt(batch.module, batch.dirs, excludeSet, depth), {
     agentType: "lens-reviewer",
     schema: LENS_SCHEMA,
     label: `lens:${batch.module}`,
     phase: "Find",
   }),
 );
+if (runHasBlindspot) {
+  findTasks.push(() =>
+    guardedAgent(buildBlindspotPrompt(input.scopeDirs, excludeSet), {
+      agentType: "blindspot-reviewer",
+      schema: LENS_SCHEMA,
+      label: "blindspot:(scope)",
+      phase: "Find",
+    }),
+  );
+}
 const findResults = await parallel(findTasks);
 
 // A batch that errored (null return) sends its cells to pendingCells — never a silent skip; the
@@ -658,6 +906,22 @@ batches.forEach((batch, i) => {
     rawFindings.push({ ...finding, sourceModule: modulePath(batch.module), modules: [modulePath(batch.module)] });
   }
 });
+
+// The blind-spot sweep's result is the LAST element of findResults (it was pushed last). It joins
+// the same dedup -> prune -> verify path with no special handling — its findings carry issueClass
+// like a lens return; sourceModule is the blindspot scope marker. A failed sweep sends the
+// pseudo-cell to pending (logged), the run goes PARTIAL — never a silent skip.
+if (runHasBlindspot) {
+  const blindspotResult = findResults[findResults.length - 1];
+  if (!blindspotResult || !Array.isArray(blindspotResult.findings)) {
+    log("blind-spot sweep did not run (no usable return) — the (scope) pseudo-cell goes pending.");
+    failedCells.push(BLINDSPOT_CELL);
+  } else {
+    for (const finding of blindspotResult.findings) {
+      rawFindings.push({ ...finding, sourceModule: "blindspot", modules: ["blindspot"] });
+    }
+  }
+}
 
 // --- PRUNE: code dedup, then synthesis self-review, then applyPrune (test-baseline protected). ---
 phase("Prune");
@@ -708,9 +972,45 @@ if (
   });
 }
 
+// --- PRUNE (thorough only): the adversarial yagni-sentinel sweep over the consolidated survivors
+// — the independent skeptic argues the set down from a clean context, then applyPrune AGAIN (the
+// TEST_BASELINE_CLASS protection holds on this second pass too). A thorough run that skipped its
+// adversarial prune must NOT pretend it ran one: on a null sentinel after one retry, throw. On
+// quick/standard this stage does not exist.
+if (dial === "thorough") {
+  let sentinel = await agent(buildSentinelPrompt(survivors), {
+    agentType: "yagni-sentinel",
+    schema: SENTINEL_SCHEMA,
+    label: "sentinel",
+    phase: "Prune",
+  });
+  if (!sentinel || !Array.isArray(sentinel.cuts)) {
+    sentinel = await agent(buildSentinelPrompt(survivors), {
+      agentType: "yagni-sentinel",
+      schema: SENTINEL_SCHEMA,
+      label: "sentinel:respawn",
+      phase: "Prune",
+    });
+  }
+  if (!sentinel || !Array.isArray(sentinel.cuts)) {
+    throw new Error(
+      "audit prune: the thorough adversarial yagni-sentinel returned no usable cut-list after a retry — a thorough run must not pretend it ran the adversarial prune.",
+    );
+  }
+  survivors = applyPrune(survivors, sentinel.cuts);
+}
+
 // Re-checked findings include every survivor PLUS any deferredFindings from a prior run (fed
 // straight to VERIFY — their prior tags don't exempt them from a fresh re-check this run).
-const toVerify = [...survivors, ...deferredFindings];
+// Resumed deferred findings never passed through applySynthesisItems, so default their
+// tier/tag here — a tier-less item would silently vanish from the rendered tiers while the
+// run-report still counted it (the 2026-06-11 thorough dogfood's verified Tier-1).
+const normalizedDeferred = deferredFindings.map((f) => ({
+  ...f,
+  tier: Number.isInteger(f && f.tier) ? f.tier : 2,
+  tag: f && typeof f.tag === "string" && f.tag.length > 0 ? f.tag : "refactor",
+}));
+const toVerify = [...survivors, ...normalizedDeferred];
 
 // --- VERIFY: exactly ONE finding-verifier per finding, judge-pinned, in parallel. ---
 phase("Verify");
@@ -730,7 +1030,7 @@ const doneCells = [...doneCellsIn, ...sweptCells];
 const pendingCells = [...overflowCells, ...failedCells];
 const items = kept.map(toResultItem);
 
-return {
+const result = {
   status: runStatus(pendingCells),
   // A COMPLETE cell sweep can still carry unverified findings — say so mechanically.
   verificationIncomplete: summary.deferred > 0,
@@ -742,3 +1042,8 @@ return {
   refutedCount,
   verification: summary,
 };
+
+// The complete fence body the skill writes between the harness-audit:backlog markers (Phase 3 is
+// now file mechanics: write this string, replace {{DATE}} with today's date). The format's single
+// source of truth is renderBacklogFence + its unit tests — no free-hand prose, no drift.
+return { ...result, renderedBacklog: renderBacklogFence(result) };
