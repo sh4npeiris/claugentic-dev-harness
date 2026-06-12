@@ -33,6 +33,19 @@ const MODELS = { judge: "opus" };
 const SAME_MODEL_TAG =
   "same-model review on this run — the judge and the builder are the same model family here.";
 
+// The verbatim UNRESOLVED disclosure tag — the THIRD state, distinct from SAME_MODEL_TAG. When a
+// judge's self-reported family can't be recognized, the run is reported as unresolved (the
+// conservative same-model trust floor still holds — no cross-model claim) rather than ASSERTED to
+// be same-model fact. Defined once so the wording cannot drift (honesty trust surface). Copied
+// byte-identical across the workflow scripts (cross-script drift pin).
+const UNRESOLVED_FAMILY_TAG =
+  "could not resolve the judge's model family on this run — no cross-model claim is made (treated as the same-model trust floor, not asserted as fact).";
+
+// The recognized model families — the ONE named source the modelFamily regex derives from (single
+// source of truth: a new family is added HERE, never in a hand-built regex). Copied byte-identical
+// across the workflow scripts (cross-script drift pin).
+const KNOWN_FAMILIES = ["fable", "opus", "sonnet", "haiku"];
+
 // The 11 standards-catalog slugs. The script can't read the filesystem, so this literal is
 // the source of truth here — and tests/workflows/verify.test.mjs pins it set-equal to the
 // real docs/standards/*.md basenames (read via node:fs), killing list drift mechanically.
@@ -88,39 +101,56 @@ function modulesFor(dimensions) {
   return dimensions.map((slug) => `docs/standards/${slug}.md`);
 }
 
-// Normalize a self-reported model family to a canonical lowercase token. First regex match
-// wins; empty / unknown → null (conservative — degrades to the same-model tag, never to a
-// false cross-model claim).
+// Normalize a self-reported model family to a canonical lowercase token. First KNOWN_FAMILIES
+// match wins (the regex derives from that one named source — no second hand-built family list);
+// empty / unknown → null (conservative — an unresolved family degrades to the trust floor, never
+// to a false cross-model claim).
 function modelFamily(report) {
   if (typeof report !== "string") {
     return null;
   }
-  const match = report.match(/(fable|opus|sonnet|haiku)/i);
+  const match = report.match(new RegExp(`(${KNOWN_FAMILIES.join("|")})`, "i"));
   return match ? match[1].toLowerCase() : null;
 }
 
-// The same-model disclosure decision. Returns the verbatim tag when the normalized families
-// match OR either fails to resolve; null ONLY when both resolve and differ (the sole
-// cross-model case). One rule, detection included.
+// The disclosure decision — THREE states, one rule (detection included). The distinction is
+// between a MISSING self-report (the deliberate no-report / forced-respawn floor) and a PRESENT
+// self-report that FAILED to resolve (a genuine "could not resolve the family"):
+//   - judge self-report is absent (null/undefined/empty)   → SAME_MODEL_TAG  (the no-report floor —
+//                                                             e.g. a forced same-model respawn)
+//   - a PRESENT family (either side) fails to resolve        → UNRESOLVED_FAMILY_TAG (reported
+//                                                             unresolved, NEVER asserted same-model)
+//   - both resolve and MATCH                                 → SAME_MODEL_TAG  (resolved-same fact)
+//   - both resolve and DIFFER                                → null            (sole cross-model case)
+// The cross-model claim keys off `=== null` (unchanged: claimed ONLY on confirmed different-family);
+// only the non-null DISCLOSURE wording now distinguishes resolved-same from unresolved.
 function sameModelTag(builderFamily, judgeFamily) {
+  const judgeReported = typeof judgeFamily === "string" && judgeFamily.trim().length > 0;
+  if (!judgeReported) {
+    return SAME_MODEL_TAG; // no judge self-report at all → the conservative same-model floor
+  }
   const b = modelFamily(builderFamily);
   const j = modelFamily(judgeFamily);
   if (b === null || j === null) {
-    return SAME_MODEL_TAG;
+    return UNRESOLVED_FAMILY_TAG; // a present report could not be resolved → reported as unresolved
   }
   return b === j ? SAME_MODEL_TAG : null;
 }
 
 // Fold the judges' self-reports into the run's cross-model claim. `claimed` is true IFF the
 // report list is non-empty AND sameModelTag is null for EVERY judge (a confirming
-// different-family self-report from each). Otherwise claimed:false + the same-model tag.
+// different-family self-report from each). Otherwise claimed:false + the disclosure tag for WHY:
+// an UNRESOLVED judge family yields UNRESOLVED_FAMILY_TAG (reported as unresolved, never asserted
+// same-model fact); a resolved-same judge yields SAME_MODEL_TAG. An empty report list is the
+// no-judge same-model trust floor. The first non-confirming judge sets the tag (its own state).
 function crossModelOutcome(builderFamily, judgeReports) {
   if (!Array.isArray(judgeReports) || judgeReports.length === 0) {
     return { claimed: false, tag: SAME_MODEL_TAG };
   }
   for (const report of judgeReports) {
-    if (sameModelTag(builderFamily, report) !== null) {
-      return { claimed: false, tag: SAME_MODEL_TAG };
+    const tag = sameModelTag(builderFamily, report);
+    if (tag !== null) {
+      return { claimed: false, tag };
     }
   }
   return { claimed: true, tag: null };
@@ -478,6 +508,19 @@ judges.push({
   role: "synthesis",
   reportedFamily: synthesisResult.forcedSameModel ? null : synthesis ? synthesis.reported_model_family : null,
 });
+// Observability: a self-report that failed to resolve is LOGGED, never silently degraded. A
+// forced-respawn judge carries a null/empty reportedFamily by design (already same-model) — only a
+// PRESENT non-empty but unrecognized report is the noteworthy unresolved case (aligned with
+// sameModelTag's missing-vs-present-unresolved split).
+for (const judge of judges) {
+  const reported = judge.reportedFamily;
+  if (typeof reported === "string" && reported.trim().length > 0 && modelFamily(reported) === null) {
+    log(
+      `verify: judge '${judge.role}' self-reported an UNRECOGNIZED model family ` +
+        `(${JSON.stringify(reported)}) — reported as unresolved, no cross-model claim made.`,
+    );
+  }
+}
 const crossModel = crossModelOutcome(
   input.builderFamily,
   judges.map((j) => j.reportedFamily),

@@ -45,27 +45,47 @@ export const meta = {
 const SAME_MODEL_TAG =
   "same-model review on this run — the judge and the builder are the same model family here.";
 
-// Normalize a self-reported model family to a canonical lowercase token. First regex match
-// wins; empty / unknown → null (conservative — degrades to the same-model tag, never to a
-// false cross-model claim). Copied verbatim from verify.js.
+// The verbatim UNRESOLVED disclosure tag — the THIRD state, distinct from SAME_MODEL_TAG. When a
+// judge's self-reported family can't be recognized, the run is reported as unresolved (the
+// conservative same-model trust floor still holds — no cross-model claim) rather than ASSERTED to
+// be same-model fact. Defined once so the wording cannot drift (honesty trust surface). Copied
+// byte-identical across the workflow scripts (cross-script drift pin). Carried here so the copied
+// sameModelTag below stays byte-identical and evaluable, even though this script spawns no judge.
+const UNRESOLVED_FAMILY_TAG =
+  "could not resolve the judge's model family on this run — no cross-model claim is made (treated as the same-model trust floor, not asserted as fact).";
+
+// The recognized model families — the ONE named source the modelFamily regex derives from (single
+// source of truth: a new family is added HERE, never in a hand-built regex). Copied byte-identical
+// across the workflow scripts (cross-script drift pin).
+const KNOWN_FAMILIES = ["fable", "opus", "sonnet", "haiku"];
+
+// Normalize a self-reported model family to a canonical lowercase token. First KNOWN_FAMILIES
+// match wins (the regex derives from that one named source — no second hand-built family list);
+// empty / unknown → null (conservative — an unresolved family degrades to the trust floor, never
+// to a false cross-model claim). Copied verbatim from verify.js.
 function modelFamily(report) {
   if (typeof report !== "string") {
     return null;
   }
-  const match = report.match(/(fable|opus|sonnet|haiku)/i);
+  const match = report.match(new RegExp(`(${KNOWN_FAMILIES.join("|")})`, "i"));
   return match ? match[1].toLowerCase() : null;
 }
 
-// The same-model disclosure decision. Returns the verbatim tag when the normalized families
-// match OR either fails to resolve; null ONLY when both resolve and differ (the sole
-// cross-model case). Copied verbatim from verify.js. This script spawns no judge — but its
+// The disclosure decision — THREE states, one rule (detection included). The distinction is
+// between a MISSING self-report (the deliberate no-report / forced-respawn floor) and a PRESENT
+// self-report that FAILED to resolve (a genuine "could not resolve the family"). Copied verbatim
+// from verify.js (see there for the full state table). This script spawns no judge — but its
 // CHILDREN do, so the run-level cross-model claim in the terminal report derives from the
 // children's self-reports via this one rule.
 function sameModelTag(builderFamily, judgeFamily) {
+  const judgeReported = typeof judgeFamily === "string" && judgeFamily.trim().length > 0;
+  if (!judgeReported) {
+    return SAME_MODEL_TAG; // no judge self-report at all → the conservative same-model floor
+  }
   const b = modelFamily(builderFamily);
   const j = modelFamily(judgeFamily);
   if (b === null || j === null) {
-    return SAME_MODEL_TAG;
+    return UNRESOLVED_FAMILY_TAG; // a present report could not be resolved → reported as unresolved
   }
   return b === j ? SAME_MODEL_TAG : null;
 }

@@ -24,6 +24,10 @@ const SCRIPT_PATH = join(REPO_ROOT, "workflows", "audit.js");
 const EXPECTED_SAME_MODEL_TAG =
   "same-model review on this run — the judge and the builder are the same model family here.";
 
+// The verbatim UNRESOLVED tag — the third disclosure state. Independent fixture (exact-compare pin).
+const EXPECTED_UNRESOLVED_FAMILY_TAG =
+  "could not resolve the judge's model family on this run — no cross-model claim is made (treated as the same-model trust floor, not asserted as fact).";
+
 // Independent verbatim fixtures for the fence's load-bearing copy — the renderer's source of truth
 // pinned by exact string compare (drift = test failure, not a model-discipline failure).
 const EXPECTED_LEGEND =
@@ -87,6 +91,8 @@ function loadHelpers() {
   const names = [
     "MODELS",
     "SAME_MODEL_TAG",
+    "UNRESOLVED_FAMILY_TAG",
+    "KNOWN_FAMILIES",
     "TEST_BASELINE_CLASS",
     "SUPPORTED_DIALS",
     "validateArgs",
@@ -457,9 +463,29 @@ test("sameModelTag returns the verbatim tag when families match", () => {
   assert.equal(H.sameModelTag("Opus 4.8", "Opus 4.1"), EXPECTED_SAME_MODEL_TAG);
 });
 
-test("sameModelTag returns the tag when a report is missing/unresolved", () => {
-  assert.equal(H.sameModelTag("Fable 5", "unknown thing"), EXPECTED_SAME_MODEL_TAG);
-  assert.equal(H.sameModelTag(null, "Opus 4.8"), EXPECTED_SAME_MODEL_TAG);
+test("sameModelTag: a MISSING judge report (null/empty) is the same-model floor, not unresolved", () => {
+  assert.equal(H.sameModelTag("Fable 5", null), EXPECTED_SAME_MODEL_TAG);
+  assert.equal(H.sameModelTag("Fable 5", ""), EXPECTED_SAME_MODEL_TAG);
+});
+
+test("sameModelTag: a PRESENT but unrecognized family reports UNRESOLVED (never same-model fact)", () => {
+  assert.equal(H.sameModelTag("Fable 5", "unknown thing"), EXPECTED_UNRESOLVED_FAMILY_TAG);
+  // The builder side failing to resolve, with a present judge report, is also unresolved.
+  assert.equal(H.sameModelTag("unknown-builder", "Opus 4.8"), EXPECTED_UNRESOLVED_FAMILY_TAG);
+  assert.notEqual(H.sameModelTag("Fable 5", "unknown thing"), EXPECTED_SAME_MODEL_TAG);
+});
+
+test("UNRESOLVED_FAMILY_TAG is the verbatim third-state string (drift pin)", () => {
+  assert.equal(H.UNRESOLVED_FAMILY_TAG, EXPECTED_UNRESOLVED_FAMILY_TAG);
+  assert.notEqual(H.UNRESOLVED_FAMILY_TAG, H.SAME_MODEL_TAG);
+});
+
+test("KNOWN_FAMILIES is the one named source the modelFamily regex derives from", () => {
+  assert.deepEqual(H.KNOWN_FAMILIES, ["fable", "opus", "sonnet", "haiku"]);
+  for (const fam of H.KNOWN_FAMILIES) {
+    assert.equal(H.modelFamily(`RUNNING AS: ${fam}`), fam);
+  }
+  assert.equal(H.modelFamily("RUNNING AS: gemini"), null);
 });
 
 test("sameModelTag returns null only on a confirming different family", () => {
@@ -520,8 +546,20 @@ test("verificationSummary carries the same-model tag when any verifier is same-f
   ];
   const s = H.verificationSummary(findings, 0, "Fable 5");
   assert.equal(s.crossModel, false);
+  // A MISSING (null) verifier report is the same-model floor, NOT the unresolved state.
   assert.equal(s.sameModelTag, EXPECTED_SAME_MODEL_TAG);
   assert.equal(s.deferred, 1);
+});
+
+test("verificationSummary reports UNRESOLVED (never same-model fact) when a verifier family is present-but-unrecognized", () => {
+  const findings = [
+    { verification: { state: "verified" }, verifierRunningAs: "Opus 4.8" },
+    { verification: { state: "unconfirmed" }, verifierRunningAs: "RUNNING AS: gemini" },
+  ];
+  const s = H.verificationSummary(findings, 0, "Fable 5");
+  assert.equal(s.crossModel, false);
+  assert.equal(s.sameModelTag, EXPECTED_UNRESOLVED_FAMILY_TAG);
+  assert.notEqual(s.sameModelTag, EXPECTED_SAME_MODEL_TAG);
 });
 
 test("verificationSummary does not claim crossModel on an empty finding set", () => {
@@ -870,6 +908,20 @@ test("renderRunReport REPLACES the parenthetical with the verbatim same-model ta
   const line = H.renderRunReport({ verified: 1, unconfirmed: 0, deferred: 0, refuted: 0, crossModel: false });
   assert.ok(line.includes(EXPECTED_SAME_MODEL_TAG));
   assert.ok(!line.includes("a different model family than the builder")); // the parenthetical is gone
+});
+
+test("renderRunReport substitutes the UNRESOLVED tag when the summary computed it (never asserts same-model)", () => {
+  const line = H.renderRunReport({
+    verified: 1,
+    unconfirmed: 0,
+    deferred: 0,
+    refuted: 0,
+    crossModel: false,
+    sameModelTag: EXPECTED_UNRESOLVED_FAMILY_TAG,
+  });
+  assert.ok(line.includes(EXPECTED_UNRESOLVED_FAMILY_TAG));
+  assert.ok(!line.includes(EXPECTED_SAME_MODEL_TAG)); // an unresolved run never reads as same-model fact
+  assert.ok(!line.includes("a different model family than the builder"));
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -23,6 +23,10 @@ const SCRIPT_PATH = join(REPO_ROOT, "workflows", "qa.js");
 const EXPECTED_SAME_MODEL_TAG =
   "same-model review on this run — the judge and the builder are the same model family here.";
 
+// The verbatim UNRESOLVED tag — the third disclosure state. Independent fixture (exact-compare pin).
+const EXPECTED_UNRESOLVED_FAMILY_TAG =
+  "could not resolve the judge's model family on this run — no cross-model claim is made (treated as the same-model trust floor, not asserted as fact).";
+
 // Independent verbatim fixtures for the could-not-run finding's load-bearing copy.
 const EXPECTED_COULD_NOT_RUN_CLASS = "qa-could-not-run-app";
 const EXPECTED_OBSERVED_TAG = "(observed this run — boot log attached)";
@@ -46,6 +50,8 @@ function loadHelpers() {
   const names = [
     "MODELS",
     "SAME_MODEL_TAG",
+    "UNRESOLVED_FAMILY_TAG",
+    "KNOWN_FAMILIES",
     "modelFamily",
     "sameModelTag",
     "READINESS_TIMEOUT_DEFAULT_SEC",
@@ -125,6 +131,19 @@ test("MODELS.judge is pinned to 'opus' (cross-model contract, copied from verify
 
 test("SAME_MODEL_TAG is the verbatim cross-script tag (drift pin)", () => {
   assert.equal(H.SAME_MODEL_TAG, EXPECTED_SAME_MODEL_TAG);
+});
+
+test("UNRESOLVED_FAMILY_TAG is the verbatim third-state string (drift pin)", () => {
+  assert.equal(H.UNRESOLVED_FAMILY_TAG, EXPECTED_UNRESOLVED_FAMILY_TAG);
+  assert.notEqual(H.UNRESOLVED_FAMILY_TAG, H.SAME_MODEL_TAG);
+});
+
+test("KNOWN_FAMILIES is the one named source the modelFamily regex derives from", () => {
+  assert.deepEqual(H.KNOWN_FAMILIES, ["fable", "opus", "sonnet", "haiku"]);
+  for (const fam of H.KNOWN_FAMILIES) {
+    assert.equal(H.modelFamily(`RUNNING AS: ${fam}`), fam);
+  }
+  assert.equal(H.modelFamily("RUNNING AS: gemini"), null);
 });
 
 test("COULD_NOT_RUN_CLASS / OBSERVED_THIS_RUN_TAG / NO_RUN_COMMAND_REASON are verbatim (drift pins)", () => {
@@ -404,9 +423,11 @@ test("MANUAL_NOT_CHECKABLE_REASON / BROWSER_UNAVAILABLE_REASON are verbatim (dri
   assert.equal(H.BROWSER_UNAVAILABLE_REASON, "browser tooling unavailable in this session");
 });
 
-test("sameModelTag: matching/missing families => the verbatim tag; differing => null", () => {
+test("sameModelTag: matching/missing => same-model tag; present-unresolved => UNRESOLVED; differing => null", () => {
   assert.equal(H.sameModelTag("Opus 4.8", "Opus 4.8"), EXPECTED_SAME_MODEL_TAG);
-  assert.equal(H.sameModelTag("Fable 5", ""), EXPECTED_SAME_MODEL_TAG); // missing report => tag
+  assert.equal(H.sameModelTag("Fable 5", ""), EXPECTED_SAME_MODEL_TAG); // missing report => same-model floor
+  assert.equal(H.sameModelTag("Fable 5", "RUNNING AS: gemini"), EXPECTED_UNRESOLVED_FAMILY_TAG); // present-unresolved
+  assert.notEqual(H.sameModelTag("Fable 5", "RUNNING AS: gemini"), EXPECTED_SAME_MODEL_TAG);
   assert.equal(H.sameModelTag("Fable 5", "Opus 4.8"), null); // confirmed different family
 });
 
