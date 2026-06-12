@@ -1,0 +1,67 @@
+[
+  {
+    "id": "AC-1",
+    "feature": "Add an item",
+    "flow": [
+      "Open the home page",
+      "Type 'milk' into the New item field",
+      "Click the Add button"
+    ],
+    "expect": [
+      "the list shows an item reading 'milk'",
+      "the New item field is cleared"
+    ],
+    "states": ["error"],
+    "check": "e2e"
+  },
+  {
+    "id": "AC-2",
+    "feature": "Item list",
+    "flow": [
+      "Open the home page with no items seeded (FIXTURE_SEED=0)"
+    ],
+    "expect": [
+      "a designed empty state is shown (a 'no items yet' message and a way to add one)"
+    ],
+    "states": ["empty"],
+    "check": "e2e"
+  },
+  {
+    "id": "AC-3",
+    "feature": "Item list",
+    "flow": [
+      "Open the home page"
+    ],
+    "expect": [
+      "an 'Items' heading is visible",
+      "an add-item form with a text field and an Add button is visible"
+    ],
+    "states": [],
+    "check": "e2e"
+  },
+  {
+    "id": "AC-4",
+    "feature": "Items API",
+    "flow": [
+      "Send GET /api/items"
+    ],
+    "expect": [
+      "the response status is 200",
+      "the response body is a JSON array"
+    ],
+    "states": [],
+    "check": "api"
+  },
+  {
+    "id": "AC-5",
+    "feature": "Item list",
+    "flow": [
+      "Confirm the rendered list visually matches the product design (spacing, typography, alignment)"
+    ],
+    "expect": [
+      "a human judges the list presentation acceptable against the design"
+    ],
+    "states": [],
+    "check": "manual"
+  }
+]
