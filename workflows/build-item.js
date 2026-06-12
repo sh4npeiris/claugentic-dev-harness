@@ -575,7 +575,9 @@ let lastQa = null;
 let iterationsUsed = 0;
 let terminal = null; // set to a result object when the loop reaches a terminal status
 
-const judgeFamilies = []; // children's self-reported judge families → the run-level cross-model claim
+const judgeFamilies = [];
+
+let qaConfirmedCrossModel = false; // qa.js folds to a string; tracked separately (no family to mirror) // children's self-reported judge families → the run-level cross-model claim
 
 for (let iteration = 1; iteration <= maxIterations; iteration++) {
   iterationsUsed = iteration;
@@ -684,7 +686,21 @@ for (let iteration = 1; iteration <= maxIterations; iteration++) {
     if (verifyResult.crossModel.claimed === true) {
       // The child confirmed cross-model — record a placeholder confirming family (a non-null,
       // resolvable-different token). The child already computed the claim; we mirror it.
-      judgeFamilies.push("__confirmed-cross-model__");
+      // Mirror the child's ACTUAL confirming judge families — a synthetic token would fail
+      // modelFamily resolution and permanently read as non-confirming (the engine dogfood's
+      // escalated Tier-2: the run-level claim could never report confirmed).
+      const childJudges = Array.isArray(verifyResult.crossModel.judges)
+        ? verifyResult.crossModel.judges
+        : [];
+      const reported = childJudges
+        .map((j) => (j && j.reportedFamily != null ? j.reportedFamily : null))
+        .filter((f) => f != null);
+      if (reported.length > 0) {
+        judgeFamilies.push(...reported);
+      } else {
+        // Claimed but no per-judge reports exposed — conservative: a non-confirming signal.
+        judgeFamilies.push(null);
+      }
     } else {
       judgeFamilies.push(null); // not confirmed → contributes a same-model signal
     }
@@ -716,7 +732,14 @@ for (let iteration = 1; iteration <= maxIterations; iteration++) {
     lastQa = qaGreen(qaResult);
     qaGreenOrNA = lastQa.green;
     if (qaResult && qaResult.crossModel) {
-      judgeFamilies.push(qaResult.crossModel === "confirmed" ? "__confirmed-cross-model__" : null);
+      // qa.js exposes only the folded string, not per-judge reports — a confirmed QA fold
+      // contributes its builder-different signal via the engine's own builderFamily basis;
+      // without a real family to mirror, the conservative non-confirming signal is pushed
+      // on anything but confirmed (and confirmed alone cannot manufacture a family token).
+      judgeFamilies.push(null);
+      if (qaResult.crossModel === "confirmed") {
+        qaConfirmedCrossModel = true;
+      }
     }
     log(`build-item: iteration ${iteration} qa ${qaGreenOrNA ? "GREEN" : `RED (${lastQa.failures.length} failing)`}.`);
   } else {
