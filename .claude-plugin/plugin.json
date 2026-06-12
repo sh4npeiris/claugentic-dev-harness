@@ -1,6 +1,6 @@
 {
   "name": "claugentic-dev-harness",
-  "version": "0.1.29",
+  "version": "0.1.30",
   "description": "A reusable, self-improving Claude Code development harness: a staged workflow, specialist agent roles, an ISO/IEC 25010 engineering-standards catalog, and deterministic architecture enforcement.",
   "license": "Apache-2.0",
   "author": { "name": "sh4npeiris" },
@@ -12,6 +12,7 @@
     "./.claude/agents/implementer-architect.md",
     "./.claude/agents/architect-reviewer.md",
     "./.claude/agents/product-designer.md",
+    "./.claude/agents/product-critic.md",
     "./.claude/agents/lens-reviewer.md",
     "./.claude/agents/yagni-sentinel.md",
     "./.claude/agents/finding-verifier.md",

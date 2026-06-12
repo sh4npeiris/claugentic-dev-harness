@@ -52,14 +52,87 @@ phase genuinely needs the user — it stays a conversation.**
    (driven in a real browser), `api` (an HTTP call), or `manual` (a human check the QA run lists
    but never claims). Each `feature` value is the feature heading **verbatim**.
 
-5. **Validate at the boundary BEFORE writing — fail loud.** Every criterion must have **exactly**
+5. **The Product Excellence pass — elevate the draft (default-on, skippable on ask).** The
+   draft is *capture + conform*; this pass raises the bar before it's written. **Default-on every
+   spec-mode run; skip only if the user asks.** The honesty register runs through it: the critic
+   **proposes / raises the bar — you decide**; it **never** guarantees the spec is excellent, and
+   any benchmark/competitor claim it makes without a deep-research round is **model knowledge,
+   tagged not-verified** (only a research round carries citations).
+
+   1. **Convene `product-critic`** (per `.claude/agents/product-critic.md` — no new agents; a second
+      subagent, allowed under the top-level-agent constraint). Pass it: the **draft spec** + the
+      **spec-conversation context** (what the user said that didn't survive structuring) + the
+      **rejected-proposals memory** (the `<!-- product-critic:rejected-proposals -->`-fenced list in
+      `docs/PRODUCT_SPEC.md`, when present — so it never re-pitches a decided idea). The critic
+      **critiques by method** (the forcing functions: second-session walkthrough · pre-mortem ·
+      kill-test · tell-a-friend · the **mandatory premise-challenge**) and **points at**
+      `docs/standards/product-ux.md` for conformance — it does not re-audit states/flow-completeness
+      (the designer + standard own those). It opens with **what's already strong** and is **licensed
+      to return few or no proposals** when the spec is already strong — never filler.
+
+   2. **Present TIERED — a conversation, not a flat ballot.** Don't dump every proposal as one
+      per-item vote (that's the decision-fatigue failure mode). Three tiers:
+      - **Headline** (the 1–2 highest-leverage) — open **as a conversation**: riff on it, adapt it
+        together, not a yes/no vote.
+      - **Quick wins** (small, high-confidence) — **bulk-adoptable**: offer *"adopt all"* or
+        cherry-pick.
+      - **Parked** (everything else) — **defer-by-default**; surface them briefly, the user can pull
+        one up but nothing here adopts unless they do.
+
+   3. **Per proposal: adopt / adapt / reject / defer.** *Adapt* is a **counter-proposal
+      conversation** — the user reshapes the idea and you fold the reshaped version. *Reject* and
+      *defer* are recorded (below).
+
+   4. **Fold adopted into the draft.** A proposal with a **suggested acceptance-criterion** folds
+      into the **Features** prose AND the criteria block. A **non-criterial adoption** (qualitative —
+      e.g. *"the empty state should invite the first action"*) lands in that feature's
+      **what-good-feels-like** prose only. **State the honest scope to the user: gap mode and the QA
+      run check only the criteria — a what-good-feels-like line is durable product intent the
+      checks won't verify** (the same register as the rest of the spec: prose is the narrative, the
+      criteria are the checkable projection).
+
+   5. **Record the decided proposals — a lightweight, user-owned memory.**
+      - **Rejected** proposals → append to the `<!-- product-critic:rejected-proposals -->`-fenced
+        list in `docs/PRODUCT_SPEC.md` (one terse line each — the idea, so the critic recognizes and
+        skips it next refresh). The fence lives in the **user-owned** spec, is **never stamped**, and
+        co-locates with the spec it concerns; spec mode preserves it (step 7's "preserve any user
+        content outside the template's own structure" rule). Create the fence if absent.
+      - A **declined-pass marker** — if the user skips the whole pass, record it (a one-line
+        `<!-- product-critic:declined YYYY-MM-DD -->` note near the fence) so nothing downstream ever
+        implies the spec was elevated when it wasn't. **If no rejected-proposals fence exists yet**
+        (first-ever pass, and it was declined), create the fence region at first use and write the
+        marker beside it — the marker and the fence co-locate, so the next refresh finds both.
+
+   6. **Refresh-path scoping.** On the **refresh path** (an existing spec — step 2), critique the
+      **changed sections + a light whole-spec scan**, not a full re-critique every time
+      (decision-fatigue is most acute on a small refresh). Tell the critic the scope.
+
+   7. **Deep-research on demand (for a feature the user asks to benchmark).** If the user wants a
+      proposal grounded in how the best products actually solve a job, the orchestrator invokes the
+      **`deep-research` skill** (a session-available skill — the deep-research harness, **not** a repo
+      file) scoped to *"how do the best products solve `<job>`, and where do they underserve"* →
+      feed the **cited** findings to the critic for a grounded round (those claims carry citations;
+      everything else stays model-knowledge-tagged). **If `deep-research` is unavailable this
+      session: say so plainly and fall back to critique-only** — the critic's benchmark claims are
+      then model knowledge, tagged *not verified this run*. **Never claim research that didn't run.**
+
+   8. **A deferred proposal → `docs/ROADMAP.md`, the human-owned area (the standing tangents→ROADMAP
+      convention).** Land it as a `feature` note **OUTSIDE** the `harness-audit:backlog` fence — that
+      fence is **regenerate-don't-accumulate** (the next audit/gap run **wipes** anything inside it),
+      so a deferred note inside it would be lost. **Honest pickup:** `build`'s item universe **is**
+      the fence, so a deferred note is **not** picked up automatically — it enters when the **user
+      names it** or a later **gap run regenerates it from the (now-adopted) spec**. Say so; don't
+      imply it'll be built on its own.
+
+6. **Re-validate the frozen criteria schema after folding — fail loud.** Every criterion must have **exactly**
    the six frozen keys `id, feature, flow, expect, states, check`; non-empty `flow` and `expect`;
    `states` ⊆ `{empty, loading, error}`; `check` ∈ `{e2e, api, manual}`; **ids unique**. On any
    violation, **stop and name the offending criterion id and the exact problem**, fix it, and
    re-validate — never write a malformed criteria block (the gap check and `qa.js` both consume it,
-   and a pytest pins the frozen field names).
+   and a pytest pins the frozen field names). Any **adopted** proposal's suggested criterion goes
+   through this same validation before it can land.
 
-6. **Write `docs/PRODUCT_SPEC.md`** — **user-owned: NO managed stamp** (`init` never refreshes it).
+7. **Write `docs/PRODUCT_SPEC.md`** — **user-owned: NO managed stamp** (`init` never refreshes it).
    Preserve any user content outside the template's own structure; never clobber sections the user
    added. Add its `docs/ARCHITECTURE_TREE.md` entry.
 

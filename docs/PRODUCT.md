@@ -30,6 +30,31 @@ lost the thread, and never claim more than was actually checked. Full driver fra
 
 ---
 
+# The product layer (`/claugentic-dev-harness:product`)
+
+The harness's product memory + conscience: **spec mode** captures what the product is *supposed*
+to be (who · job · promise · per-feature flow/states/what-good · machine-readable criteria) and
+**gap mode** checks the code against it. The skill file (`skills/product/SKILL.md`) owns the
+step-level mechanics; this is the product-level note.
+
+- **Capture → conform → *elevate*.** The designer (`product-designer`) **surfaces** the user's
+  truth and the standard (`docs/standards/product-ux.md`) governs **conformance**; spec mode now
+  adds an **Excellence pass** — the `product-critic` agent (the SRP **elevate** counterpart to the
+  designer) **critiques the draft by method** (forcing functions, not a dimension checklist) and
+  returns a focused set of **proposals the user decides on** (adopt/adapt/reject/defer). It
+  **proposes, never imposes** — proposals are *questions to the user*, never spec content until
+  adopted, which extends (never violates) the designer's never-invent-scope rule. **Default-on
+  every spec-mode run, skippable on ask.** Honesty register: it raises the bar, it never claims the
+  spec is *guaranteed excellent*; benchmark claims without a deep-research round are model knowledge,
+  tagged not-verified.
+- **The rejected-proposals memory is user-owned and lives in the spec.** Rejected proposals (and a
+  declined-pass marker) are recorded in a `<!-- product-critic:rejected-proposals -->`-fenced block
+  in `docs/PRODUCT_SPEC.md` — the user-owned, never-stamped spec — so the critic reads it next
+  refresh and never re-pitches a decided idea. A **deferred** proposal lands in `docs/ROADMAP.md`'s
+  human-owned area (outside the regenerate-don't-accumulate audit fence); pickup is not automatic.
+
+---
+
 # Build mode (`/claugentic-dev-harness:build`)
 
 The flagship Stage-1 product brief. Build mode is a **thin orchestration layer** over the
