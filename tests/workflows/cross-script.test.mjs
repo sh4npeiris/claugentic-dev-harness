@@ -7,7 +7,11 @@
 // string). A divergent edit to any copy turns this red. As of Slice 4b, qa.js carries
 // the full cross-model contract (MODELS + SAME_MODEL_TAG + modelFamily + sameModelTag +
 // parseArgs) — the same set verify.js / audit.js define — so the pin now covers every
-// copied helper across all three scripts.
+// copied helper across all three scripts. As of Slice 5b, build-item.js carries the
+// cross-model fold helpers it actually uses (SAME_MODEL_TAG + modelFamily + sameModelTag +
+// parseArgs) but NOT MODELS — it spawns no judge directly (the pins live in the verify.js /
+// qa.js children it calls), so an unused MODELS copy here would be dead code. The pin checks
+// only the helpers a script DEFINES, so build-item.js joins the pin for the four it carries.
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -15,7 +19,12 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
-const ALL_SCRIPTS = ["workflows/verify.js", "workflows/audit.js", "workflows/qa.js"].map((p) => ({
+const ALL_SCRIPTS = [
+  "workflows/verify.js",
+  "workflows/audit.js",
+  "workflows/qa.js",
+  "workflows/build-item.js",
+].map((p) => ({
   path: p,
   text: readFileSync(join(root, p), "utf-8"),
 }));
@@ -50,7 +59,7 @@ for (const name of ["MODELS", "SAME_MODEL_TAG", "modelFamily", "sameModelTag"]) 
 }
 
 test("drift pin: parseArgs differs only by its own script name across all scripts", () => {
-  const norm = (s) => s.replace(/\b(verify|audit|qa) args\b/g, "SCRIPT args");
+  const norm = (s) => s.replace(/\b(verify|audit|qa|build-item) args\b/g, "SCRIPT args");
   const defs = scriptsDefining("parseArgs");
   assert.ok(defs.length >= 2, "parseArgs must be pinned across ≥2 scripts");
   const [first, ...rest] = defs;
