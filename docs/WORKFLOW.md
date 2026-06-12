@@ -118,8 +118,11 @@ A slice is **done** — and may land (Stage 8) — only when **all** hold. Two g
 
 **Reviewer sign-offs** (model judgment, not a mechanical gate):
 5. **In-scope `docs/standards/` dimensions pass** the `architect-reviewer` audit (incl. SOLID) — solo, or synthesized from `lens-reviewer`s + `yagni-sentinel` — for what this slice touches; `/simplify` + `/code-review` run.
+6. **Runtime QA (dial-gated)** — when the slice's spec carries acceptance criteria (the `docs/PRODUCT_SPEC.md` schema) and the repo records a run-the-app command, and the Verify dial has fanned out: the QA workflow (`workflows/qa.js`) attempts each criterion's flow in the running app and tags the outcome (screenshots on failure); findings join the Verify synthesis. The script mechanically sequences the flow attempts and never silently skips (a QA run that could not boot the app reports exactly that); invoking it, and the flow observations themselves, are model-upheld.
 
 **Plus:** acceptance criteria met (the spec's checklist) **+ no new tech debt.**
+
+**The autonomy ladder (who watches the iteration to this bar):** **checkpoint** (default — the three routine pauses) → **build-to-green** (requestable; unlocked per-repo only when CI runs the deterministic gates, a test baseline covers the touched code, and the item traces to an approved spec with testable acceptance criteria — the contract, the evidence-stated checks, and the verbatim decline live in `skills/build/SKILL.md` → Mode handling; the engine itself — `workflows/build-item.js` — is not built yet, so today every build-to-green ask declines). Either rung iterates to the **same fixed bar above**; build-to-green is a reduction of unwatched-run risk, never a substitute for the unbuilt deterministic trust-gates.
 
 Iterate to meet this **fixed** bar, then **stop** — it terminates because the bar is *finite*, not "is it perfect?". Genuinely separate future work → `ROADMAP.md` (backlog, *not* debt).
 
