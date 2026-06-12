@@ -109,6 +109,7 @@ line** with the managed-stamp (convention 1). The managed set is exactly:
 | `docs/WORKFLOW.md` | the staged development workflow (process source of truth) |
 | `docs/ENGINEERING_STANDARDS.md` | the thin standards entry point |
 | `docs/PLAYBOOK.md` | the plain-English guide for the human driving the harness |
+| `docs/PRODUCT_SPEC_TEMPLATE.md` | the product-spec contract template (pure verbatim copy; the filled `docs/PRODUCT_SPEC.md` is user-owned, never managed) |
 | `scripts/check_architecture_tree.py` | the deterministic architecture-tree gate |
 
 **Per file, decide one of four verdicts (this is `init`'s judgment, rule-bound — there is
@@ -404,11 +405,14 @@ volatile content** so a re-write is byte-identical:
 ### 9. Report
 
 **Lead with a plain-English headline** — before the grouped technical summary — so a
-non-engineer reads the reassurance first. **Branch the headline on the Refreshed group:**
-- **Refreshed is empty (nothing was overwritten) →** *"Done — I added (or brought up to
-  date) a code map, a quality checklist, and a safety check. I did NOT change any of your
-  code or overwrite your own files — only my own managed files were refreshed to the
-  installed version."*
+non-engineer reads the reassurance first. **Branch the headline on the Refreshed group (and, when it's empty, on the Created group —
+never claim a refresh that didn't happen):**
+- **Refreshed empty AND Created empty (a true no-op) →** *"Done — everything is already at
+  the installed version; I changed nothing. I did NOT touch any of your code or your own
+  files."*
+- **Refreshed empty, Created non-empty (a first run / fill-in) →** *"Done — I added a code
+  map, a quality checklist, and a safety check. I did NOT change any of your code or
+  overwrite your own files — nothing existing was modified."*
 - **Refreshed is non-empty →** keep the same lead, then **append the honest caveat:**
   *"Files marked `claugentic-dev-harness managed — do not edit` were refreshed to the
   installed version; if you had edited one of those, your edits were replaced — they're
