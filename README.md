@@ -1,77 +1,49 @@
 # claugentic-dev-harness
 
-A Claude Code plugin that makes AI-assisted coding **disciplined and reviewable**. It installs into any repo, **never touches your code without asking**, and gives your agent an always-current map of the codebase plus a skeptical second reviewer that reviews against a written, ISO/IEC 25010-anchored catalog of what good looks like.
+A Claude Code plugin that turns AI coding into a **disciplined, reviewable process**: it plans before it builds, reviews its own work against a written standards catalog, keeps an always-current map of your codebase, and **never changes your code without your sign-off.**
 
-**Three commands:**
+You steer with plain-English decisions; it does the engineering one reviewed slice at a time — and it's **honest about the difference between what it checked mechanically and what's its own judgment.**
 
-- **`/claugentic-dev-harness:init`** — scaffold the harness into your repo. It **never clobbers your content**, and **re-running converges the repo to the installed plugin version** — it refreshes any managed file whose content changed since it was copied, and is a **true no-op only when you're already at the installed version**: it adds an always-current architecture index + an enforcement hook, a quality-standards catalog, and the workflow docs — and **composes with your existing linters/tests** instead of replacing them. (The refresh decision is `init`'s judgment, never-clobber-guarded by stop-if-ambiguous; idempotent-at-a-fixed-version is dogfood-checked, not a wired gate.)
-- **`/claugentic-dev-harness:audit`** — point it at the repo and it explains, in plain English, what your app is and does, then writes a **prioritized to-do list** (a backlog) of the work worth doing. It **auto-sizes its effort to the codebase**, tells you plainly when the code is already sound, and **independently re-checks every finding it surfaces** — a separate agent reads the cited code and tries to *disprove* each one before it reaches your list (refuted findings get dropped; each survivor is tagged with what came back — confirmed against the code, or still just the model's claim).
-- **`/claugentic-dev-harness:build`** — point it at your backlog — one item, several, or a whole tier — and it drives the full reviewed pipeline for you — plan → review → **your approval** → build → verify → land — pausing only at the decisions that are yours (approving the spec before any code, and before anything irreversible). You can **approve specs as you go, or say "spec everything first"** to plan the whole list and approve it in one sitting before any building. The **full-backlog loop is live**: pick items or a tier and it works them one by one to the honest "sound on the audited dimensions" stop-signal, re-checking the code it just touched between items and interrupting only for new important work. An unwatched **build-to-green** run is requestable — unlocked only where the repo has earned it (CI running the gates, a test baseline, an approved spec with checkable criteria — and the engine installed); anything unmet gets an honest decline naming exactly what's missing.
+## The four commands
 
-## What you actually get
+- **`/claugentic-dev-harness:init`** — set it up in your repo. Adds a codebase map, a quality-standards catalog, and the workflow docs. Never overwrites your content; re-run any time to update.
+- **`/claugentic-dev-harness:product`** — define what you're building (who it's for, the promise, each feature) — then it **proposes ways to make it better and more ambitious**, as questions *you* decide on. *(Optional, but recommended.)*
+- **`/claugentic-dev-harness:audit`** — explain your codebase in plain English and write a **prioritized to-do list**, independently double-checking every item before it reaches your list.
+- **`/claugentic-dev-harness:build`** — work that list through a reviewed pipeline — *plan → review → **your approval** → build → verify* — one slice at a time, pausing only for the decisions that are yours.
 
-- **An enforced, always-current map of your codebase.** One line per file in `docs/ARCHITECTURE_TREE.md`, so your agent reads the index instead of re-walking the tree every session — and a deterministic (no-LLM) hook **blocks "done" until the index is current.** It checks that every file is **documented** (present, not deleted) — **not that the code is good**, and the one-line descriptions themselves are authored, not gate-verified. This is the part that's mechanical, not a prompt.
-- **A quality bar that scopes itself.** A standards catalog (security, testing, maintainability, accessibility, …) that **only loads the parts your change actually touches** — a checklist, not a set of hoops to jump. A separate agent reviews the work against it and tries to *refute* it, because the model that wrote something is the worst judge of it.
-- **Plain-English output for a non-engineer driver.** Every finding is stated technically *and* in plain language; you steer with product decisions, not code. (New to this? Start with [`docs/PLAYBOOK.md`](docs/PLAYBOOK.md).)
-- **Honesty by default.** `init` never overwrites *your* content — but it does refresh its own managed files (the ones marked "do not edit") to the installed version, so edits made inside one are replaced on refresh — git history keeps any version you committed. The audit **labels what it actually checked vs. what's the model's judgment**; execution happens one reviewed slice at a time.
+## Quickstart
 
-## Status (honest about what's real)
-
-The functional core is **live**: `init`, `audit`, and `build` work, and `init` installs cleanly into a fresh repo. `build` drives your backlog through the reviewed pipeline — pick one item, several, or a whole tier and it works them to the honest "sound on the audited dimensions" stop-signal, re-checking the code it just touched between items and pausing only for new important work — and its unwatched **build-to-green** rung declines honestly until a repo earns the unlock conditions (and the engine ships): the cross-model judge is now **wired** (the gate/refute roles run on a different model family than the builder), but deterministic trust-gates are **not built yet**. The audit **tries to re-check every finding it surfaces** — a separate agent attempts to refute each one against the code, so refuted findings are dropped and each survivor is tagged with what came back (confirmed against the code, or still just the model's claim — never presented as proof when it isn't).
-
-That finding-verification is an honest *reduction* of false confidence, **not** a deterministic guarantee. The judge runs by default on a **different model family** than the builder (the cross-model judge; on a same-family run it's tagged as such) — a reduction of shared-blind-spot risk, **not** independence: same vendor, so errors can still correlate through shared training data and objectives. The genuinely **mechanical, model-independent trust-gates** — a land-gate that blocks a red commit, a secret-scan, a characterization-tests-first hook — are **not built** — and the harness says so plainly rather than claiming them. Today the review discipline is upheld by skeptical agents — the gate/refute judges by default on a different model family, same-family runs tagged — plus the deterministic architecture-tree gate. The harness's whole pitch is honesty, so it states only what's real.
-
-## Install
-
-Type these in the Claude Code chat input — the same place you talk to Claude (not a separate terminal):
+Type these in the Claude Code chat (the same place you talk to Claude — not a separate terminal):
 
 ```
 /plugin marketplace add sh4npeiris/claugentic-dev-harness
 /plugin install claugentic-dev-harness@sh4npeiris
+/claugentic-dev-harness:init
 ```
 
-**Success check:** type `/claugentic` and you should see `:init`, `:audit`, and `:build` (plus `:product`, the product-spec layer) offered — that's it installed.
+You're set up right away — the enforcement hook activates the moment `init` writes it, and the agent follows the harness workflow from here. *(Tip: a quick `/clear` gives the cleanest slate — worth it before a big `:audit` run.)* From there:
 
-Public + **Apache-2.0** — free to install and use. Install at **user scope** to use it across all your repos.
+- **New / empty project?** Just tell the agent what you want to build — it asks questions, plans, and gets your approval before writing any code. *(Run `:product` first to pin down the vision.)*
+- **Existing codebase?** Run **`:audit`**, then **`:build`** to work the backlog.
 
-**Requires:** `git`, and `Python 3` (for the architecture-tree gate; without it the gate is skipped and the agent maintains the index manually).
+> **Commands not showing up** after install? Quit Claude Code fully, delete `plugin-catalog-cache.json` from your config folder (`~/.claude/` — `%USERPROFILE%\.claude\` on Windows; it's just a cache, safe to delete), reopen, and re-run the two install commands.
 
-**If the install doesn't show up** (the plugin list looks empty, or `init` / `audit` aren't found right after you add the marketplace) — Claude Code is usually holding a stale plugin cache. The marketplace and plugin themselves are fine; you just need to rebuild the local index:
+**Requires** `git` and **Python 3** (for the codebase-map check; without it the agent maintains the map by hand). Public + **Apache-2.0** — install at **user scope** to use it across all your repos.
 
-1. **Quit Claude Code completely** (not just the window).
-2. **Delete the `plugin-catalog-cache.json` file** from your Claude Code config folder (`~/.claude/` on macOS/Linux; on Windows it's at `%USERPROFILE%\.claude\plugin-catalog-cache.json` — search your home folder for that filename if you're unsure where it lives). **This file is just a cache; deleting it is safe — Claude Code rebuilds it on restart.**
-3. **Reopen Claude Code** and run the two install commands above again.
+New to this? Start with **[`docs/PLAYBOOK.md`](docs/PLAYBOOK.md)** — a plain-English guide for non-engineers.
 
-## Quickstart
+## Honest about what's real
 
-In order:
+The harness's whole pitch is honesty, so here's the straight version:
 
-1. **`/claugentic-dev-harness:init`** — scaffolds the harness into your repo (never overwrites your content; re-running brings the managed files up to the installed version; you'll see a created/refreshed/skipped/merged summary).
-2. **Start a fresh chat after `init`** so the agent picks up the new setup.
-3. **Then, depending on your repo:**
-   - **Already have code? → `/claugentic-dev-harness:audit`** — explains the codebase in plain English + writes a prioritized backlog into `docs/ROADMAP.md` (a large repo may finish in passes and say "re-run to continue" — that's expected).
-   - **Brand-new / empty repo? → skip the audit.** Just tell the agent what you want to build — describe your first feature in plain English and it runs the workflow from there.
+- **Mechanical (a real gate):** the codebase-map check `init` installs — a deterministic, no-LLM hook that blocks "done" until every file is documented. It checks that files are *documented*, **not** that the code is *good*, and it composes with your own linters and tests rather than replacing them.
+- **Model-upheld (judgment, not a guarantee):** every review and the audit's double-checks. A skeptical reviewer runs by default on a **different Claude model family** than the builder — a reduction of shared-blind-spot risk, **not** independence (same vendor, so errors can still correlate). The audit *tries to refute* each finding and tags what came back; it never presents judgment as proof.
+- **Not built yet:** the mechanical trust-gates that would make a fully-unwatched run safe (a land-gate that blocks a bad commit, a secret-scan). So an unwatched "build-to-green" run is offered only where a repo has earned it (CI, a test baseline, an approved spec) — and otherwise declines honestly, naming what's missing.
 
-New to this? Read [`docs/PLAYBOOK.md`](docs/PLAYBOOK.md).
+## Under the hood *(optional)*
 
-## How it works
+- A **staged workflow** (`docs/WORKFLOW.md`): Triage → Discuss → Plan → Review → Spec → **Approve** → Implement → Verify → Land. Small changes skip straight to Implement; only substantial work runs the full pipeline.
+- **10 specialist sub-agents** (`.claude/agents/`) — a plan critic, a builder, a verifier, a product designer, a **product critic** that pushes your spec to be more ambitious, per-standard reviewers, an anti-over-engineering skeptic, and an honesty reviewer — so the main agent stays focused on your decisions.
+- A relevance-loaded **standards catalog** (`docs/standards/`, ISO/IEC 25010-anchored), with each finding labeled by how confidently it was checked.
 
-1. **`init`** scaffolds the managed harness into your repo.
-2. **`audit`** explains the codebase + writes a tiered, tagged backlog into `docs/ROADMAP.md` (for untested behavior-bearing code, "establish a test baseline" comes first).
-3. **`build`** drives your backlog through the staged workflow — one reviewed slice at a time, pausing only at the spec (before any code — per item as you go, or all at once up front if you say "spec everything first") and before anything irreversible. Pick one item, several, or a whole tier; it works them one by one to the honest stop-signal, re-checking the code it just touched between items. The item's **tag selects the discipline** (a `refactor` on untested code is gated behind a characterization-test baseline first).
-
-**To start anything — a backlog item or a brand-new project — just tell the agent in plain English what you want** (e.g. "Let's do Tier-1 item 1" or "I want to build X"). It will ask you questions (Discuss), then write a plan and spec for you to approve before any code. For backlog work, **`/claugentic-dev-harness:build`** is the go-button — point it at one item or a whole tier and it runs the pipeline for you, item by item, to the honest "sound on the audited dimensions" stop-signal.
-
-Works the same for a **mature codebase** (audit → incremental backlog) and a **new project** (the workflow governs from the first feature; the index + standards apply from day one).
-
-## Under the hood (here when you want it)
-
-You don't need any of this to use the three commands — it's the machinery they run on:
-
-- **Staged workflow** (`docs/WORKFLOW.md`) — Triage → Discuss → Plan → Review → Spec → **Approve** → Implement → Verify → Land → Retrospect. Small changes skip straight to Implement + Verify; only substantial work runs the full pipeline.
-- **10 specialist agents** (`.claude/agents/`) — a plan critic, a builder, a verifier, a product/UX lens, a **product critic** that pushes a draft product spec to be more ambitious — proposing flows, value, and even cuts, as questions you decide on, never imposed, a per-standard lens reviewer, an anti-over-engineering skeptic, a finding-verifier that refutes audit findings against the code, a blind-spot reviewer that hunts the cross-cutting risks no single lens owns (the thorough audit's diverse sweep), and an honesty reviewer that flags copy presenting model judgment as mechanical fact. The orchestrator delegates to them so your attention stays on decisions.
-- **The standards catalog** (`docs/standards/`) — ISO/IEC 25010-anchored, loaded by relevance, with each finding labeled by how confidently it was checked.
-
-## License & layout
-
-Apache-2.0. See **`docs/ARCHITECTURE_TREE.md`** for the one-line-per-file index of the whole repo.
+Full file-by-file map: **[`docs/ARCHITECTURE_TREE.md`](docs/ARCHITECTURE_TREE.md)**. License: **Apache-2.0**.

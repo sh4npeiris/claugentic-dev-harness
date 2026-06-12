@@ -423,15 +423,28 @@ never claim a refresh that didn't happen):**
   `CLAUDE.md` fence is separate: only the content between the markers is replaced —
   everything you wrote outside it is preserved.)
 
+Then tell the user the **setup is live** — honestly, so no restart is implied where none is
+needed (a skill **cannot** restart a session; don't pretend otherwise):
+- The **architecture-tree hook is enforcing now** — `.claude/settings.json` is hot-reloaded by
+  Claude Code's file-watcher the moment `init` writes it; the hook needs no restart.
+- **You (the agent) have adopted the harness workflow for the rest of this session** — you just
+  scaffolded it and follow `docs/WORKFLOW.md` from here, so work continues immediately.
+- **Suggest `/clear` or `/compact`** (quick — not a whole new chat) for the cleanest standing
+  setup: that's what loads the new `CLAUDE.md` as cached context (it's read once at session start
+  and a skill can't force a re-read). Recommend it before a big `audit` run (clean context);
+  optional otherwise; in place next session regardless. **Never tell the user they *must* "start
+  a fresh chat."**
+
 Then the **next step, branched on whether the repo already has application
 source** — the *Application source present* predicate defined in
 `/claugentic-dev-harness:audit` Phase 1 (step 5), the same detection this skill reuses in
 step 5:
-- **Has app source →** *"Start a fresh chat, then run `/claugentic-dev-harness:audit` — I'll
-  explain your codebase in plain English and write a prioritized backlog of the work worth doing."*
-- **No app source yet (empty / docs-only) →** *"Start a fresh chat, then just tell me what you
-  want to build — describe your first feature in plain English and I'll run the workflow. No need
-  to run `/claugentic-dev-harness:audit` until there's code to audit."*
+- **Has app source →** *"Next: run `/claugentic-dev-harness:audit` — I'll explain your codebase in
+  plain English and write a prioritized backlog of the work worth doing. (A quick `/clear` first
+  gives the audit clean context.)"*
+- **No app source yet (empty / docs-only) →** *"Next: just tell me what you want to build —
+  describe your first feature in plain English and I'll run the workflow. No need to run
+  `/claugentic-dev-harness:audit` until there's code to audit."*
 
 Then emit the clear summary, grouped:
 - **Created** — files written from scratch (e.g. `ARCHITECTURE_TREE.md`, `ROADMAP.md`) +
