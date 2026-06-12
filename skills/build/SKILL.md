@@ -51,7 +51,7 @@ than one.
 Build mode is an **autonomy ladder — earned per-repo, by evidence, never assumed:**
 
 - **`checkpoint` — the default, and the only rung with no preconditions.** Everything below runs in checkpoint. If the user names no mode, this is what runs.
-- **`build-to-green` — the requestable rung.** Any ask to run unwatched — *"autopilot"*, *"run unwatched"*, *"build to green"* — is a build-to-green request. Before agreeing, check the **unlock conditions** below and **state the evidence per condition** (what you looked at, what you found). All met → run the item through the engine script (`${CLAUDE_PLUGIN_ROOT}/workflows/build-item.js` via the Workflow tool — the skill invokes the script, and the script then runs the implement → gates → verify → QA → fix loop mechanically), returning to you only at the retained pauses: **before land · before anything irreversible · on a new Tier-1/2 finding.** Any condition unmet → the decline below, naming exactly what's missing, then offer checkpoint.
+- **`build-to-green` — the requestable rung.** Any ask to run unwatched — *"autopilot"*, *"run unwatched"*, *"build to green"* — is a build-to-green request. Before agreeing, check the **unlock conditions** below and **state the evidence per condition** (what you looked at, what you found). All met → run the item through the engine script (`${CLAUDE_PLUGIN_ROOT}/engine/build-item.js` via the Workflow tool — the skill invokes the script, and the script then runs the implement → gates → verify → QA → fix loop mechanically), returning to you only at the retained pauses: **before land · before anything irreversible · on a new Tier-1/2 finding.** Any condition unmet → the decline below, naming exactly what's missing, then offer checkpoint.
 
 Build-to-green is **a reduction of unwatched-run risk, never a substitute for the unbuilt deterministic trust-gates** (the land-gate hook · the secret-scan · the characterization-first hook — `docs/DECISIONS.md` → The deterministic gates).
 
@@ -61,7 +61,7 @@ Build-to-green is **a reduction of unwatched-run risk, never a substitute for th
 2. **A test baseline covers the code this item touches.** Evidence: named test files that assert observable behavior of the files the item will change (not merely execute them) — so a regression in that behavior would fail a test. (The `refactor` characterization-tests-first precondition is this condition's hard case — unchanged.)
 3. **The item traces to an approved spec with testable acceptance criteria.** Evidence: a plan in `.claude/plans/` with `Status: Approved` whose acceptance criteria are all checkable without a human mid-run — each maps to a deterministic gate or test, or to a `docs/PRODUCT_SPEC.md` criterion whose `check` is `e2e` or `api`. A `check: "manual"` criterion needs a human, so it keeps that item in checkpoint.
 
-**And one session precondition (not a repo rung):** build-to-green runs **only** via `workflows/build-item.js` through the Workflow tool — there is **no prose-orchestrated build-to-green, ever** (an unwatched prose loop is exactly the unearned autonomy this ladder exists to prevent). The Workflow tool or the script unavailable → named in the decline like any other missing condition.
+**And one session precondition (not a repo rung):** build-to-green runs **only** via `engine/build-item.js` through the Workflow tool — there is **no prose-orchestrated build-to-green, ever** (an unwatched prose loop is exactly the unearned autonomy this ladder exists to prevent). The Workflow tool or the script unavailable → named in the decline like any other missing condition.
 
 **The decline (verbatim frame — the list carries ONLY the unmet conditions, each with the evidence checked):**
 
@@ -73,11 +73,11 @@ The fixed per-condition lines (angle-bracket slots filled per run from the evide
 - *CI running the deterministic gates — I found <no CI config | `<file>`, but it doesn't run <the missing gate commands>>.*
 - *a test baseline for the code this item touches — I found no tests exercising <the touched files/behavior>.*
 - *an approved spec with testable acceptance criteria — <no plan with `Status: Approved` traces to this item | the spec's criteria include ones I can't check without you: <ids>>.*
-- *the engine itself — <the Workflow tool isn't available in this session | `workflows/build-item.js` isn't in the installed plugin>; build-to-green never runs as prose.*
+- *the engine itself — <the Workflow tool isn't available in this session | `engine/build-item.js` isn't in the installed plugin>; build-to-green never runs as prose.*
 
 ### The build-to-green run *(the engine contract)*
 
-All unlock conditions met → invoke the engine (`${CLAUDE_PLUGIN_ROOT}/workflows/build-item.js`
+All unlock conditions met → invoke the engine (`${CLAUDE_PLUGIN_ROOT}/engine/build-item.js`
 via the Workflow tool). **The skill invokes the engine; the engine then runs the loop
 mechanically — invoking it is still model-upheld** (the platform doesn't auto-fire workflows).
 Once invoked, the engine runs implement (in a worktree) → deterministic gates → the `verify.js`

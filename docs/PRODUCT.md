@@ -62,7 +62,7 @@ load-bearing — and nowhere else (decision-fatigue is a failure mode, not a saf
   Mode handling): checkpoint stays the default; an unwatched build-to-green run unlocks
   per-repo only on three evidence-stated conditions (CI running the deterministic gates ·
   a test baseline on the touched code · an approved spec with testable acceptance criteria)
-  plus the engine being installed (`workflows/build-item.js` — Slice 5b; until it ships,
+  plus the engine being installed (`engine/build-item.js` — Slice 5b; until it ships,
   every ask declines). Anything unmet → an honest decline naming exactly what's missing,
   offering checkpoint — never silently degrading to a weaker promise. Build-to-green is a
   reduction of unwatched-run risk, never a substitute for the unbuilt deterministic trust-gates.

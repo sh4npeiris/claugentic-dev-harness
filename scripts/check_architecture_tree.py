@@ -54,11 +54,11 @@ TREE_PATH = Path("docs/ARCHITECTURE_TREE.md")
 # (its files can't be told apart from any other path token in the tree's prose).
 #
 # For THIS repo (claugentic-dev-harness) the in-scope code is the gate scripts plus the
-# executable Workflow choreography under `workflows/` (read-from-install-path, never copied
+# executable Workflow choreography under `engine/` (read-from-install-path, never copied
 # to adopters — so this widening is this-repo-only; init's body-compare already excludes the
 # INCLUDE_GLOBS line on both sides, so no adopter REFRESH triggers). EXTS derives `js`
 # automatically — every new script must be tree-indexed or CI goes red, which is the point.
-INCLUDE_GLOBS = [":(glob)scripts/**/*.py", ":(glob)workflows/**/*.js"]
+INCLUDE_GLOBS = [":(glob)scripts/**/*.py", ":(glob)engine/**/*.js"]
 
 # Substrings that exempt a file (no architectural content).
 EXCLUDE_SUBSTR = ("__pycache__", "/__init__.py")

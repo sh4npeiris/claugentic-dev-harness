@@ -24,10 +24,10 @@ import { dirname, join } from "node:path";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const ALL_SCRIPTS = [
-  "workflows/verify.js",
-  "workflows/audit.js",
-  "workflows/qa.js",
-  "workflows/build-item.js",
+  "engine/verify.js",
+  "engine/audit.js",
+  "engine/qa.js",
+  "engine/build-item.js",
 ].map((p) => ({
   path: p,
   text: readFileSync(join(root, p), "utf-8"),

@@ -1,4 +1,4 @@
-// workflows/build-item.js — the build-to-green inner loop as an executable Workflow script.
+// engine/build-item.js — the build-to-green inner loop as an executable Workflow script.
 //
 // The engine the 5a autonomy ladder unlocks: take ONE approved item and iterate
 //   implement (worktree) → deterministic gates → Verify panel → QA flows → fix
@@ -15,9 +15,9 @@
 // children's self-reports into the terminal cross-model claim.
 //
 // Distribution: read-from-install-path. Adopters invoke this from the version-stamped plugin
-// install dir (`${CLAUDE_PLUGIN_ROOT}/workflows/build-item.js`); this repo dogfoods it via the
-// repo-local `./workflows/build-item.js` (the working tree IS the plugin source). Never copied
-// into an adopter repo (no managed-stamp/refresh surface) — see docs/DECISIONS.md -> Harness v2.
+// install dir (`${CLAUDE_PLUGIN_ROOT}/engine/build-item.js`); this repo dogfoods it via the
+// repo-local `./engine/build-item.js` (the working tree IS the plugin source). Never copied
+// into an adopter repo (no managed-stamp/refresh surface) — see docs/DECISIONS.md → Plugin identity & distribution.
 //
 // Workflow-script constraints (the tool runs this inside its sandbox): NO imports, NO
 // filesystem APIs, NO wall-clock / randomness (the orchestrator stamps times AFTER the run).
@@ -305,7 +305,7 @@ function childScriptPath(pluginRoot, name) {
     throw new Error("childScriptPath: name is required");
   }
   const root = pluginRoot.replace(/[\\/]+$/, "");
-  return `${root}/workflows/${name}`;
+  return `${root}/engine/${name}`;
 }
 
 // Decide whether the deterministic gates are green from the gates agent's per-command results.

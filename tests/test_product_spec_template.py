@@ -1,9 +1,9 @@
 """Pin the FROZEN acceptance-criteria schema in the product-spec docs.
 
 The acceptance-criteria schema is the contract the product layer writes
-(`docs/PRODUCT_SPEC_TEMPLATE.md`), gap mode pins (`workflows/audit.js` →
-`cellsFromCriteria`), and `qa.js` consumes at runtime. Its field names are FROZEN
-and may never drift (DECISIONS → Harness v2). This test reads the **first fenced
+(`docs/PRODUCT_SPEC_TEMPLATE.md`), gap mode pins (`engine/audit.js` →
+`cellsFromCriteria`), and `engine/qa.js` consumes at runtime. Its field names are FROZEN
+and may never drift. This test reads the **first fenced
 ```json block after the `## Acceptance criteria` heading** and asserts the embedded
 example matches the frozen schema — so the template's example can never silently
 drift from the contract the code enforces.

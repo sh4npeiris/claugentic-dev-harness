@@ -1,10 +1,10 @@
-// workflows/verify.js — the Stage-7 Verify panel as an executable Workflow script.
+// engine/verify.js — the Stage-7 Verify panel as an executable Workflow script.
 //
 // Distribution: read-from-install-path. Adopters invoke this from the version-stamped
-// plugin install dir (`${CLAUDE_PLUGIN_ROOT}/workflows/verify.js`); this repo dogfoods it
-// via the repo-local `./workflows/verify.js` (the working tree IS the plugin source).
+// plugin install dir (`${CLAUDE_PLUGIN_ROOT}/engine/verify.js`); this repo dogfoods it
+// via the repo-local `./engine/verify.js` (the working tree IS the plugin source).
 // Never copied into an adopter repo (no managed-stamp/refresh surface) — see
-// docs/DECISIONS.md → Harness v2.
+// docs/DECISIONS.md → Plugin identity & distribution.
 //
 // Workflow-script constraints (the tool runs this inside its sandbox): NO imports, NO
 // filesystem APIs, NO wall-clock / randomness (the orchestrator stamps times after the

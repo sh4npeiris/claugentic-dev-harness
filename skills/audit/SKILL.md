@@ -16,7 +16,7 @@ Three phases, cheap → expensive, run end-to-end in one pass:
    produce a plain-English **"what your app is & does"** overview and an **audit-plan** (what to
    look at, in what order, with what excluded). No fan-out. *(This phase genuinely needs you —
    it stays a conversation.)*
-2. **Audit** *(LIVE)* — **the orchestrator invokes `workflows/audit.js`** (the Workflow tool) with
+2. **Audit** *(LIVE)* — **the orchestrator invokes `engine/audit.js`** (the Workflow tool) with
    the audit-plan as args; the script runs the FIND → PRUNE → VERIFY pipeline mechanically: a
    `lens-reviewer` fan-out per `(module × dir)` cell at the dial's **depth**, coded dedup, a
    synthesis self-review prune, and **exactly one `finding-verifier` per surviving finding**
@@ -50,7 +50,7 @@ a verification, skip the prune, or silently truncate a run.
   fresh-angle adversarial passes. Whatever the level, **every surfaced finding is independently
   re-checked** — that floor never moves.
 
-> **Which path runs (be honest about it):** **all three notches run through `workflows/audit.js`**
+> **Which path runs (be honest about it):** **all three notches run through `engine/audit.js`**
 > (the script) — `thorough` adds a whole-scope blind-spot sweep (FIND) and an adversarial
 > yagni-sentinel prune (PRUNE) as script stages. The **only** fallback is the *Prose-orchestrated
 > fallback* below: if the **Workflow tool is unavailable** in this session, *any* level falls back
@@ -193,13 +193,13 @@ joining the same dedup → prune → verify path as any finding.
 spawn subagents. For any level (`quick`/`standard`/`thorough`) with the Workflow tool available, **invoke the
 script**; only when the Workflow tool is unavailable take the *Prose-orchestrated fallback*.
 
-### Invoke `workflows/audit.js`
+### Invoke `engine/audit.js`
 
 Call the Workflow tool with:
 
-- **`scriptPath`** = `${CLAUDE_PLUGIN_ROOT}/workflows/audit.js` (the version-stamped plugin install
+- **`scriptPath`** = `${CLAUDE_PLUGIN_ROOT}/engine/audit.js` (the version-stamped plugin install
   path — read-from-install-path, never copied to an adopter). **When dogfooding *this* repo**, use
-  the repo-local `./workflows/audit.js` (the working tree *is* the plugin source).
+  the repo-local `./engine/audit.js` (the working tree *is* the plugin source).
 - **`args`** mapped from the audit-plan (Phase 1):
   - `dial` — the chosen level (`quick` | `standard` | `thorough`; at `thorough` the script adds the
     whole-scope blind-spot sweep and the adversarial yagni-sentinel prune).

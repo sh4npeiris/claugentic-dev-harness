@@ -60,9 +60,7 @@ its criteria's `feature` field below.)*
 
 The checkable projection of the Features above. **One fenced ```json block, an array of criteria
 in the FROZEN schema** — field names exact, and they may **never drift** (the same schema is
-pinned in `workflows/audit.js` for gap mode and consumed by `qa.js` for runtime checks; the full
-runtime semantics live in [`docs/DECISIONS.md`](DECISIONS.md) → *Harness v2* — the
-acceptance-criteria entries).
+pinned in `engine/audit.js` for gap mode and consumed by `engine/qa.js` for runtime checks).
 
 **The schema (each criterion):**
 

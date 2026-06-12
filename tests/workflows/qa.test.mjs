@@ -17,7 +17,7 @@ import { loadHelpersFrom } from "./_load-helpers.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(HERE, "..", "..");
-const SCRIPT_PATH = join(REPO_ROOT, "workflows", "qa.js");
+const SCRIPT_PATH = join(REPO_ROOT, "engine", "qa.js");
 
 // The verbatim same-model tag — duplicated here on purpose as an independent fixture so a drift in
 // the script's wording is caught by an exact string compare (the test is the pin).

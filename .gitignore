@@ -34,7 +34,7 @@ Thumbs.db
 *.log
 *.tmp
 
-# ── QA runtime-verification artifacts (workflows/qa.js writes screenshots here) ──
+# ── QA runtime-verification artifacts (engine/qa.js writes screenshots here) ──
 .qa-artifacts/
 .playwright-mcp/
 eval/.runtime-qa/
