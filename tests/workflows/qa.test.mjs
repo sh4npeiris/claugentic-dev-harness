@@ -10,9 +10,10 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
+
+import { loadHelpersFrom } from "./_load-helpers.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(HERE, "..", "..");
@@ -33,68 +34,47 @@ const EXPECTED_OBSERVED_TAG = "(observed this run — boot log attached)";
 const EXPECTED_NO_RUN_REASON =
   'no run command recorded — add a "Run the app:" line to CLAUDE.md\'s detected-tooling block (or pass runCommand)';
 
-/** Extract the marked helpers block and evaluate it, returning the named helpers.
- *
- * Markers are matched line-anchored (`^// --- helpers ---$`) so a mention of the marker text
- * inside the file's header comment is NOT mistaken for the real delimiter. */
-function loadHelpers() {
-  const src = readFileSync(SCRIPT_PATH, "utf8");
-  const startMatch = src.match(/^\/\/ --- helpers ---$/m);
-  const endMatch = src.match(/^\/\/ --- end helpers ---$/m);
-  assert.ok(startMatch, "helpers block start marker not found (line-anchored) in workflows/qa.js");
-  assert.ok(endMatch, "helpers block end marker not found (line-anchored) in workflows/qa.js");
-  const start = startMatch.index;
-  const end = endMatch.index;
-  assert.ok(end > start, "helpers end marker precedes start marker");
-  const block = src.slice(start, end);
-  const names = [
-    "MODELS",
-    "SAME_MODEL_TAG",
-    "UNRESOLVED_FAMILY_TAG",
-    "KNOWN_FAMILIES",
-    "modelFamily",
-    "sameModelTag",
-    "READINESS_TIMEOUT_DEFAULT_SEC",
-    "READINESS_TIMEOUT_CAP_SEC",
-    "READINESS_PROBE_INTERVAL_SEC",
-    "COULD_NOT_RUN_CLASS",
-    "OBSERVED_THIS_RUN_TAG",
-    "NO_RUN_COMMAND_REASON",
-    "CHECK_KINDS",
-    "STATE_KINDS",
-    "UX_ISSUE_CLASS",
-    "MANUAL_NOT_CHECKABLE_REASON",
-    "BROWSER_UNAVAILABLE_REASON",
-    "parseArgs",
-    "parseRunArgs",
-    "isRunInputError",
-    "artifactBase",
-    "bootReportFromError",
-    "isComposeCommand",
-    "readinessPlan",
-    "bootOutcome",
-    "teardownPlan",
-    "couldNotRunFinding",
-    "validateCriteria",
-    "criterionPlan",
-    "verdictFor",
-    "findingsFrom",
-    "dedupFindings",
-    "sanitizeForPath",
-    "screenshotPath",
-    "applyVerifierVerdicts",
-    "BOOT_SCHEMA",
-    "TEARDOWN_SCHEMA",
-    "DRIVER_SCHEMA",
-    "VERIFIER_SCHEMA",
-  ];
-  // No tool primitives are in scope inside this Function — so if any helper closed over
-  // agent()/parallel()/phase()/log(), constructing or calling it would throw here.
-  const factory = new Function(`${block}\n; return { ${names.join(", ")} };`);
-  return factory();
-}
-
-const H = loadHelpers();
+const H = loadHelpersFrom(SCRIPT_PATH, [
+  "MODELS",
+  "SAME_MODEL_TAG",
+  "UNRESOLVED_FAMILY_TAG",
+  "KNOWN_FAMILIES",
+  "modelFamily",
+  "sameModelTag",
+  "READINESS_TIMEOUT_DEFAULT_SEC",
+  "READINESS_TIMEOUT_CAP_SEC",
+  "READINESS_PROBE_INTERVAL_SEC",
+  "COULD_NOT_RUN_CLASS",
+  "OBSERVED_THIS_RUN_TAG",
+  "NO_RUN_COMMAND_REASON",
+  "CHECK_KINDS",
+  "STATE_KINDS",
+  "UX_ISSUE_CLASS",
+  "MANUAL_NOT_CHECKABLE_REASON",
+  "BROWSER_UNAVAILABLE_REASON",
+  "parseArgs",
+  "parseRunArgs",
+  "isRunInputError",
+  "artifactBase",
+  "bootReportFromError",
+  "isComposeCommand",
+  "readinessPlan",
+  "bootOutcome",
+  "teardownPlan",
+  "couldNotRunFinding",
+  "validateCriteria",
+  "criterionPlan",
+  "verdictFor",
+  "findingsFrom",
+  "dedupFindings",
+  "sanitizeForPath",
+  "screenshotPath",
+  "applyVerifierVerdicts",
+  "BOOT_SCHEMA",
+  "TEARDOWN_SCHEMA",
+  "DRIVER_SCHEMA",
+  "VERIFIER_SCHEMA",
+]);
 
 /** Build a valid run-args object; override fields per-case. */
 function validArgs(overrides = {}) {
