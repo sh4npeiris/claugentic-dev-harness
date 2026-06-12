@@ -60,6 +60,24 @@ const KNOWN_FAMILIES = ["fable", "opus", "sonnet", "haiku"];
 // undefined for a valid dial.
 const DEPTH_FOR_DIAL = { quick: "focused", standard: "deep", thorough: "exhaustive" };
 
+// ── Product-gap (criteria) mode — an args mode, NOT a fork (plan 0012, Slice 6) ──
+// When args carry `criteria` (a product-spec's acceptance-criteria array) instead of modules×dirs,
+// the SAME FIND -> PRUNE -> VERIFY pipeline runs with the criteria as the lens source: one cell per
+// criterion. A second script would duplicate the dedup/budget/resume/verify machinery (DRY) — so
+// the only additive surface is this frozen-schema validator + cellsFromCriteria + a criterion-lens
+// prompt, plus one control-flow branch. The criteria list (not a dial) bounds FIND; lens depth is
+// fixed at `deep`; the status-block level value is `gap`.
+//
+// The FROZEN acceptance-criteria schema — field names exact, may NEVER drift. Single source of
+// truth: docs/PRODUCT_SPEC_TEMPLATE.md embeds the same schema for humans; the runtime semantics
+// are owned by qa.js (docs/DECISIONS.md -> Harness v2, 2026-06-12). Here gap mode reads them
+// STATICALLY against the code — it does NOT run the app (that is qa.js's job).
+const CRITERIA_KEYS = ["id", "feature", "flow", "expect", "states", "check"];
+const CRITERIA_CHECKS = ["e2e", "api", "manual"];
+const CRITERIA_STATES = ["empty", "loading", "error"];
+// The status-block level for a gap run (parallels `quick`/`standard`/`thorough` as the level word).
+const GAP_LEVEL = "gap";
+
 // The dials this script SUPPORTS end-to-end. All three notches are scripted: `thorough` adds the
 // blind-spot sweep (FIND) and the adversarial yagni-sentinel prune (PRUNE). The boundary rejects
 // any unknown dial with a message naming what's supported.
@@ -112,13 +130,63 @@ const VERIFICATION_PHRASE = {
   deferred: "(⚠ not yet verified — re-run to confirm)",
 };
 
+// Validate ONE acceptance criterion against the FROZEN schema. Returns an error string naming the
+// offending criterion id (or its array index when the id itself is missing/blank) and the exact
+// problem, or null when valid. Used by both validateArgs (boundary) and cellsFromCriteria (the
+// fail-loud throw at enumeration). The rule is strict-exact: the six frozen keys and ONLY those.
+function validateCriterion(criterion, index) {
+  const at =
+    criterion && typeof criterion.id === "string" && criterion.id.length > 0
+      ? `criterion '${criterion.id}'`
+      : `criterion at index ${index}`;
+  if (!criterion || typeof criterion !== "object" || Array.isArray(criterion)) {
+    return `${at}: must be an object`;
+  }
+  const keys = Object.keys(criterion);
+  const extra = keys.filter((k) => !CRITERIA_KEYS.includes(k));
+  const missing = CRITERIA_KEYS.filter((k) => !keys.includes(k));
+  if (extra.length > 0) {
+    return `${at}: unexpected key(s) ${JSON.stringify(extra)} — the frozen schema is exactly ${JSON.stringify(CRITERIA_KEYS)}`;
+  }
+  if (missing.length > 0) {
+    return `${at}: missing key(s) ${JSON.stringify(missing)} — the frozen schema is exactly ${JSON.stringify(CRITERIA_KEYS)}`;
+  }
+  if (typeof criterion.id !== "string" || criterion.id.length === 0) {
+    return `${at}: id must be a non-empty string`;
+  }
+  if (typeof criterion.feature !== "string" || criterion.feature.length === 0) {
+    return `${at}: feature must be a non-empty string`;
+  }
+  if (!Array.isArray(criterion.flow) || criterion.flow.length === 0 || !criterion.flow.every((s) => typeof s === "string" && s.length > 0)) {
+    return `${at}: flow must be a non-empty array of non-empty strings`;
+  }
+  if (!Array.isArray(criterion.expect) || criterion.expect.length === 0 || !criterion.expect.every((s) => typeof s === "string" && s.length > 0)) {
+    return `${at}: expect must be a non-empty array of non-empty strings`;
+  }
+  if (!Array.isArray(criterion.states) || !criterion.states.every((s) => CRITERIA_STATES.includes(s))) {
+    return `${at}: states must be an array, each entry one of ${JSON.stringify(CRITERIA_STATES)} (may be empty)`;
+  }
+  if (typeof criterion.check !== "string" || !CRITERIA_CHECKS.includes(criterion.check)) {
+    return `${at}: check must be one of ${JSON.stringify(CRITERIA_CHECKS)}`;
+  }
+  return null;
+}
+
 // Validate the args contract at the boundary (fail loud — the caller throws on a non-empty
-// list). Returns every shape error; empty array = valid. The dial must be one of the supported
-// notches (quick|standard|thorough); any other value is rejected naming the supported set.
+// list). Returns every shape error; empty array = valid. TWO mutually-exclusive arg modes:
+//   * STANDARD (modules×dirs): the dial must be one of quick|standard|thorough; modules + scopeDirs
+//     required.
+//   * CRITERIA (product-gap): `args.criteria` present — a non-empty array, each criterion valid
+//     against the frozen schema with a UNIQUE id; modules/scopeDirs/dial are NOT required (the
+//     criteria list bounds FIND, depth is fixed at `deep`, level is `gap`). `excludeSet`,
+//     `maxCellsPerRun`, `builderFamily`, `doneCells`, `deferredFindings` apply identically.
 function validateArgs(args) {
   const errors = [];
   if (!args || typeof args !== "object") {
     return ["args must be an object"];
+  }
+  if (args.criteria !== undefined) {
+    return validateCriteriaArgs(args);
   }
   if (typeof args.dial !== "string" || !SUPPORTED_DIALS.includes(args.dial)) {
     errors.push(
@@ -135,6 +203,14 @@ function validateArgs(args) {
   } else if (!args.scopeDirs.every((d) => typeof d === "string" && d.length > 0)) {
     errors.push("scopeDirs must be an array of non-empty strings");
   }
+  errors.push(...validateSharedArgs(args));
+  return errors;
+}
+
+// The boundary checks both arg modes share (single source of truth — DRY): excludeSet,
+// maxCellsPerRun, doneCells, deferredFindings, builderFamily. Returns every error; empty = valid.
+function validateSharedArgs(args) {
+  const errors = [];
   if (args.excludeSet !== undefined && !Array.isArray(args.excludeSet)) {
     errors.push("excludeSet, when provided, must be an array of strings");
   }
@@ -151,10 +227,67 @@ function validateArgs(args) {
   if (args.deferredFindings !== undefined && !Array.isArray(args.deferredFindings)) {
     errors.push("deferredFindings, when provided, must be an array of findings");
   }
+  if (args.priorItems !== undefined && !Array.isArray(args.priorItems)) {
+    errors.push("priorItems, when provided, must be an array (the prior run's resolved items — verdicts persist)");
+  }
   if (typeof args.builderFamily !== "string" || args.builderFamily.length === 0) {
     errors.push("builderFamily is required (non-empty string — the orchestrator's model family)");
   }
   return errors;
+}
+
+// Validate the CRITERIA (product-gap) arg mode. `args.criteria` must be a non-empty array of
+// frozen-schema-valid criteria with UNIQUE ids; the shared boundary checks apply identically. The
+// standard modules/scopeDirs/dial fields are NOT required (the criteria list bounds FIND).
+function validateCriteriaArgs(args) {
+  const errors = [];
+  if (!Array.isArray(args.criteria) || args.criteria.length === 0) {
+    errors.push("criteria is required (non-empty array of acceptance criteria) in product-gap mode");
+  } else {
+    const seen = new Set();
+    args.criteria.forEach((criterion, i) => {
+      const err = validateCriterion(criterion, i);
+      if (err) {
+        errors.push(err);
+        return;
+      }
+      if (seen.has(criterion.id)) {
+        errors.push(`criterion '${criterion.id}': duplicate id — ids must be unique`);
+      }
+      seen.add(criterion.id);
+    });
+  }
+  errors.push(...validateSharedArgs(args));
+  return errors;
+}
+
+// Enumerate the gap-mode pending cells: ONE cell per criterion, keyed by its (unique) id, in spec
+// order, MINUS any cell already in doneCells (never re-enumerated — the same resume contract as the
+// standard mode, with criterion ids as the cells). Each returned cell carries the criterion object
+// so the FIND fan-out can build a per-criterion lens prompt without a second lookup. Fails loud
+// (throws naming the offending id/key) on a criterion that violates the frozen schema or on an
+// empty list — the boundary already validated, but this keeps the helper independently safe.
+function cellsFromCriteria(criteria, doneCells) {
+  if (!Array.isArray(criteria) || criteria.length === 0) {
+    throw new Error("cellsFromCriteria: criteria must be a non-empty array");
+  }
+  const done = new Set(Array.isArray(doneCells) ? doneCells : []);
+  const seen = new Set();
+  const cells = [];
+  criteria.forEach((criterion, i) => {
+    const err = validateCriterion(criterion, i);
+    if (err) {
+      throw new Error(`cellsFromCriteria: ${err}`);
+    }
+    if (seen.has(criterion.id)) {
+      throw new Error(`cellsFromCriteria: duplicate criterion id '${criterion.id}' — ids must be unique`);
+    }
+    seen.add(criterion.id);
+    if (!done.has(criterion.id)) {
+      cells.push({ key: criterion.id, criterion });
+    }
+  });
+  return cells;
 }
 
 // The dial -> depth map (assumes a validated dial; total over the three notches).
@@ -327,6 +460,30 @@ function buildLensPrompt(moduleName, dirs, excludeSet, depth) {
     `Read at depth: ${depth}. ` +
     `Return per-issue findings: issueClass, claimPlain, claimTechnical, locations (file:line list), ` +
     `fix, confidence (deterministic|judgment).`
+  );
+}
+
+// Build the product-gap lens prompt for ONE acceptance criterion (criteria mode). The lens reads
+// the implementation STATICALLY against this criterion — it does NOT run the app (runtime checking
+// is qa.js's job; the prompt says so) — and reports missing / partial / diverging behavior per flow
+// step, expectation, and required state, in the SAME finding shape as buildLensPrompt so the
+// findings join the unchanged dedup -> prune -> verify path. The criterion id rides into issueClass
+// guidance so a finding cites which criterion it came from. Depth is fixed at `deep`.
+function buildCriterionLensPrompt(criterion, excludeSet) {
+  const exclude = Array.isArray(excludeSet) ? excludeSet : [];
+  return (
+    `Product-gap mode (intent vs implementation — STATIC code reading; do NOT run the app — ` +
+    `runtime checking is the QA workflow's job). Your lens is ONE acceptance criterion from the ` +
+    `product spec; check whether the implementation delivers it. Criterion: ${JSON.stringify(criterion)}. ` +
+    `Locate the implementing code via docs/ARCHITECTURE_TREE.md (the file index), then READ it ` +
+    `statically. For each flow step, each expectation in 'expect', and each required state in ` +
+    `'states', report whether the code delivers it — flag promised-but-missing (the behavior has no ` +
+    `implementation) and diverges-from-spec (the implementation contradicts the promise). A 'manual' ` +
+    `check still gets a static read for an obvious missing surface, but a human owns the verdict. ` +
+    `Exclude-set (never read — deps, build output, secrets): ${JSON.stringify(exclude)}. ` +
+    `Read at depth: deep. ` +
+    `Return per-issue findings: issueClass (prefix with the criterion id '${criterion.id}'), ` +
+    `claimPlain, claimTechnical, locations (file:line list), fix, confidence (deterministic|judgment).`
   );
 }
 
@@ -820,6 +977,25 @@ function renderBacklogFence(result) {
   ];
   return parts.join("\n\n");
 }
+
+// Resume honesty: a PARTIAL re-run regenerates the WHOLE fence from result.items, so the
+// prior pass's RESOLVED findings (verified/unconfirmed — their verdicts persist, they are
+// not re-verified) must be carried forward via args.priorItems and merged here. A finding
+// re-surfaced by THIS run supersedes its prior copy (fresher verdict wins on findingKey).
+// Without this merge the resumed fence silently dropped confirmed findings — the gap-mode
+// smoke's verified Tier-1 (2026-06-12).
+function mergePriorItems(currentItems, priorItems) {
+  const current = Array.isArray(currentItems) ? currentItems : [];
+  const prior = Array.isArray(priorItems) ? priorItems : [];
+  const currentKeys = new Set(current.map((it) => it && it.findingKey).filter(Boolean));
+  const carried = prior.filter(
+    (it) => it && it.findingKey && !currentKeys.has(it.findingKey),
+  ).map((it) => ({
+    ...it,
+    tier: Number.isInteger(it.tier) ? it.tier : 2,
+  }));
+  return [...carried, ...current];
+}
 // --- end helpers ---
 
 // Spawn a judge (finding-verifier) with the cross-model `model:` pin; one respawn without it on
@@ -870,28 +1046,56 @@ const input = parseArgs(args);
   }
 }
 
-const dial = input.dial;
-const depth = depthForDial(dial);
+// ARG MODE: criteria (product-gap) vs the standard modules×dirs sweep. The criteria list bounds
+// FIND in gap mode (depth fixed at `deep`, level `gap`); the dial drives the standard mode.
+const isGap = Array.isArray(input.criteria);
+const dial = isGap ? GAP_LEVEL : input.dial;
+const depth = isGap ? "deep" : depthForDial(input.dial);
 const excludeSet = Array.isArray(input.excludeSet) ? input.excludeSet : [];
 const doneCellsIn = Array.isArray(input.doneCells) ? input.doneCells : [];
 const deferredFindings = Array.isArray(input.deferredFindings) ? input.deferredFindings : [];
 
-// Enumerate the pending cells (at `thorough` this appends the whole-scope BLINDSPOT_CELL last),
-// then split against the per-run cap (the deterministic resume — the pseudo-cell is capped/resumed
-// exactly like any cell).
-const pending = enumerateCells(input.modules, input.scopeDirs, doneCellsIn, dial);
-const { run: runCells, overflow: overflowCells } = applyCellBudget(pending, input.maxCellsPerRun);
-const runHasBlindspot = runCells.includes(BLINDSPOT_CELL);
-const moduleCells = runCells.filter((c) => c !== BLINDSPOT_CELL);
-const batches = groupByModule(moduleCells);
+// Enumerate this run's pending cells, then split against the per-run cap (the deterministic resume).
+// In gap mode the cells ARE the criterion ids (one cell per criterion); in standard mode the cells
+// are (module × dir) and `thorough` appends the whole-scope BLINDSPOT_CELL last. Either way the cap
+// + done/pending lists drive resume identically. `batches` is the FIND fan-out unit (one lens call
+// per batch): a module-over-its-dirs batch in standard mode, a single-criterion batch in gap mode.
+let runCells;
+let overflowCells;
+let runHasBlindspot;
+let batches;
+if (isGap) {
+  const gapCells = cellsFromCriteria(input.criteria, doneCellsIn);
+  const split = applyCellBudget(gapCells, input.maxCellsPerRun);
+  runCells = split.run.map((c) => c.key);
+  overflowCells = split.overflow.map((c) => c.key);
+  runHasBlindspot = false; // the blind-spot sweep is a standard-mode `thorough` stage; gap has none
+  batches = split.run.map((c) => ({
+    module: c.criterion.id,
+    dirs: [],
+    cells: [c.key],
+    criterion: c.criterion,
+  }));
+} else {
+  const pending = enumerateCells(input.modules, input.scopeDirs, doneCellsIn, input.dial);
+  const split = applyCellBudget(pending, input.maxCellsPerRun);
+  runCells = split.run;
+  overflowCells = split.overflow;
+  runHasBlindspot = runCells.includes(BLINDSPOT_CELL);
+  const moduleCells = runCells.filter((c) => c !== BLINDSPOT_CELL);
+  batches = groupByModule(moduleCells);
+}
 log(
-  `audit dial=${dial} depth=${depth} — ${moduleCells.length} module cell(s) this run across ` +
-    `${batches.length} module batch(es)${runHasBlindspot ? " + the blind-spot sweep" : ""}; ` +
+  `audit ${isGap ? "mode=gap" : `dial=${dial}`} depth=${depth} — ${batches.length} ` +
+    `${isGap ? "criterion" : "module"} batch(es) this run` +
+    `${runHasBlindspot ? " + the blind-spot sweep" : ""}; ` +
     `${overflowCells.length} deferred to resume.`,
 );
 
-// --- FIND: one lens-reviewer per module batch at the dialed depth, in parallel; at `thorough`,
-// the whole-scope blind-spot sweep joins the SAME parallel() as one more task (it FINDS only). ---
+// --- FIND: one lens call per batch at the dialed depth, in parallel. In standard mode each batch is
+// a `lens-reviewer` over a module's dirs; at `thorough` the whole-scope blind-spot sweep joins the
+// SAME parallel() as one more task (it FINDS only). In gap mode each batch is a `lens-reviewer` over
+// ONE acceptance criterion (static intent-vs-implementation read). ---
 phase("Find");
 // FIND-phase guard. The platform's parallel() already resolves a throwing thunk to null
 // (it never rejects) — this wrapper makes the never-crash-the-run property LOCAL and
@@ -907,12 +1111,17 @@ async function guardedAgent(prompt, opts) {
 }
 
 const findTasks = batches.map((batch) => () =>
-  guardedAgent(buildLensPrompt(batch.module, batch.dirs, excludeSet, depth), {
-    agentType: "lens-reviewer",
-    schema: LENS_SCHEMA,
-    label: `lens:${batch.module}`,
-    phase: "Find",
-  }),
+  guardedAgent(
+    isGap
+      ? buildCriterionLensPrompt(batch.criterion, excludeSet)
+      : buildLensPrompt(batch.module, batch.dirs, excludeSet, depth),
+    {
+      agentType: "lens-reviewer",
+      schema: LENS_SCHEMA,
+      label: isGap ? `gap:${batch.module}` : `lens:${batch.module}`,
+      phase: "Find",
+    },
+  ),
 );
 if (runHasBlindspot) {
   findTasks.push(() =>
@@ -939,8 +1148,12 @@ batches.forEach((batch, i) => {
     }
     return;
   }
+  // In gap mode the batch source is the criterion id (not a standards-module path); in standard
+  // mode it is the module's doc path. Each finding carries its source so the verifier and the
+  // fence can cite it.
+  const source = isGap ? `criterion ${batch.module}` : modulePath(batch.module);
   for (const finding of r.findings) {
-    rawFindings.push({ ...finding, sourceModule: modulePath(batch.module), modules: [modulePath(batch.module)] });
+    rawFindings.push({ ...finding, sourceModule: source, modules: [source] });
   }
 });
 
@@ -964,15 +1177,21 @@ if (runHasBlindspot) {
 phase("Prune");
 const dedupedFindings = dedupFindings(rawFindings);
 
+// The synthesis "audited scope" framing is mode-aware (the consolidate/tier/tag logic is identical):
+// standard mode passes the module doc paths + scopeDirs; gap mode passes the criterion ids + a
+// fixed scope label (the gap run has no dir scope — the criteria ARE the scope).
+const synthesisModules = isGap ? input.criteria.map((c) => c.id) : modulesToPaths(input.modules);
+const synthesisScope = isGap ? ["product-gap: intent vs implementation"] : input.scopeDirs;
+
 let synthesis = await agent(
-  buildSynthesisPrompt(dedupedFindings, modulesToPaths(input.modules), input.scopeDirs),
+  buildSynthesisPrompt(dedupedFindings, synthesisModules, synthesisScope),
   { agentType: "architect-reviewer", schema: SYNTHESIS_SCHEMA, label: "synthesis", phase: "Prune" },
 );
 if (!synthesis || !Array.isArray(synthesis.items)) {
   // Single-point seam: a null synthesis would discard the whole FIND sweep. Retry once
   // before the fail-loud terminal (the throw stays — never proceed without the prune).
   synthesis = await agent(
-    buildSynthesisPrompt(dedupedFindings, modulesToPaths(input.modules), input.scopeDirs),
+    buildSynthesisPrompt(dedupedFindings, synthesisModules, synthesisScope),
     { agentType: "architect-reviewer", schema: SYNTHESIS_SCHEMA, label: "synthesis:respawn", phase: "Prune" },
   );
 }
@@ -1076,7 +1295,7 @@ const summary = verificationSummary(kept, refutedCount, input.builderFamily);
 const sweptCells = runCells.filter((c) => !failedCells.includes(c));
 const doneCells = [...doneCellsIn, ...sweptCells];
 const pendingCells = [...overflowCells, ...failedCells];
-const items = kept.map(toResultItem);
+const items = mergePriorItems(kept.map(toResultItem), input.priorItems);
 
 const result = {
   status: runStatus(pendingCells),

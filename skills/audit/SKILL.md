@@ -215,8 +215,13 @@ Call the Workflow tool with:
   - `doneCells` — **on a resume run**, parse the existing backlog fence's status block (Phase 3)
     and pass its `done-cells` list; `[]` on a fresh run. The script never re-sweeps a done cell.
   - `deferredFindings` — prior-run findings carrying the `deferred` (`⚠ not yet verified`) tag, fed
-    straight to VERIFY for re-checking. Findings already carrying a *resolved* verdict tag
-    (`verified` / `unconfirmed`) are **not** re-passed — their verdicts persist in the fence.
+    straight to VERIFY for re-checking.
+  - `priorItems` — **on a resume run**, the prior pass's *resolved* items (`verified` /
+    `unconfirmed` tags) parsed from the fence; the script merges them into the regenerated
+    fence **unchanged** (their verdicts persist — they are never re-verified; a finding the
+    new sweep re-surfaces supersedes its prior copy). Without this channel a resumed render
+    would silently drop confirmed findings (the regenerate-don't-accumulate fence rebuilds
+    whole).
   - `builderFamily` — your (the orchestrator's) model family, for the same-model tag.
 
 **Tell the user first, in plain English** (so a multi-minute pass isn't a silent stall): *"This can

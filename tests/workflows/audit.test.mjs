@@ -120,6 +120,7 @@ function loadHelpers() {
     "parseArgs",
     "applySynthesisItems",
     "toResultItem",
+    "mergePriorItems",
     "LENS_SCHEMA",
     "SYNTHESIS_SCHEMA",
     "VERIFIER_SCHEMA",
@@ -132,6 +133,15 @@ function loadHelpers() {
     "VERIFICATION_PHRASE",
     "buildBlindspotPrompt",
     "buildSentinelPrompt",
+    "validateCriterion",
+    "validateSharedArgs",
+    "validateCriteriaArgs",
+    "cellsFromCriteria",
+    "buildCriterionLensPrompt",
+    "CRITERIA_KEYS",
+    "CRITERIA_CHECKS",
+    "CRITERIA_STATES",
+    "GAP_LEVEL",
     "renderStatusLine",
     "verificationPhrase",
     "renderLocations",
@@ -1006,4 +1016,176 @@ test("toResultItem: a tier-less finding defaults to Tier 2 — never silently dr
     verification: { verified: 0, unconfirmed: 0, deferred: 1, refuted: 0, crossModel: false, sameModelTag: H.SAME_MODEL_TAG },
   });
   assert.ok(fence.includes("t"), "the tier-defaulted item must appear in the rendered fence");
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Product-gap (criteria) mode — the cellsFromCriteria seam + criteria-arg validation (Slice 6)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** A valid acceptance criterion in the FROZEN schema; override fields per-case. */
+function validCriterion(overrides = {}) {
+  return {
+    id: "AC-add-1",
+    feature: "Add an item",
+    flow: ["Open the page", "Type 'milk'", "Click Add"],
+    expect: ["the list shows 'milk'", "the field is cleared"],
+    states: ["empty", "error"],
+    check: "e2e",
+    ...overrides,
+  };
+}
+
+test("frozen-schema constants are pinned exactly (single source of truth with the template)", () => {
+  assert.deepEqual(H.CRITERIA_KEYS, ["id", "feature", "flow", "expect", "states", "check"]);
+  assert.deepEqual(H.CRITERIA_CHECKS, ["e2e", "api", "manual"]);
+  assert.deepEqual(H.CRITERIA_STATES, ["empty", "loading", "error"]);
+  assert.equal(H.GAP_LEVEL, "gap");
+});
+
+test("validateCriterion: a well-formed criterion (all six frozen keys) is valid (null)", () => {
+  assert.equal(H.validateCriterion(validCriterion(), 0), null);
+  // states may be empty; check may be api or manual
+  assert.equal(H.validateCriterion(validCriterion({ states: [], check: "api" }), 0), null);
+  assert.equal(H.validateCriterion(validCriterion({ check: "manual" }), 0), null);
+});
+
+test("validateCriterion: a missing key is rejected naming the id and the frozen key set", () => {
+  const { check, ...noCheck } = validCriterion();
+  const err = H.validateCriterion(noCheck, 0);
+  assert.ok(err && err.includes("AC-add-1"), "the error names the offending criterion id");
+  assert.ok(err.includes("check"), "the error names the missing key");
+});
+
+test("validateCriterion: an extra (non-frozen) key is rejected — the schema is exactly the six keys", () => {
+  const err = H.validateCriterion(validCriterion({ priority: "high" }), 0);
+  assert.ok(err && err.includes("AC-add-1"));
+  assert.ok(err.includes("priority"), "the error names the unexpected key");
+});
+
+test("validateCriterion: a bad check enum value is rejected", () => {
+  const err = H.validateCriterion(validCriterion({ check: "integration" }), 0);
+  assert.ok(err && err.includes("check"));
+});
+
+test("validateCriterion: a bad states entry is rejected", () => {
+  const err = H.validateCriterion(validCriterion({ states: ["empty", "warming"] }), 0);
+  assert.ok(err && err.includes("states"));
+});
+
+test("validateCriterion: empty flow / empty expect are rejected (≥1 required)", () => {
+  assert.ok(H.validateCriterion(validCriterion({ flow: [] }), 0).includes("flow"));
+  assert.ok(H.validateCriterion(validCriterion({ expect: [] }), 0).includes("expect"));
+});
+
+test("validateCriterion: a criterion missing its id is named by array index, not 'undefined'", () => {
+  const { id, ...noId } = validCriterion();
+  const err = H.validateCriterion(noId, 3);
+  assert.ok(err.includes("index 3"), "a criterion with no id is located by index");
+});
+
+test("cellsFromCriteria: a valid array → one cell per criterion carrying its id + the criterion object", () => {
+  const criteria = [validCriterion({ id: "AC-1" }), validCriterion({ id: "AC-2" })];
+  const cells = H.cellsFromCriteria(criteria, []);
+  assert.equal(cells.length, 2);
+  assert.deepEqual(cells.map((c) => c.key), ["AC-1", "AC-2"]);
+  assert.equal(cells[0].criterion.id, "AC-1");
+  assert.equal(cells[1].criterion.feature, "Add an item");
+});
+
+test("cellsFromCriteria: doneCells are skipped — the resume contract (criterion ids as cells)", () => {
+  const criteria = [validCriterion({ id: "AC-1" }), validCriterion({ id: "AC-2" }), validCriterion({ id: "AC-3" })];
+  const cells = H.cellsFromCriteria(criteria, ["AC-1", "AC-3"]);
+  assert.deepEqual(cells.map((c) => c.key), ["AC-2"]);
+});
+
+test("cellsFromCriteria: a missing/extra key throws naming the offending id", () => {
+  const { states, ...noStates } = validCriterion({ id: "AC-bad" });
+  assert.throws(() => H.cellsFromCriteria([noStates], []), /AC-bad.*states/s);
+  assert.throws(
+    () => H.cellsFromCriteria([validCriterion({ id: "AC-x", extra: 1 })], []),
+    /AC-x.*extra/s,
+  );
+});
+
+test("cellsFromCriteria: a bad check / bad states value throws", () => {
+  assert.throws(() => H.cellsFromCriteria([validCriterion({ id: "AC-c", check: "nope" })], []), /AC-c.*check/s);
+  assert.throws(() => H.cellsFromCriteria([validCriterion({ id: "AC-s", states: ["nope"] })], []), /AC-s.*states/s);
+});
+
+test("cellsFromCriteria: an empty list throws (never a silent zero-cell run)", () => {
+  assert.throws(() => H.cellsFromCriteria([], []), /non-empty/);
+});
+
+test("cellsFromCriteria: duplicate ids throw (ids must be unique)", () => {
+  const criteria = [validCriterion({ id: "AC-dup" }), validCriterion({ id: "AC-dup" })];
+  assert.throws(() => H.cellsFromCriteria(criteria, []), /AC-dup.*unique/s);
+});
+
+test("validateArgs: criteria mode is valid without modules/scopeDirs/dial", () => {
+  const args = {
+    criteria: [validCriterion({ id: "AC-1" }), validCriterion({ id: "AC-2" })],
+    excludeSet: ["node_modules"],
+    maxCellsPerRun: 10,
+    builderFamily: "Fable 5",
+  };
+  assert.deepEqual(H.validateArgs(args), []);
+});
+
+test("validateArgs: criteria mode still requires the shared boundary fields (maxCellsPerRun, builderFamily)", () => {
+  const errors = H.validateArgs({ criteria: [validCriterion()] });
+  assert.ok(errors.some((e) => e.includes("maxCellsPerRun")));
+  assert.ok(errors.some((e) => e.includes("builderFamily")));
+});
+
+test("validateArgs: criteria mode rejects an empty criteria list", () => {
+  const errors = H.validateArgs({ criteria: [], maxCellsPerRun: 5, builderFamily: "Opus" });
+  assert.ok(errors.some((e) => e.includes("criteria is required")));
+});
+
+test("validateArgs: criteria mode reports each invalid criterion by id", () => {
+  const { check, ...bad } = validCriterion({ id: "AC-bad" });
+  const errors = H.validateArgs({ criteria: [validCriterion({ id: "AC-ok" }), bad], maxCellsPerRun: 5, builderFamily: "Opus" });
+  assert.ok(errors.some((e) => e.includes("AC-bad") && e.includes("check")));
+});
+
+test("validateArgs: criteria mode rejects duplicate ids", () => {
+  const errors = H.validateArgs({
+    criteria: [validCriterion({ id: "AC-1" }), validCriterion({ id: "AC-1" })],
+    maxCellsPerRun: 5,
+    builderFamily: "Opus",
+  });
+  assert.ok(errors.some((e) => e.includes("AC-1") && e.includes("unique")));
+});
+
+test("buildCriterionLensPrompt: carries the criterion id + text and states it reads STATICALLY, not running the app", () => {
+  const prompt = H.buildCriterionLensPrompt(validCriterion({ id: "AC-add-1" }), ["node_modules"]);
+  assert.ok(prompt.includes("AC-add-1"), "the criterion id rides into the prompt");
+  assert.ok(prompt.includes("Add an item"), "the criterion feature text rides into the prompt");
+  assert.ok(/static/i.test(prompt), "the prompt instructs a static read");
+  assert.ok(/do NOT run the app/i.test(prompt), "the prompt states it does not run the app (qa.js's job)");
+  assert.ok(prompt.includes("ARCHITECTURE_TREE.md"), "the prompt points at the file index to locate code");
+  assert.ok(prompt.includes("issueClass"), "the prompt asks for the standard finding shape");
+});
+
+test("mergePriorItems: prior resolved findings persist on a resumed render (the gap-smoke Tier-1)", () => {
+  const prior = [{ findingKey: "a", tier: 1, titlePlain: "prior verified", verification: { state: "verified" } }];
+  const current = [{ findingKey: "b", tier: 2, titlePlain: "fresh" }];
+  const merged = H.mergePriorItems(current, prior);
+  assert.equal(merged.length, 2);
+  assert.equal(merged[0].findingKey, "a"); // carried, verdict untouched
+  assert.equal(merged[0].verification.state, "verified");
+});
+
+test("mergePriorItems: a re-surfaced findingKey is superseded by THIS run's fresher copy", () => {
+  const prior = [{ findingKey: "a", tier: 2, titlePlain: "old copy" }];
+  const current = [{ findingKey: "a", tier: 1, titlePlain: "fresh copy" }];
+  const merged = H.mergePriorItems(current, prior);
+  assert.equal(merged.length, 1);
+  assert.equal(merged[0].titlePlain, "fresh copy");
+});
+
+test("mergePriorItems: no priorItems → current unchanged; tier-less prior defaults to 2", () => {
+  assert.deepEqual(H.mergePriorItems([{ findingKey: "x" }], undefined).length, 1);
+  const merged = H.mergePriorItems([], [{ findingKey: "p", titlePlain: "t" }]);
+  assert.equal(merged[0].tier, 2);
 });
