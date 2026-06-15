@@ -201,22 +201,20 @@ The four experience qualities, in priority order:
 
 ## Honesty surface — where the UX must NOT over-claim
 
-Build mode rides on the audit's **model-upheld** verification — only the architecture-tree
-gate is mechanically enforced — and is **checkpoint-only-live**. The copy must be honest at
-exactly these points:
+Build mode rides on the audit's **model-upheld** verification — only the architecture-tree gate
+is mechanically enforced — and is **checkpoint-only-live**. Four user-facing surfaces are the
+over-claim hotspots; the exact honest wording for each is owned by its source of truth, not
+restated here:
 
-- **"verified / done / safe" language** — the Verify gate is `architect-reviewer` judgment
-  (plus the deterministic gates that exist), **not** a blanket mechanical proof. Say a slice
-  "passed the checks and the reviewer's audit," not "is proven correct."
-- **The build-to-green decline** — name the exact unmet unlock conditions with the evidence
-  checked (never a vague "not yet"); carry the verbatim scoping — a reduction of unwatched-run
-  risk, never a substitute for the unbuilt deterministic trust-gates; the cross-model judge is
-  wired (a shared-blind-spot risk reduction, not independence — same vendor). The honest
-  "here's exactly what's missing, here's checkpoint instead" is the trustworthy move.
-- **The "Tier-1+2 empty" success claim** — scope it to the **audited dimensions** and the
-  covered cells (a scoped re-audit covers blast-radius; only the closing full audit is
-  repo-wide). It means "sound on what we checked," never "bug-free" or "perfect."
-- **The re-audit's verification tags** — carry the audit's verification phrasing through
-  unchanged: `(checked against the code)` is a reduction of false confidence by a re-check from
-  a different model family than the builder (the cross-model judge; on a same-family run, tagged
-  as such), **not** a deterministic guarantee.
+- **"verified / done / safe" copy** — reviewer judgment plus the deterministic gates that exist,
+  not a mechanical proof (`skills/build/SKILL.md` → Verify · Guardrails).
+- **The build-to-green decline** — name the unmet unlock conditions with evidence; a reduction of
+  unwatched-run risk, never a substitute for the unbuilt trust-gates (`skills/build/SKILL.md` →
+  Mode handling).
+- **The "Tier-1+2 empty" success claim** — scoped to the **audited dimensions** and covered
+  cells: "sound on what we checked," never "bug-free" or "perfect" (`skills/build/SKILL.md` → step 10).
+- **The re-audit verification tags** — carried through from the audit unchanged
+  (`skills/audit/SKILL.md` → verification tags).
+
+The cross-model wiring and the same-model tag live in **`docs/WORKFLOW.md` → Principles**; the
+[`DECISIONS.md`](DECISIONS.md) honesty section is the standing rule.

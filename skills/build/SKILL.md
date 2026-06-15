@@ -1,5 +1,5 @@
 ---
-description: Drive your audit backlog through the full reviewed pipeline — plan → adversarial review → spec → your approval → implement → verify → land — pausing only at the decisions that are yours. Pick one item, several, or a whole tier; it works them one by one, re-checking the code it touched between items and pausing for you only when new important work surfaces, to the honest "sound on the audited dimensions" stop-signal. Checkpoint mode. Honest about its limits: every item's spec needs your approval before any code — per item as you go, or all at once up front in a single approval sitting if you say "spec everything first" — and it stops before anything irreversible; autonomy is a ladder — checkpoint is the default, and unwatched build-to-green is requestable but runs only where the repo has earned it (CI running the gates, a test baseline, a testable approved spec) and the engine is installed (it isn't yet, so today it declines); otherwise it declines naming exactly what's missing and offers checkpoint.
+description: Drive your audit backlog through the full reviewed pipeline — plan → adversarial review → spec → your approval → implement → verify → land — pausing only at the decisions that are yours. Pick one item, several, or a whole tier; it works them one by one, re-checking the code it touched between items and pausing for you only when new important work surfaces, to the honest "sound on the audited dimensions" stop-signal. Checkpoint mode. Honest about its limits: every item's spec needs your approval before any code — per item as you go, or all at once up front in a single approval sitting if you say "spec everything first" — and it stops before anything irreversible; autonomy is a ladder — checkpoint is the default, and unwatched build-to-green is requestable but runs only where the repo has earned it (CI running the gates, a test baseline, a testable approved spec) and the engine is installed; otherwise it declines naming exactly what's missing and offers checkpoint.
 ---
 
 # /claugentic-dev-harness:build
@@ -238,11 +238,10 @@ Draft `.claude/plans/NNNN-<item>.md` from **`.claude/plans/TEMPLATE.md`**, slice
 adversarially critique it, **escalating to the diverse panel per the WORKFLOW Principles
 trigger**: a contested design fork or a trust/honesty surface adds **`yagni-sentinel`** +
 **`honesty-reviewer`**; a user-facing change also adds **`product-designer`**. **Spawn the
-judge roles — `plan-reviewer` · `honesty-reviewer` — with the `fable` model override** (a
-different model family than the builder; the mechanism, the `RUNNING AS:` self-report
-comparison, the verbatim same-model tag, and the on-error respawn+tag live in **`docs/WORKFLOW.md`
-→ Principles → "Convene the panel's judge roles with the `fable` model override"** — point there,
-don't restate). Iterate the plan until the review verdict is **PASS**.
+judge roles — `plan-reviewer` · `honesty-reviewer` — with the `fable` model override** (cross-model
+wiring, the same-model tag, and the on-error respawn live in **`docs/WORKFLOW.md` → Principles →
+"Convene the panel's judge roles with the `fable` model override"** — point there, don't restate).
+Iterate the plan until the review verdict is **PASS**.
 
 **Narrate progress as completed beats only — never an ETA, never a "nearly done."** *"Planned
 it · reviewed the plan · folding in the changes…"* — the same calm completed-beat discipline
@@ -284,10 +283,9 @@ Dial the Verify depth per the **WORKFLOW's named triggers** (read them there —
 trigger **fans out** the `lens-reviewer`s + `yagni-sentinel`, and a trust/honesty/user-facing
 surface convenes the **diverse panel** per the WORKFLOW Principles — `architect-reviewer`
 then synthesizes. **Spawn the judge roles — `architect-reviewer` · `honesty-reviewer` ·
-`finding-verifier` — with the `fable` model override** (a different model family than the
-builder; the mechanism, the `RUNNING AS:` self-report comparison, the verbatim same-model tag,
-and the on-error respawn+tag live in **`docs/WORKFLOW.md` → Principles → "Convene the panel's
-judge roles with the `fable` model override"** — point there, don't restate). Run the
+`finding-verifier` — with the `fable` model override** (cross-model wiring, the same-model tag,
+and the on-error respawn live in **`docs/WORKFLOW.md` → Principles → "Convene the panel's judge
+roles with the `fable` model override"** — point there, don't restate). Run the
 **Definition-of-Done deterministic run-gates** (the canonical list lives in the WORKFLOW DoD —
 run it, don't restate it).
 
