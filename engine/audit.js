@@ -24,7 +24,7 @@
 export const meta = {
   name: "audit",
   description:
-    "Audit pipeline (FIND -> PRUNE -> VERIFY) as a Workflow script: lens fan-out per (module x dir) cell at the dialed depth, coded dedup, synthesis self-review prune (the test-baseline item never pruned), exactly one finding-verifier per surviving finding (judge-pinned cross-model), deterministic budget cap + resume. quick/standard/thorough — thorough adds a whole-scope blind-spot sweep (FIND) and an adversarial yagni-sentinel prune (PRUNE). Returns the rendered backlog fence body (renderBacklogFence) for the skill to write between the harness-audit:backlog markers.",
+    "Audit pipeline (FIND -> PRUNE -> VERIFY) as a Workflow script: lens fan-out per (module x dir) cell at the dialed depth, coded dedup, synthesis self-review prune (the test-baseline item never pruned), exactly one finding-verifier per surviving finding (judge-pinned cross-model), deterministic budget cap + resume. quick/standard/thorough — thorough adds a whole-scope blind-spot sweep (FIND) and an adversarial yagni-sentinel prune (PRUNE). Returns the rendered backlog fence body (renderBacklogFence) for the skill to write between its backlog fence markers.",
 };
 
 // --- helpers ---
