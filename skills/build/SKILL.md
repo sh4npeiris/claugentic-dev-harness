@@ -134,19 +134,36 @@ invalid field — fail loud):
 
 ### 1. Triage — locate the item(s) and confirm the worklist
 
-Read the **`harness-audit:backlog` fence** in `docs/ROADMAP.md` (the item universe the
-`audit` skill wrote). Two stop-conditions hold **before** any selection, single or multi:
+Read **both backlog fences** in `docs/ROADMAP.md` — the **`harness-audit:backlog` fence**
+(the engineering item universe the `audit` skill wrote) **and** the
+**`harness-product:backlog` fence** (the intent-vs-implementation gaps the `product` gap mode
+wrote, if present). Present **one worklist interleaved by tier** — all tier-1 items across
+**both** lenses first, then tier-2, then tier-3 — each item **origin-tagged** (`engineering`
+/ `product`) so the user always sees which lens raised it. **Dedup:** if the same underlying
+issue is flagged by both fences, present it once tagged with **both** origins — that's a
+priority signal (two lenses flagged it), shown as *"merged from N findings"* so you can verify;
+this is a judgment, not a key-match, so I may occasionally miss an overlap (you'd see it twice)
+or over-merge two distinct issues (so merged rows are always shown as merged, never hidden).
+
+Two stop-conditions hold **before** any selection, single or multi:
 
 - **No backlog, or it's stale** (no `harness-audit:backlog` fence, or it predates the
   current code) → **don't invent one.** Say so plainly and suggest running
   **`/claugentic-dev-harness:audit`** first so there's a current, verified backlog to build
   from.
-- **Empty backlog / already-sound** (Tier 1 **and** Tier 2 both empty — only Tier-3 polish,
-  or nothing) → **don't enter the build flow and don't manufacture work.** Reuse the
-  audit's terminal phrasing **plus the real next step** (a fork, never a dead end):
+- **Empty backlog / already-sound** (Tier 1 **and** Tier 2 both empty across both fences —
+  only Tier-3 polish, or nothing) → **don't enter the build flow and don't manufacture work.**
+  Reuse the audit's terminal phrasing **plus the real next step** (a fork, never a dead end):
   *"Sound on the audited dimensions — what remains is optional polish; you don't need to
   keep re-auditing. From here you can start something new — just tell me what you want to
   build — or stop."*
+
+**The common first-run path — engineering only, no product spec yet.** When there's a
+`harness-audit:backlog` fence but **no `harness-product:backlog` fence** (the user ran `audit`
+but hasn't built a product spec yet), present the **engineering worklist alone** plus a soft
+one-line invite — *"no product spec yet — run `/claugentic-dev-harness:product` spec mode for
+intent-vs-implementation checks too"* — and carry on normally. **Never imply the product check
+is broken, failing, or skipped** — there's simply no spec to check against yet.
 
 Otherwise, branch on **how many items the ask names:**
 
@@ -357,7 +374,9 @@ fallout beyond those cells — a change rippling into code the item didn't touch
 the closing full audit (step 11), not claimed here.** Say so if it matters; do **not** imply
 the scoped re-check covers the whole repo, and do **not** describe it as chasing "dependents"
 (the harness has no dependency graph — that claim would be a trust-surface over-claim; the
-closing audit is what catches cross-file fallout).
+closing audit is what catches cross-file fallout). Like the closing audit, the scoped re-audit
+regenerates the **engineering** `harness-audit:backlog` fence **only** — it never runs gap mode
+or touches the `harness-product:backlog` fence.
 
 Carry each re-audit finding's **verification tag unchanged** — `(checked against the code)` /
 `(could not confirm independently — model's assertion)` / `(⚠ not yet verified — re-run to
@@ -389,7 +408,10 @@ because it's the loop re-checking its own work.
 
 When the worklist is worked through and **no re-triage is pending**, run **one `standard` full
 audit** (the `audit` skill, repo-wide — this is what owns the cross-file fallout the scoped
-re-audits didn't claim). Then:
+re-audits didn't claim). This regenerates the **engineering** `harness-audit:backlog` fence
+**only** — it does **not** run product gap mode and **never touches the
+`harness-product:backlog` fence** (the product backlog survives a `build` run untouched;
+auto-refreshing it at close is a separate future capability, not this flow). Then:
 
 - **Tier 1 and Tier 2 both empty** → surface the audit's terminal signal **verbatim**, plus
   the fork (never a dead end):
@@ -494,8 +516,14 @@ A resumed `/claugentic-dev-harness:build` **reconstructs** the worklist from the
 stores the harness already keeps — **there is no build-session state file, and this slice
 adds none.** Derive, don't store:
 
-- **The item universe + status** = the **`harness-audit:backlog` fence** in `docs/ROADMAP.md`
-  (its status block + tiered items — exactly what triage reads in step 1).
+- **The item universe + status** = **both backlog fences** in `docs/ROADMAP.md`
+  (`harness-audit:backlog` + `harness-product:backlog`) — each fence's status block + tiered
+  items, exactly what triage reads in step 1. **Each fence's `done-cells`/`pending-cells`
+  resumes against its OWN generating skill — the cells are NEVER crossed:** the engineering
+  fence's `module×dir` cells resume against the audit script, the product fence's criterion-id
+  cells against the gap script. Plan-files remain the state-of-record for in-flight work, so a
+  **mid-build item never vanishes when a fence regenerates** — it lives in its plan file, not
+  as a fence entry.
 - **An in-flight item** = its **plan file in `.claude/plans/`** with **unchecked
   implementation boxes**. **Offer to continue it/them first** before re-confirming the rest of
   the list — a **batch run can leave SEVERAL plans in-flight** (the run works the approved list

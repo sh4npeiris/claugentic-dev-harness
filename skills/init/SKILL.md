@@ -63,7 +63,8 @@ deliberate, not incidental:
    ```
    **Replace only inside the fence; everything outside it is human-owned and never
    touched.** Mirrors the established `harness-audit:overview` / `harness-audit:backlog`
-   fences. **No volatile content (timestamps, counters, run-dates) goes inside the
+   (and the product `harness-product:backlog`) fences. **No volatile content
+   (timestamps, counters, run-dates) goes inside the
    managed fence** — so a re-run at the same installed version regenerates a
    byte-identical inner block — the zero-diffs-on-a-2nd-run acceptance
    (dogfood-checked) holds. The seeded **Current scope** block lives
@@ -363,7 +364,9 @@ volatile content** so a re-write is byte-identical:
 
 - **`docs/ROADMAP.md` absent →** create a seed (a one-line intro + an empty `## Later`
   human-owned section; `/claugentic-dev-harness:audit` later adds its `harness-audit:overview` /
-  `harness-audit:backlog` fences). Present → skip.
+  `harness-audit:backlog` fences, and `/claugentic-dev-harness:product` gap mode adds its own
+  `harness-product:backlog` fence — each self-creates on first run, so `init` seeds **none** of
+  them). Present → skip.
 - **`docs/DECISIONS.md` absent →** create a seed (the "append newest at top; consult
   before re-litigating" header). Present → skip.
 
