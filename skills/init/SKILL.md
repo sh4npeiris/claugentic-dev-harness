@@ -1,5 +1,5 @@
 ---
-description: Scaffold the claugentic-dev-harness into the current repo — upsert the managed harness set (standards catalog, workflow, playbook, tree-check) to the installed plugin version, generate docs/ARCHITECTURE_TREE.md, set the tree-check globs, wire the hook, git-init if needed, seed ROADMAP/DECISIONS, refresh the CLAUDE.md harness fence, and compose with existing lint/type-check/test tooling. Re-running converges the repo to the installed version and never clobbers user content; a true no-op only when already at the installed version.
+description: Scaffold the claugentic-dev-harness into the current repo — upsert the managed harness set (standards catalog, workflow, playbook, tree-check) to the installed plugin version, generate docs/ARCHITECTURE_TREE.md, set the tree-check globs, wire the hook, declares the plugin for teammates (seeds the harness's plugin self-reference into the committed .claude/settings.json so a cloned adopter repo prompts teammates to install it), git-init if needed, seed ROADMAP/DECISIONS, refresh the CLAUDE.md harness fence, and compose with existing lint/type-check/test tooling. Re-running converges the repo to the installed version and never clobbers user content; a true no-op only when already at the installed version.
 ---
 
 # /claugentic-dev-harness:init
@@ -309,6 +309,46 @@ its valid extensions from it (`EXTS`), so there is no second regex to keep in sy
   **skip** (don't append a duplicate) and report "hook already present." This makes a
   re-run a no-op on this file (skip-if-present, keyed on the substring — dogfood-checked
   like the rest of idempotency, not a wired gate).
+
+**(c) Plugin self-reference — declare the harness for teammates (team distribution).**
+The harness is a **plugin**: its agents, skills, and engine live in the plugin install,
+**not** in the adopter's repo. A teammate who clones the adopter repo gets the committed
+standards but **none of the tooling** unless they install the plugin too. So `init` seeds
+the harness's **own publication identity** into the adopter's **committed**
+`.claude/settings.json`, so Claude Code prompts a teammate to install it on open (the
+documented team-distribution mechanism: `extraKnownMarketplaces` + `enabledPlugins`). The
+harness's publication identity is fixed: marketplace **`sh4npeiris`** = github
+**`sh4npeiris/claugentic-dev-harness`**, plugin **`claugentic-dev-harness`**.
+
+This action **runs regardless of the tree-gate decision in (b)** — it is independent of
+whether the architecture-tree hooks got wired (a Python-less or already-hooked repo still
+gets the plugin self-reference). It is **strictly never-clobber: merge, never replace** —
+every existing key, hook, permission, marketplace, and plugin entry is preserved.
+
+1. **Make `.claude/settings.json` git-trackable.** Read the repo's `.gitignore`. If it
+   ignores `.claude/` or `.claude/*` (so `settings.json` would not commit), **append a
+   `!.claude/settings.json` negation** — placed **AFTER** the broad ignore line so the
+   negation takes effect (a negation before its ignore does nothing). **Never** add
+   `!.claude/settings.local.json` — `settings.local.json` MUST stay ignored (local / secret
+   config). If `settings.json` is **already trackable** (no `.claude/`-or-`.claude/*` ignore,
+   or an existing `!.claude/settings.json` negation already present), **skip the gitignore
+   edit** and report "settings.json already trackable." Append-if-line-absent, keyed on the
+   `!.claude/settings.json` line — never duplicated.
+2. **Create-or-merge `.claude/settings.json`** (same parse-or-`{}` / fail-loud-on-malformed
+   rule as (b) — never overwrite or corrupt a present-but-malformed file). **Merge** these
+   two entries, **preserving every existing key/hook/permission and every existing
+   marketplace/plugin entry** (add, never overwrite a sibling entry):
+   - into `extraKnownMarketplaces` (create the map only if absent):
+     `"sh4npeiris": { "source": { "source": "github", "repo": "sh4npeiris/claugentic-dev-harness" } }`
+   - into `enabledPlugins` (create the map only if absent):
+     `"claugentic-dev-harness@sh4npeiris": true`
+   - **Idempotency:** if both entries are already present (keyed on the `sh4npeiris`
+     marketplace key and the `claugentic-dev-harness@sh4npeiris` plugin key), **skip** and
+     report "plugin self-reference already declared." A re-run is a no-op on this file.
+
+This is one logical write to `.claude/settings.json` shared with (b) — apply (b)'s hooks (if
+the tree gate wired them) and (c)'s plugin self-reference in the **same** create-or-merge so
+the file is parsed and written once, both merges never-clobber.
 
 ### 6. Write the CLAUDE.md harness section (create / append-at-EOF / refresh-inside-fence)
 
