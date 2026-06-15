@@ -4,6 +4,8 @@ description: Build or refresh your product spec by conversation, then audit inte
 
 # /claugentic-dev-harness:product
 
+> **Agent ids:** every role named below is one of this plugin's bundled agents — when you spawn one, use its **namespaced id** `claugentic-dev-harness:<role>` (e.g. `claugentic-dev-harness:product-designer`); built-ins (`general-purpose`, `Explore`) stay bare.
+
 Give the harness a **product memory** and a **product conscience**. Spec mode writes down what
 your product is *supposed* to be; gap mode checks the code against it. **A top-level agent runs
 this** — gap mode fans out subagents (and subagents can't spawn subagents), so the orchestrator
@@ -39,7 +41,7 @@ phase genuinely needs the user — it stays a conversation.**
    `README`; and the user. The spec is the user's product truth — you surface and structure it,
    you do not decide it.
 
-3. **Convene `product-designer`** (Stage-1 Discuss register — per `.claude/agents/product-designer.md`,
+3. **Convene `claugentic-dev-harness:product-designer`** (Stage-1 Discuss register — per `.claude/agents/product-designer.md`,
    no new agents): plain-English opener; surface the user, job-to-be-done, the key flows and their
    loading/empty/error states, and what "good" feels like; **the user owns every product decision;
    never invent scope** (a genuinely-new feature idea goes to the user as a question, not into the
@@ -59,7 +61,7 @@ phase genuinely needs the user — it stays a conversation.**
    any benchmark/competitor claim it makes without a deep-research round is **model knowledge,
    tagged not-verified** (only a research round carries citations).
 
-   1. **Convene `product-critic`** (per `.claude/agents/product-critic.md` — no new agents; a second
+   1. **Convene `claugentic-dev-harness:product-critic`** (per `.claude/agents/product-critic.md` — no new agents; a second
       subagent, allowed under the top-level-agent constraint). Pass it: the **draft spec** + the
       **spec-conversation context** (what the user said that didn't survive structuring) + the
       **rejected-proposals memory** (the `<!-- product-critic:rejected-proposals -->`-fenced list in

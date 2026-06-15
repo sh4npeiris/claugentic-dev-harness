@@ -37,6 +37,11 @@ export const meta = {
 // honesty guard.
 const MODELS = { judge: "opus" };
 
+// Bundled agents resolve only as `claugentic-dev-harness:<agent>` for an installed adopter
+// (bare names resolve only when dogfooded with project-local .claude/agents/). Namespace every
+// custom-agent spawn; built-ins (general-purpose, …) stay bare. Pure → unit-tested.
+const nsAgent = (name) => `claugentic-dev-harness:${name}`;
+
 // The verbatim same-model disclosure tag. Defined once; never reconstructed by hand at a call
 // site, so the wording cannot drift (honesty trust surface). Copied verbatim from verify.js.
 const SAME_MODEL_TAG =
@@ -1012,7 +1017,7 @@ async function spawnVerifier(input) {
     }
   };
   const first = await attempt({
-    agentType: "finding-verifier",
+    agentType: nsAgent("finding-verifier"),
     model: MODELS.judge,
     schema: VERIFIER_SCHEMA,
     label: `verify:${input.sourceModule}`,
@@ -1022,7 +1027,7 @@ async function spawnVerifier(input) {
     return first.out;
   }
   const second = await attempt({
-    agentType: "finding-verifier",
+    agentType: nsAgent("finding-verifier"),
     schema: VERIFIER_SCHEMA,
     label: `verify:${input.sourceModule}:respawn`,
     phase: "Verify",
@@ -1116,7 +1121,7 @@ const findTasks = batches.map((batch) => () =>
       ? buildCriterionLensPrompt(batch.criterion, excludeSet)
       : buildLensPrompt(batch.module, batch.dirs, excludeSet, depth),
     {
-      agentType: "lens-reviewer",
+      agentType: nsAgent("lens-reviewer"),
       schema: LENS_SCHEMA,
       label: isGap ? `gap:${batch.module}` : `lens:${batch.module}`,
       phase: "Find",
@@ -1126,7 +1131,7 @@ const findTasks = batches.map((batch) => () =>
 if (runHasBlindspot) {
   findTasks.push(() =>
     guardedAgent(buildBlindspotPrompt(input.scopeDirs, excludeSet), {
-      agentType: "blindspot-reviewer",
+      agentType: nsAgent("blindspot-reviewer"),
       schema: LENS_SCHEMA,
       label: "blindspot:(scope)",
       phase: "Find",
@@ -1185,14 +1190,14 @@ const synthesisScope = isGap ? ["product-gap: intent vs implementation"] : input
 
 let synthesis = await agent(
   buildSynthesisPrompt(dedupedFindings, synthesisModules, synthesisScope),
-  { agentType: "architect-reviewer", schema: SYNTHESIS_SCHEMA, label: "synthesis", phase: "Prune" },
+  { agentType: nsAgent("architect-reviewer"), schema: SYNTHESIS_SCHEMA, label: "synthesis", phase: "Prune" },
 );
 if (!synthesis || !Array.isArray(synthesis.items)) {
   // Single-point seam: a null synthesis would discard the whole FIND sweep. Retry once
   // before the fail-loud terminal (the throw stays — never proceed without the prune).
   synthesis = await agent(
     buildSynthesisPrompt(dedupedFindings, synthesisModules, synthesisScope),
-    { agentType: "architect-reviewer", schema: SYNTHESIS_SCHEMA, label: "synthesis:respawn", phase: "Prune" },
+    { agentType: nsAgent("architect-reviewer"), schema: SYNTHESIS_SCHEMA, label: "synthesis:respawn", phase: "Prune" },
   );
 }
 if (!synthesis || !Array.isArray(synthesis.items)) {
@@ -1235,14 +1240,14 @@ if (
 // quick/standard this stage does not exist.
 if (dial === "thorough") {
   let sentinel = await agent(buildSentinelPrompt(survivors), {
-    agentType: "yagni-sentinel",
+    agentType: nsAgent("yagni-sentinel"),
     schema: SENTINEL_SCHEMA,
     label: "sentinel",
     phase: "Prune",
   });
   if (!sentinel || !Array.isArray(sentinel.cuts)) {
     sentinel = await agent(buildSentinelPrompt(survivors), {
-      agentType: "yagni-sentinel",
+      agentType: nsAgent("yagni-sentinel"),
       schema: SENTINEL_SCHEMA,
       label: "sentinel:respawn",
       phase: "Prune",

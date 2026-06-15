@@ -64,6 +64,11 @@ export const meta = {
 const SAME_MODEL_TAG =
   "same-model review on this run — the judge and the builder are the same model family here.";
 
+// Bundled agents resolve only as `claugentic-dev-harness:<agent>` for an installed adopter
+// (bare names resolve only when dogfooded with project-local .claude/agents/). Namespace every
+// custom-agent spawn; built-ins (general-purpose, …) stay bare. Pure → unit-tested.
+const nsAgent = (name) => `claugentic-dev-harness:${name}`;
+
 // The verbatim UNRESOLVED disclosure tag — the THIRD state, distinct from SAME_MODEL_TAG. When a
 // judge's self-reported family can't be recognized, the run is reported as unresolved (the
 // conservative same-model trust floor still holds — no cross-model claim) rather than ASSERTED to
@@ -700,7 +705,7 @@ for (let iteration = 1; iteration <= maxIterations; iteration++) {
   let report = null;
   try {
     report = await agent(implementPrompt(item, repo, residual, branch, stageTimeouts.implement), {
-      agentType: "implementer-architect",
+      agentType: nsAgent("implementer-architect"),
       // Worktree ownership: the platform auto-reclaims an UNCHANGED worktree; a changed one
       // survives every terminal return — the ORCHESTRATOR reclaims it after land (green) or
       // keeps it for inspection (cap-stop/escalation). The BRANCH is the durable artifact.

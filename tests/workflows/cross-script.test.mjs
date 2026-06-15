@@ -58,6 +58,7 @@ for (const name of [
   "KNOWN_FAMILIES",
   "modelFamily",
   "sameModelTag",
+  "nsAgent",
 ]) {
   test(`drift pin: ${name} is byte-identical across every workflow script that defines it`, () => {
     const defs = scriptsDefining(name);

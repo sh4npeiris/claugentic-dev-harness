@@ -4,6 +4,8 @@ description: Audit this codebase against the engineering-standards catalog and w
 
 # /claugentic-dev-harness:audit
 
+> **Agent ids:** every role named below is one of this plugin's bundled agents — when you spawn one, use its **namespaced id** `claugentic-dev-harness:<role>` (e.g. `claugentic-dev-harness:lens-reviewer`); built-ins (`general-purpose`, `Explore`) stay bare.
+
 Point this at a repo and it teaches you what the codebase is, then finds the work
 worth doing — written back as a plain-English, prioritized backlog a non-engineer
 can act on.
@@ -273,20 +275,20 @@ file — read it there):
 2. **Load the audit-plan** from Phase 1.
 3. **Enumerate `(module × dir-or-package)` cells** — the deterministic unit; on resume, read the
    status block and continue from `pending`, never redoing a `done` cell.
-4. **Fan out lenses — one look per cell.** One `lens-reviewer` (audit-scope mode) per module batch,
+4. **Fan out lenses — one look per cell.** One `claugentic-dev-harness:lens-reviewer` (audit-scope mode) per module batch,
    in parallel, passed its module + scoped dirs + exclude-set + the dial's `depth`
-   (`.claude/agents/lens-reviewer.md`). *(thorough only:* also one `blindspot-reviewer` over the
+   (`.claude/agents/lens-reviewer.md`). *(thorough only:* also one `claugentic-dev-harness:blindspot-reviewer` over the
    whole scope at `exhaustive` — it FINDS only; its findings join the same dedup → prune → verify
    path. `.claude/agents/blindspot-reviewer.md`.)
 5. **Dedup + synthesize.** Key dedup on **issue-class**, not file·location alone; roll up systemic
    cross-file duplicates into one "recurs in N files" item; carry each finding's confidence label
    unchanged. **Citation-guard:** re-confirm every `file:line` against the actual file first.
 6. **PRUNE — YAGNI right-size** the consolidated set (keep real impact; cut nice-to-haves; never
-   manufacture a finding to fill a tier). *(thorough only:* additionally spawn one `yagni-sentinel`
+   manufacture a finding to fill a tier). *(thorough only:* additionally spawn one `claugentic-dev-harness:yagni-sentinel`
    over the set — the independent skeptic — and apply its cut-list. `.claude/agents/yagni-sentinel.md`.)
    **Exception: never prune the Tier-1 "establish a test baseline" item.**
 7. **VERIFY — re-check every surfaced finding** (all tiers, every level). Spawn one
-   `finding-verifier` per finding **with the `fable` model override** (the cross-model judge — the
+   `claugentic-dev-harness:finding-verifier` per finding **with the `fable` model override** (the cross-model judge — the
    mechanism, the self-report comparison, the verbatim same-model tag, and the on-error respawn+tag
    live in `docs/WORKFLOW.md` → Principles → *"Convene the panel's judge roles with the `fable`
    model override"* — read it there). Pass each verifier **only** `{claim (plain + technical),
