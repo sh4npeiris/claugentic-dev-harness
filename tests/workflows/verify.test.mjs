@@ -325,7 +325,7 @@ test("panelRoster includes the honesty judge when trustSurface is on", () => {
   const roster = H.panelRoster(validArgs({ trustSurface: true, dimensions: ["security"] }));
   const honesty = roster.find((r) => r.role === "honesty");
   assert.ok(honesty, "honesty role missing on a trust surface");
-  assert.equal(honesty.agentType, "honesty-reviewer");
+  assert.equal(honesty.agentType, "claugentic-dev-harness:honesty-reviewer");
   assert.equal(honesty.model, "opus");
 });
 

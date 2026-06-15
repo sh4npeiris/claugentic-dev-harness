@@ -28,6 +28,11 @@ export const meta = {
 // uphold; the same-model TAG (below) stays the per-run honesty guard.
 const MODELS = { judge: "opus" };
 
+// Bundled agents resolve only as `claugentic-dev-harness:<agent>` for an installed adopter
+// (bare names resolve only when dogfooded with project-local .claude/agents/). Namespace every
+// custom-agent spawn; built-ins (general-purpose, …) stay bare. Pure → unit-tested.
+const nsAgent = (name) => `claugentic-dev-harness:${name}`;
+
 // The verbatim same-model disclosure tag. Defined once; never reconstructed by hand at a
 // call site, so the wording cannot drift (honesty trust surface).
 const SAME_MODEL_TAG =
@@ -208,13 +213,13 @@ function dedupFindings(findings) {
 function panelRoster(args) {
   const roster = [];
   for (const modulePath of modulesFor(args.dimensions)) {
-    roster.push({ role: `lens:${modulePath}`, agentType: "lens-reviewer" });
+    roster.push({ role: `lens:${modulePath}`, agentType: nsAgent("lens-reviewer") });
   }
-  roster.push({ role: "yagni", agentType: "yagni-sentinel" });
+  roster.push({ role: "yagni", agentType: nsAgent("yagni-sentinel") });
   if (args.trustSurface) {
-    roster.push({ role: "honesty", agentType: "honesty-reviewer", model: MODELS.judge });
+    roster.push({ role: "honesty", agentType: nsAgent("honesty-reviewer"), model: MODELS.judge });
   }
-  roster.push({ role: "synthesis", agentType: "architect-reviewer", model: MODELS.judge });
+  roster.push({ role: "synthesis", agentType: nsAgent("architect-reviewer"), model: MODELS.judge });
   return roster;
 }
 
@@ -423,7 +428,7 @@ const lensTasks = modulesAudited.map((modulePath) => () =>
       `Audit the change against that module's dimensions only. ` +
       `Diff scope: ${diffScope}. ` +
       `Spec: ${input.specPath}.`,
-    { agentType: "lens-reviewer", schema: LENS_SCHEMA, label: `lens:${modulePath}`, phase: "Panel" },
+    { agentType: nsAgent("lens-reviewer"), schema: LENS_SCHEMA, label: `lens:${modulePath}`, phase: "Panel" },
   ),
 );
 
@@ -433,7 +438,7 @@ const panelTasks = [
     agent(
       `Argue this change is too much. Diff scope: ${diffScope}. ` +
         `Spec: ${input.specPath}. Return a cut-list of over-build with where-instead.`,
-      { agentType: "yagni-sentinel", schema: YAGNI_SCHEMA, label: "yagni", phase: "Panel" },
+      { agentType: nsAgent("yagni-sentinel"), schema: YAGNI_SCHEMA, label: "yagni", phase: "Panel" },
     ),
 ];
 
@@ -444,7 +449,7 @@ if (hasHonesty) {
   panelTasks.push(() =>
     spawnJudge(
       "honesty",
-      "honesty-reviewer",
+      nsAgent("honesty-reviewer"),
       `Refute the CHANGED COPY only (docs/agent/tree prose in this diff) for over-claim. ` +
         `Open with RUNNING AS: <model family> and report it in reported_model_family. ` +
         `Diff scope: ${diffScope}. ` +
@@ -486,7 +491,7 @@ const panelDegraded = unrunGaps.length > 0 || yagni == null;
 phase("Synthesis");
 const synthesisResult = await spawnJudge(
   "synthesis",
-  "architect-reviewer",
+  nsAgent("architect-reviewer"),
   `Synthesizer mode. Consolidate the panel into one verdict. ` +
     `Open with RUNNING AS: <model family> and report it in reported_model_family. ` +
     `Deduped lens findings: ${JSON.stringify(dedupedFindings)}. ` +

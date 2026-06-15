@@ -4,6 +4,8 @@ description: Drive your audit backlog through the full reviewed pipeline — pla
 
 # /claugentic-dev-harness:build
 
+> **Agent ids:** every role named below is one of this plugin's bundled agents — when you spawn one, use its **namespaced id** `claugentic-dev-harness:<role>` (e.g. `claugentic-dev-harness:lens-reviewer`); built-ins (`general-purpose`, `Explore`) stay bare.
+
 The **go-button for your backlog.** Point it at one item from your `docs/ROADMAP.md`
 backlog — or pick several, or a whole tier — and it drives the whole professional pipeline
 for you — plan → adversarial review → spec → **your approval** → build → review-the-work →
@@ -234,11 +236,11 @@ imply it does.)
 ### 3. Auto-drive Plan → Review *(Stages 2–3 — no pause)*
 
 Draft `.claude/plans/NNNN-<item>.md` from **`.claude/plans/TEMPLATE.md`**, sliced into
-≤1-session units per the WORKFLOW *Principles*. Then spawn **`plan-reviewer`** to
+≤1-session units per the WORKFLOW *Principles*. Then spawn **`claugentic-dev-harness:plan-reviewer`** to
 adversarially critique it, **escalating to the diverse panel per the WORKFLOW Principles
-trigger**: a contested design fork or a trust/honesty surface adds **`yagni-sentinel`** +
-**`honesty-reviewer`**; a user-facing change also adds **`product-designer`**. **Spawn the
-judge roles — `plan-reviewer` · `honesty-reviewer` — with the `fable` model override** (cross-model
+trigger**: a contested design fork or a trust/honesty surface adds **`claugentic-dev-harness:yagni-sentinel`** +
+**`claugentic-dev-harness:honesty-reviewer`**; a user-facing change also adds **`claugentic-dev-harness:product-designer`**. **Spawn the
+judge roles — `claugentic-dev-harness:plan-reviewer` · `claugentic-dev-harness:honesty-reviewer` — with the `fable` model override** (cross-model
 wiring, the same-model tag, and the on-error respawn live in **`docs/WORKFLOW.md` → Principles →
 "Convene the panel's judge roles with the `fable` model override"** — point there, don't restate).
 Iterate the plan until the review verdict is **PASS**.
@@ -268,7 +270,7 @@ against, not to decode. **Wait for an explicit yes before Stage 6.**
 
 ### 5. Implement *(Stage 6 — no pause)*
 
-On approval, spawn **`implementer-architect`** for the slice (one slice per session,
+On approval, spawn **`claugentic-dev-harness:implementer-architect`** for the slice (one slice per session,
 isolated, lands vertically complete per the WORKFLOW). Continue the completed-beat
 narration.
 
@@ -282,8 +284,8 @@ Dial the Verify depth per the **WORKFLOW's named triggers** (read them there —
 "substantial" triggers): a **solo `architect-reviewer`** is the small/local default; a named
 trigger **fans out** the `lens-reviewer`s + `yagni-sentinel`, and a trust/honesty/user-facing
 surface convenes the **diverse panel** per the WORKFLOW Principles — `architect-reviewer`
-then synthesizes. **Spawn the judge roles — `architect-reviewer` · `honesty-reviewer` ·
-`finding-verifier` — with the `fable` model override** (cross-model wiring, the same-model tag,
+then synthesizes. **Spawn the judge roles — `claugentic-dev-harness:architect-reviewer` · `claugentic-dev-harness:honesty-reviewer` ·
+`claugentic-dev-harness:finding-verifier` — with the `fable` model override** (cross-model wiring, the same-model tag,
 and the on-error respawn live in **`docs/WORKFLOW.md` → Principles → "Convene the panel's judge
 roles with the `fable` model override"** — point there, don't restate). Run the
 **Definition-of-Done deterministic run-gates** (the canonical list lives in the WORKFLOW DoD —

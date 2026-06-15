@@ -43,6 +43,11 @@ export const meta = {
 // so the copied block is whole (no partial-copy drift).
 const MODELS = { judge: "opus" };
 
+// Bundled agents resolve only as `claugentic-dev-harness:<agent>` for an installed adopter
+// (bare names resolve only when dogfooded with project-local .claude/agents/). Namespace every
+// custom-agent spawn; built-ins (general-purpose, …) stay bare. Pure → unit-tested.
+const nsAgent = (name) => `claugentic-dev-harness:${name}`;
+
 // The verbatim same-model disclosure tag. Defined once; never reconstructed by hand at a call
 // site, so the wording cannot drift (honesty trust surface). Copied verbatim from verify.js.
 const SAME_MODEL_TAG =
@@ -869,7 +874,7 @@ async function spawnVerifier(finding) {
     }
   };
   const first = await attempt({
-    agentType: "finding-verifier",
+    agentType: nsAgent("finding-verifier"),
     model: MODELS.judge,
     schema: VERIFIER_SCHEMA,
     label: `qa:verify:${finding.criterionId || finding.issueClass}`,
@@ -879,7 +884,7 @@ async function spawnVerifier(finding) {
     return first.out;
   }
   const second = await attempt({
-    agentType: "finding-verifier",
+    agentType: nsAgent("finding-verifier"),
     schema: VERIFIER_SCHEMA,
     label: `qa:verify:${finding.criterionId || finding.issueClass}:respawn`,
     phase: "Verify",
