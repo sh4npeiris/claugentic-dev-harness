@@ -1,6 +1,8 @@
 # NNNN — <Title>
 
 - **Status:** Draft | In Review | Spec'd | Approved | Implementing | Done
+- **Resumable from:** `<the exact next unchecked slice/box, or "awaiting user reply on §X">` — kept current as the plan evolves.
+- **Blockers:** `<none | short list with expected resolution>`
 - **Roadmap item:** <link to docs/ROADMAP.md entry>
 - **References:** `docs/ARCHITECTURE_TREE.md` · `docs/DECISIONS.md` · related plans
 
@@ -16,6 +18,13 @@ The chosen design and why; alternatives considered and rejected (1 line each).
 
 ## Affected files
 `path` — what changes.
+
+## Research / grounding
+- **Files reviewed:** `file:line` breadcrumbs the author actually read.
+- **Harness docs consulted:** which `docs/standards/*` modules · `docs/DECISIONS.md` · CLAUDE.md gotchas were read (list as read, not a coverage checkbox).
+- **Findings:** what already exists to reuse · what gaps need building · what gotchas apply.
+
+_Substantial plans fill this; small/local changes may skip it._
 
 ## Risks & mitigations
 Risk → mitigation. Call out anything that could change existing behavior or output (e.g. a regression/snapshot test).
