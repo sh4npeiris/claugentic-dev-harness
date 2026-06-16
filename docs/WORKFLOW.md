@@ -106,6 +106,12 @@ Also available without new files: built-in **`Explore`** (fan-out search), **`Pl
 
 ---
 
+> ### Adopter note — reading this doc inside YOUR repo (not the harness)
+> When the `claugentic-dev-harness` plugin is installed into your project, this WORKFLOW.md is a **managed copy** living in your `docs/`. So a few references below resolve to the **installed plugin**, not to files your repo must contain:
+> - **The specialist agents** (`plan-reviewer`, `architect-reviewer`, `lens-reviewer`, `yagni-sentinel`, `honesty-reviewer`, …) **and the `engine/*.js` scripts** referenced throughout live **inside the installed plugin** — agents are resolved at spawn (by their namespaced id), engine scripts are run via the Workflow tool from the install path. They are **NOT** a `.claude/agents/` or `engine/` directory your repo has to provide.
+> - **The Definition of Done's *deterministic gates* mean THIS project's OWN gates** — *your* lint, *your* type-check, and *your* test suite — plus the architecture-tree check. The specific commands written below (`python -m pytest`, `python scripts/check_versions_synced.py`) are the **harness's own self-test** for developing the plugin itself (version-sync checks the *plugin's* two manifests and is irrelevant to an adopter). **Substitute your project's equivalents.**
+> - **The architecture-tree check is wired as a hook by `init` only when the tree-gate is enabled.** If your repo keeps its own architecture map (gate off), there's no hook — run `python scripts/check_architecture_tree.py` manually at Verify.
+
 ## Definition of Done
 
 A slice is **done** — and may land (Stage 8) — only when **all** hold. Two groups, same bar; they differ in *who* says pass:
