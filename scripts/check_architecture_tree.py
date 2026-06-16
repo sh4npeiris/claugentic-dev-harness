@@ -25,8 +25,12 @@ Modes:
                                                               # file (silent on overwrites / out-of-scope / already-indexed)
 
 Wired as a hook by `init` when the architecture-tree gate is enabled; otherwise run
-manually (`python scripts/check_architecture_tree.py`). Also runnable in CI. See
-CLAUDE.md -> Harness Discipline.
+manually (`python scripts/check_architecture_tree.py`). `init` decides per scenario:
+FRESH (no tree, no source) and MATURE-NO-TREE (no tree, source present → a
+cheap-complete backtick-prose skeleton) get the gate ON (hook wired); MATURE-WITH-TREE
+(an existing tree) is asked — Replace with a harness skeleton (gate ON) or Keep-mine
+(gate OFF, INCLUDE_GLOBS=[], no hook wired). Also runnable in CI. See CLAUDE.md ->
+Harness Discipline.
 """
 
 from __future__ import annotations

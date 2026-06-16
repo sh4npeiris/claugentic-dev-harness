@@ -233,30 +233,137 @@ Rules:
   harness source*, so it touches none of those — but the same exclude discipline governs
   the tree generation in step 4.
 
-### 4. Generate `docs/ARCHITECTURE_TREE.md` (only if absent)
+### 4. Provision `docs/ARCHITECTURE_TREE.md` (scenario-based) + decide the tree-gate
 
-- **If `docs/ARCHITECTURE_TREE.md` already exists, leave it (the user's tree wins) and
-  report "skipped (present)."**
-- **If absent, generate it — using the *same* in-scope file list the gate polices**
-  (DRY, and so the gate can't reject the tree init just wrote):
-  1. First do step 5's glob-detection (so `INCLUDE_GLOBS` in the **copied** script is set).
-  2. Derive the file list from **`git ls-files`** filtered by those just-set globs — this
-     is exactly what the copied `check_architecture_tree.py`'s `in_scope_files()` computes
-     (tracked + staged + untracked-not-ignored, minus exclusions). Honoring `.gitignore`
-     via git means deps/build/generated trees are excluded for free.
-  3. Write the tree: a short intro + one `- \`path\` — <one-line description>` line **per
-     in-scope file**, authored from a cheap read of each (manifest/header/obvious role —
-     budget-disciplined, not a deep read). Group by directory.
-  4. **Run the copied gate (`check_architecture_tree.py`) and reconcile to green** — the
-     **gate is the oracle.** If it reports a missing entry, add it; if it reports a stale
-     entry, remove it. Loop until the gate passes. This guarantees the generated tree and
-     the gate that will police it **agree by construction**.
+The tree action is **scenario-based** — `init` detects the repo's situation and acts. The
+scenario is fixed by **two reused signals** (DRY — no new detector): (1) the presence of
+`docs/ARCHITECTURE_TREE.md`, and (2) the *Application source present* predicate defined in
+`/claugentic-dev-harness:audit` Phase 1 (the same detection step 5a reuses). The decision
+made here — **which globs, whether to build a skeleton, and whether the tree-gate is on or
+off** — is the input step 5b wires the hooks against (step 5c also depends on it).
 
-### 5. Set the tree-check globs + wire the hook
+**Read the recorded choice FIRST (re-run idempotency).** Before any prompt, read the
+**recorded-choice line** from the detected-tooling block (the contract below). It governs
+the mature-with-tree path so a re-`init` never re-prompts. **On-disk state wins:** if the
+record says `keep-gate-off` but the tree is now **absent** (the user deleted it), take the
+mature-no-tree path regardless and refresh the record (see the contract). A malformed or
+absent record falls back to prompting — safe, dirties nothing.
+
+The three scenarios — **detect → tree action → `INCLUDE_GLOBS` → gate decision**:
+
+- **Fresh** (no tree **and** *Application source present* = **false** — an empty / docs-only
+  repo): run step 5a (→ `INCLUDE_GLOBS = []` per step 5a's "No application source yet" rule,
+  or detected globs if any source exists) → create a **minimal** tree (a short intro + the
+  docs/ scaffolding lines it can see) → **gate ON** (step 5b wires `PostToolUse(Write)` nudge
+  **+** blocking `Stop`; the Write nudge fills the tree as files land). Report "created
+  (minimal — fills in as you add code)."
+
+- **Mature, no tree** (no tree **and** source present): run step 5a → derive the **real**
+  globs → build the **cheap-complete skeleton** from those globs (below) → reconcile via the
+  step-4 gate loop (the gate is the oracle) → **gate ON** (step 5b wires nudge **+** blocking
+  `Stop` — the skeleton lists every path, so the gate reconciles green and the `Stop`
+  backstop never false-trips). `INCLUDE_GLOBS` = the detected real globs. Report "created
+  (skeleton from `git ls-files` — every path listed, descriptions enrich over time)."
+
+- **Mature, with tree** (tree present, and no honored `keep-gate-off` record): **skip the
+  skeleton build entirely** (the tree exists — never overwrite it unasked) → run the
+  **two-option prompt** below. If the recorded choice is already `harness-skeleton (gate
+  on)` from a prior Replace, re-derive nothing destructive: treat it as mature-no-tree only
+  if the tree is absent; otherwise the tree is already a managed skeleton and step 5b wires
+  the gate ON per the record (no re-prompt).
+
+**The cheap-complete skeleton** (mature-no-tree, and the Replace branch) — **how to build it
+without per-file content reads** (the whole point: the *path list* is a millisecond
+`git ls-files`; the expense was the descriptions, which the skeleton skips):
+  1. Step 5a has already set `INCLUDE_GLOBS` in the **copied** script to the real globs.
+  2. Derive the file list from **`git ls-files`** filtered by those globs — exactly what the
+     copied `check_architecture_tree.py`'s `in_scope_files()` computes (tracked + staged +
+     untracked-not-ignored, minus exclusions). Honoring `.gitignore` via git excludes
+     deps/build/generated trees for free.
+  3. Write the skeleton: a short intro, then **one `- \`path\`` line per in-scope file**,
+     **grouped under markdown headings by directory** (e.g. `## src/api`), each line a
+     **thin, path-derived one-liner** (the filename/dir role — **NO per-file content reads**;
+     descriptions enrich best-effort later via the existing "update a file's line when you
+     change its role" convention — never gate-checked).
+  4. **CRITICAL — format guard (the regression this slice exists to fix):** the skeleton uses
+     **markdown headings + `- \`path\`` lines and NEVER ` ``` `-fenced code blocks.** A fence
+     is stripped by `_strip_fenced_blocks` (`scripts/check_architecture_tree.py:129-150`)
+     and would desync the presence-matching pairing — the exact bug that read 6 neesh trees
+     as 0% coverage. Never emit an ASCII directory diagram; emit backtick-prose lines.
+  5. **Run the copied gate and reconcile to green** — the **gate is the oracle.** Missing
+     entry → add it; stale entry → remove it; loop until green. The skeleton lists every
+     path, so it satisfies presence from day 1 → the blocking `Stop` never false-trips.
+
+**The mature-with-tree prompt (two options — non-destructive).** When `init` finds an
+existing `docs/ARCHITECTURE_TREE.md` and there is no honored recorded choice, it **pauses and
+prompts** (AskUserQuestion) with plain-English context — *"You have a
+`docs/ARCHITECTURE_TREE.md`. The harness tree-gate reads a backtick-prose format and can't
+mechanically enforce a fenced ASCII diagram. How do you want to proceed?"*:
+  - **Replace with a harness skeleton** → behave as mature-no-tree (step 5a → real globs →
+    build the skeleton → reconcile), **overwriting the existing tree** → **gate ON** (step 5b
+    wires nudge **+** blocking `Stop`). Record `harness-skeleton (gate on)`.
+    - **Replace = confirmed user-file overwrite (never-clobber guard).** The tree is a
+      **user-owned** file (create-if-absent; step 4 has never overwritten one before).
+      Replace proceeds **only** on the explicit AskUserQuestion confirmation — **never** on
+      silence, a default, a timeout, or AskUserQuestion being unavailable. On any of those,
+      **fall back to Keep-mine-gate-off** and report it (mirroring the never-clobber
+      stop-if-ambiguous posture at `:27-28,156-158`). The Stage-9 report **honesty register**
+      must name the overwrite explicitly (step 9).
+  - **Keep mine, gate off** → leave the tree **untouched**; set `INCLUDE_GLOBS = []`; **gate
+    OFF** (step 5b wires **NEITHER** hook). Record `kept by adopter (gate off, your init
+    choice)`. The `[]` is **adopter-owned**, protected by the existing INCLUDE_GLOBS
+    carve-out (`:189-201`): a re-`init` on a `keep-gate-off` repo **MUST NOT re-derive
+    globs** (or the gate silently turns back on — a regression against the locked choice).
+    (This is data-insights-hub's circumstantial state, now an explicit choice. To later
+    switch a kept tree to the harness format, delete it and re-`init` → mature-no-tree →
+    skeleton.)
+
+There is **no third "Skip"** option — it was mechanically identical to Keep-mine-gate-off
+(records the choice, wires no hook, no re-prompt), so it is dropped (KISS).
+
+**The recorded-choice contract** _(built here, consumed by the competing-doc sub-step too):_
+  - **Lives in** the detected-tooling block (outside the managed fence — create-if-absent).
+    Unlike step 8's `Run the app:` line (which is append-once and **never** rewritten), this
+    line is a **single-value, label-keyed record that is rewritten in place on
+    on-disk-disagreement**: appended on first write (line absent), and thereafter rewritten in
+    place **only** when on-disk tree state forces an outcome different from the recorded value.
+  - **Exact line:**
+    `- Architecture tree: <harness-skeleton (gate on) | kept by adopter (gate off, your init choice)>`
+    — **keyed on the label `Architecture tree:`**.
+  - **Keying:** append-if-line-absent on that label; **rewrite-in-place on on-disk
+    disagreement** (not append-a-second-line — exactly one `Architecture tree:` line exists at
+    all times, so there is never an ambiguous pair to tie-break). When the recorded value and
+    current on-disk state diverge (e.g. recorded `keep-gate-off` but the tree is now absent),
+    rewrite this one line to the honored outcome so the next re-run reads a value consistent
+    with on-disk state.
+  - **Read-before-prompt:** re-`init` reads this line **before** the mature-with-tree prompt;
+    if present and consistent with on-disk state, **honor it and skip the prompt.**
+  - **Precedence on disagreement — on-disk state wins for the tree action, and the record is
+    rewritten to match.** Tree present + record `kept by adopter (gate off…)` → honor, no
+    prompt, gate stays off, **no rewrite**. Tree present + record `harness-skeleton (gate on)`
+    → honor, no prompt, **no rewrite**. Tree present + **no** record → prompt, then record.
+    **Tree absent** (user deleted it later) → take the mature-no-tree path (build skeleton,
+    gate on) **regardless** of the record, and **rewrite the line to `harness-skeleton (gate
+    on)`**. Any case where on-disk state and the record disagree → **on-disk state wins and the
+    line is rewritten to match the honored outcome.** A malformed/absent record falls back to
+    prompting (safe; dirties nothing).
+  - **Idempotency:** a **settled** re-run — on-disk state matches the record — performs **no
+    rewrite** and the block is **byte-identical**. The rewrite fires only on a genuine state
+    change (the repo changed between runs, e.g. the user deleted the tree), which is a correct
+    response to new on-disk reality, **not** an idempotency violation.
+
+### 5. Set the tree-check globs + wire the hook (conditional on step 4's gate decision)
 
 **(a) Set `INCLUDE_GLOBS` in the *copied* `check_architecture_tree.py`.**
 `INCLUDE_GLOBS` is the **only** per-repo knob in the script — the staleness check derives
-its valid extensions from it (`EXTS`), so there is no second regex to keep in sync. Set it:
+its valid extensions from it (`EXTS`), so there is no second regex to keep in sync.
+
+**When 5a runs (per step 4's scenario):** the glob-detection below runs for **Fresh**,
+**Mature-no-tree**, and the **Replace** branch. For **Keep-mine-gate-off** (the recorded or
+chosen `gate off` outcome), 5a sets **`INCLUDE_GLOBS = []` and re-derives NOTHING** — the
+`[]` is adopter-owned and protected by the existing INCLUDE_GLOBS carve-out (`:189-201`), so
+a re-`init` on a `keep-gate-off` repo must **not** reach the layout-detection below (else the
+gate silently turns back on against the locked choice). Set it (for the running scenarios):
 - **Reuse the layout detection from `/claugentic-dev-harness:audit` Phase 1 (Understand)** — its
   ecosystem/manifest detection identifies the source layout (e.g. `src/**/*.ts`,
   `src/**/*.py`, `cmd/**/*.go`). **Do not author a second detector** (DRY). Map the
@@ -288,27 +395,41 @@ its valid extensions from it (`EXTS`), so there is no second regex to keep in sy
   the real code.
 - Edit **only** the copied script (step 3 placed it). You only set this one constant.
 
-**(b) Wire the hook into `.claude/settings.json` (JSON-merge — the most dangerous write).**
+**(b) Wire the hook into `.claude/settings.json` — CONDITIONAL on step 4's gate decision
+(JSON-merge — the most dangerous write).**
+
+**The gate decision from step 4 governs the wiring — this is the rollout-unblocker fix:**
+the harness's two tree hooks are wired **only when the tree-gate is ON** (Fresh,
+Mature-no-tree, Replace). When the gate is **OFF** (Keep-mine-gate-off), **wire NEITHER
+hook** — the kept (non-backtick) tree must never be policed by a blocking gate that would
+false-flag it (the measured 6×0% neesh regression). Gate-off leaves `.claude/settings.json`
+free of both tree hooks; the tree stays model-upheld via the CLAUDE.md authority anchor.
+
 - **Parse** `.claude/settings.json` as JSON. **Absent → treat as `{}`** (and create the
   file). **Present but *malformed* (not valid JSON) → fail loudly: report it and skip the
   merge — never overwrite or corrupt it.**
-- Ensure the harness's **two hooks** exist, **appending into the existing arrays** (create
-  `hooks` / `PostToolUse` / `Stop` only if absent), **preserving every existing user hook
-  and key order**:
+- **Gate ON →** ensure the harness's **two hooks** exist, **appending into the existing
+  arrays** (create `hooks` / `PostToolUse` / `Stop` only if absent), **preserving every
+  existing user hook and key order**:
 
   | array | matcher | command |
   |---|---|---|
   | `hooks.PostToolUse` | `Write` | `python "${CLAUDE_PROJECT_DIR}/scripts/check_architecture_tree.py" --hook-write` |
   | `hooks.Stop` | *(none)* | `python "${CLAUDE_PROJECT_DIR}/scripts/check_architecture_tree.py" --hook` |
 
+- **Gate OFF (Keep-mine-gate-off) →** wire **neither** hook. Do not add a `Stop` or
+  `PostToolUse(Write)` tree entry. (Any **pre-existing** harness tree hook from an earlier
+  `init` is **left in place** and flagged-and-recommended in the report — never silently
+  removed; settings churn is itself a never-clobber concern, and the recorded `gate off`
+  choice plus `INCLUDE_GLOBS = []` already neutralize a stale hook's false-flagging.)
 - Write the **`${CLAUDE_PROJECT_DIR}`-rooted** command (cwd-independent) — **not** the bare
   relative path this source repo uses. Use the **interpreter detected in step 1**
   (`python` / `python3` / `py`) as the leading token.
 - **Idempotency key:** a hook whose `command` **contains `check_architecture_tree.py`** is
-  "already present." If a `PostToolUse(Write)` entry and a `Stop` entry both already match,
-  **skip** (don't append a duplicate) and report "hook already present." This makes a
-  re-run a no-op on this file (skip-if-present, keyed on the substring — dogfood-checked
-  like the rest of idempotency, not a wired gate).
+  "already present." When the gate is ON: if a `PostToolUse(Write)` entry and a `Stop` entry
+  both already match, **skip** (don't append a duplicate) and report "hook already present."
+  This makes a re-run a no-op on this file (skip-if-present, keyed on the substring —
+  dogfood-checked like the rest of idempotency, not a wired gate).
 
 **(c) Plugin self-reference — declare the harness for teammates (team distribution).**
 The harness is a **plugin**: its agents, skills, and engine live in the plugin install,
@@ -320,10 +441,11 @@ documented team-distribution mechanism: `extraKnownMarketplaces` + `enabledPlugi
 harness's publication identity is fixed: marketplace **`sh4npeiris`** = github
 **`sh4npeiris/claugentic-dev-harness`**, plugin **`claugentic-dev-harness`**.
 
-This action **runs regardless of the tree-gate decision in (b)** — it is independent of
-whether the architecture-tree hooks got wired (a Python-less or already-hooked repo still
-gets the plugin self-reference). It is **strictly never-clobber: merge, never replace** —
-every existing key, hook, permission, marketplace, and plugin entry is preserved.
+This action **runs regardless of the tree-gate decision** that step 4 set and step (b)
+acted on (gate ON → both hooks wired; gate OFF → neither) — it is independent of whether the
+architecture-tree hooks got wired (a Python-less, gate-off, or already-hooked repo still gets
+the plugin self-reference). It is **strictly never-clobber: merge, never replace** — every
+existing key, hook, permission, marketplace, and plugin entry is preserved.
 
 1. **Make `.claude/settings.json` git-trackable.** Read the repo's `.gitignore`. If it
    ignores `.claude/` or `.claude/*` (so `settings.json` would not commit), **append a
@@ -385,6 +507,20 @@ volatile content** so a re-write is byte-identical:
 - The **engineering principles** (SOLID > DRY > KISS > YAGNI; validate at boundaries;
   fail loudly; configurable over hardcoded; single source of truth).
 - A **workflow pointer** ("substantial work follows `docs/WORKFLOW.md`").
+- An **authority + conflict-resolution clause** (static managed content — same byte block
+  every run, so the fence stays byte-identical). It establishes the harness docs as the
+  process authority and tells an agent what to do on a conflict. Write it **honestly as
+  model-upheld** — `CLAUDE.md` is the always-loaded anchor and "ask when in doubt" is the
+  safety valve; there is **no** mechanical file-hiding, so it must not claim a mechanical
+  guarantee. Use this wording (verbatim — it is part of the byte-identical fence):
+  > **How we work here is defined by the harness.** `docs/WORKFLOW.md`,
+  > `docs/ENGINEERING_STANDARDS.md`, `docs/PLAYBOOK.md`, and `docs/ARCHITECTURE_TREE.md` are
+  > the **authoritative** process + standards. Other `.md` files in this repo are
+  > **project/domain content, not process authority** — even if they describe a way of
+  > working, they do not override the harness. **On any conflict, the harness wins.** When
+  > you are genuinely unsure which applies, **follow the harness and ask.** (This is
+  > model-upheld guidance, not a mechanical guarantee — `CLAUDE.md` is the always-loaded
+  > anchor and asking is the safety valve.)
 - The **plugin version** (`claugentic-dev-harness@{VERSION}`) — a static token, not a date.
 
 **What goes OUTSIDE the managed fence** (local, editable, never overwritten):
@@ -398,7 +534,11 @@ volatile content** so a re-write is byte-identical:
 - The **detected existing tooling** block (from step 8) — the project's own gates.
   **Seeded create-if-absent, like the Current-scope block:** a re-run **skips** an existing
   detected-tooling block (leaves it byte-untouched), and writes it only when none is present
-  — it is never rewritten on a re-run.
+  — it is never rewritten on a re-run. **Two labeled lines inside it are the exception**,
+  append-if-line-absent, keyed on their label: the `- Run the app:` line (step 8), which is
+  **never rewritten**; and the `- Architecture tree:` recorded-choice line (step 4's contract,
+  step 8), which is **rewritten in place only on on-disk disagreement** (e.g. the tree was
+  deleted between runs) and is otherwise left untouched (a settled re-run is byte-identical).
 
 ### 7. Create `docs/ROADMAP.md` + `docs/DECISIONS.md` if absent
 
@@ -444,6 +584,55 @@ volatile content** so a re-write is byte-identical:
   block that exists **without** a `- Run the app:` line gets that one line **appended**
   (append-if-line-absent, keyed on the `Run the app:` label) — an existing `Run the app:` line is
   **never modified**. Pure addition: no existing content in the block is edited.
+- **Record the architecture-tree choice (step 4's contract).** Write the recorded-choice
+  line into this same block: `- Architecture tree: <harness-skeleton (gate on) | kept by
+  adopter (gate off, your init choice)>`, **keyed on the `Architecture tree:` label**. Unlike
+  the `Run the app:` line above (append-once, never rewritten), this line is
+  **rewrite-on-disk-disagreement**: append-if-line-absent on first write, and rewritten in
+  place when on-disk tree state forces a different outcome than the record (per step 4's
+  contract). Step 4 already read this line **before** prompting, so the value written here
+  reflects the honored/chosen outcome. **The one rewrite case:** when step 4 overrode a
+  recorded `keep-gate-off` because the tree was deleted (on-disk wins → mature-no-tree
+  skeleton), rewrite the single `Architecture tree:` line in place to the new
+  `harness-skeleton (gate on)` outcome so the next re-run reads a value consistent with
+  on-disk state. A settled re-run (on-disk matches the record) rewrites nothing — the block
+  stays byte-identical.
+
+**(detect a competing way-of-work doc — non-destructive; never delete).** Adopting onto a
+repo that carries an *obvious* rival way-of-work / agent-instruction doc can mislead agents.
+The step-6 authority clause already defuses this (the harness wins on conflict), but `init`
+also **surfaces** the doc once so the user can decide whether to **harvest** lessons from it.
+
+- **Detection — a small, high-precision NAME allow-list only** (precision over recall — a
+  false positive is worse than a missed obscure doc; the authority clause covers the misses):
+  a **non-managed** `docs/WORKFLOW.md`-class file (a `WORKFLOW.md` that is NOT a genuine
+  harness managed copy per the step-3 predicate — e.g. one at repo root or carrying no
+  managed stamp), `.cursorrules`, `AGENTS.md`, `.github/copilot-instructions.md` (or a
+  root `copilot-instructions.md`), and a `SUITE_HARNESS`-style way-of-work doc (e.g.
+  `SUITE_HARNESS.md`). **`CLAUDE.md` is NEVER flagged** — it is the designed merge target
+  for the managed fence (step 6), not a competitor. Match on these names only; do **not**
+  content-scan arbitrary `.md` files for "process-like" prose (that re-introduces the
+  false-positive rot).
+- **Prompt (only when at least one is found, and not already recorded — see below):**
+  *"Found `<X>` — it overlaps the harness way of work. The harness is now the authority (see
+  the `CLAUDE.md` clause), so this file won't override it. Want me to **fold any lessons from
+  it into the harness** (a quick scan, then I leave the file in place), or **leave it as-is**
+  (the authority clause keeps agents on the harness)?"*
+  - **Fold in (harvest)** → scan `<X>` and surface anything worth promoting into the harness
+    (a `docs/ROADMAP.md` item, a `DECISIONS.md` note, or a suggested standards addition —
+    **propose**, do not silently rewrite managed files); **leave `<X>` in place**.
+  - **Leave it** → do nothing to the file; the authority clause defuses it.
+  - **NEVER delete `<X>` (or any user file), ever** — non-destructive is absolute.
+  - **Confirmation discipline:** like the Replace prompt, act on the explicit choice only; on
+    silence/default/unavailable, **default to "leave it"** (the safe, non-destructive choice)
+    and report it.
+- **Record via A's recorded-choice contract** (same append-if-line-absent mechanism, so a
+  re-`init` does **not** re-prompt): write a **single label-keyed line** into the
+  detected-tooling block — `- Competing way-of-work docs: reviewed (your init choice)`,
+  **keyed on the `Competing way-of-work docs:` label** (one line, append-if-line-absent — no
+  per-file/plural-doc keying; this is a low-stakes advisory prompt and the `CLAUDE.md`
+  authority clause defuses the conflict regardless). Read this line **before** prompting; if
+  present, the competing-doc prompt is **skipped** (no re-prompt).
 
 ### 9. Report
 
@@ -466,10 +655,31 @@ never claim a refresh that didn't happen):**
   `CLAUDE.md` fence is separate: only the content between the markers is replaced —
   everything you wrote outside it is preserved.)
 
+**The architecture-tree branch of the honesty register** — name the tree action plainly,
+branched on step 4's outcome (each is honest about what was created/overwritten/left):
+- **Fresh / minimal tree →** *"I created a starter code map (`docs/ARCHITECTURE_TREE.md`) —
+  it fills in as you add code — the harness nudges to keep it current."*
+- **Mature-no-tree skeleton →** *"I created a code map (`docs/ARCHITECTURE_TREE.md`) listing
+  every source file from `git ls-files` — descriptions stay thin and improve as the code is
+  touched. Nothing of yours was overwritten (you had no tree)."*
+- **Replace (mature-with-tree, confirmed) — the one user-file overwrite, name it loudly:**
+  *"Replaced your `docs/ARCHITECTURE_TREE.md` with a harness skeleton — your previous tree is
+  in git history (an uncommitted tree is unrecoverable)."* This is the **only** path in
+  `init` that overwrites a user-owned file, and it happened **only** because you explicitly
+  chose Replace (same recoverable-from-git-only caveat class as the Refreshed group above).
+- **Keep-mine-gate-off →** *"I left your `docs/ARCHITECTURE_TREE.md` untouched and turned the
+  tree-gate OFF for this repo — no blocking check on your tree (it stays model-upheld via the
+  harness instructions in `CLAUDE.md`). To switch to the harness format later, delete the
+  tree and re-run `init`."*
+
 Then tell the user the **setup is live** — honestly, so no restart is implied where none is
 needed (a skill **cannot** restart a session; don't pretend otherwise):
-- The **architecture-tree hook is enforcing now** — `.claude/settings.json` is hot-reloaded by
-  Claude Code's file-watcher the moment `init` writes it; the hook needs no restart.
+- **When the tree-gate is ON:** the **architecture-tree hook is enforcing now** —
+  `.claude/settings.json` is hot-reloaded by Claude Code's file-watcher the moment `init`
+  writes it; the hook needs no restart. **When the tree-gate is OFF (Keep-mine-gate-off):**
+  say so plainly — *no* tree hook was wired; run `python scripts/check_architecture_tree.py`
+  manually only if you ever want a one-off check (it would flag a non-backtick tree, which is
+  why the gate is off).
 - **You (the agent) have adopted the harness workflow for the rest of this session** — you just
   scaffolded it and follow `docs/WORKFLOW.md` from here, so work continues immediately.
 - **Suggest `/clear` or `/compact`** (quick — not a whole new chat) for the cleanest standing
@@ -491,7 +701,10 @@ step 5:
 
 Then emit the clear summary, grouped:
 - **Created** — files written from scratch (e.g. `ARCHITECTURE_TREE.md`, `ROADMAP.md`) +
-  the managed files that were absent and copied + stamped.
+  the managed files that were absent and copied + stamped. For the tree, name **which mode**
+  produced it: minimal (fresh), cheap-complete skeleton (mature-no-tree), or
+  **replaced-by-skeleton** (mature-with-tree → Replace — the user-file overwrite above); or
+  **kept-untouched, gate off** (Keep-mine-gate-off — not created, left as the user's).
 - **Refreshed** — managed files (and the CLAUDE.md fence) brought up to the installed
   version because their content had drifted **or their stamp was in an old trailing-clause
   format** (a one-time format migration); **each reported by path** (`<old> → <installed>`).
@@ -499,8 +712,14 @@ Then emit the clear summary, grouped:
   source (left byte-untouched, even if the stamp semver was older).
 - **Skipped (user file / unrecognized stamp)** — present files that are not genuine managed
   copies; left untouched, reported so the user can reconcile.
-- **Merged** — the settings.json hook entries appended (or "already present").
-- **Detected** — the ecosystem, the interpreter, and the existing tooling recorded.
+- **Merged** — the settings.json hook entries appended (gate ON), "already present", or
+  **"tree-gate OFF — no hooks wired"** (Keep-mine-gate-off); plus the plugin self-reference.
+- **Detected** — the ecosystem, the interpreter, the existing tooling, the recorded
+  architecture-tree choice (`Architecture tree:` line — gate on/off), and any **competing
+  way-of-work doc** found: name it, state the harvest outcome (**harvested → lessons promoted
+  into the harness, or left in place**), and confirm **it was NOT deleted** (nothing of the
+  user's is ever removed). When a harvest promoted something, list the ROADMAP/DECISIONS/
+  standards item it proposed.
 
 **On a repo already at the installed version, the whole run is a true no-op** that reports
 "already at the installed version — nothing to refresh." When managed content had drifted,
@@ -523,8 +742,17 @@ At a fixed installed version it holds because:
   migrated to the current full form), after which a re-run reads `CURRENT`.
 - Every **generate/create** (tree, ROADMAP, DECISIONS) is create-if-absent (user-owned —
   never refreshed).
+- The **architecture-tree scenario decision is recorded** (`Architecture tree:` line in the
+  detected-tooling block — append-if-line-absent, then rewritten in place only on on-disk
+  disagreement) and **read before any prompt**, so a re-`init` on a settled repo **honors the
+  record and never re-prompts**: a `keep-gate-off` repo wires no hook and re-derives no globs
+  (the `INCLUDE_GLOBS = []` is carve-out-protected), and a `harness-skeleton` repo's tree
+  already exists (create-if-absent → skipped). On-disk state wins (and the line is rewritten to
+  match) only when it diverges (the user deleted the tree), which is not the byte-identical
+  re-run case.
 - The **settings.json** merge is keyed on a `command` containing `check_architecture_tree.py`
-  (present → skip; never a duplicate append).
+  (present → skip; never a duplicate append). **Gate-off wires neither hook, so there is
+  nothing to append on a re-run** (the recorded `keep-gate-off` suppresses re-wiring).
 - The **CLAUDE.md** fence is refreshed inside the markers from a template with **no volatile
   content**, so once it embeds the installed `{VERSION}` a re-run regenerates a
   byte-identical inner block → no-op (everything outside the markers is preserved
