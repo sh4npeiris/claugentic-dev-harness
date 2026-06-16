@@ -24,7 +24,9 @@ Modes:
                                                               # stdin; nudges ONLY if it's a new, in-scope, undocumented
                                                               # file (silent on overwrites / out-of-scope / already-indexed)
 
-Wired in `.claude/settings.json`. Also runnable in CI. See CLAUDE.md -> Harness Discipline.
+Wired as a hook by `init` when the architecture-tree gate is enabled; otherwise run
+manually (`python scripts/check_architecture_tree.py`). Also runnable in CI. See
+CLAUDE.md -> Harness Discipline.
 """
 
 from __future__ import annotations
@@ -53,11 +55,13 @@ TREE_PATH = Path("docs/ARCHITECTURE_TREE.md")
 # like `:(glob)src/**`) is still PRESENCE-checked but is NOT staleness-checked
 # (its files can't be told apart from any other path token in the tree's prose).
 #
-# For THIS repo (claugentic-dev-harness) the in-scope code is the gate scripts plus the
+# This file is COPIED into adopter repos, so INCLUDE_GLOBS is per-repo: `init` rewrites it
+# to match the adopter's own languages/layout (its source dirs, not these). The value
+# below is the SOURCE repo's own (claugentic-dev-harness): the gate scripts plus the
 # executable Workflow choreography under `engine/` (read-from-install-path, never copied
-# to adopters — so this widening is this-repo-only; init's body-compare already excludes the
-# INCLUDE_GLOBS line on both sides, so no adopter REFRESH triggers). EXTS derives `js`
-# automatically — every new script must be tree-indexed or CI goes red, which is the point.
+# to adopters — so this `engine/` widening is source-repo-only; init's body-compare already
+# excludes the INCLUDE_GLOBS line on both sides, so no adopter REFRESH triggers). EXTS derives
+# `js` automatically — every new in-scope file must be tree-indexed or CI goes red, the point.
 INCLUDE_GLOBS = [":(glob)scripts/**/*.py", ":(glob)engine/**/*.js"]
 
 # Substrings that exempt a file (no architectural content).
