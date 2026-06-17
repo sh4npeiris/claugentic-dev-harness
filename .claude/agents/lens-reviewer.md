@@ -21,7 +21,7 @@ If you were not told the mode, infer it from what you were given: a **diff** →
 ## Read first (both modes)
 
 - **Your assigned module** in `docs/claugentic-standards/` — its dimensions are your bar.
-- **`docs/claugentic-ARCHITECTURE_TREE.md`** — to locate code without reading whole files.
+- **`docs/claugentic-ARCHITECTURE_TREE.md`** — to locate code without reading whole files; also consult the `CLAUDE.md` per-repo harness block for durable structural/domain context.
 - **Then your audit target:**
   - *Verify-diff:* the **diff** and the slice's **spec** (the in-scope dimensions it named).
   - *Audit-scope:* the **scoped dirs/packages**, the **exclude-set**, and a **`depth`** the orchestrator passes — `focused`, `deep`, or `exhaustive` (see *Audit* below for what each demands); survey the scope (manifests, entry points, then the source files in scope) — read what your lens needs, not the whole repo.

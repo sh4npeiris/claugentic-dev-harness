@@ -296,12 +296,16 @@ without per-file content reads** (the whole point: the *path list* is a millisec
 
 **The mature-with-tree prompt (two options — non-destructive).** When `init` finds an
 existing `docs/claugentic-ARCHITECTURE_TREE.md` and there is no honored recorded choice, it **pauses and
-prompts** (AskUserQuestion) with plain-English context — *"You have a
-`docs/claugentic-ARCHITECTURE_TREE.md`. The harness tree-gate reads a backtick-prose format and can't
-mechanically enforce a fenced ASCII diagram. How do you want to proceed?"*:
-  - **Replace with a harness skeleton** → behave as mature-no-tree (step 5a → real globs →
-    build the skeleton → reconcile), **overwriting the existing tree** → **gate ON** (step 5b
-    wires nudge **+** blocking `Stop`). Record `harness-skeleton (gate on)`.
+prompts** (AskUserQuestion) in **outcome language** — *"You already have a codebase map
+(`docs/claugentic-ARCHITECTURE_TREE.md`). Want me to (a) **keep it current automatically** — I take it over
+and a check keeps it from going stale, or (b) **leave yours exactly as-is** and not police it?
+(The automatic check only works on the harness's plain-list format, so taking it over means
+replacing your current map.)"* Option labels are outcome-framed — **"Keep it current
+automatically"** (Replace) and **"Keep mine as-is"** (Keep-mine-gate-off):
+  - **Keep it current automatically (Replace with a harness skeleton)** → behave as
+    mature-no-tree (step 5a → real globs → build the skeleton → reconcile), **overwriting the
+    existing tree** → **gate ON** (step 5b wires nudge **+** blocking `Stop`). Record
+    `harness-skeleton (gate on)`.
     - **Replace = confirmed user-file overwrite (never-clobber guard).** The tree is a
       **user-owned** file (create-if-absent; step 4 has never overwritten one before).
       Replace proceeds **only** on the explicit AskUserQuestion confirmation — **never** on
@@ -309,9 +313,9 @@ mechanically enforce a fenced ASCII diagram. How do you want to proceed?"*:
       **fall back to Keep-mine-gate-off** and report it (mirroring the never-clobber
       stop-if-ambiguous posture at `:27-28,156-158`). The Stage-9 report **honesty register**
       must name the overwrite explicitly (step 9).
-  - **Keep mine, gate off** → leave the tree **untouched**; set `INCLUDE_GLOBS = []`; **gate
-    OFF** (step 5b wires **NEITHER** hook). Record `kept by adopter (gate off, your init
-    choice)`. The `[]` is **adopter-owned**, protected by the existing INCLUDE_GLOBS
+  - **Keep mine as-is (gate off)** → leave the tree **untouched**; set `INCLUDE_GLOBS = []`;
+    **gate OFF** (step 5b wires **NEITHER** hook) — your map is yours, nothing polices it.
+    Record `kept by adopter (gate off, your init choice)`. The `[]` is **adopter-owned**, protected by the existing INCLUDE_GLOBS
     carve-out (`:189-201`): a re-`init` on a `keep-gate-off` repo **MUST NOT re-derive
     globs** (or the gate silently turns back on — a regression against the locked choice).
     (This is data-insights-hub's circumstantial state, now an explicit choice. To later
@@ -636,7 +640,19 @@ also **surfaces** the doc once so the user can decide whether to **harvest** les
 
 ### 9. Report
 
-**Lead with a plain-English headline** — before the grouped technical summary — so a
+**Open with a one-line readiness summary** — a plain-English "is the setup healthy?" line
+that **reuses the detections `init` already ran** (no new mechanism): the step-4 tree-gate
+decision, the step-1 Python interpreter, and the step-5c plugin self-reference. (NOT the
+scripted engine — its availability is a per-session, run-time condition the Workflow tool
+decides when a command runs; `init` cannot know it at setup time, so it is not reported here.)
+Each item reads `<on>` when healthy, or **`reduced — <what's missing>`** when
+degraded — e.g. *"Setup: tree-gate ON · Python found (`python3`) · plugin declared for
+teammates"*, or with a degraded item flagged, *"Setup: tree-gate ON · Python **reduced — none
+found; install Python 3 to enable the tree check** · plugin declared for teammates"*.
+(Tree-gate is `OFF` not "reduced" on the Keep-mine choice — that's a healthy chosen state,
+not a degradation.)
+
+**Then lead with a plain-English headline** — before the grouped technical summary — so a
 non-engineer reads the reassurance first. **Branch the headline on the Refreshed group (and, when it's empty, on the Created group —
 never claim a refresh that didn't happen):**
 - **Refreshed empty AND Created empty (a true no-op) →** *"Done — everything is already at
@@ -694,10 +710,13 @@ source** — the *Application source present* predicate defined in
 step 5:
 - **Has app source →** *"Next: run `/claugentic-dev-harness:audit` — I'll explain your codebase in
   plain English and write a prioritized backlog of the work worth doing. (A quick `/clear` first
-  gives the audit clean context.)"*
-- **No app source yet (empty / docs-only) →** *"Next: just tell me what you want to build —
-  describe your first feature in plain English and I'll run the workflow. No need to run
-  `/claugentic-dev-harness:audit` until there's code to audit."*
+  gives the audit clean context.) Optionally run `/claugentic-dev-harness:product` first to capture
+  what the product is supposed to be — then the audit and gap checks have a spec to measure against."*
+- **No app source yet (empty / docs-only) →** *"Next: run `/claugentic-dev-harness:product` to
+  capture what you're building — a quick conversation that writes down who it's for and what each
+  feature should do — then `/claugentic-dev-harness:audit` / `/claugentic-dev-harness:build` once there's
+  code. Or just tell me what you want to build in plain English and I'll run the workflow. No need to
+  run `/claugentic-dev-harness:audit` until there's code to audit."*
 
 Then emit the clear summary, grouped:
 - **Created** — files written from scratch (e.g. `claugentic-ARCHITECTURE_TREE.md`, `claugentic-ROADMAP.md`) +
@@ -735,28 +754,12 @@ Re-running `init` **converges the repo to the installed version**, and is a **tr
 only when the repo is already at the installed version**. The drift decision and the writes
 are **`init`'s judgment** (rule-bound, never-clobber-guarded by stop-if-ambiguous), **not a
 mechanical oracle** — so idempotency here is **checked by a dogfood run, not a wired gate.**
-At a fixed installed version it holds because:
-- Every **managed file** is upserted: absent → create; genuine managed copy with an
-  identical body **and a current-form stamp** → `CURRENT` (byte-untouched); a drifted body
-  **or an old-format stamp** → `REFRESH` once to the installed version (the stamp is
-  migrated to the current full form), after which a re-run reads `CURRENT`.
-- Every **generate/create** (tree, ROADMAP, DECISIONS) is create-if-absent (user-owned —
-  never refreshed).
-- The **architecture-tree scenario decision is recorded** (`Architecture tree:` line in the
-  detected-tooling block — append-if-line-absent, then rewritten in place only on on-disk
-  disagreement) and **read before any prompt**, so a re-`init` on a settled repo **honors the
-  record and never re-prompts**: a `keep-gate-off` repo wires no hook and re-derives no globs
-  (the `INCLUDE_GLOBS = []` is carve-out-protected), and a `harness-skeleton` repo's tree
-  already exists (create-if-absent → skipped). On-disk state wins (and the line is rewritten to
-  match) only when it diverges (the user deleted the tree), which is not the byte-identical
-  re-run case.
-- The **settings.json** merge is keyed on a `command` containing `claugentic-check_architecture_tree.py`
-  (present → skip; never a duplicate append). **Gate-off wires neither hook, so there is
-  nothing to append on a re-run** (the recorded `keep-gate-off` suppresses re-wiring).
-- The **CLAUDE.md** fence is refreshed inside the markers from a template with **no volatile
-  content**, so once it embeds the installed `{VERSION}` a re-run regenerates a
-  byte-identical inner block → no-op (everything outside the markers is preserved
-  byte-for-byte).
+It holds because every step above is already authored idempotent — see steps 3–6, the
+single source of truth: managed-file upsert (step 3: `CURRENT` leaves byte-untouched,
+`REFRESH` converges once then re-reads `CURRENT`), create-if-absent generates (step 7),
+the recorded `Architecture tree:` choice read-before-prompt (step 4) so a settled repo never
+re-prompts and never re-derives globs, the `settings.json` skip-if-present merge (step 5),
+and the no-volatile-content `CLAUDE.md` fence (step 6). Don't re-derive that logic here.
 
 **Acceptance of a 2nd run at the same installed version:** `git status` in the target shows
 **zero changes** and the report says everything was already current. If such a re-run

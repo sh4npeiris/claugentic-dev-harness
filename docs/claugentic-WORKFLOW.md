@@ -29,7 +29,7 @@ When unsure, default to full; the plan-reviewer (Stage 3) confirms the path was 
 ## Principles (apply at every stage)
 
 - **Slice small, land complete.** Every unit of work must be finishable by **one specialist agent in a single ≤1M-token-context session** and land **vertically complete** — no half-done state, no `TODO`/debt left behind. If it doesn't fit, decompose further *before* implementing. This is a hard gate, not a guideline.
-- **No new tech debt.** A landed slice leaves the codebase at least as clean as it found it: tests added, docs/ARCHITECTURE_TREE updated, no dead code, no silenced errors.
+- **No new tech debt.** A landed slice leaves the codebase at least as clean as it found it: tests added, the architecture tree updated, no dead code, no silenced errors.
 - **The harness is living.** Any task may improve STANDARDS / CLAUDE.md / the `.claude/agents/` role library / this workflow. Stage 9 is how that happens; treat harness improvements as first-class output, not a chore.
 - **Delegate liberally to preserve orchestrator context.** Use subagents freely and in parallel — **no resource constraints** — so the orchestrator's own context stays lean for synthesis and decisions (fan out reads, reviews, and implementation to specialists). The orchestrator picks whichever role(s) fit from the `.claude/agents/` library; as the library grows it has more specialists to choose from.
 - **Effort-dial the machine.** Scale review/verification depth to the change's risk and size, and load only the standards modules the change *touches* (relevance-gating). The dial flips on the **same triggers Stage 0 uses to call work *substantial*** — a **security/trust boundary · a shared contract/pattern/standard · ~8+ files · or any trust/honesty surface** (per the diverse-critics principle below): a small/local change gets a quick **solo `architect-reviewer`** look; any of those triggers fans out the lenses (and, on a trust surface, the diverse panel — that principle names *who* joins; this names *when* to fan out). Don't run the whole machine on a trivial change — that's how a harness kills the velocity it's meant to protect.
@@ -163,7 +163,7 @@ A **finite harvest checklist the orchestrator RUNS at Land** (manual discipline,
 - **(d)** Process friction → **edit this `WORKFLOW.md`**.
 - **(e)** Every non-trivial choice → **one dated line in `claugentic-DECISIONS.md`**.
 
-**Promotion is two-tier (manual, user-approved):** a *universal* lesson → stage in `docs/claugentic-standards/CANDIDATES.md`, then promote upstream so every repo gets it on update; a *codebase-specific* lesson stays **local** (`CLAUDE.md` / `claugentic-DECISIONS.md`), never propagated.
+**Promotion is two-tier (manual, user-approved):** a *universal* lesson → stage it in `docs/claugentic-standards/CANDIDATES.md` (a per-adopter local buffer **created on first use** — the file is born the first time you stage a lesson, not shipped empty), then promote upstream so every repo gets it on update; a *codebase-specific* lesson stays **local** (`CLAUDE.md` / `claugentic-DECISIONS.md`), never propagated.
 
 ---
 

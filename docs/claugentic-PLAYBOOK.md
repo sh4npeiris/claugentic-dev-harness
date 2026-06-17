@@ -4,15 +4,16 @@ A plain-English guide to working *with* this harness, for a capable non-engineer
 
 ## The one-minute model
 
-Substantial work flows through a pipeline: **Triage → Discuss → Plan → Review-the-plan → Spec → Approve → Implement → Verify → Land → Retrospect** (small changes skip straight to Implement + Verify). The agent runs it; **you steer at three points.** Full version: [`WORKFLOW.md`](claugentic-WORKFLOW.md).
+Substantial work flows through a pipeline: **Triage → Discuss → Plan → Review-the-plan → Spec → Approve → Implement → Verify → Land → Retrospect** (small changes skip straight to Implement + Verify). The agent runs it; **you steer at four points.** Full version: [`WORKFLOW.md`](claugentic-WORKFLOW.md).
 
-## Your three leverage points
+## Your four leverage points
 
 The whole system is built so you steer **what gets built and what "done" means** — with product judgment. Approving the spec is the steering point; you set intent and bless the plan, and the harness carries the code-shaped detail from there:
 
 1. **Brainstorm at Discuss.** Tell the harness *who the user is* and *what "good" means* for this product. The more context here, the better everything downstream. This is your Product-Designer seat.
 2. **Approve the Spec.** Nothing gets built before you sign off on *what* will be built and *what "done" means*. You approve intent, not code. This is your steering wheel.
-3. **Approve lessons.** When the harness says "I think this should become a standard," you keep or kill it. That's how the standards stay *yours*.
+3. **Bless the irreversible step.** Just before anything hard to undo — committing, pushing to a shared branch, deleting — the harness **pauses and asks first.** Your judgment is load-bearing here: it never takes an irreversible action on its own. Say go, or say wait.
+4. **Approve lessons.** When the harness says "I think this should become a standard," you keep or kill it. That's how the standards stay *yours*.
 
 ### How to approve a spec (you don't need to read the code)
 
@@ -40,6 +41,10 @@ Three moves make the output worth trusting:
 **To start anything — a backlog item or a brand-new project — just tell the agent in plain English what you want** (e.g. "Let's do Tier-1 item 1" or "I want to build X"). It will ask you questions (Discuss), then write a plan and spec for you to approve before any code. That's the go-button: you describe what you want, it drives the workflow.
 
 **If the agent starts writing code without asking you product questions first, say "use the workflow"** — it should pause and ask.
+
+### A quick check of one file or a diff
+
+You don't always need a full audit. For a fast read on a single file or a change you're about to keep, two built-in commands give a lightweight once-over: **`/code-review`** (a focused review of the current diff) and **`/simplify`** (an over-engineering / can-this-be-simpler pass). Use them when you just want a second opinion on a small piece — they don't replace `:audit` (the whole-codebase snapshot) or the full workflow, they're the quick-look option.
 
 ## Using the audit (`/claugentic-dev-harness:audit`)
 

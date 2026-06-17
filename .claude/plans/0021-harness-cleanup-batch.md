@@ -1,6 +1,6 @@
 # 0021 — Harness cleanup batch (de-sediment · distill · flow gaps · hints-file · consumer docs)
 
-- **Status:** Approved (2026-06-17 — batch + audit deltas folded below) — runs after 0020
+- **Status:** Verify SOUND (architect PASS; honesty OVERCLAIMS → 2 should-fixes applied: dead `statusMessage` removed, init readiness line stopped claiming engine-detection → CLEAN) — all gates + 116 pytest + 344 node green. C1 docs + C2 engine-clause + C3/C4/C5 skills+agents + C6 non-adopter note (README, the real surface); **C7 REJECTED** (renderer extraction infeasible — no-imports sandbox, no 2nd consumer). Committing to branch `harness-distillation`.
 - **Resumable from:** batch approval → implement `(C1 ∥ C2) → C3 → C4 → C5`
 - **Blockers:** runs after 0020 Phase 0 lands (the tree is regenerated to standard first; some entries here are subsumed by A3 — noted per slice)
 - **Roadmap item:** Harness distillation effort (sibling of plan 0020)

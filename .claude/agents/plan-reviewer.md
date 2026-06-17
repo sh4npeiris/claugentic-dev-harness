@@ -12,7 +12,7 @@ First read `CLAUDE.md`, `docs/claugentic-WORKFLOW.md`, `docs/claugentic-ARCHITEC
 Evaluate the plan against the **Stage-3 gate**:
 1. **Correct & sound** — the approach actually solves the stated problem; SOLID/patterns are respected; it doesn't fight the codebase's established patterns and conventions. Flag DIP/LSP/ISP/OCP issues.
 2. **Sliced & session-sized** — each slice is finishable by one specialist in a single ≤1M-context session AND lands **vertically complete** (no half-done state, no `TODO`/debt). If any slice is too big or would leave debt, it FAILS — say how to split it.
-3. **No new tech debt** — tests are planned, docs/ARCHITECTURE_TREE updates are listed, no dead code or silenced errors introduced.
+3. **No new tech debt** — tests are planned, architecture-tree updates are listed, no dead code or silenced errors introduced.
 4. **Right path** — full-pipeline vs lightweight was chosen correctly (Stage 0).
 5. **Risks & test strategy** are explicit and adequate (incl. regression/snapshot tests where existing behavior or output could change).
 6. **Over-engineering (YAGNI)** — call out speculative abstraction or scope creep; simpler-that-works beats clever.

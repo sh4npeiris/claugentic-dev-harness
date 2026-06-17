@@ -460,6 +460,8 @@ function buildLensPrompt(moduleName, dirs, excludeSet, depth) {
   return (
     `Audit-scope mode (no diff). Your lens is the standards module: ${modulePath(moduleName)}. ` +
     `Audit the existing code in this scope against that module's dimensions only. ` +
+    `Locate the implementing code via docs/claugentic-ARCHITECTURE_TREE.md (the file index) ` +
+    `instead of reading whole files. ` +
     `Scope (prioritized dirs/packages): ${JSON.stringify(dirs)}. ` +
     `Exclude-set (never read — deps, build output, secrets): ${JSON.stringify(exclude)}. ` +
     `Read at depth: ${depth}. ` +
