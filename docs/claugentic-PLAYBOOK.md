@@ -42,6 +42,8 @@ Three moves make the output worth trusting:
 
 **If the agent starts writing code without asking you product questions first, say "use the workflow"** — it should pause and ask.
 
+**At the start of each session the harness greets you with where-you-are / what's-next** — one derived, advisory line (any work in flight, or the single best next step). It's a suggestion to confirm, never an auto-drive, and it stays silent when there's nothing to pick up.
+
 ### A quick check of one file or a diff
 
 You don't always need a full audit. For a fast read on a single file or a change you're about to keep, two built-in commands give a lightweight once-over: **`/code-review`** (a focused review of the current diff) and **`/simplify`** (an over-engineering / can-this-be-simpler pass). Use them when you just want a second opinion on a small piece — they don't replace `:audit` (the whole-codebase snapshot) or the full workflow, they're the quick-look option.

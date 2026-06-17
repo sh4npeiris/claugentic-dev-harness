@@ -1,7 +1,7 @@
 # 0022 — SessionStart advisor + status surface
 
-- **Status:** Approved (2026-06-17 — batch + audit deltas below) — independent; build after 0020
-- **Resumable from:** batch approval → implement `D1 → D2`
+- **Status:** Implemented (2026-06-17 — D1 + D2 landed in the working tree; all gates + 144 pytest + 344 node green) — awaiting the live SessionStart smoke check (needs a reinstall + restart to confirm `${CLAUDE_PLUGIN_ROOT}` resolves in a hook command)
+- **Resumable from:** D1 + D2 done; remaining = the live smoke check on an installed plugin (init-wiring fallback named if `${CLAUDE_PLUGIN_ROOT}` doesn't resolve)
 - **Blockers:** none (independent of 0020/0021; sequence anywhere after the ruler)
 - **Roadmap item:** Harness distillation effort — mechanism upgrade P6 (SessionStart advisor; the other P6 items deferred to ROADMAP)
 - **References:** `docs/claugentic-ARCHITECTURE_TREE.md` · `docs/claugentic-DECISIONS.md` · diagnostic findings FWD-1/FWD-3/FWD-4 · hooks API confirmed via claude-code-guide (SessionStart + plugin-bundled hooks + `additionalContext`/`systemMessage`)
@@ -61,8 +61,8 @@ Deterministic + hermetic (`tests/test_advisor.py`, tmp_path): fence+plan fixture
 
 ## Decomposition (slices)
 
-- [ ] **D1 — Advisor script.** `scripts/claugentic-advisor.py` — pure `recommend_next(state)` logic + state-derivation from the `docs/claugentic-ROADMAP.md` fences + plans (+ optional adopter-only managed-fence, gracefully skipped when absent) + the SessionStart JSON contract + fail-safe + a minimal manual-run CLI (its consumer is the D2 smoke check + the tests, not a user feature); `tests/test_advisor.py` (hard size-cap + silent-path assertions). Lands complete: a deterministic, tested advisor.
-- [ ] **D2 — Bundle as a SessionStart hook.** Declare the plugin-bundled hook (`hooks/hooks.json` / `plugin.json`, matcher startup+resume, command **`python "${CLAUDE_PLUGIN_ROOT}/scripts/claugentic-advisor.py"`**); tree entries (within the A1 budget); DECISIONS entries (first bundled-hook distribution class · derive-don't-store advisor · rejected per-prompt overhead); PLAYBOOK line. **The advisor is NOT a gate — it must not appear in the DoD gate list** (it advises, doesn't enforce; adding it would be the over-claim the harness forbids). Lands complete: auto-wired on install, **smoke-checked in a real installed-plugin session** proving `${CLAUDE_PLUGIN_ROOT}` resolves (init-wiring fallback named if not). *(Depends on D1.)*
+- [x] **D1 — Advisor script.** `scripts/claugentic-advisor.py` — pure `recommend_next(state)` logic + state-derivation from the `docs/claugentic-ROADMAP.md` fences + plans (+ optional adopter-only managed-fence, gracefully skipped when absent) + the SessionStart JSON contract + fail-safe + a minimal manual-run CLI (its consumer is the D2 smoke check + the tests, not a user feature); `tests/test_advisor.py` (hard size-cap + silent-path assertions). Lands complete: a deterministic, tested advisor.
+- [x] **D2 — Bundle as a SessionStart hook.** Declare the plugin-bundled hook (`hooks/hooks.json` / `plugin.json`, matcher startup+resume, command **`python "${CLAUDE_PLUGIN_ROOT}/scripts/claugentic-advisor.py"`**); tree entries (within the A1 budget); DECISIONS entries (first bundled-hook distribution class · derive-don't-store advisor · rejected per-prompt overhead); PLAYBOOK line. **The advisor is NOT a gate — it must not appear in the DoD gate list** (it advises, doesn't enforce; adding it would be the over-claim the harness forbids). Lands complete: auto-wired on install, **smoke-checked in a real installed-plugin session** proving `${CLAUDE_PLUGIN_ROOT}` resolves (init-wiring fallback named if not). *(Depends on D1.)*
 
 ## In-scope Verify dimensions
 
