@@ -4,7 +4,7 @@ A plain-English guide to working *with* this harness, for a capable non-engineer
 
 ## The one-minute model
 
-Substantial work flows through a pipeline: **Triage → Discuss → Plan → Review-the-plan → Spec → Approve → Implement → Verify → Land → Retrospect** (small changes skip straight to Implement + Verify). The agent runs it; **you steer at three points.** Full version: [`WORKFLOW.md`](WORKFLOW.md).
+Substantial work flows through a pipeline: **Triage → Discuss → Plan → Review-the-plan → Spec → Approve → Implement → Verify → Land → Retrospect** (small changes skip straight to Implement + Verify). The agent runs it; **you steer at three points.** Full version: [`WORKFLOW.md`](claugentic-WORKFLOW.md).
 
 ## Your three leverage points
 
@@ -51,10 +51,10 @@ Once the engineering backlog is written, starting an item is the same go-button 
 
 The choreography you read about above is now **executable scripts** the skills run, not just prose the agent must remember:
 
-- **The pipelines are code.** The audit, the review panel, and the build loop ship as Workflow scripts (`engine/verify.js` · `audit.js` · `qa.js` · `build-item.js`). The honest formula: *the skill invokes the script, and the script then runs the fan-out / cross-model re-check / panel mechanically.* If the Workflow tool isn't available in a session, the skill **says so**, runs the prose path, and tags the run "prose-orchestrated" — never claiming the script guarantees. See [`WORKFLOW.md`](WORKFLOW.md) + the skills. *(These `engine/*.js` scripts live in the **installed plugin** and are run from there via the Workflow tool — they are not files in your repo.)*
+- **The pipelines are code.** The audit, the review panel, and the build loop ship as Workflow scripts (`engine/verify.js` · `audit.js` · `qa.js` · `build-item.js`). The honest formula: *the skill invokes the script, and the script then runs the fan-out / cross-model re-check / panel mechanically.* If the Workflow tool isn't available in a session, the skill **says so**, runs the prose path, and tags the run "prose-orchestrated" — never claiming the script guarantees. See [`WORKFLOW.md`](claugentic-WORKFLOW.md) + the skills. *(These `engine/*.js` scripts live in the **installed plugin** and are run from there via the Workflow tool — they are not files in your repo.)*
 - **Autonomy is a ladder.** Default is **checkpoint** (you approve at the spec). **Build-to-green** (the loop iterates unwatched until gates + acceptance criteria pass, pausing at release) is *earned per-repo* — only with CI + a test baseline + a testable spec. It is **a reduction of unwatched-run risk, never a substitute for the unbuilt deterministic trust-gates.** See `skills/build/SKILL.md`.
-- **The harness can run your app (QA).** It boots the app and drives the spec'd flows in a real browser, checking empty/loading/error states. A QA pass that **couldn't run** says so — never a silent skip. See [`WORKFLOW.md`](WORKFLOW.md) → the QA gate.
-- **A product layer.** A `product-spec` flow rebuilds `docs/PRODUCT_SPEC.md` with testable acceptance criteria; a `product-gap` audit checks intent vs. what's built. See `skills/product/SKILL.md`.
+- **The harness can run your app (QA).** It boots the app and drives the spec'd flows in a real browser, checking empty/loading/error states. A QA pass that **couldn't run** says so — never a silent skip. See [`WORKFLOW.md`](claugentic-WORKFLOW.md) → the QA gate.
+- **A product layer.** A `product-spec` flow rebuilds `docs/claugentic-PRODUCT_SPEC.md` with testable acceptance criteria; a `product-gap` audit checks intent vs. what's built. See `skills/product/SKILL.md`.
 - **A measured harness.** A release-time **drift check** re-runs an audit over a seeded-defect fixture and compares the score to a baseline — a **drift detector, not a quality guarantee**. See [`../eval/BASELINE.md`](../eval/BASELINE.md).
 
 ## When in doubt

@@ -1,7 +1,7 @@
 """Pin the FROZEN acceptance-criteria schema in the product-spec docs.
 
 The acceptance-criteria schema is the contract the product layer writes
-(`docs/PRODUCT_SPEC_TEMPLATE.md`), gap mode pins (`engine/audit.js` →
+(`docs/claugentic-PRODUCT_SPEC_TEMPLATE.md`), gap mode pins (`engine/audit.js` →
 `cellsFromCriteria`), and `engine/qa.js` consumes at runtime. Its field names are FROZEN
 and may never drift. This test reads the **first fenced
 ```json block after the `## Acceptance criteria` heading** and asserts the embedded
@@ -9,8 +9,8 @@ example matches the frozen schema — so the template's example can never silent
 drift from the contract the code enforces.
 
 Two files carry the schema:
-  * `docs/PRODUCT_SPEC_TEMPLATE.md` — the pristine template (always present).
-  * `docs/PRODUCT_SPEC.md` — this repo's own dogfood spec (the worked example,
+  * `docs/claugentic-PRODUCT_SPEC_TEMPLATE.md` — the pristine template (always present).
+  * `docs/claugentic-PRODUCT_SPEC.md` — this repo's own dogfood spec (the worked example,
     produced by the product skill's spec mode). Validated WHEN PRESENT; the test
     skips it cleanly when it does not yet exist, so the gate is green before the
     dogfood spec lands and validates it once it does.
@@ -28,8 +28,8 @@ from pathlib import Path
 import pytest
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-TEMPLATE = REPO_ROOT / "docs" / "PRODUCT_SPEC_TEMPLATE.md"
-SPEC = REPO_ROOT / "docs" / "PRODUCT_SPEC.md"
+TEMPLATE = REPO_ROOT / "docs" / "claugentic-PRODUCT_SPEC_TEMPLATE.md"
+SPEC = REPO_ROOT / "docs" / "claugentic-PRODUCT_SPEC.md"
 
 # The FROZEN schema — field names exact, the single source of truth this test pins.
 FROZEN_KEYS = {"id", "feature", "flow", "expect", "states", "check"}

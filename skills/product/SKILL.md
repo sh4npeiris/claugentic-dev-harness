@@ -1,5 +1,5 @@
 ---
-description: Build or refresh your product spec by conversation, then audit intent-vs-implementation into the backlog. Two modes — spec mode walks you through what the product is supposed to be (who it's for, the promise, each feature's flow and states) and writes docs/PRODUCT_SPEC.md with machine-readable acceptance criteria; gap mode reads your code against that spec, criterion by criterion (static — it does not run the app), and writes the gaps into the same backlog the audit uses, every finding independently re-checked.
+description: Build or refresh your product spec by conversation, then audit intent-vs-implementation into the backlog. Two modes — spec mode walks you through what the product is supposed to be (who it's for, the promise, each feature's flow and states) and writes docs/claugentic-PRODUCT_SPEC.md with machine-readable acceptance criteria; gap mode reads your code against that spec, criterion by criterion (static — it does not run the app), and writes the gaps into the same backlog the audit uses, every finding independently re-checked.
 ---
 
 # /claugentic-dev-harness:product
@@ -26,18 +26,18 @@ The honesty register runs through **both** modes: writing the spec **checks noth
 
 ## Spec mode — build/refresh the product spec by conversation  *(LIVE, conversational)*
 
-A plain-English conversation that ends in `docs/PRODUCT_SPEC.md`: who it's for, the job, the
+A plain-English conversation that ends in `docs/claugentic-PRODUCT_SPEC.md`: who it's for, the job, the
 promise, each feature's flow and states, and a machine-readable acceptance-criteria block. **This
 phase genuinely needs the user — it stays a conversation.**
 
-1. **Locate the template.** Use the local managed copy `docs/PRODUCT_SPEC_TEMPLATE.md` if present;
-   otherwise read `${CLAUDE_PLUGIN_ROOT}/docs/PRODUCT_SPEC_TEMPLATE.md` (the version-stamped plugin
+1. **Locate the template.** Use the local managed copy `docs/claugentic-PRODUCT_SPEC_TEMPLATE.md` if present;
+   otherwise read `${CLAUDE_PLUGIN_ROOT}/docs/claugentic-PRODUCT_SPEC_TEMPLATE.md` (the version-stamped plugin
    install path) and tell the user *"re-run `/claugentic-dev-harness:init` to get your local
    copy."* The template is the section order and the FROZEN criteria schema.
 
-2. **Gather intent — don't invent it.** Read, in this order: an existing `docs/PRODUCT_SPEC.md`
+2. **Gather intent — don't invent it.** Read, in this order: an existing `docs/claugentic-PRODUCT_SPEC.md`
    (this is the **refresh path** — walk the user through what changed, section by section, rather
-   than rewriting from scratch); `docs/PRODUCT.md` (durable product/UX context, if kept); the
+   than rewriting from scratch); `docs/claugentic-PRODUCT.md` (durable product/UX context, if kept); the
    `README`; and the user. The spec is the user's product truth — you surface and structure it,
    you do not decide it.
 
@@ -45,7 +45,7 @@ phase genuinely needs the user — it stays a conversation.**
    no new agents): plain-English opener; surface the user, job-to-be-done, the key flows and their
    loading/empty/error states, and what "good" feels like; **the user owns every product decision;
    never invent scope** (a genuinely-new feature idea goes to the user as a question, not into the
-   spec). The states bar is the standard — **point at** `docs/standards/product-ux.md` →
+   spec). The states bar is the standard — **point at** `docs/claugentic-standards/product-ux.md` →
    *Loading / empty / error states*, don't restate it.
 
 4. **Draft per the template.** Fill **Who it's for · The job-to-be-done · The promise · Features**
@@ -65,10 +65,10 @@ phase genuinely needs the user — it stays a conversation.**
       subagent, allowed under the top-level-agent constraint). Pass it: the **draft spec** + the
       **spec-conversation context** (what the user said that didn't survive structuring) + the
       **rejected-proposals memory** (the `<!-- product-critic:rejected-proposals -->`-fenced list in
-      `docs/PRODUCT_SPEC.md`, when present — so it never re-pitches a decided idea). The critic
+      `docs/claugentic-PRODUCT_SPEC.md`, when present — so it never re-pitches a decided idea). The critic
       **critiques by method** (the forcing functions: second-session walkthrough · pre-mortem ·
       kill-test · tell-a-friend · the **mandatory premise-challenge**) and **points at**
-      `docs/standards/product-ux.md` for conformance — it does not re-audit states/flow-completeness
+      `docs/claugentic-standards/product-ux.md` for conformance — it does not re-audit states/flow-completeness
       (the designer + standard own those). It opens with **what's already strong** and is **licensed
       to return few or no proposals** when the spec is already strong — never filler.
 
@@ -95,7 +95,7 @@ phase genuinely needs the user — it stays a conversation.**
 
    5. **Record the decided proposals — a lightweight, user-owned memory.**
       - **Rejected** proposals → append to the `<!-- product-critic:rejected-proposals -->`-fenced
-        list in `docs/PRODUCT_SPEC.md` (one terse line each — the idea, so the critic recognizes and
+        list in `docs/claugentic-PRODUCT_SPEC.md` (one terse line each — the idea, so the critic recognizes and
         skips it next refresh). The fence lives in the **user-owned** spec, is **never stamped**, and
         co-locates with the spec it concerns; spec mode preserves it (step 7's "preserve any user
         content outside the template's own structure" rule). Create the fence if absent.
@@ -118,7 +118,7 @@ phase genuinely needs the user — it stays a conversation.**
       session: say so plainly and fall back to critique-only** — the critic's benchmark claims are
       then model knowledge, tagged *not verified this run*. **Never claim research that didn't run.**
 
-   8. **A deferred proposal → `docs/ROADMAP.md`, the human-owned area (the standing tangents→ROADMAP
+   8. **A deferred proposal → `docs/claugentic-ROADMAP.md`, the human-owned area (the standing tangents→ROADMAP
       convention).** Land it as a `feature` note **OUTSIDE** the `harness-audit:backlog` fence — that
       fence is **regenerate-don't-accumulate** (the next audit/gap run **wipes** anything inside it),
       so a deferred note inside it would be lost. **Honest pickup:** `build`'s item universe **is**
@@ -134,9 +134,9 @@ phase genuinely needs the user — it stays a conversation.**
    and a pytest pins the frozen field names). Any **adopted** proposal's suggested criterion goes
    through this same validation before it can land.
 
-7. **Write `docs/PRODUCT_SPEC.md`** — **user-owned: NO managed stamp** (`init` never refreshes it).
+7. **Write `docs/claugentic-PRODUCT_SPEC.md`** — **user-owned: NO managed stamp** (`init` never refreshes it).
    Preserve any user content outside the template's own structure; never clobber sections the user
-   added. Add its `docs/ARCHITECTURE_TREE.md` entry.
+   added. Add its `docs/claugentic-ARCHITECTURE_TREE.md` entry.
 
 **Register:** spec mode produced a *contract*. It **checked nothing** — checking is gap mode
 (static, below) and the QA workflow (`qa.js`, runtime). Say so.
@@ -149,7 +149,7 @@ Read the **code** against the spec, criterion by criterion, and write the gaps i
 backlog fence the audit uses**. **Static code reading — gap mode does NOT run the app. Runtime
 checking is the QA workflow's job (`qa.js`); say so.**
 
-1. **Precondition — a schema-valid spec must exist.** Require `docs/PRODUCT_SPEC.md` with a
+1. **Precondition — a schema-valid spec must exist.** Require `docs/claugentic-PRODUCT_SPEC.md` with a
    parseable, schema-valid acceptance-criteria block. **If it's absent or invalid, stop honestly:**
    *"No product spec to audit against — run `/claugentic-dev-harness:product` spec mode first."*
    **Never audit against guessed intent.**
@@ -163,7 +163,7 @@ checking is the QA workflow's job (`qa.js`); say so.**
    - **`args`**:
      - `criteria` — the parsed acceptance-criteria array (the script enumerates **one cell per
        criterion**, keyed by its id; each lens call gets the criterion object + the instruction to
-       locate the implementation via `docs/ARCHITECTURE_TREE.md`, **read it statically**, and report
+       locate the implementation via `docs/claugentic-ARCHITECTURE_TREE.md`, **read it statically**, and report
        missing / partial / diverging behavior per flow step, expectation, and required state, in the
        standard lens finding shape).
      - `excludeSet` — deps / build output / secrets (secrets never read).

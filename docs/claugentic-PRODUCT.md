@@ -12,7 +12,7 @@ A **capable non-engineer** (and sometimes an engineer) driving an AI dev team in
 English. They make **product calls and approvals**, not code. They cannot read a diff to
 check the work, so the surface must **earn trust honestly** — never make them feel they've
 lost the thread, and never claim more than was actually checked. Full driver framing:
-[`PLAYBOOK.md`](PLAYBOOK.md).
+[`PLAYBOOK.md`](claugentic-PLAYBOOK.md).
 
 ## The design language (every surface inherits these)
 
@@ -38,7 +38,7 @@ to be (who · job · promise · per-feature flow/states/what-good · machine-rea
 step-level mechanics; this is the product-level note.
 
 - **Capture → conform → *elevate*.** The designer (`product-designer`) **surfaces** the user's
-  truth and the standard (`docs/standards/product-ux.md`) governs **conformance**; spec mode now
+  truth and the standard (`docs/claugentic-standards/product-ux.md`) governs **conformance**; spec mode now
   adds an **Excellence pass** — the `product-critic` agent (the SRP **elevate** counterpart to the
   designer) **critiques the draft by method** (forcing functions, not a dimension checklist) and
   returns a focused set of **proposals the user decides on** (adopt/adapt/reject/defer). It
@@ -49,8 +49,8 @@ step-level mechanics; this is the product-level note.
   tagged not-verified.
 - **The rejected-proposals memory is user-owned and lives in the spec.** Rejected proposals (and a
   declined-pass marker) are recorded in a `<!-- product-critic:rejected-proposals -->`-fenced block
-  in `docs/PRODUCT_SPEC.md` — the user-owned, never-stamped spec — so the critic reads it next
-  refresh and never re-pitches a decided idea. A **deferred** proposal lands in `docs/ROADMAP.md`'s
+  in `docs/claugentic-PRODUCT_SPEC.md` — the user-owned, never-stamped spec — so the critic reads it next
+  refresh and never re-pitches a decided idea. A **deferred** proposal lands in `docs/claugentic-ROADMAP.md`'s
   human-owned area (outside the regenerate-don't-accumulate audit fence); pickup is not automatic.
 
 ---
@@ -58,7 +58,7 @@ step-level mechanics; this is the product-level note.
 # Build mode (`/claugentic-dev-harness:build`)
 
 The flagship Stage-1 product brief. Build mode is a **thin orchestration layer** over the
-existing [`WORKFLOW.md`](WORKFLOW.md) pipeline and the [`audit`](../skills/audit/SKILL.md)
+existing [`WORKFLOW.md`](claugentic-WORKFLOW.md) pipeline and the [`audit`](../skills/audit/SKILL.md)
 skill — it does not invent process, it **drives** it. This section is product-level (flows ·
 states · what-good-feels-like · honesty); the skill file owns the step-level mechanics.
 
@@ -216,5 +216,5 @@ restated here:
 - **The re-audit verification tags** — carried through from the audit unchanged
   (`skills/audit/SKILL.md` → verification tags).
 
-The cross-model wiring and the same-model tag live in **`docs/WORKFLOW.md` → Principles**; the
-[`DECISIONS.md`](DECISIONS.md) honesty section is the standing rule.
+The cross-model wiring and the same-model tag live in **`docs/claugentic-WORKFLOW.md` → Principles**; the
+[`DECISIONS.md`](claugentic-DECISIONS.md) honesty section is the standing rule.

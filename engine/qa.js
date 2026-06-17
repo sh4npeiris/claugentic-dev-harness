@@ -11,7 +11,7 @@
 // Distribution: read-from-install-path. Adopters invoke this from the version-stamped plugin
 // install dir (`${CLAUDE_PLUGIN_ROOT}/engine/qa.js`); this repo dogfoods it via the
 // repo-local `./engine/qa.js` (the working tree IS the plugin source). Never copied into an
-// adopter repo (no managed-stamp/refresh surface) — see docs/DECISIONS.md → Plugin identity & distribution.
+// adopter repo (no managed-stamp/refresh surface) — see docs/claugentic-DECISIONS.md → Plugin identity & distribution.
 //
 // Workflow-script constraints (the tool runs this inside its sandbox): NO imports, NO
 // filesystem APIs, NO wall-clock / randomness (the orchestrator stamps times AFTER the run).
@@ -125,7 +125,7 @@ const NO_RUN_COMMAND_REASON =
 // contract). Defined once; validateCriteria rejects anything else, naming the offending ids.
 const CHECK_KINDS = ["e2e", "api", "manual"];
 
-// The product-ux state-bar checks a criterion may request (per docs/standards/product-ux.md →
+// The product-ux state-bar checks a criterion may request (per docs/claugentic-standards/product-ux.md →
 // "Loading / empty / error states"). Subset of these three; an empty array = no state checks.
 // FROZEN with the schema. validateCriteria rejects any other value.
 const STATE_KINDS = ["empty", "loading", "error"];
@@ -853,7 +853,7 @@ function verifierPrompt(finding) {
     `Screenshots saved this run: ${JSON.stringify(shots)}\n` +
     `Finder's confidence label: ${finding.confidence}\n\n` +
     `This is a RUNTIME observation, not a code line-number claim — locate the implicated handler/template/route ` +
-    `yourself (use docs/ARCHITECTURE_TREE.md as the index), READ it, and decide: is the observed UX gap genuinely ` +
+    `yourself (use docs/claugentic-ARCHITECTURE_TREE.md as the index), READ it, and decide: is the observed UX gap genuinely ` +
     `in the code (a missing empty/error state, a broken POST route), or did the driver misread a state that is ` +
     `actually handled? Return verdict (Verified|Refuted|Unconfirmed), evidence (the proof/disproof with file:line), ` +
     `and one plain-English line.`

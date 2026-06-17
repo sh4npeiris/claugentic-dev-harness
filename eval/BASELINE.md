@@ -50,7 +50,7 @@ baseline entry records whether any contamination was declared.
 5. **Append the entry** to the table below (newest first). **The human stamps the run date
    after the run — no date/time originates inside the script** (the audit script is
    clock-free; the orchestrator stamps the `{{DATE}}` placeholder). Then **revert the
-   audit's fence write** in `docs/ROADMAP.md` — the eval backlog never lands there.
+   audit's fence write** in `docs/claugentic-ROADMAP.md` — the eval backlog never lands there.
 6. **Record the contamination check**: did the canary appear in any output? (Expected: no.)
 
 **One calibration allowance, recorded honestly.** If the first run's recall is `< 5/10`,

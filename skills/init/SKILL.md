@@ -1,5 +1,5 @@
 ---
-description: Scaffold the claugentic-dev-harness into the current repo — upsert the managed harness set (standards catalog, workflow, playbook, tree-check) to the installed plugin version, generate docs/ARCHITECTURE_TREE.md, set the tree-check globs, wire the hook, declares the plugin for teammates (seeds the harness's plugin self-reference into the committed .claude/settings.json so a cloned adopter repo prompts teammates to install it), git-init if needed, seed ROADMAP/DECISIONS, refresh the CLAUDE.md harness fence, and compose with existing lint/type-check/test tooling. Re-running converges the repo to the installed version and never clobbers user content; a true no-op only when already at the installed version.
+description: Scaffold the claugentic-dev-harness into the current repo — upsert the managed harness set (standards catalog, workflow, playbook, tree-check) to the installed plugin version, generate docs/claugentic-ARCHITECTURE_TREE.md, set the tree-check globs, wire the hook, declares the plugin for teammates (seeds the harness's plugin self-reference into the committed .claude/settings.json so a cloned adopter repo prompts teammates to install it), git-init if needed, seed ROADMAP/DECISIONS, refresh the CLAUDE.md harness fence, and compose with existing lint/type-check/test tooling. Re-running converges the repo to the installed version and never clobbers user content; a true no-op only when already at the installed version.
 ---
 
 # /claugentic-dev-harness:init
@@ -106,12 +106,12 @@ line** with the managed-stamp (convention 1). The managed set is exactly:
 
 | Source path | What it is |
 |---|---|
-| `docs/standards/` | the **11 authored modules** + `_TEMPLATE.md` + `README.md` (the whole catalog directory) |
-| `docs/WORKFLOW.md` | the staged development workflow (process source of truth) |
-| `docs/ENGINEERING_STANDARDS.md` | the thin standards entry point |
-| `docs/PLAYBOOK.md` | the plain-English guide for the human driving the harness |
-| `docs/PRODUCT_SPEC_TEMPLATE.md` | the product-spec contract template (pure verbatim copy; the filled `docs/PRODUCT_SPEC.md` is user-owned, never managed) |
-| `scripts/check_architecture_tree.py` | the deterministic architecture-tree gate |
+| `docs/claugentic-standards/` | the **11 authored modules** + `_TEMPLATE.md` + `README.md` (the whole catalog directory) |
+| `docs/claugentic-WORKFLOW.md` | the staged development workflow (process source of truth) |
+| `docs/claugentic-ENGINEERING_STANDARDS.md` | the thin standards entry point |
+| `docs/claugentic-PLAYBOOK.md` | the plain-English guide for the human driving the harness |
+| `docs/claugentic-PRODUCT_SPEC_TEMPLATE.md` | the product-spec contract template (pure verbatim copy; the filled `docs/claugentic-PRODUCT_SPEC.md` is user-owned, never managed) |
+| `scripts/claugentic-check_architecture_tree.py` | the deterministic architecture-tree gate |
 
 **Per file, decide one of four verdicts (this is `init`'s judgment, rule-bound — there is
 no oracle):**
@@ -160,7 +160,7 @@ stop-if-ambiguous rule **is** the never-clobber safety net here.
 **The body compare (the off-by-one + CRLF traps — get this exactly right):**
 - **Asymmetric, unambiguous:** `target body = target minus line 1` (the stamp); `source
   body = the pristine source as-is` (sources carry **no** stamp). For
-  `check_architecture_tree.py`, strip **only line 1** (the stamp) — the
+  `claugentic-check_architecture_tree.py`, strip **only line 1** (the stamp) — the
   `#!/usr/bin/env python3` shebang on line 2 **stays in the body** (it is part of the
   pristine source). Stripping the shebang too would misalign every Python compare by one
   line and false-REFRESH it.
@@ -176,9 +176,9 @@ stop-if-ambiguous rule **is** the never-clobber safety net here.
   format, so it reads `REFRESH` (a one-time stamp-format migration, above), not `CURRENT`.
   After that migration the file is in the current full form and re-reads `CURRENT`.
 
-**The one hybrid managed file — `check_architecture_tree.py`'s `INCLUDE_GLOBS` (the named
+**The one hybrid managed file — `claugentic-check_architecture_tree.py`'s `INCLUDE_GLOBS` (the named
 exception to "managed files carry zero user content").** Four of the five managed files are
-pure verbatim copies, but `scripts/check_architecture_tree.py` carries **one per-repo
+pure verbatim copies, but `scripts/claugentic-check_architecture_tree.py` carries **one per-repo
 region**: its `INCLUDE_GLOBS = [ … ]` assignment (the **only** per-repo knob — `init`
 itself writes it per-adopter in step 5a, re-derives it on glob-drift, and **invites the
 user to refine it**). A correctly-configured adopter's globs therefore differ from this
@@ -186,7 +186,7 @@ repo's source value, so without a carve-out the file would **always** read REFRE
 overwrite would **reset their globs to this repo's value** — a never-clobber violation plus
 a broken tree-check for them. Treat it as a **hybrid, exactly like the `CLAUDE.md` fence**
 (protect the per-repo region, refresh the managed rest):
-- **The body compare for `check_architecture_tree.py` excludes the `INCLUDE_GLOBS = [ … ]`
+- **The body compare for `claugentic-check_architecture_tree.py` excludes the `INCLUDE_GLOBS = [ … ]`
   assignment** (from the line beginning `INCLUDE_GLOBS =` through its closing `]`) on
   **both** sides. So an adopter with custom globs reads **CURRENT** when the rest of the
   managed body matches — no false REFRESH.
@@ -202,7 +202,7 @@ a broken tree-check for them. Treat it as a **hybrid, exactly like the `CLAUDE.m
 
 **Per-file upsert only — `init` never deletes.** Each managed-set path is created,
 refreshed, or left alone independently; nothing is removed. A user-added file under
-`docs/standards/` (e.g. `docs/standards/my-custom.md`) is **left untouched** (it is not in
+`docs/claugentic-standards/` (e.g. `docs/claugentic-standards/my-custom.md`) is **left untouched** (it is not in
 the managed set). A managed module the **installed version no longer ships** is **left in
 place and reported**, never deleted (this is upsert, not `rsync --delete`).
 
@@ -221,7 +221,7 @@ Rules:
   is in an old trailing-clause format** still reads `REFRESH`: the write is a **one-time
   format normalization** of line 1 to the current full form (the body is rewritten from
   pristine source, so the result is byte-identical to a fresh copy — **except the hybrid
-  `check_architecture_tree.py`, whose REFRESH still re-injects the adopter's `INCLUDE_GLOBS`
+  `claugentic-check_architecture_tree.py`, whose REFRESH still re-injects the adopter's `INCLUDE_GLOBS`
   per the carve-out above**, so it is byte-identical apart from the preserved globs). This is **distinct
   from the no-RESTAMP rule**: no-RESTAMP is about *not bumping the version semver* of a
   byte-identical, **already-current-format** file; stamp-format migration is about
@@ -233,11 +233,11 @@ Rules:
   harness source*, so it touches none of those — but the same exclude discipline governs
   the tree generation in step 4.
 
-### 4. Provision `docs/ARCHITECTURE_TREE.md` (scenario-based) + decide the tree-gate
+### 4. Provision `docs/claugentic-ARCHITECTURE_TREE.md` (scenario-based) + decide the tree-gate
 
 The tree action is **scenario-based** — `init` detects the repo's situation and acts. The
 scenario is fixed by **two reused signals** (DRY — no new detector): (1) the presence of
-`docs/ARCHITECTURE_TREE.md`, and (2) the *Application source present* predicate defined in
+`docs/claugentic-ARCHITECTURE_TREE.md`, and (2) the *Application source present* predicate defined in
 `/claugentic-dev-harness:audit` Phase 1 (the same detection step 5a reuses). The decision
 made here — **which globs, whether to build a skeleton, and whether the tree-gate is on or
 off** — is the input step 5b wires the hooks against (step 5c also depends on it).
@@ -277,7 +277,7 @@ without per-file content reads** (the whole point: the *path list* is a millisec
 `git ls-files`; the expense was the descriptions, which the skeleton skips):
   1. Step 5a has already set `INCLUDE_GLOBS` in the **copied** script to the real globs.
   2. Derive the file list from **`git ls-files`** filtered by those globs — exactly what the
-     copied `check_architecture_tree.py`'s `in_scope_files()` computes (tracked + staged +
+     copied `claugentic-check_architecture_tree.py`'s `in_scope_files()` computes (tracked + staged +
      untracked-not-ignored, minus exclusions). Honoring `.gitignore` via git excludes
      deps/build/generated trees for free.
   3. Write the skeleton: a short intro, then **one `- \`path\`` line per in-scope file**,
@@ -287,7 +287,7 @@ without per-file content reads** (the whole point: the *path list* is a millisec
      change its role" convention — never gate-checked).
   4. **CRITICAL — format guard (the regression this slice exists to fix):** the skeleton uses
      **markdown headings + `- \`path\`` lines and NEVER ` ``` `-fenced code blocks.** A fence
-     is stripped by `_strip_fenced_blocks` (`scripts/check_architecture_tree.py:129-150`)
+     is stripped by `_strip_fenced_blocks` (`scripts/claugentic-check_architecture_tree.py:129-150`)
      and would desync the presence-matching pairing — the exact bug that read 6 neesh trees
      as 0% coverage. Never emit an ASCII directory diagram; emit backtick-prose lines.
   5. **Run the copied gate and reconcile to green** — the **gate is the oracle.** Missing
@@ -295,9 +295,9 @@ without per-file content reads** (the whole point: the *path list* is a millisec
      path, so it satisfies presence from day 1 → the blocking `Stop` never false-trips.
 
 **The mature-with-tree prompt (two options — non-destructive).** When `init` finds an
-existing `docs/ARCHITECTURE_TREE.md` and there is no honored recorded choice, it **pauses and
+existing `docs/claugentic-ARCHITECTURE_TREE.md` and there is no honored recorded choice, it **pauses and
 prompts** (AskUserQuestion) with plain-English context — *"You have a
-`docs/ARCHITECTURE_TREE.md`. The harness tree-gate reads a backtick-prose format and can't
+`docs/claugentic-ARCHITECTURE_TREE.md`. The harness tree-gate reads a backtick-prose format and can't
 mechanically enforce a fenced ASCII diagram. How do you want to proceed?"*:
   - **Replace with a harness skeleton** → behave as mature-no-tree (step 5a → real globs →
     build the skeleton → reconcile), **overwriting the existing tree** → **gate ON** (step 5b
@@ -354,7 +354,7 @@ There is **no third "Skip"** option — it was mechanically identical to Keep-mi
 
 ### 5. Set the tree-check globs + wire the hook (conditional on step 4's gate decision)
 
-**(a) Set `INCLUDE_GLOBS` in the *copied* `check_architecture_tree.py`.**
+**(a) Set `INCLUDE_GLOBS` in the *copied* `claugentic-check_architecture_tree.py`.**
 `INCLUDE_GLOBS` is the **only** per-repo knob in the script — the staleness check derives
 its valid extensions from it (`EXTS`), so there is no second regex to keep in sync.
 
@@ -375,7 +375,7 @@ gate silently turns back on against the locked choice). Set it (for the running 
 - **Unmappable ecosystem?** Emit the **dominant source *extensions*** under the main source
   dir as extension globs (e.g. `:(glob)src/**/*.rb`, `:(glob)src/**/*.erb`) — never a bare
   directory glob — and **report** "globs set conservatively for an unrecognized layout;
-  refine `INCLUDE_GLOBS` in `scripts/check_architecture_tree.py` if needed." Never guess a
+  refine `INCLUDE_GLOBS` in `scripts/claugentic-check_architecture_tree.py` if needed." Never guess a
   layout you can't see — broaden (more extension globs) + flag instead.
 - **No application source yet?** When the *Application source present* predicate (defined in
   `/claugentic-dev-harness:audit` Phase 1 — the same detection above, the single source of
@@ -414,8 +414,8 @@ free of both tree hooks; the tree stays model-upheld via the CLAUDE.md authority
 
   | array | matcher | command |
   |---|---|---|
-  | `hooks.PostToolUse` | `Write` | `python "${CLAUDE_PROJECT_DIR}/scripts/check_architecture_tree.py" --hook-write` |
-  | `hooks.Stop` | *(none)* | `python "${CLAUDE_PROJECT_DIR}/scripts/check_architecture_tree.py" --hook` |
+  | `hooks.PostToolUse` | `Write` | `python "${CLAUDE_PROJECT_DIR}/scripts/claugentic-check_architecture_tree.py" --hook-write` |
+  | `hooks.Stop` | *(none)* | `python "${CLAUDE_PROJECT_DIR}/scripts/claugentic-check_architecture_tree.py" --hook` |
 
 - **Gate OFF (Keep-mine-gate-off) →** wire **neither** hook. Do not add a `Stop` or
   `PostToolUse(Write)` tree entry. (Any **pre-existing** harness tree hook from an earlier
@@ -425,7 +425,7 @@ free of both tree hooks; the tree stays model-upheld via the CLAUDE.md authority
 - Write the **`${CLAUDE_PROJECT_DIR}`-rooted** command (cwd-independent) — **not** the bare
   relative path this source repo uses. Use the **interpreter detected in step 1**
   (`python` / `python3` / `py`) as the leading token.
-- **Idempotency key:** a hook whose `command` **contains `check_architecture_tree.py`** is
+- **Idempotency key:** a hook whose `command` **contains `claugentic-check_architecture_tree.py`** is
   "already present." When the gate is ON: if a `PostToolUse(Write)` entry and a `Stop` entry
   both already match, **skip** (don't append a duplicate) and report "hook already present."
   This makes a re-run a no-op on this file (skip-if-present, keyed on the substring —
@@ -502,19 +502,19 @@ existing one is never rewritten — see below):
 **What goes in the managed fence** (`<!-- harness:managed:start -->…:end`) — **stable, no
 volatile content** so a re-write is byte-identical:
 - **Pointers to the local managed files** the agents read (the *same paths*, now local):
-  `docs/standards/README.md`, `docs/WORKFLOW.md`, `docs/ENGINEERING_STANDARDS.md`,
-  `docs/ARCHITECTURE_TREE.md`, `docs/DECISIONS.md`, `docs/ROADMAP.md`, `docs/PLAYBOOK.md`.
+  `docs/claugentic-standards/README.md`, `docs/claugentic-WORKFLOW.md`, `docs/claugentic-ENGINEERING_STANDARDS.md`,
+  `docs/claugentic-ARCHITECTURE_TREE.md`, `docs/claugentic-DECISIONS.md`, `docs/claugentic-ROADMAP.md`, `docs/claugentic-PLAYBOOK.md`.
 - The **engineering principles** (SOLID > DRY > KISS > YAGNI; validate at boundaries;
   fail loudly; configurable over hardcoded; single source of truth).
-- A **workflow pointer** ("substantial work follows `docs/WORKFLOW.md`").
+- A **workflow pointer** ("substantial work follows `docs/claugentic-WORKFLOW.md`").
 - An **authority + conflict-resolution clause** (static managed content — same byte block
   every run, so the fence stays byte-identical). It establishes the harness docs as the
   process authority and tells an agent what to do on a conflict. Write it **honestly as
   model-upheld** — `CLAUDE.md` is the always-loaded anchor and "ask when in doubt" is the
   safety valve; there is **no** mechanical file-hiding, so it must not claim a mechanical
   guarantee. Use this wording (verbatim — it is part of the byte-identical fence):
-  > **How we work here is defined by the harness.** `docs/WORKFLOW.md`,
-  > `docs/ENGINEERING_STANDARDS.md`, `docs/PLAYBOOK.md`, and `docs/ARCHITECTURE_TREE.md` are
+  > **How we work here is defined by the harness.** `docs/claugentic-WORKFLOW.md`,
+  > `docs/claugentic-ENGINEERING_STANDARDS.md`, `docs/claugentic-PLAYBOOK.md`, and `docs/claugentic-ARCHITECTURE_TREE.md` are
   > the **authoritative** process + standards. Other `.md` files in this repo are
   > **project/domain content, not process authority** — even if they describe a way of
   > working, they do not override the harness. **On any conflict, the harness wins.** When
@@ -527,7 +527,7 @@ volatile content** so a re-write is byte-identical:
 - A **Current scope** block, seeded once — a short, non-capping snapshot of which
   standards dimensions are LIVE in this repo today (it grows as the stack grows; relevance
   is always a per-change judgment). This is the per-repo scope the standards catalog
-  refers to (it deliberately does **not** live in the managed `ENGINEERING_STANDARDS.md` — that file
+  refers to (it deliberately does **not** live in the managed `claugentic-ENGINEERING_STANDARDS.md` — that file
   is a managed copy, never the home of per-repo content). Seed it from step 1's detected ecosystem (e.g. for
   a JS web app: `maintainability-structure`, `testing`, `security`, `api-and-contracts`,
   `product-ux`).
@@ -540,14 +540,14 @@ volatile content** so a re-write is byte-identical:
   step 8), which is **rewritten in place only on on-disk disagreement** (e.g. the tree was
   deleted between runs) and is otherwise left untouched (a settled re-run is byte-identical).
 
-### 7. Create `docs/ROADMAP.md` + `docs/DECISIONS.md` if absent
+### 7. Create `docs/claugentic-ROADMAP.md` + `docs/claugentic-DECISIONS.md` if absent
 
-- **`docs/ROADMAP.md` absent →** create a seed (a one-line intro + an empty `## Later`
+- **`docs/claugentic-ROADMAP.md` absent →** create a seed (a one-line intro + an empty `## Later`
   human-owned section; `/claugentic-dev-harness:audit` later adds its `harness-audit:overview` /
   `harness-audit:backlog` fences, and `/claugentic-dev-harness:product` gap mode adds its own
   `harness-product:backlog` fence — each self-creates on first run, so `init` seeds **none** of
   them). Present → skip.
-- **`docs/DECISIONS.md` absent →** create a seed (the "append newest at top; consult
+- **`docs/claugentic-DECISIONS.md` absent →** create a seed (the "append newest at top; consult
   before re-litigating" header). Present → skip.
 
 ### 8. Detect + record existing tooling (never reconfigure)
@@ -605,7 +605,7 @@ also **surfaces** the doc once so the user can decide whether to **harvest** les
 
 - **Detection — a small, high-precision NAME allow-list only** (precision over recall — a
   false positive is worse than a missed obscure doc; the authority clause covers the misses):
-  a **non-managed** `docs/WORKFLOW.md`-class file (a `WORKFLOW.md` that is NOT a genuine
+  a **non-managed** `docs/claugentic-WORKFLOW.md`-class file (a `WORKFLOW.md` that is NOT a genuine
   harness managed copy per the step-3 predicate — e.g. one at repo root or carrying no
   managed stamp), `.cursorrules`, `AGENTS.md`, `.github/copilot-instructions.md` (or a
   root `copilot-instructions.md`), and a `SUITE_HARNESS`-style way-of-work doc (e.g.
@@ -619,7 +619,7 @@ also **surfaces** the doc once so the user can decide whether to **harvest** les
   it into the harness** (a quick scan, then I leave the file in place), or **leave it as-is**
   (the authority clause keeps agents on the harness)?"*
   - **Fold in (harvest)** → scan `<X>` and surface anything worth promoting into the harness
-    (a `docs/ROADMAP.md` item, a `DECISIONS.md` note, or a suggested standards addition —
+    (a `docs/claugentic-ROADMAP.md` item, a `docs/claugentic-DECISIONS.md` note, or a suggested standards addition —
     **propose**, do not silently rewrite managed files); **leave `<X>` in place**.
   - **Leave it** → do nothing to the file; the authority clause defuses it.
   - **NEVER delete `<X>` (or any user file), ever** — non-destructive is absolute.
@@ -657,17 +657,17 @@ never claim a refresh that didn't happen):**
 
 **The architecture-tree branch of the honesty register** — name the tree action plainly,
 branched on step 4's outcome (each is honest about what was created/overwritten/left):
-- **Fresh / minimal tree →** *"I created a starter code map (`docs/ARCHITECTURE_TREE.md`) —
+- **Fresh / minimal tree →** *"I created a starter code map (`docs/claugentic-ARCHITECTURE_TREE.md`) —
   it fills in as you add code — the harness nudges to keep it current."*
-- **Mature-no-tree skeleton →** *"I created a code map (`docs/ARCHITECTURE_TREE.md`) listing
+- **Mature-no-tree skeleton →** *"I created a code map (`docs/claugentic-ARCHITECTURE_TREE.md`) listing
   every source file from `git ls-files` — descriptions stay thin and improve as the code is
   touched. Nothing of yours was overwritten (you had no tree)."*
 - **Replace (mature-with-tree, confirmed) — the one user-file overwrite, name it loudly:**
-  *"Replaced your `docs/ARCHITECTURE_TREE.md` with a harness skeleton — your previous tree is
+  *"Replaced your `docs/claugentic-ARCHITECTURE_TREE.md` with a harness skeleton — your previous tree is
   in git history (an uncommitted tree is unrecoverable)."* This is the **only** path in
   `init` that overwrites a user-owned file, and it happened **only** because you explicitly
   chose Replace (same recoverable-from-git-only caveat class as the Refreshed group above).
-- **Keep-mine-gate-off →** *"I left your `docs/ARCHITECTURE_TREE.md` untouched and turned the
+- **Keep-mine-gate-off →** *"I left your `docs/claugentic-ARCHITECTURE_TREE.md` untouched and turned the
   tree-gate OFF for this repo — no blocking check on your tree (it stays model-upheld via the
   harness instructions in `CLAUDE.md`). To switch to the harness format later, delete the
   tree and re-run `init`."*
@@ -677,11 +677,11 @@ needed (a skill **cannot** restart a session; don't pretend otherwise):
 - **When the tree-gate is ON:** the **architecture-tree hook is enforcing now** —
   `.claude/settings.json` is hot-reloaded by Claude Code's file-watcher the moment `init`
   writes it; the hook needs no restart. **When the tree-gate is OFF (Keep-mine-gate-off):**
-  say so plainly — *no* tree hook was wired; run `python scripts/check_architecture_tree.py`
+  say so plainly — *no* tree hook was wired; run `python scripts/claugentic-check_architecture_tree.py`
   manually only if you ever want a one-off check (it would flag a non-backtick tree, which is
   why the gate is off).
 - **You (the agent) have adopted the harness workflow for the rest of this session** — you just
-  scaffolded it and follow `docs/WORKFLOW.md` from here, so work continues immediately.
+  scaffolded it and follow `docs/claugentic-WORKFLOW.md` from here, so work continues immediately.
 - **Suggest `/clear` or `/compact`** (quick — not a whole new chat) for the cleanest standing
   setup: that's what loads the new `CLAUDE.md` as cached context (it's read once at session start
   and a skill can't force a re-read). Recommend it before a big `audit` run (clean context);
@@ -700,7 +700,7 @@ step 5:
   `/claugentic-dev-harness:audit` until there's code to audit."*
 
 Then emit the clear summary, grouped:
-- **Created** — files written from scratch (e.g. `ARCHITECTURE_TREE.md`, `ROADMAP.md`) +
+- **Created** — files written from scratch (e.g. `claugentic-ARCHITECTURE_TREE.md`, `claugentic-ROADMAP.md`) +
   the managed files that were absent and copied + stamped. For the tree, name **which mode**
   produced it: minimal (fresh), cheap-complete skeleton (mature-no-tree), or
   **replaced-by-skeleton** (mature-with-tree → Replace — the user-file overwrite above); or
@@ -750,7 +750,7 @@ At a fixed installed version it holds because:
   already exists (create-if-absent → skipped). On-disk state wins (and the line is rewritten to
   match) only when it diverges (the user deleted the tree), which is not the byte-identical
   re-run case.
-- The **settings.json** merge is keyed on a `command` containing `check_architecture_tree.py`
+- The **settings.json** merge is keyed on a `command` containing `claugentic-check_architecture_tree.py`
   (present → skip; never a duplicate append). **Gate-off wires neither hook, so there is
   nothing to append on a re-run** (the recorded `keep-gate-off` suppresses re-wiring).
 - The **CLAUDE.md** fence is refreshed inside the markers from a template with **no volatile
@@ -767,15 +767,15 @@ dirties the repo, an idempotency guard is missing — that is a bug, not expecte
 
 - It does **not** install or reconfigure your linters/test runner — it **detects and
   records** them (step 8) so the workflow composes with them.
-- It does **not** refresh your **user-owned** files — `docs/ARCHITECTURE_TREE.md`,
-  `docs/ROADMAP.md`, and `docs/DECISIONS.md` are seeded create-if-absent and then left to
+- It does **not** refresh your **user-owned** files — `docs/claugentic-ARCHITECTURE_TREE.md`,
+  `docs/claugentic-ROADMAP.md`, and `docs/claugentic-DECISIONS.md` are seeded create-if-absent and then left to
   you (they carry your content, not managed content).
 - It does **not** 3-way-merge a user-edited **managed** file — managed files are marked
   *do not edit* and carry no user content by contract (sole exception: the
-  `check_architecture_tree.py` `INCLUDE_GLOBS` knob, preserved per step 3); on a genuine
+  `claugentic-check_architecture_tree.py` `INCLUDE_GLOBS` knob, preserved per step 3); on a genuine
   drift the installed version wins (reported by path) and **git is the review/recovery
   net** for content you committed (an uncommitted edit isn't recoverable — see the roadmap).
 - It does **not** reconcile the `settings.json` hook **command string** if its format
-  changes between versions — the hook is keyed only on the `check_architecture_tree.py`
+  changes between versions — the hook is keyed only on the `claugentic-check_architecture_tree.py`
   substring (out of scope; tracked on the roadmap).
 - It does **not** audit your code or write a backlog — that is **`/claugentic-dev-harness:audit`**.

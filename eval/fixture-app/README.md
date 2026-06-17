@@ -46,7 +46,7 @@ pip install -r eval/fixture-app/requirements.txt
 
 This fixture carries two **permanent, intentional UX defects** in `static/index.html`. They are the
 targets the Slice-4b flow-driving run is supposed to **catch** — fixing them would silently disarm
-the run designed to exercise whether `engine/qa.js`'s driver+verifier surface them (model-upheld, not a guaranteed catch). Each maps to a named `docs/standards/product-ux.md`
+the run designed to exercise whether `engine/qa.js`'s driver+verifier surface them (model-upheld, not a guaranteed catch). Each maps to a named `docs/claugentic-standards/product-ux.md`
 dimension.
 
 | defect | issue class | where | product-ux dimension |

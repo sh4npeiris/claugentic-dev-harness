@@ -4,7 +4,7 @@
 // plugin install dir (`${CLAUDE_PLUGIN_ROOT}/engine/verify.js`); this repo dogfoods it
 // via the repo-local `./engine/verify.js` (the working tree IS the plugin source).
 // Never copied into an adopter repo (no managed-stamp/refresh surface) — see
-// docs/DECISIONS.md → Plugin identity & distribution.
+// docs/claugentic-DECISIONS.md → Plugin identity & distribution.
 //
 // Workflow-script constraints (the tool runs this inside its sandbox): NO imports, NO
 // filesystem APIs, NO wall-clock / randomness (the orchestrator stamps times after the
@@ -53,7 +53,7 @@ const KNOWN_FAMILIES = ["fable", "opus", "sonnet", "haiku"];
 
 // The 11 standards-catalog slugs. The script can't read the filesystem, so this literal is
 // the source of truth here — and tests/workflows/verify.test.mjs pins it set-equal to the
-// real docs/standards/*.md basenames (read via node:fs), killing list drift mechanically.
+// real docs/claugentic-standards/*.md basenames (read via node:fs), killing list drift mechanically.
 const KNOWN_MODULES = [
   "api-and-contracts",
   "data-and-persistence",
@@ -88,7 +88,7 @@ function validateArgs(args) {
   } else {
     for (const dim of args.dimensions) {
       if (!KNOWN_MODULES.includes(dim)) {
-        errors.push(`unknown dimension '${dim}' — not a docs/standards/ module slug`);
+        errors.push(`unknown dimension '${dim}' — not a docs/claugentic-standards/ module slug`);
       }
     }
   }
@@ -103,7 +103,7 @@ function validateArgs(args) {
 
 // Map validated dimension slugs to their module doc paths (assumes validated input).
 function modulesFor(dimensions) {
-  return dimensions.map((slug) => `docs/standards/${slug}.md`);
+  return dimensions.map((slug) => `docs/claugentic-standards/${slug}.md`);
 }
 
 // Normalize a self-reported model family to a canonical lowercase token. First KNOWN_FAMILIES

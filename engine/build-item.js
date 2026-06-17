@@ -17,7 +17,7 @@
 // Distribution: read-from-install-path. Adopters invoke this from the version-stamped plugin
 // install dir (`${CLAUDE_PLUGIN_ROOT}/engine/build-item.js`); this repo dogfoods it via the
 // repo-local `./engine/build-item.js` (the working tree IS the plugin source). Never copied
-// into an adopter repo (no managed-stamp/refresh surface) — see docs/DECISIONS.md → Plugin identity & distribution.
+// into an adopter repo (no managed-stamp/refresh surface) — see docs/claugentic-DECISIONS.md → Plugin identity & distribution.
 //
 // Workflow-script constraints (the tool runs this inside its sandbox): NO imports, NO
 // filesystem APIs, NO wall-clock / randomness (the orchestrator stamps times AFTER the run).
@@ -130,7 +130,7 @@ function parseArgs(raw) {
 }
 
 // The default iteration cap when caps.maxIterations is absent — matches the SKILL's bounded
-// 2–3 implement→verify attempts (docs/WORKFLOW.md / skills/build SKILL step 6).
+// 2–3 implement→verify attempts (docs/claugentic-WORKFLOW.md / skills/build SKILL step 6).
 const DEFAULT_MAX_ITERATIONS = 3;
 
 // The Bash-tool hard max for a single command's `timeout` parameter (600000ms = 600s). The single
@@ -554,7 +554,7 @@ function implementPrompt(item, repo, residual, branch, implementTimeoutSec) {
     `  - Build ONLY this item's spec. An out-of-scope finding is REPORTED in outOfScopeFindings (tier + claim + fileLine), NEVER built.\n` +
     `  - NEVER push, deploy, delete data, spend, or take any irreversible/external action. If the item genuinely needs one, set irreversibleNeeded {action, consequence} and STOP — the orchestrator decides, not you.\n` +
     `  - Bound any long-running command (build, test, install) with the Bash tool's \`timeout\` PARAMETER, set to at most ${implementTimeoutSec}s — NOT a shell \`timeout\` command (unreliable cross-platform; a no-op delay on Windows). This is per-command, not a stage total. If a command hits the bound, treat it as a FAILURE and report it — NEVER hang waiting.\n` +
-    `  - Update docs/ARCHITECTURE_TREE.md for any file add/move/remove, and docs/DECISIONS.md for any non-trivial decision.\n` +
+    `  - Update docs/claugentic-ARCHITECTURE_TREE.md for any file add/move/remove, and docs/claugentic-DECISIONS.md for any non-trivial decision.\n` +
     `  - Commit your work on the work branch (the branch is the durable artifact — later fix passes recreate the worktree from it if the platform tore it down). Report the branch name.\n` +
     `  - Report your model family (open with "RUNNING AS: <family>" and set modelFamily).`;
   const repoFacts =
