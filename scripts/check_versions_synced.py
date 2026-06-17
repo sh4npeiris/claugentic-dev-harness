@@ -18,7 +18,7 @@ Modes:
     python scripts/check_versions_synced.py    # human/CI: stdout, exit 0 OK / exit 1 on any problem
 
 Run in the Definition-of-Done gate suite at Verify/Land (like `pytest`) — a
-run-gate, not hook-wired. See docs/WORKFLOW.md -> Definition of Done.
+run-gate, not hook-wired. See docs/claugentic-WORKFLOW.md -> Definition of Done.
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ import json
 import sys
 from pathlib import Path
 
-# Paths are repo-root-relative — this gate, like check_architecture_tree.py, is
+# Paths are repo-root-relative — this gate, like claugentic-check_architecture_tree.py, is
 # run from the repo root (`python scripts/check_versions_synced.py`).
 PLUGIN_PATH = Path(".claude-plugin/plugin.json")
 MARKETPLACE_PATH = Path(".claude-plugin/marketplace.json")

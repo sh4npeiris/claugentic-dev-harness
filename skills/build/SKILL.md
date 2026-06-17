@@ -6,7 +6,7 @@ description: Drive your audit backlog through the full reviewed pipeline — pla
 
 > **Agent ids:** every role named below is one of this plugin's bundled agents — when you spawn one, use its **namespaced id** `claugentic-dev-harness:<role>` (e.g. `claugentic-dev-harness:lens-reviewer`); built-ins (`general-purpose`, `Explore`) stay bare.
 
-The **go-button for your backlog.** Point it at one item from your `docs/ROADMAP.md`
+The **go-button for your backlog.** Point it at one item from your `docs/claugentic-ROADMAP.md`
 backlog — or pick several, or a whole tier — and it drives the whole professional pipeline
 for you — plan → adversarial review → spec → **your approval** → build → review-the-work →
 land — pausing only where your judgment is load-bearing. A single named item stays the fast
@@ -16,10 +16,10 @@ works it item-by-item to the honest stop-signal.
 ## How this skill works
 
 Build mode is a **thin orchestration layer** — it does not invent process, it **drives**
-the existing one. The pipeline it runs is **`docs/WORKFLOW.md`** (the source of truth for
+the existing one. The pipeline it runs is **`docs/claugentic-WORKFLOW.md`** (the source of truth for
 the stages, the tag→discipline mapping, the Verify dial, the Definition of Done, and the
 Stage-9 harvest); the item universe is the **`harness-audit:backlog` fence** that
-`/claugentic-dev-harness:audit` writes into `docs/ROADMAP.md`. This skill points at both —
+`/claugentic-dev-harness:audit` writes into `docs/claugentic-ROADMAP.md`. This skill points at both —
 it does not restate them.
 
 A **top-level agent (the orchestrator) runs this skill** — it spawns the pipeline
@@ -55,13 +55,13 @@ Build mode is an **autonomy ladder — earned per-repo, by evidence, never assum
 - **`checkpoint` — the default, and the only rung with no preconditions.** Everything below runs in checkpoint. If the user names no mode, this is what runs.
 - **`build-to-green` — the requestable rung.** Any ask to run unwatched — *"autopilot"*, *"run unwatched"*, *"build to green"* — is a build-to-green request. Before agreeing, check the **unlock conditions** below and **state the evidence per condition** (what you looked at, what you found). All met → run the item through the engine script (`${CLAUDE_PLUGIN_ROOT}/engine/build-item.js` via the Workflow tool — the skill invokes the script, and the script then runs the implement → gates → verify → QA → fix loop mechanically), returning to you only at the retained pauses: **before land · before anything irreversible · on a new Tier-1/2 finding.** Any condition unmet → the decline below, naming exactly what's missing, then offer checkpoint.
 
-Build-to-green is **a reduction of unwatched-run risk, never a substitute for the unbuilt deterministic trust-gates** (the land-gate hook · the secret-scan · the characterization-first hook — `docs/DECISIONS.md` → The deterministic gates).
+Build-to-green is **a reduction of unwatched-run risk, never a substitute for the unbuilt deterministic trust-gates** (the land-gate hook · the secret-scan · the characterization-first hook — `docs/claugentic-DECISIONS.md` → The deterministic gates).
 
 **The unlock conditions — judgment with stated evidence.** These checks are the skill reading your repo and saying what it found — honestly labeled model judgment, never a mechanical gate:
 
 1. **CI runs the deterministic gates.** Evidence: a CI config (e.g. `.github/workflows/*.yml`) whose steps run this repo's Definition-of-Done deterministic gates (the test suite + the gate scripts). Name the file and the commands found.
 2. **A test baseline covers the code this item touches.** Evidence: named test files that assert observable behavior of the files the item will change (not merely execute them) — so a regression in that behavior would fail a test. (The `refactor` characterization-tests-first precondition is this condition's hard case — unchanged.)
-3. **The item traces to an approved spec with testable acceptance criteria.** Evidence: a plan in `.claude/plans/` with `Status: Approved` whose acceptance criteria are all checkable without a human mid-run — each maps to a deterministic gate or test, or to a `docs/PRODUCT_SPEC.md` criterion whose `check` is `e2e` or `api`. A `check: "manual"` criterion needs a human, so it keeps that item in checkpoint.
+3. **The item traces to an approved spec with testable acceptance criteria.** Evidence: a plan in `.claude/plans/` with `Status: Approved` whose acceptance criteria are all checkable without a human mid-run — each maps to a deterministic gate or test, or to a `docs/claugentic-PRODUCT_SPEC.md` criterion whose `check` is `e2e` or `api`. A `check: "manual"` criterion needs a human, so it keeps that item in checkpoint.
 
 **And one session precondition (not a repo rung):** build-to-green runs **only** via `engine/build-item.js` through the Workflow tool — there is **no prose-orchestrated build-to-green, ever** (an unwatched prose loop is exactly the unearned autonomy this ladder exists to prevent). The Workflow tool or the script unavailable → named in the decline like any other missing condition.
 
@@ -90,8 +90,8 @@ invalid field — fail loud):
 
 - `item` — `{ id, title, tag, planPath, specText` (the approved spec section, verbatim) `,
   acceptanceCriteria }`. `acceptanceCriteria` is the item's frozen-schema criteria
-  (`{id,feature,flow,expect,states,check}`) from the item's spec / `docs/PRODUCT_SPEC.md`; `[]`
-  when the item has none. Optional `dimensions` (the in-scope `docs/standards/` slugs for the
+  (`{id,feature,flow,expect,states,check}`) from the item's spec / `docs/claugentic-PRODUCT_SPEC.md`; `[]`
+  when the item has none. Optional `dimensions` (the in-scope `docs/claugentic-standards/` slugs for the
   Verify panel), `trustSurface`, `appUrl`.
 - `repo` — `{ root, baseBranch, gateCommands` (this repo's **DoD deterministic gate commands** —
   the test suite + the gate scripts, from the WORKFLOW DoD / `init`-recorded tooling; **non-empty**,
@@ -136,7 +136,7 @@ invalid field — fail loud):
 
 ### 1. Triage — locate the item(s) and confirm the worklist
 
-Read **both backlog fences** in `docs/ROADMAP.md` — the **`harness-audit:backlog` fence**
+Read **both backlog fences** in `docs/claugentic-ROADMAP.md` — the **`harness-audit:backlog` fence**
 (the engineering item universe the `audit` skill wrote) **and** the
 **`harness-product:backlog` fence** (the intent-vs-implementation gaps the `product` gap mode
 wrote, if present). Present **one worklist interleaved by tier** — all tier-1 items across
@@ -217,7 +217,7 @@ the loop (step 9) runs them per worklist item. They are the same engine either w
 
 The item carries a tag (`refactor` · `capability-upgrade` · `dependency-health` · `bug` ·
 `feature`). Its tag **selects the discipline** the pipeline applies — the full mapping is
-the **tag→discipline table in `docs/WORKFLOW.md`** (*Executing an audit backlog item*);
+the **tag→discipline table in `docs/claugentic-WORKFLOW.md`** (*Executing an audit backlog item*);
 read it there and apply it. Do not restate the table here.
 
 The **one** behavior to enforce up front (because it can stop the whole item before
@@ -241,7 +241,7 @@ adversarially critique it, **escalating to the diverse panel per the WORKFLOW Pr
 trigger**: a contested design fork or a trust/honesty surface adds **`claugentic-dev-harness:yagni-sentinel`** +
 **`claugentic-dev-harness:honesty-reviewer`**; a user-facing change also adds **`claugentic-dev-harness:product-designer`**. **Spawn the
 judge roles — `claugentic-dev-harness:plan-reviewer` · `claugentic-dev-harness:honesty-reviewer` — with the `fable` model override** (cross-model
-wiring, the same-model tag, and the on-error respawn live in **`docs/WORKFLOW.md` → Principles →
+wiring, the same-model tag, and the on-error respawn live in **`docs/claugentic-WORKFLOW.md` → Principles →
 "Convene the panel's judge roles with the `fable` model override"** — point there, don't restate).
 Iterate the plan until the review verdict is **PASS**.
 
@@ -253,7 +253,7 @@ estimated.
 ### 4. Spec + THE PAUSE *(Stages 4–5 — pause 1, the spec, before any code)*
 
 Write the spec into the plan (file-by-file changes, signatures, tests, acceptance, the
-in-scope `docs/standards/` dimensions). Then **pause for the user's approval — no code
+in-scope `docs/claugentic-standards/` dimensions). Then **pause for the user's approval — no code
 before "yes."**
 
 At the pause, render the plan's **plain-English approval triad VERBATIM, BEFORE any
@@ -286,7 +286,7 @@ trigger **fans out** the `lens-reviewer`s + `yagni-sentinel`, and a trust/honest
 surface convenes the **diverse panel** per the WORKFLOW Principles — `architect-reviewer`
 then synthesizes. **Spawn the judge roles — `claugentic-dev-harness:architect-reviewer` · `claugentic-dev-harness:honesty-reviewer` ·
 `claugentic-dev-harness:finding-verifier` — with the `fable` model override** (cross-model wiring, the same-model tag,
-and the on-error respawn live in **`docs/WORKFLOW.md` → Principles → "Convene the panel's judge
+and the on-error respawn live in **`docs/claugentic-WORKFLOW.md` → Principles → "Convene the panel's judge
 roles with the `fable` model override"** — point there, don't restate). Run the
 **Definition-of-Done deterministic run-gates** (the canonical list lives in the WORKFLOW DoD —
 run it, don't restate it).
@@ -310,9 +310,9 @@ push-to-`main`), **stop, name the exact action and its consequence in plain Engl
 ask; never proceed on silence.**
 
 On approval, land per the WORKFLOW Stage 8: a **conventional commit**, **remove the completed
-plan from `.claude/plans/`** (git history keeps it), append a **`docs/DECISIONS.md`** line for
+plan from `.claude/plans/`** (git history keeps it), append a **`docs/claugentic-DECISIONS.md`** line for
 any non-trivial choice, and **run the Stage-9 harvest checklist** (the five sweeps — see
-`docs/WORKFLOW.md` §9; point at it, don't restate it).
+`docs/claugentic-WORKFLOW.md` §9; point at it, don't restate it).
 
 ### 8. Close-out *(per item)*
 
@@ -321,7 +321,7 @@ never a blanket "verified/done":**
 
 - the **deterministic gates** that passed (tests, the architecture-tree check, version-sync,
   the project's lint/type/security gates), and
-- the **reviewer sign-offs** (the in-scope `docs/standards/` dimensions the
+- the **reviewer sign-offs** (the in-scope `docs/claugentic-standards/` dimensions the
   `architect-reviewer` audited) — model-upheld judgment, **"passed the checks and the
   reviewer's audit,"** never "proven correct."
 
@@ -516,7 +516,7 @@ A resumed `/claugentic-dev-harness:build` **reconstructs** the worklist from the
 stores the harness already keeps — **there is no build-session state file, and this slice
 adds none.** Derive, don't store:
 
-- **The item universe + status** = **both backlog fences** in `docs/ROADMAP.md`
+- **The item universe + status** = **both backlog fences** in `docs/claugentic-ROADMAP.md`
   (`harness-audit:backlog` + `harness-product:backlog`) — each fence's status block + tiered
   items, exactly what triage reads in step 1. **Each fence's `done-cells`/`pending-cells`
   resumes against its OWN generating skill — the cells are NEVER crossed:** the engineering
@@ -555,7 +555,7 @@ that could drift from the backlog).
   checkpoint today and on the build-to-green rung — it is the line autonomy never crosses
   unasked.
 - **Never invent scope.** If a genuinely-new feature surfaces mid-build (something outside
-  the item being built), it goes to **`docs/ROADMAP.md` for the user's approval** — it is
+  the item being built), it goes to **`docs/claugentic-ROADMAP.md` for the user's approval** — it is
   **not built**. The work never silently expands.
 - **Honesty register.** Say a slice **"passed the checks and the reviewer's audit,"** never
   "proven correct" / "guaranteed" / "bug-free." **"done" is scoped to the audited

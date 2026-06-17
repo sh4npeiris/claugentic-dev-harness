@@ -14,7 +14,7 @@ A capable product person — possibly a non-engineer — driving software develo
 Claude Code agent. They can describe what they want in plain English and make product decisions,
 but they can't (or don't want to) read code to verify the agent's claims. They need the harness
 to be honest about what was checked versus what is the model's judgment. (Durable context:
-`docs/PRODUCT.md`.)
+`docs/claugentic-PRODUCT.md`.)
 
 ## The job-to-be-done
 
@@ -37,7 +37,7 @@ pauses only at the decisions that are yours, and **never claims more certainty t
   repo → a created/refreshed/skipped summary reports exactly what was touched.
 - **States** — the non-happy paths: an ambiguous managed-file state stops rather than guesses;
   a re-run converges to the installed version (see
-  [`docs/standards/product-ux.md`](standards/product-ux.md) → *Loading / empty / error states*
+  [`docs/claugentic-standards/product-ux.md`](claugentic-standards/product-ux.md) → *Loading / empty / error states*
   for the bar; init's surfaces are report-states, not async UI).
 - **What good feels like** — "it set everything up and provably didn't overwrite anything of
   mine."
@@ -75,7 +75,7 @@ pauses only at the decisions that are yours, and **never claims more certainty t
 ## Acceptance criteria
 
 The machine-readable projection of the promises above (the frozen schema — full runtime
-semantics in `docs/DECISIONS.md` → the audit section). This repo ships no bootable app, so
+semantics in `docs/claugentic-DECISIONS.md` → the audit section). This repo ships no bootable app, so
 every criterion is `check: "manual"`; gap mode sweeps each against the code statically.
 
 ```json

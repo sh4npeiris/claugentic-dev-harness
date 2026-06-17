@@ -1,5 +1,5 @@
 ---
-# ── Module contract: every docs/standards/ module copies this frontmatter ──
+# ── Module contract: every docs/claugentic-standards/ module copies this frontmatter ──
 module: data-and-persistence
 title: Data & Persistence
 version: 0.1.0
@@ -26,7 +26,7 @@ gold-plating an irrelevant one, never skipping a relevant one. The unifying inva
 ## Schema design & normalization
 
 - **Good looks like —** The schema is normalized to ~3NF by default (no repeating groups, no partial/transitive dependencies); every column has a meaningful type and the tightest constraint that holds (`NOT NULL`, `CHECK`, `UNIQUE`, `ENUM`/lookup over free-text status). Denormalization exists **only where deliberately chosen** for a measured read path, is documented, and ships with a defined mechanism to keep the duplicated data consistent (trigger, transactional write, or materialized view with a refresh contract).
-- **Auditor checks —** `[J]` Is the model normalized, or is duplication accidental (same fact stored in two tables with no sync path)? `[D]` Do nullable columns that should be mandatory carry `NOT NULL`? `[J]` Are status/type columns constrained (enum/FK/check) rather than free strings? `[J]` For each denormalization: is there a stated read-path justification **and** a consistency mechanism, recorded in `DECISIONS.md`?
+- **Auditor checks —** `[J]` Is the model normalized, or is duplication accidental (same fact stored in two tables with no sync path)? `[D]` Do nullable columns that should be mandatory carry `NOT NULL`? `[J]` Are status/type columns constrained (enum/FK/check) rather than free strings? `[J]` For each denormalization: is there a stated read-path justification **and** a consistency mechanism, recorded in `claugentic-DECISIONS.md`?
 - **Confidence —** `mixed` (normalization and denormalization-justification are design calls [J]; column-constraint presence is gate-checkable via schema lint/diff [D] — per-check tags are authoritative).
 - **Tradeoff (plain English) —** Normalizing keeps each fact in exactly one place, so updates can't leave contradictory copies; the cost is more joins, which can be slower to read. Denormalizing copies data to make reads fast, but now you own keeping the copies in sync — skip that and the copies drift apart and lie.
 - **Sources —** Kleppmann, *Designing Data-Intensive Applications*, Ch. 2–3 (data models, normalization vs. denormalization); C. J. Date, *An Introduction to Database Systems* (normal forms).
@@ -105,7 +105,7 @@ gold-plating an irrelevant one, never skipping a relevant one. The unifying inva
 
 ## Referential integrity
 
-- **Good looks like —** Relationships are enforced by the **database** with `FOREIGN KEY` constraints (plus `UNIQUE`, `CHECK`, `NOT NULL`), not left to application code that a second writer or a script can bypass. `ON DELETE`/`ON UPDATE` behavior (`CASCADE`/`RESTRICT`/`SET NULL`) is chosen deliberately per relationship. Orphan rows are structurally impossible. Where a constraint is intentionally pushed to the app layer (e.g. cross-shard, or a DB that lacks FKs), that decision is explicit and the app enforces it on every write path, recorded in `DECISIONS.md`.
+- **Good looks like —** Relationships are enforced by the **database** with `FOREIGN KEY` constraints (plus `UNIQUE`, `CHECK`, `NOT NULL`), not left to application code that a second writer or a script can bypass. `ON DELETE`/`ON UPDATE` behavior (`CASCADE`/`RESTRICT`/`SET NULL`) is chosen deliberately per relationship. Orphan rows are structurally impossible. Where a constraint is intentionally pushed to the app layer (e.g. cross-shard, or a DB that lacks FKs), that decision is explicit and the app enforces it on every write path, recorded in `claugentic-DECISIONS.md`.
 - **Auditor checks —** `[D]` Do relationship columns carry actual FK constraints in the schema (introspectable), or is integrity only hoped-for in code? `[J]` Is each FK's on-delete/on-update action intentional (no accidental cascade wiping data, no orphan-leaving)? `[J]` If integrity is app-enforced by necessity, is it enforced on **all** write paths and justified?
 - **Confidence —** `mixed` (cascade-semantics and app-layer-justification are design [J]; the existence of FK/unique/check constraints is deterministic via schema introspection [D] — per-check tags are authoritative).
 - **Tradeoff (plain English) —** Foreign keys make the database itself refuse to create a child record pointing at a parent that doesn't exist, so data can never become orphaned or contradictory — even via a stray script. The cost is a small write-time check and less flexibility for bulk loads; skipping them means integrity lives only in code that any other writer can sidestep.
@@ -133,5 +133,5 @@ gold-plating an irrelevant one, never skipping a relevant one. The unifying inva
 
 - **Additive floor:** add dimensions as you discover them; **never delete** one. This catalog is meant to become "every standard we can think of."
 - **Right-size:** apply only *relevant* dimensions per change (`KISS`/`YAGNI`); never skip a relevant one. Relevance is a per-change judgment — see `README.md`.
-- **Novel patterns allowed** when they add clear value — justify (problem → why existing patterns fall short → benefit) and record in `DECISIONS.md`. Unconventional ≠ wrong.
+- **Novel patterns allowed** when they add clear value — justify (problem → why existing patterns fall short → benefit) and record in `claugentic-DECISIONS.md`. Unconventional ≠ wrong.
 - **Every dimension carries a Confidence tag** so the harness can separate what it *proved* (deterministic gates) from what it *asserts* (judgment). Trust the oracle, not the model's word.

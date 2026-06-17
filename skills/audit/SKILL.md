@@ -1,5 +1,5 @@
 ---
-description: Audit this codebase against the engineering-standards catalog and write a prioritized, plain-English backlog to docs/ROADMAP.md. Builds a "what your app is & does" map first, then sweeps the code through the relevant standards lenses (bounded, dedup, depth-dialed) and tries to independently re-check every finding before it reaches the backlog.
+description: Audit this codebase against the engineering-standards catalog and write a prioritized, plain-English backlog to docs/claugentic-ROADMAP.md. Builds a "what your app is & does" map first, then sweeps the code through the relevant standards lenses (bounded, dedup, depth-dialed) and tries to independently re-check every finding before it reaches the backlog.
 ---
 
 # /claugentic-dev-harness:audit
@@ -24,7 +24,7 @@ Three phases, cheap → expensive, run end-to-end in one pass:
    synthesis self-review prune, and **exactly one `finding-verifier` per surviving finding**
    (cross-model judge), with a deterministic budget cap + resume.
 3. **Backlog** *(LIVE)* — the script's **structured return** is rendered into the
-   `harness-audit:backlog` fence in `docs/ROADMAP.md` as a **tiered, tagged, plain-English**
+   `harness-audit:backlog` fence in `docs/claugentic-ROADMAP.md` as a **tiered, tagged, plain-English**
    backlog, ending with a recommended starting point.
 
 **The honest formula (verbatim):** *the skill invokes the script, and the script then runs the
@@ -82,7 +82,7 @@ READMEs — not every source file.** You are building a map, not reviewing code.
 
 Run these in order. Each step feeds the output contract above.
 
-1. **Prefer existing signal.** If `docs/ARCHITECTURE_TREE.md` exists and is current (DRY with the
+1. **Prefer existing signal.** If `docs/claugentic-ARCHITECTURE_TREE.md` exists and is current (DRY with the
    `init` skill, which generates it), use it as the file-level map — do **not** re-walk the tree.
    Otherwise derive structure via a **bounded `Glob` walk** (top-level dirs + one or two levels in;
    do not enumerate excluded trees). Either way, read only manifests / configs / entry points /
@@ -126,8 +126,8 @@ Run these in order. Each step feeds the output contract above.
    ≥1 non-harness-managed source file of a detected ecosystem** (a recognized manifest present
    **and/or** ≥1 file matching the detected source layout), **excluding** harness-managed
    scaffolding (anything carrying the `claugentic-dev-harness@` managed stamp — e.g. the copied
-   `scripts/check_architecture_tree.py` — plus the seeded `docs/standards/`, `WORKFLOW.md`,
-   `PLAYBOOK.md`) and the exclude-set (deps / build / generated). A repo of **only** docs + config
+   `scripts/claugentic-check_architecture_tree.py` — plus the seeded `docs/claugentic-standards/`, `claugentic-WORKFLOW.md`,
+   `claugentic-PLAYBOOK.md`) and the exclude-set (deps / build / generated). A repo of **only** docs + config
    + harness scaffolding is **"no application source"** (e.g. a freshly-`init`'d empty repo).
    **`/claugentic-dev-harness:init` reuses this exact predicate** — do **not** author a second
    detector.
@@ -155,7 +155,7 @@ Run these in order. Each step feeds the output contract above.
 
 ### Where the overview goes — the ROADMAP fence  *(load-bearing convention)*
 
-Phase 1 writes the overview into `docs/ROADMAP.md`, between exact HTML-comment markers:
+Phase 1 writes the overview into `docs/claugentic-ROADMAP.md`, between exact HTML-comment markers:
 
 ```
 <!-- harness-audit:overview:start -->
@@ -206,7 +206,7 @@ Call the Workflow tool with:
   - `dial` — the chosen level (`quick` | `standard` | `thorough`; at `thorough` the script adds the
     whole-scope blind-spot sweep and the adversarial yagni-sentinel prune).
   - `modules` — the candidate standards-module **names** (e.g. `["security","testing"]`; the script
-    maps each to `docs/standards/<name>.md`). **No clearly-relevant module?** fall back to the
+    maps each to `docs/claugentic-standards/<name>.md`). **No clearly-relevant module?** fall back to the
     baseline lenses — `docs-traceability` + `maintainability-structure` — and **say so in the
     report**. Never audit nothing.
   - `scopeDirs` — the prioritized directory order (step 7).
@@ -290,7 +290,7 @@ file — read it there):
 7. **VERIFY — re-check every surfaced finding** (all tiers, every level). Spawn one
    `claugentic-dev-harness:finding-verifier` per finding **with the `fable` model override** (the cross-model judge — the
    mechanism, the self-report comparison, the verbatim same-model tag, and the on-error respawn+tag
-   live in `docs/WORKFLOW.md` → Principles → *"Convene the panel's judge roles with the `fable`
+   live in `docs/claugentic-WORKFLOW.md` → Principles → *"Convene the panel's judge roles with the `fable`
    model override"* — read it there). Pass each verifier **only** `{claim (plain + technical),
    file:line, source module, confidence label, exclude-set}` and the refute-first posture — never
    the finder's rationale, never a lens verifying its own finding (`.claude/agents/finding-verifier.md`).
@@ -318,7 +318,7 @@ to own — **format source of truth: `renderBacklogFence` and its tests in
 
 ### The backlog fence  *(load-bearing convention — mirrors the overview fence)*
 
-The backlog lives in `docs/ROADMAP.md` between exact HTML-comment markers:
+The backlog lives in `docs/claugentic-ROADMAP.md` between exact HTML-comment markers:
 
 ```
 <!-- harness-audit:backlog:start -->
@@ -352,10 +352,10 @@ The heading and the markers are **SKILL-owned** — the renderer emits neither.
    cross-model parenthetical (never both) — and **on a prose-orchestrated run, also state that** in
    your conversational report.
 
-### Tag → discipline  *(the mapping lives in `docs/WORKFLOW.md` — enforcement is not yet automated)*
+### Tag → discipline  *(the mapping lives in `docs/claugentic-WORKFLOW.md` — enforcement is not yet automated)*
 
 When the user later runs a backlog item through the pipeline, its **tag selects the discipline** —
-the full mapping lives once in **`docs/WORKFLOW.md`** (→ *Executing an audit backlog item — tag →
+the full mapping lives once in **`docs/claugentic-WORKFLOW.md`** (→ *Executing an audit backlog item — tag →
 discipline*). The one part to reflect when **authoring**: a **`refactor`** on untested
 behavior-bearing code is **characterization-tests-first — it cannot start until its Tier-1
 "establish a test baseline" item is done.** Today that precondition is upheld by **the implementer

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Enforce that docs/ARCHITECTURE_TREE.md indexes every in-scope source file.
+"""Enforce that docs/claugentic-ARCHITECTURE_TREE.md indexes every in-scope source file.
 
 Deterministic gate (no LLM): checks PRESENCE (every in-scope file appears in the
 tree), STALENESS (no tree entry points to a file that no longer exists), and GLOB
@@ -18,14 +18,14 @@ nothing) and is left as an empty list. `main()` is the boundary that maps a git
 failure to each mode's exit code (see below).
 
 Modes:
-    python scripts/check_architecture_tree.py                # human/CI: stdout, exit 1 on problems
-    python scripts/check_architecture_tree.py --hook          # Stop hook: full scan, silent OK, stderr+exit 2 on problems
-    python scripts/check_architecture_tree.py --hook-write     # PostToolUse(Write) hook: reads the written path from
+    python scripts/claugentic-check_architecture_tree.py                # human/CI: stdout, exit 1 on problems
+    python scripts/claugentic-check_architecture_tree.py --hook          # Stop hook: full scan, silent OK, stderr+exit 2 on problems
+    python scripts/claugentic-check_architecture_tree.py --hook-write     # PostToolUse(Write) hook: reads the written path from
                                                               # stdin; nudges ONLY if it's a new, in-scope, undocumented
                                                               # file (silent on overwrites / out-of-scope / already-indexed)
 
 Wired as a hook by `init` when the architecture-tree gate is enabled; otherwise run
-manually (`python scripts/check_architecture_tree.py`). `init` decides per scenario:
+manually (`python scripts/claugentic-check_architecture_tree.py`). `init` decides per scenario:
 FRESH (no tree, no source) and MATURE-NO-TREE (no tree, source present → a
 cheap-complete backtick-prose skeleton) get the gate ON (hook wired); MATURE-WITH-TREE
 (an existing tree) is asked — Replace with a harness skeleton (gate ON) or Keep-mine
@@ -41,13 +41,16 @@ import subprocess
 import sys
 from pathlib import Path
 
-TREE_PATH = Path("docs/ARCHITECTURE_TREE.md")
+TREE_PATH = Path("docs/claugentic-ARCHITECTURE_TREE.md")
+# Forward-slash rendering for user-facing messages (markdown/repo paths use `/`, and a
+# stable form keeps the text identical across OSes — Path's __str__ would emit `\` on Windows).
+TREE_DISPLAY = TREE_PATH.as_posix()
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PER-REPO CONFIG — set by the `init` skill based on the repo's languages.
 # ─────────────────────────────────────────────────────────────────────────────
 # INCLUDE_GLOBS is the ONLY per-repo knob. It lists the files that MUST be indexed
-# in ARCHITECTURE_TREE.md. The `init` skill detects the target repo's
+# in claugentic-ARCHITECTURE_TREE.md. The `init` skill detects the target repo's
 # languages/layout and writes the right globs here. They are passed to git as
 # pathspecs; the `:(glob)` prefix gives true globstar (** spans directories, incl.
 # zero).
@@ -280,7 +283,7 @@ def in_scope_files() -> set[str]:
 def evaluate() -> tuple[list[str], str]:
     """Return (problem_lines, success_summary). Empty problem_lines == OK."""
     if not TREE_PATH.exists():
-        return ([f"ERROR: {TREE_PATH} is missing — create the architecture index."], "")
+        return ([f"ERROR: {TREE_DISPLAY} is missing — create the architecture index."], "")
     # Strip ```-fenced blocks once: both the presence tokenizer (_backtick_tokens, which
     # re-strips defensively) and the staleness tokenizer (TOKEN_PATTERN.findall below) read
     # this text, and an index entry never lives inside a diagram fence.
@@ -307,20 +310,20 @@ def evaluate() -> tuple[list[str], str]:
 
     problems: list[str] = []
     if missing:
-        problems.append("docs/ARCHITECTURE_TREE.md is MISSING an entry for these files")
+        problems.append(f"{TREE_DISPLAY} is MISSING an entry for these files")
         problems.append("(add `- `<path>` — one-line description.` under the right section):")
         problems += [f"  + {f}" for f in missing]
     if stale:
-        problems.append("docs/ARCHITECTURE_TREE.md references files that NO LONGER EXIST (remove/update):")
+        problems.append(f"{TREE_DISPLAY} references files that NO LONGER EXIST (remove/update):")
         problems += [f"  - {f}" for f in stale]
     if drift:
         problems.append(
             f"INCLUDE_GLOBS watches no files, but the repo contains source code (e.g. `{drift[0]}`) — "
             "the globs are unset or stale; re-detect the layout and set INCLUDE_GLOBS in "
-            "scripts/check_architecture_tree.py to match the source files below:"
+            "scripts/claugentic-check_architecture_tree.py to match the source files below:"
         )
         problems += [f"  ? {f}" for f in drift]
-    return (problems, f"OK: docs/ARCHITECTURE_TREE.md indexes all {len(files)} in-scope files.")
+    return (problems, f"OK: {TREE_DISPLAY} indexes all {len(files)} in-scope files.")
 
 
 def _written_path_from_stdin() -> str | None:
@@ -366,7 +369,7 @@ def _check_written_file() -> int:
     if rel in _backtick_tokens(text):
         return 0  # already documented (an EXACT backtick entry, not a substring)
     print(
-        f"New file `{rel}` is not in docs/ARCHITECTURE_TREE.md.\n"
+        f"New file `{rel}` is not in {TREE_DISPLAY}.\n"
         f"Add `- `{rel}` — <one-line description>.` under the right section (CLAUDE.md -> Harness Discipline).",
         file=sys.stderr,
     )
@@ -395,7 +398,7 @@ def main(argv: list[str]) -> int:
         print(f"ERROR: {exc}")
         return 1
     if problems:
-        msg = "\n".join(problems) + "\n\nUpdate docs/ARCHITECTURE_TREE.md with a one-line description (CLAUDE.md -> Harness Discipline)."
+        msg = "\n".join(problems) + f"\n\nUpdate {TREE_DISPLAY} with a one-line description (CLAUDE.md -> Harness Discipline)."
         if hook_mode:
             print(msg, file=sys.stderr)  # fed back to the agent; exit 2 = blocking
             return 2

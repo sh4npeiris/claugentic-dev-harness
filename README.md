@@ -30,7 +30,7 @@ You're set up right away — the enforcement hook activates the moment `init` wr
 
 **Requires** `git` and **Python 3** (for the codebase-map check; without it the agent maintains the map by hand). Public + **Apache-2.0** — install at **user scope** to use it across all your repos.
 
-New to this? Start with **[`docs/PLAYBOOK.md`](docs/PLAYBOOK.md)** — a plain-English guide for non-engineers.
+New to this? Start with **[`docs/claugentic-PLAYBOOK.md`](docs/claugentic-PLAYBOOK.md)** — a plain-English guide for non-engineers.
 
 ## Honest about what's real
 
@@ -42,8 +42,8 @@ The harness's whole pitch is honesty, so here's the straight version:
 
 ## Under the hood *(optional)*
 
-- A **staged workflow** (`docs/WORKFLOW.md`): Triage → Discuss → Plan → Review → Spec → **Approve** → Implement → Verify → Land. Small changes skip straight to Implement; only substantial work runs the full pipeline.
+- A **staged workflow** (`docs/claugentic-WORKFLOW.md`): Triage → Discuss → Plan → Review → Spec → **Approve** → Implement → Verify → Land. Small changes skip straight to Implement; only substantial work runs the full pipeline.
 - **10 specialist sub-agents** (`.claude/agents/`) — a plan critic, a builder, a verifier, a product designer, a **product critic** that pushes your spec to be more ambitious, per-standard reviewers, an anti-over-engineering skeptic, and an honesty reviewer — so the main agent stays focused on your decisions.
-- A relevance-loaded **standards catalog** (`docs/standards/`, ISO/IEC 25010-anchored), with each finding labeled by how confidently it was checked.
+- A relevance-loaded **standards catalog** (`docs/claugentic-standards/`, ISO/IEC 25010-anchored), with each finding labeled by how confidently it was checked.
 
-Full file-by-file map: **[`docs/ARCHITECTURE_TREE.md`](docs/ARCHITECTURE_TREE.md)**. License: **Apache-2.0**.
+Full file-by-file map: **[`docs/claugentic-ARCHITECTURE_TREE.md`](docs/claugentic-ARCHITECTURE_TREE.md)**. License: **Apache-2.0**.

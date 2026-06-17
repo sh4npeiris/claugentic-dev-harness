@@ -1,6 +1,6 @@
 """Characterization + regression tests for the architecture-tree gate.
 
-The gate (`scripts/check_architecture_tree.py`) is the one deterministic component
+The gate (`scripts/claugentic-check_architecture_tree.py`) is the one deterministic component
 the whole harness trusts. These tests lock its behaviour so a future edit can't
 silently regress it (it once carried a latent `ts`-before-`tsx` staleness bug while
 still reporting green).
@@ -31,14 +31,14 @@ def repo(tmp_path, monkeypatch):
     as needed.
     """
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setattr(cat, "TREE_PATH", cat.Path("docs/ARCHITECTURE_TREE.md"))
+    monkeypatch.setattr(cat, "TREE_PATH", cat.Path("docs/claugentic-ARCHITECTURE_TREE.md"))
     # Default: git reports nothing in scope (presence check is then trivially OK).
     monkeypatch.setattr(cat, "_git", lambda *args: [])
     return tmp_path
 
 
 def _write_tree(root, text: str) -> None:
-    tree = root / "docs" / "ARCHITECTURE_TREE.md"
+    tree = root / "docs" / "claugentic-ARCHITECTURE_TREE.md"
     tree.parent.mkdir(parents=True, exist_ok=True)
     tree.write_text(text, encoding="utf-8")
 
@@ -392,7 +392,7 @@ class TestHookWrite:
         )
         rc = cat.main(["--hook-write"])
         assert rc == 2
-        assert "not in docs/ARCHITECTURE_TREE.md" in capsys.readouterr().err
+        assert "not in docs/claugentic-ARCHITECTURE_TREE.md" in capsys.readouterr().err
 
     def test_malformed_stdin_returns_none_exit_0(self, repo, monkeypatch):
         _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], ["scripts/new.py"])
@@ -449,7 +449,7 @@ class TestHookWrite:
         )
         rc = cat.main(["--hook-write"])
         assert rc == 2
-        assert "not in docs/ARCHITECTURE_TREE.md" in capsys.readouterr().err
+        assert "not in docs/claugentic-ARCHITECTURE_TREE.md" in capsys.readouterr().err
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -610,16 +610,16 @@ class TestGlobDrift:
 
     def test_day0_stamped_gate_script_does_not_false_trip(self, repo, monkeypatch):
         """Day-0 false-positive guard (R3): `INCLUDE_GLOBS == []` and the ONLY source file
-        is a STAMPED `scripts/check_architecture_tree.py` (the copied gate) → excluded by
+        is a STAMPED `scripts/claugentic-check_architecture_tree.py` (the copied gate) → excluded by
         `_is_harness_managed` → `_repo_source_files` empty → no drift. A freshly-`init`'d
         empty adopter repo must not false-trip."""
         monkeypatch.setattr(cat, "INCLUDE_GLOBS", [])
         monkeypatch.setattr(cat, "EXTS", set())
-        _stamp(repo, "scripts/check_architecture_tree.py")
+        _stamp(repo, "scripts/claugentic-check_architecture_tree.py")
         _git_router(
             monkeypatch,
             in_scope=[],
-            repo_wide=["scripts/check_architecture_tree.py"],
+            repo_wide=["scripts/claugentic-check_architecture_tree.py"],
         )
         assert cat._repo_source_files() == []
         assert cat.glob_drift(set()) == []
@@ -656,7 +656,7 @@ class TestGlobDrift:
         _git_router(
             monkeypatch,
             in_scope=[],
-            repo_wide=["README.md", "package.json", "docs/WORKFLOW.md"],
+            repo_wide=["README.md", "package.json", "docs/claugentic-WORKFLOW.md"],
         )
         assert cat._repo_source_files() == []
         assert cat.glob_drift(set()) == []
@@ -678,13 +678,13 @@ class TestGlobDrift:
         partial-exclusion bug (early return, wrong element) would survive without this."""
         monkeypatch.setattr(cat, "INCLUDE_GLOBS", [])
         monkeypatch.setattr(cat, "EXTS", set())
-        _stamp(repo, "scripts/check_architecture_tree.py")  # managed (stamp on line 1)
+        _stamp(repo, "scripts/claugentic-check_architecture_tree.py")  # managed (stamp on line 1)
         _touch(repo, "src/app.ts")  # real, un-stamped
         _git_router(
             monkeypatch,
             in_scope=[],
             repo_wide=[
-                "scripts/check_architecture_tree.py",
+                "scripts/claugentic-check_architecture_tree.py",
                 "src/pkg/__init__.py",  # EXCLUDE_SUBSTR — dropped before any disk read
                 "build/__pycache__/x.py",  # EXCLUDE_SUBSTR — dropped before any disk read
                 "src/app.ts",
@@ -883,7 +883,7 @@ class TestNonAsciiIntegration:
 
         docs = repo / "docs"
         docs.mkdir()
-        (docs / "ARCHITECTURE_TREE.md").write_text(
+        (docs / "claugentic-ARCHITECTURE_TREE.md").write_text(
             "# Tree\n- `scripts/café.py` — a non-ASCII filename, indexed.\n",
             encoding="utf-8",
         )
@@ -891,7 +891,7 @@ class TestNonAsciiIntegration:
         monkeypatch.chdir(repo)
         monkeypatch.setattr(cat, "INCLUDE_GLOBS", [":(glob)scripts/**/*.py"])
         monkeypatch.setattr(cat, "EXTS", cat._exts_from_globs([":(glob)scripts/**/*.py"]))
-        monkeypatch.setattr(cat, "TREE_PATH", cat.Path("docs/ARCHITECTURE_TREE.md"))
+        monkeypatch.setattr(cat, "TREE_PATH", cat.Path("docs/claugentic-ARCHITECTURE_TREE.md"))
 
         got = {unicodedata.normalize("NFC", p) for p in cat.in_scope_files()}
         assert got == {unicodedata.normalize("NFC", "scripts/café.py")}

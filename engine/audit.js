@@ -8,7 +8,7 @@
 // Distribution: read-from-install-path. Adopters invoke this from the version-stamped plugin
 // install dir (`${CLAUDE_PLUGIN_ROOT}/engine/audit.js`); this repo dogfoods it via the
 // repo-local `./engine/audit.js` (the working tree IS the plugin source). Never copied into
-// an adopter repo (no managed-stamp/refresh surface) — see docs/DECISIONS.md → Plugin identity & distribution.
+// an adopter repo (no managed-stamp/refresh surface) — see docs/claugentic-DECISIONS.md → Plugin identity & distribution.
 //
 // Workflow-script constraints (the tool runs this inside its sandbox): NO imports, NO
 // filesystem APIs, NO wall-clock / randomness (the orchestrator stamps dates AFTER the run —
@@ -74,7 +74,7 @@ const DEPTH_FOR_DIAL = { quick: "focused", standard: "deep", thorough: "exhausti
 // fixed at `deep`; the status-block level value is `gap`.
 //
 // The FROZEN acceptance-criteria schema — field names exact, may NEVER drift. Single source of
-// truth: docs/PRODUCT_SPEC_TEMPLATE.md embeds the same schema for humans; the runtime semantics
+// truth: docs/claugentic-PRODUCT_SPEC_TEMPLATE.md embeds the same schema for humans; the runtime semantics
 // are owned by qa.js (runtime). Here gap mode reads them
 // STATICALLY against the code — it does NOT run the app (that is qa.js's job).
 const CRITERIA_KEYS = ["id", "feature", "flow", "expect", "states", "check"];
@@ -302,7 +302,7 @@ function depthForDial(dial) {
 
 // Map a validated module name to its standards doc path (assumes validated input).
 function modulePath(moduleName) {
-  return `docs/standards/${moduleName}.md`;
+  return `docs/claugentic-standards/${moduleName}.md`;
 }
 
 // The exact cell-key token format the fence's done-cells / pending-cells lists carry — this is
@@ -480,7 +480,7 @@ function buildCriterionLensPrompt(criterion, excludeSet) {
     `Product-gap mode (intent vs implementation — STATIC code reading; do NOT run the app — ` +
     `runtime checking is the QA workflow's job). Your lens is ONE acceptance criterion from the ` +
     `product spec; check whether the implementation delivers it. Criterion: ${JSON.stringify(criterion)}. ` +
-    `Locate the implementing code via docs/ARCHITECTURE_TREE.md (the file index), then READ it ` +
+    `Locate the implementing code via docs/claugentic-ARCHITECTURE_TREE.md (the file index), then READ it ` +
     `statically. For each flow step, each expectation in 'expect', and each required state in ` +
     `'states', report whether the code delivers it — flag promised-but-missing (the behavior has no ` +
     `implementation) and diverges-from-spec (the implementation contradicts the promise). A 'manual' ` +
@@ -1223,8 +1223,8 @@ if (
     claimTechnical: baselineItem.titlePlain || "Establish a test baseline.",
     locations: [],
     confidence: "judgment",
-    modules: ["docs/standards/testing.md"],
-    sourceModule: "docs/standards/testing.md",
+    modules: ["docs/claugentic-standards/testing.md"],
+    sourceModule: "docs/claugentic-standards/testing.md",
     tier: 1,
     tag: baselineItem.tag || "refactor",
     titlePlain: baselineItem.titlePlain || "Establish a test baseline",

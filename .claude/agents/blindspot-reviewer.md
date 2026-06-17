@@ -28,7 +28,7 @@ exclude-set.
 
 ## Read first
 
-- **`docs/ARCHITECTURE_TREE.md`** — to target the scope without reading whole files; it is your
+- **`docs/claugentic-ARCHITECTURE_TREE.md`** — to target the scope without reading whole files; it is your
   map of how the pieces fit, which is exactly what a between-the-modules sweep needs.
 - **Then the audit target** — the **scoped dirs/packages** and the **exclude-set**; survey the
   scope (manifests, entry points, then the source the seams run through). Read what the cross-cutting

@@ -21,10 +21,10 @@ gold-plating an irrelevant one, never skipping a relevant one.
 
 ---
 
-## ARCHITECTURE_TREE.md currency
+## Architecture-tree index currency
 
-- **Good looks like —** `docs/ARCHITECTURE_TREE.md` reflects the actual file layout with a one-line description per file. Every file add, move, or delete within scope triggers an update to the tree in the same commit.
-- **Auditor checks —** Run `python scripts/check_architecture_tree.py` and confirm exit 0 `[D]`; visually verify that any new file added in this change has a description entry `[J]`.
+- **Good looks like —** `docs/claugentic-ARCHITECTURE_TREE.md` reflects the actual file layout with a one-line description per file. Every file add, move, or delete within scope triggers an update to the tree in the same commit.
+- **Auditor checks —** Run `python scripts/claugentic-check_architecture_tree.py` and confirm exit 0 `[D]`; visually verify that any new file added in this change has a description entry `[J]`.
 - **Confidence —** `mixed`
 - **Tradeoff (plain English) —** A current ARCHITECTURE_TREE means a new agent (or team member) can navigate the codebase without reading every file; the cost is updating one line per file change. A stale tree wastes agent context and misdirects exploration.
 - **Sources —** This harness's own CLAUDE.md (the ARCHITECTURE_TREE discipline is a first-class harness rule); Grady Booch "Object-Oriented Analysis and Design" on the value of navigable architecture documentation.
@@ -33,8 +33,8 @@ gold-plating an irrelevant one, never skipping a relevant one.
 
 ## Decision traceability (DECISIONS.md)
 
-- **Good looks like —** Every non-trivial choice (library selection, pattern choice, schema decision, API contract) is recorded as a dated one-liner in `docs/DECISIONS.md` in the same commit that introduces the decision. Future agents consult it before re-litigating a past choice.
-- **Auditor checks —** Review the diff for non-trivial decisions not yet recorded `[J]`; confirm `DECISIONS.md` entry is dated and includes the rationale, not just the choice `[J]`.
+- **Good looks like —** Every non-trivial choice (library selection, pattern choice, schema decision, API contract) is recorded as a dated one-liner in `docs/claugentic-DECISIONS.md` in the same commit that introduces the decision. Future agents consult it before re-litigating a past choice.
+- **Auditor checks —** Review the diff for non-trivial decisions not yet recorded `[J]`; confirm `claugentic-DECISIONS.md` entry is dated and includes the rationale, not just the choice `[J]`.
 - **Confidence —** `judgment` — what counts as "non-trivial" is a reviewer call.
 - **Tradeoff (plain English) —** A decisions log prevents the same debate from happening three times with three different outcomes; it costs 30 seconds per decision. Without it, future agents re-open closed decisions and introduce inconsistency.
 - **Sources —** Michael Nygard "Documenting Architecture Decisions" (https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions) — the original ADR essay; CLAUDE.md harness discipline.
@@ -75,5 +75,5 @@ gold-plating an irrelevant one, never skipping a relevant one.
 
 - **Additive floor:** add dimensions as you discover them; **never delete** one. This catalog is meant to become "every standard we can think of."
 - **Right-size:** apply only *relevant* dimensions per change (`KISS`/`YAGNI`); never skip a relevant one. Relevance is a per-change judgment — see `README.md`.
-- **Novel patterns allowed** when they add clear value — justify (problem → why existing patterns fall short → benefit) and record in `DECISIONS.md`. Unconventional ≠ wrong.
+- **Novel patterns allowed** when they add clear value — justify (problem → why existing patterns fall short → benefit) and record in `claugentic-DECISIONS.md`. Unconventional ≠ wrong.
 - **Every dimension carries a Confidence tag** so the harness can separate what it *proved* (deterministic gates) from what it *asserts* (judgment). Trust the oracle, not the model's word.

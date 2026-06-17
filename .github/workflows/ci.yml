@@ -2,7 +2,7 @@ name: CI
 
 # Run the harness's own deterministic gates on every change to main — so the
 # Definition-of-Done "deterministic gates" actually run by machine, not only when
-# a model remembers (the honesty register's whole point). See docs/WORKFLOW.md.
+# a model remembers (the honesty register's whole point). See docs/claugentic-WORKFLOW.md.
 on:
   push:
     branches: [main]
@@ -61,6 +61,6 @@ jobs:
         with:
           python-version: "3.12"
       - name: Architecture-tree index check
-        run: python scripts/check_architecture_tree.py
+        run: python scripts/claugentic-check_architecture_tree.py
       - name: Plugin-version sync check
         run: python scripts/check_versions_synced.py

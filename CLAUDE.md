@@ -14,16 +14,16 @@ Always: **validate at boundaries, trust internal code · make invalid states unr
 
 ## Harness Discipline
 
-- **Read `docs/ARCHITECTURE_TREE.md` first.** It's a one-line-per-file index — use it to find the right files instead of reading the whole tree. Keep it current: every file add/move/remove updates the tree (a hook enforces presence + staleness; descriptions are authored by you).
+- **Read `docs/claugentic-ARCHITECTURE_TREE.md` first.** It's a one-line-per-file index — use it to find the right files instead of reading the whole tree. Keep it current: every file add/move/remove updates the tree (a hook enforces presence + staleness; descriptions are authored by you).
 - **Keep this CLAUDE.md lean.** Dense one-liners, not paragraphs; **index, don't duplicate.** Point to the source-of-truth doc rather than restating it. Add only genuinely non-obvious gotchas/commands/patterns; don't add anything derivable from reading the code.
-- **Record decisions.** Append a dated one-liner to `docs/DECISIONS.md` for any non-trivial choice (consult it before re-litigating a past one). Out-of-scope ideas → `docs/ROADMAP.md`, not into the current change.
+- **Record decisions.** Append a dated one-liner to `docs/claugentic-DECISIONS.md` for any non-trivial choice (consult it before re-litigating a past one). Out-of-scope ideas → `docs/claugentic-ROADMAP.md`, not into the current change.
 
 ## Development Workflow
 
-Substantial work follows the staged pipeline in **`docs/WORKFLOW.md`** — Triage → Discuss → Plan → Review-the-plan → Spec → **Approve** → Implement → Verify → Land → Retrospect. Small/local changes take the lightweight path (Implement + Verify), still updating `ARCHITECTURE_TREE.md`/`DECISIONS.md`. Specialist roles live in `.claude/agents/`; the orchestrator delegates to preserve context. Active plans live in `.claude/plans/` (start from `TEMPLATE.md`).
+Substantial work follows the staged pipeline in **`docs/claugentic-WORKFLOW.md`** — Triage → Discuss → Plan → Review-the-plan → Spec → **Approve** → Implement → Verify → Land → Retrospect. Small/local changes take the lightweight path (Implement + Verify), still updating `claugentic-ARCHITECTURE_TREE.md`/`claugentic-DECISIONS.md`. Specialist roles live in `.claude/agents/`; the orchestrator delegates to preserve context. Active plans live in `.claude/plans/` (start from `TEMPLATE.md`).
 
 ## Definition of Done
 
-A slice **lands** only when its acceptance criteria are met, **no new tech debt** is introduced, and both gate groups pass: the **deterministic gates** (tests, architecture-tree, version-sync, lint/type/security) and the **reviewer sign-offs** (the in-scope `docs/standards/` dimensions). **`docs/WORKFLOW.md` → Definition of Done is the single source of truth** for the full gate list — don't restate it here (index, don't duplicate).
+A slice **lands** only when its acceptance criteria are met, **no new tech debt** is introduced, and both gate groups pass: the **deterministic gates** (tests, architecture-tree, version-sync, lint/type/security) and the **reviewer sign-offs** (the in-scope `docs/claugentic-standards/` dimensions). **`docs/claugentic-WORKFLOW.md` → Definition of Done is the single source of truth** for the full gate list — don't restate it here (index, don't duplicate).
 
-The engineering quality bar is the in-scope `docs/standards/` modules (entry point: `docs/ENGINEERING_STANDARDS.md`) — a project-agnostic, ever-growing catch-all; the spec names the in-scope dimensions per slice and the reviewer audits against them.
+The engineering quality bar is the in-scope `docs/claugentic-standards/` modules (entry point: `docs/claugentic-ENGINEERING_STANDARDS.md`) — a project-agnostic, ever-growing catch-all; the spec names the in-scope dimensions per slice and the reviewer audits against them.

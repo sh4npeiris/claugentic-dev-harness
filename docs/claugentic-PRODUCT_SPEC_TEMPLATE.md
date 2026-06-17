@@ -4,9 +4,9 @@
 > who it's for, the job it does, each feature's flow and the states that matter — ending in a
 > machine-readable list of **acceptance criteria** a check can later run against the real
 > product. This is the **template** (the pristine contract). Your filled copy lives at
-> `docs/PRODUCT_SPEC.md`.
+> `docs/claugentic-PRODUCT_SPEC.md`.
 >
-> **How it's made & owned.** The filled `docs/PRODUCT_SPEC.md` is **user-owned** — it is
+> **How it's made & owned.** The filled `docs/claugentic-PRODUCT_SPEC.md` is **user-owned** — it is
 > **never stamped** and **never auto-refreshed** by `init`; it is built and refreshed only by
 > **`/claugentic-dev-harness:product` spec mode**, a plain-English conversation (the
 > `product-designer` role convened) that walks you through each section. Two checks read it:
@@ -22,7 +22,7 @@
 ## Who it's for
 
 *Describe the real person this product serves — who they are, the context they're in, and what
-they're equipped (or not) to do. One short paragraph. (See `docs/PRODUCT.md` for the durable
+they're equipped (or not) to do. One short paragraph. (See `docs/claugentic-PRODUCT.md` for the durable
 cross-product user/design-language context, if you keep one.)*
 
 ## The job-to-be-done
@@ -46,7 +46,7 @@ Acceptance criteria are how you check it's kept.*
   numbered or dashed). Each step is one user action.
 - **States** — the non-happy states this feature's async surfaces must handle. The bar for
   **loading / empty / error** is the standard, not restated here — see
-  [`docs/standards/product-ux.md`](standards/product-ux.md) → *Loading / empty / error states*
+  [`docs/claugentic-standards/product-ux.md`](claugentic-standards/product-ux.md) → *Loading / empty / error states*
   (every async surface has all three). Flow-completeness (no dead ends) is the same standard's
   *User-flow completeness* section. **Point at the standard; don't re-describe it here.** Name
   only which states *this* surface actually has.
@@ -78,7 +78,7 @@ pinned in `engine/audit.js` for gap mode and consumed by `engine/qa.js` for runt
 `api` = checked at the app's interface (an HTTP call), no browser · `manual` = a human check the
 QA run **lists** for a person but **never claims** as passed itself. *(The full runtime semantics
 of `flow`/`expect`/`states`/`check` — how each is driven and what pass/fail/not-checkable mean —
-are owned by `qa.js` and documented in `docs/DECISIONS.md`; the **field names are frozen here**
+are owned by `qa.js` and documented in `docs/claugentic-DECISIONS.md`; the **field names are frozen here**
 and the gap check pins them by a test.)*
 
 **Two registers to keep honest:** the **Features prose is the narrative source** and these

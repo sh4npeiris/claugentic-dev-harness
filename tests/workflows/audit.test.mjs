@@ -47,7 +47,7 @@ const DEFERRED_PHRASE = "(⚠ not yet verified — re-run to confirm)";
 function makeItem(overrides = {}) {
   return {
     findingKey: "missing-validation",
-    modules: ["docs/standards/security.md"],
+    modules: ["docs/claugentic-standards/security.md"],
     tier: 2,
     tag: "bug",
     titlePlain: "Add input validation",
@@ -407,7 +407,7 @@ test("buildVerifierInput emits exactly the contract keys (rationale/transcript d
       claimPlain: "no limit on the query",
       claimTechnical: "SELECT without LIMIT",
       locations: ["db.js:40"],
-      sourceModule: "docs/standards/performance-efficiency.md",
+      sourceModule: "docs/claugentic-standards/performance-efficiency.md",
       confidence: "judgment",
       // contamination the finder must NEVER leak to the verifier:
       rationale: "the finder's chain of thought",
@@ -431,8 +431,8 @@ test("buildVerifierInput emits exactly the contract keys (rationale/transcript d
 });
 
 test("buildVerifierInput falls back sourceModule to the first modules entry", () => {
-  const input = H.buildVerifierInput({ modules: ["docs/standards/security.md"] }, []);
-  assert.equal(input.sourceModule, "docs/standards/security.md");
+  const input = H.buildVerifierInput({ modules: ["docs/claugentic-standards/security.md"] }, []);
+  assert.equal(input.sourceModule, "docs/claugentic-standards/security.md");
 });
 
 test("buildVerifierPrompt never contains the words rationale/transcript and demands RUNNING AS", () => {
@@ -623,7 +623,7 @@ test("applySynthesisItems annotates by findingKey and defaults unannotated findi
 test("toResultItem shapes a kept+verified finding into the Phase-3 item contract", () => {
   const item = H.toResultItem({
     issueClass: "missing-validation",
-    modules: ["docs/standards/security.md"],
+    modules: ["docs/claugentic-standards/security.md"],
     tier: 1,
     tag: "bug",
     titlePlain: "Add validation",
@@ -635,7 +635,7 @@ test("toResultItem shapes a kept+verified finding into the Phase-3 item contract
     verification: { state: "verified", evidence: "proof", plainLine: "checked" },
   });
   assert.equal(item.findingKey, "missing-validation");
-  assert.deepEqual(item.modules, ["docs/standards/security.md"]);
+  assert.deepEqual(item.modules, ["docs/claugentic-standards/security.md"]);
   assert.equal(item.verification.state, "verified");
   assert.equal(item.tag, "bug");
 });
@@ -1143,7 +1143,7 @@ test("buildCriterionLensPrompt: carries the criterion id + text and states it re
   assert.ok(prompt.includes("Add an item"), "the criterion feature text rides into the prompt");
   assert.ok(/static/i.test(prompt), "the prompt instructs a static read");
   assert.ok(/do NOT run the app/i.test(prompt), "the prompt states it does not run the app (qa.js's job)");
-  assert.ok(prompt.includes("ARCHITECTURE_TREE.md"), "the prompt points at the file index to locate code");
+  assert.ok(prompt.includes("claugentic-ARCHITECTURE_TREE.md"), "the prompt points at the file index to locate code");
   assert.ok(prompt.includes("issueClass"), "the prompt asks for the standard finding shape");
 });
 

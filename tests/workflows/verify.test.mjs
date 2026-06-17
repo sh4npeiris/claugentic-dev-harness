@@ -20,7 +20,7 @@ import { loadHelpersFrom } from "./_load-helpers.mjs";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(HERE, "..", "..");
 const SCRIPT_PATH = join(REPO_ROOT, "engine", "verify.js");
-const STANDARDS_DIR = join(REPO_ROOT, "docs", "standards");
+const STANDARDS_DIR = join(REPO_ROOT, "docs", "claugentic-standards");
 
 // The verbatim same-model tag — duplicated here on purpose as an independent fixture so a
 // drift in the script's wording is caught by an exact string compare (the test is the pin).
@@ -95,9 +95,9 @@ test("MODELS.judge is pinned to 'opus' (cross-model contract)", () => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// KNOWN_MODULES — the mechanical pin against the real docs/standards/*.md basenames
+// KNOWN_MODULES — the mechanical pin against the real docs/claugentic-standards/*.md basenames
 // ─────────────────────────────────────────────────────────────────────────────
-test("KNOWN_MODULES equals the real docs/standards/*.md slugs (minus _TEMPLATE/README)", () => {
+test("KNOWN_MODULES equals the real docs/claugentic-standards/*.md slugs (minus _TEMPLATE/README)", () => {
   const onDisk = readdirSync(STANDARDS_DIR)
     .filter((f) => f.endsWith(".md"))
     .map((f) => f.slice(0, -".md".length))
@@ -157,10 +157,10 @@ test("validateArgs rejects a non-object arg", () => {
 // ─────────────────────────────────────────────────────────────────────────────
 // modulesFor — slug → module path
 // ─────────────────────────────────────────────────────────────────────────────
-test("modulesFor maps slugs to docs/standards/<slug>.md paths", () => {
+test("modulesFor maps slugs to docs/claugentic-standards/<slug>.md paths", () => {
   assert.deepEqual(H.modulesFor(["security", "testing"]), [
-    "docs/standards/security.md",
-    "docs/standards/testing.md",
+    "docs/claugentic-standards/security.md",
+    "docs/claugentic-standards/testing.md",
   ]);
 });
 
@@ -310,8 +310,8 @@ test("panelRoster derives one lens per module + yagni + synthesis (trustSurface 
   const roster = H.panelRoster(validArgs({ trustSurface: false, dimensions: ["security", "testing"] }));
   const roles = roster.map((r) => r.role);
   assert.deepEqual(roles, [
-    "lens:docs/standards/security.md",
-    "lens:docs/standards/testing.md",
+    "lens:docs/claugentic-standards/security.md",
+    "lens:docs/claugentic-standards/testing.md",
     "yagni",
     "synthesis",
   ]);
@@ -371,9 +371,9 @@ test("judgeOutcome: two failures throw — never a silent partial PASS", () => {
 
 test("coverageGaps: a null lens return becomes an explicit deterministic could-not-run gap", () => {
   const ok = { verdict: "CLEAN", findings: [] };
-  const gaps = H.coverageGaps([ok, null], ["docs/standards/testing.md", "docs/standards/security.md"]);
+  const gaps = H.coverageGaps([ok, null], ["docs/claugentic-standards/testing.md", "docs/claugentic-standards/security.md"]);
   assert.equal(gaps.length, 1);
-  assert.equal(gaps[0].dimension, "docs/standards/security.md");
+  assert.equal(gaps[0].dimension, "docs/claugentic-standards/security.md");
   assert.equal(gaps[0].status, "gap");
   assert.equal(gaps[0].confidence, "deterministic");
 });
