@@ -288,10 +288,10 @@ file — read it there):
    over the set — the independent skeptic — and apply its cut-list. `.claude/agents/yagni-sentinel.md`.)
    **Exception: never prune the Tier-1 "establish a test baseline" item.**
 7. **VERIFY — re-check every surfaced finding** (all tiers, every level). Spawn one
-   `claugentic-dev-harness:finding-verifier` per finding **with the `fable` model override** (the cross-model judge — the
-   mechanism, the self-report comparison, the verbatim same-model tag, and the on-error respawn+tag
-   live in `docs/claugentic-WORKFLOW.md` → Principles → *"Convene the panel's judge roles with the `fable`
-   model override"* — read it there). Pass each verifier **only** `{claim (plain + technical),
+   `claugentic-dev-harness:finding-verifier` per finding — it **runs on Opus, the most-capable model** (the
+   `RUNNING AS:` self-report, the honest same-model reporting, and the structural clean-context independence
+   live in `docs/claugentic-WORKFLOW.md` → Principles → *the reviews-run-on-the-most-capable-model
+   principle* — read it there). Pass each verifier **only** `{claim (plain + technical),
    file:line, source module, confidence label, exclude-set}` and the refute-first posture — never
    the finder's rationale, never a lens verifying its own finding (`.claude/agents/finding-verifier.md`).
    Apply verdicts exactly as the script does (the *Item format* in Phase 3 is the verdict→tag map):

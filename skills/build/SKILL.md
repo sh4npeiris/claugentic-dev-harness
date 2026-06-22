@@ -240,9 +240,9 @@ Draft `.claude/plans/NNNN-<item>.md` (the standard plan structure: Problem · Ap
 adversarially critique it, **escalating to the diverse panel per the WORKFLOW Principles
 trigger**: a contested design fork or a trust/honesty surface adds **`claugentic-dev-harness:yagni-sentinel`** +
 **`claugentic-dev-harness:honesty-reviewer`**; a user-facing change also adds **`claugentic-dev-harness:product-designer`**. **Spawn the
-judge roles — `claugentic-dev-harness:plan-reviewer` · `claugentic-dev-harness:honesty-reviewer` — with the `fable` model override** (cross-model
-wiring, the same-model tag, and the on-error respawn live in **`docs/claugentic-WORKFLOW.md` → Principles →
-"Convene the panel's judge roles with the `fable` model override"** — point there, don't restate).
+judge roles — `claugentic-dev-harness:plan-reviewer` · `claugentic-dev-harness:honesty-reviewer`** — they run on Opus,
+the most-capable model (the `RUNNING AS:` self-report + structural clean-context independence live in
+**`docs/claugentic-WORKFLOW.md` → Principles → the reviews-run-on-the-most-capable-model principle** — point there, don't restate).
 Iterate the plan until the review verdict is **PASS**.
 
 **Narrate progress as completed beats only — never an ETA, never a "nearly done."** *"Planned
@@ -285,9 +285,9 @@ Dial the Verify depth per the **WORKFLOW's named triggers** (read them there —
 trigger **fans out** the `lens-reviewer`s + `yagni-sentinel`, and a trust/honesty/user-facing
 surface convenes the **diverse panel** per the WORKFLOW Principles — `architect-reviewer`
 then synthesizes. **Spawn the judge roles — `claugentic-dev-harness:architect-reviewer` · `claugentic-dev-harness:honesty-reviewer` ·
-`claugentic-dev-harness:finding-verifier` — with the `fable` model override** (cross-model wiring, the same-model tag,
-and the on-error respawn live in **`docs/claugentic-WORKFLOW.md` → Principles → "Convene the panel's judge
-roles with the `fable` model override"** — point there, don't restate). Run the
+`claugentic-dev-harness:finding-verifier`** — they run on Opus, the most-capable model (the `RUNNING AS:` self-report
++ structural clean-context independence live in **`docs/claugentic-WORKFLOW.md` → Principles → the
+reviews-run-on-the-most-capable-model principle** — point there, don't restate). Run the
 **Definition-of-Done deterministic run-gates** (the canonical list lives in the WORKFLOW DoD —
 run it, don't restate it).
 
