@@ -235,7 +235,7 @@ imply it does.)
 
 ### 3. Auto-drive Plan → Review *(Stages 2–3 — no pause)*
 
-Draft `.claude/plans/NNNN-<item>.md` from **`.claude/plans/TEMPLATE.md`**, sliced into
+Draft `.claude/plans/NNNN-<item>.md` (the standard plan structure: Problem · Approach · Risks · Test strategy · slices · Review · Spec), sliced into
 ≤1-session units per the WORKFLOW *Principles*. Then spawn **`claugentic-dev-harness:plan-reviewer`** to
 adversarially critique it, **escalating to the diverse panel per the WORKFLOW Principles
 trigger**: a contested design fork or a trust/honesty surface adds **`claugentic-dev-harness:yagni-sentinel`** +
@@ -466,8 +466,8 @@ uses at step 4) — the roster is the overview, the triads are the detail.
 
 Per item, the choices are **approve / adjust / drop**:
 
-- **Approve** → flip that item's plan file to **`Status: Approved`** (the `TEMPLATE.md`
-  Status convention — **this is the durable mark** the run and any resume read; see the
+- **Approve** → flip that item's plan file to **`Status: Approved`** (the plan's
+  Status field — **this is the durable mark** the run and any resume read; see the
   resume contract).
 - **Adjust** → amend the spec and re-render that item's triad; a **material change re-enters
   the review loop** (step 3) before it can be approved.

@@ -47,7 +47,7 @@ Run it as a **periodic snapshot**, not a treadmill: the **engineering backlog re
 
 Once the engineering backlog is written, starting an item is the same go-button as everything else: **tell the agent "let's do Tier-1 item 1"** (or whichever) in plain English, and it runs the workflow from Discuss. To work **more than one** item, the go-button is **`/claugentic-dev-harness:build`**: name several items or a whole tier ("build all of Tier-1"), confirm the order, and it works them one by one to the honest "sound on the audited dimensions" stop-signal. **`build` reads both backlogs** — engineering and product — and presents one worklist interleaved by tier, each item tagged with which lens raised it (run `/claugentic-dev-harness:product` to populate the product backlog first if you want it folded in) — re-checking the code it just touched between items and pausing for you only when new important work surfaces (and never for anything irreversible without asking). You can approve each spec as its turn comes, or say **"spec everything first"** to plan the whole list and approve it in **one sitting** before any building begins.
 
-## What v2 changed (the short version)
+## How the pipelines run (the short version)
 
 The choreography you read about above is now **executable scripts** the skills run, not just prose the agent must remember:
 
@@ -55,7 +55,7 @@ The choreography you read about above is now **executable scripts** the skills r
 - **Autonomy is a ladder.** Default is **checkpoint** (you approve at the spec). **Build-to-green** (the loop iterates unwatched until gates + acceptance criteria pass, pausing at release) is *earned per-repo* — only with CI + a test baseline + a testable spec. It is **a reduction of unwatched-run risk, never a substitute for the unbuilt deterministic trust-gates.** See `skills/build/SKILL.md`.
 - **The harness can run your app (QA).** It boots the app and drives the spec'd flows in a real browser, checking empty/loading/error states. A QA pass that **couldn't run** says so — never a silent skip. See [`WORKFLOW.md`](claugentic-WORKFLOW.md) → the QA gate.
 - **A product layer.** A `product-spec` flow rebuilds `docs/claugentic-PRODUCT_SPEC.md` with testable acceptance criteria; a `product-gap` audit checks intent vs. what's built. See `skills/product/SKILL.md`.
-- **A measured harness.** A release-time **drift check** re-runs an audit over a seeded-defect fixture and compares the score to a baseline — a **drift detector, not a quality guarantee**. See [`../eval/BASELINE.md`](../eval/BASELINE.md).
+- **A measured harness.** A release-time **drift check** re-runs an audit over a seeded-defect fixture and compares the score to a baseline — a **drift detector, not a quality guarantee**. *(Measured in the harness's own repo — `eval/BASELINE.md` — not part of your install.)*
 
 ## When in doubt
 

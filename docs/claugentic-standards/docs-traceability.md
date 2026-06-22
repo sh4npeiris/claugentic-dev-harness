@@ -24,10 +24,10 @@ gold-plating an irrelevant one, never skipping a relevant one.
 ## Architecture-tree index currency
 
 - **Good looks like —** `docs/claugentic-ARCHITECTURE_TREE.md` reflects the actual file layout with a one-line description per file. Every file add, move, or delete within scope triggers an update to the tree in the same commit.
-- **Auditor checks —** Run `python scripts/claugentic-check_architecture_tree.py` and confirm exit 0 `[D]`; visually verify that any new file added in this change has a description entry `[J]`.
+- **Auditor checks —** If the architecture-tree gate is wired, run it (`python` / `python3` / `py` — `scripts/claugentic-check_architecture_tree.py`) and confirm exit 0 `[D]`; otherwise verify the tree by eye `[J]`. Either way, confirm any new file added in this change has a description entry `[J]`.
 - **Confidence —** `mixed`
 - **Tradeoff (plain English) —** A current ARCHITECTURE_TREE means a new agent (or team member) can navigate the codebase without reading every file; the cost is updating one line per file change. A stale tree wastes agent context and misdirects exploration.
-- **Sources —** This harness's own CLAUDE.md (the ARCHITECTURE_TREE discipline is a first-class harness rule); Grady Booch "Object-Oriented Analysis and Design" on the value of navigable architecture documentation.
+- **Sources —** the claugentic-dev-harness architecture-tree discipline (a first-class harness rule); Grady Booch "Object-Oriented Analysis and Design" on the value of navigable architecture documentation.
 
 ---
 

@@ -311,8 +311,7 @@ On the **script path**, Phase 3 is **file mechanics**, not free-hand authoring: 
 carries `renderedBacklog` — the **complete fence body** built by the script's `renderBacklogFence`
 helper (status line, legend, tiers, recommended starting point, run report, go-button). **Write that
 string between the markers and replace `{{DATE}}` with today's date.** The format is the **renderer's**
-to own — **format source of truth: `renderBacklogFence` and its tests in
-`tests/workflows/audit.test.mjs`** — so it can no longer drift from the documented shape. (On the
+to own — **format source of truth: `renderBacklogFence` in `engine/audit.js`** — so it can no longer drift from the documented shape. (On the
 *prose-orchestrated fallback* only, you author the body by hand, following that same documented shape
 — see the renderer + its tests for the exact format.)
 

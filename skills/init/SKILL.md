@@ -288,7 +288,7 @@ without per-file content reads** (the whole point: the *path list* is a millisec
   4. **CRITICAL — format guard (the regression this slice exists to fix):** the skeleton uses
      **markdown headings + `- \`path\`` lines and NEVER ` ``` `-fenced code blocks.** A fence
      is stripped by `_strip_fenced_blocks` (`scripts/claugentic-check_architecture_tree.py:129-150`)
-     and would desync the presence-matching pairing — the exact bug that read 6 adopter trees
+     and would desync the presence-matching pairing — the exact bug that read fenced-diagram trees
      as 0% coverage. Never emit an ASCII directory diagram; emit backtick-prose lines.
   5. **Run the copied gate and reconcile to green** — the **gate is the oracle.** Missing
      entry → add it; stale entry → remove it; loop until green. The skeleton lists every
@@ -314,7 +314,7 @@ mechanically enforce a fenced ASCII diagram. How do you want to proceed?"*:
     choice)`. The `[]` is **adopter-owned**, protected by the existing INCLUDE_GLOBS
     carve-out (`:189-201`): a re-`init` on a `keep-gate-off` repo **MUST NOT re-derive
     globs** (or the gate silently turns back on — a regression against the locked choice).
-    (This is an adopter repo's circumstantial state, now an explicit choice. To later
+    (This was previously a circumstantial state, now an explicit choice. To later
     switch a kept tree to the harness format, delete it and re-`init` → mature-no-tree →
     skeleton.)
 
@@ -402,7 +402,7 @@ gate silently turns back on against the locked choice). Set it (for the running 
 the harness's two tree hooks are wired **only when the tree-gate is ON** (Fresh,
 Mature-no-tree, Replace). When the gate is **OFF** (Keep-mine-gate-off), **wire NEITHER
 hook** — the kept (non-backtick) tree must never be policed by a blocking gate that would
-false-flag it (the measured 6×0% adopter regression). Gate-off leaves `.claude/settings.json`
+false-flag it (the measured fenced-diagram 0%-coverage regression). Gate-off leaves `.claude/settings.json`
 free of both tree hooks; the tree stays model-upheld via the CLAUDE.md authority anchor.
 
 - **Parse** `.claude/settings.json` as JSON. **Absent → treat as `{}`** (and create the
@@ -422,8 +422,11 @@ free of both tree hooks; the tree stays model-upheld via the CLAUDE.md authority
   `init` is **left in place** and flagged-and-recommended in the report — never silently
   removed; settings churn is itself a never-clobber concern, and the recorded `gate off`
   choice plus `INCLUDE_GLOBS = []` already neutralize a stale hook's false-flagging.)
-- Write the **`${CLAUDE_PROJECT_DIR}`-rooted** command (cwd-independent) — **not** the bare
-  relative path this source repo uses. Use the **interpreter detected in step 1**
+- Write the **`${CLAUDE_PROJECT_DIR}`-rooted** command (cwd-independent) — **never** a bare
+  relative path. Hook **cwd is not guaranteed** to be the repo root (a subdir launch, or the
+  home-dir cwd certain hook events run from, breaks a relative path), and Claude Code expands
+  `${CLAUDE_PROJECT_DIR}` to an absolute path itself before invoking the shell, so the rooted
+  form is Windows-safe regardless of shell. Use the **interpreter detected in step 1**
   (`python` / `python3` / `py`) as the leading token.
 - **Idempotency key:** a hook whose `command` **contains `claugentic-check_architecture_tree.py`** is
   "already present." When the gate is ON: if a `PostToolUse(Write)` entry and a `Stop` entry

@@ -81,7 +81,7 @@ Also available without new files: built-in **`Explore`** (fan-out search), **`Pl
 |---|-------|------|-------|--------|
 | 0 | **Triage** | FRAME | orchestrator | full vs lightweight path |
 | 1 | **Discuss & brainstorm** | FRAME | orchestrator + **user** | learn the endeavour from multiple **angles** before planning — technical scope **+ product-discovery** (who's the user · the job-to-be-done · what success/"delight" looks like · the key flows & their states); these surface the user-story gaps a technical-only intake misses. User-facing work pulls in `product-designer` → `docs/claugentic-PRODUCT.md`. Crystal-clear scope; tangents→ROADMAP, decisions→DECISIONS |
-| 2 | **Draft plan** | FRAME | orchestrator / `Plan` | `.claude/plans/NNNN-<slug>.md` from `TEMPLATE.md`, **sliced into ≤1-session units** |
+| 2 | **Draft plan** | FRAME | orchestrator / `Plan` | `.claude/plans/NNNN-<slug>.md` (Problem · Approach · Risks · Test strategy · slices — Review & Spec filled later), **sliced into ≤1-session units** |
 | 3 | **Review the plan** | FRAME | `plan-reviewer` (+ others as fit) | critique written into the plan's *Review* section; iterate until it passes the gate |
 | 4 | **Spec** | FRAME | orchestrator | plan upgraded to implementation-ready spec **per slice**: opens with a short plain-English block (*what this builds · what "done" means for you · what you're accepting — risks/trade-offs*), then file-by-file changes, signatures, test list, acceptance criteria, **+ the in-scope `docs/claugentic-standards/` dimensions & target bar (entry point: `docs/claugentic-ENGINEERING_STANDARDS.md`)** |
 | 5 | **Approval gate** | APPROVE | **user** | sign-off on the spec — *no code before this* |
@@ -110,17 +110,17 @@ Also available without new files: built-in **`Explore`** (fan-out search), **`Pl
 > When the `claugentic-dev-harness` plugin is installed into your project, this WORKFLOW.md is a **managed copy** living in your `docs/`. So a few references below resolve to the **installed plugin**, not to files your repo must contain:
 > - **The specialist agents** (`plan-reviewer`, `architect-reviewer`, `lens-reviewer`, `yagni-sentinel`, `honesty-reviewer`, …) **and the `engine/*.js` scripts** referenced throughout live **inside the installed plugin** — agents are resolved at spawn (by their namespaced id), engine scripts are run via the Workflow tool from the install path. They are **NOT** a `.claude/agents/` or `engine/` directory your repo has to provide.
 > - **The Definition of Done's *deterministic gates* mean THIS project's OWN gates** — *your* lint, *your* type-check, and *your* test suite — plus the architecture-tree check. The specific commands written below (`python -m pytest`, `python scripts/check_versions_synced.py`) are the **harness's own self-test** for developing the plugin itself (version-sync checks the *plugin's* two manifests and is irrelevant to an adopter). **Substitute your project's equivalents.**
-> - **The architecture-tree check is wired as a hook by `init` only when the tree-gate is enabled** — a fresh or mature-no-tree repo gets a harness-format tree and the hook; a mature repo that already has its own tree is **asked** (replace it with a harness skeleton → gate on, or keep yours → **gate off, no hook wired**). If you keep your own tree (gate off), there's no hook — run `python scripts/claugentic-check_architecture_tree.py` manually at Verify if you ever want a one-off check.
+> - **The architecture-tree check is wired as a hook by `init` only when the tree-gate is enabled** — a fresh or mature-no-tree repo gets a harness-format tree and the hook; a mature repo that already has its own tree is **asked** (replace it with a harness skeleton → gate on, or keep yours → **gate off, no hook wired**). If you keep your own tree (gate off), there's no hook — run `scripts/claugentic-check_architecture_tree.py` (with `python` / `python3` / `py`) manually at Verify if you ever want a one-off check.
 
 ## Definition of Done
 
 A slice is **done** — and may land (Stage 8) — only when **all** hold. Two groups, same bar; they differ in *who* says pass:
 
 **Deterministic gates** (pass/fail, can't be argued around):
-1. **Full test suite** (`python -m pytest`) + any regression/snapshot tests green.
-2. **`python scripts/claugentic-check_architecture_tree.py`** green (the one mechanically-enforced harness gate — file-index presence, staleness, and **glob-drift detection**).
+1. **Full test suite green** + any regression/snapshot tests — *your* project's suite. *(This plugin's own suite is `python -m pytest`.)*
+2. **Architecture-tree check green** (when the gate is wired) — file-index presence, staleness, and **glob-drift detection**. Run it with whichever interpreter you have (`python` / `python3` / `py`): `scripts/claugentic-check_architecture_tree.py`.
    - **Updating the codebase map (the handled drift case).** When this gate reports *glob drift* — it's watching no files while the repo now contains source (e.g. an `init`'d empty repo that has since grown real code) — surface it to the user in plain English: *"I'm updating your codebase map to match your new code"* — then re-detect the layout and reset `INCLUDE_GLOBS` (init step 5's terminating self-correction). **Scope the claim honestly:** this is the *handled* drift path reading as plain English — a **genuine gate crash still fails loud by design** (CLAUDE.md: never swallow errors); don't promise "no error ever," only that this one case is plain.
-3. **`python scripts/check_versions_synced.py`** green — enforces `plugin.json` ↔ `marketplace.json` version equality (`plugin.json` is the source of truth). A **run-gate** executed in this gate suite (like `pytest`), not hook-wired; scope is the two manifest versions only.
+3. **Version-sync green** — *harness-self only* (developing this plugin): `python scripts/check_versions_synced.py` enforces `plugin.json` ↔ `marketplace.json` version equality (`plugin.json` is the source of truth). A **run-gate** (like `pytest`), not hook-wired; scope is the two manifest versions only. **Not applicable to adopter repos** — skip it.
 4. **The project's lint / type-check / security gates** green.
 
 **Reviewer sign-offs** (model judgment, not a mechanical gate):
@@ -154,7 +154,7 @@ Iterate to meet this **fixed** bar, then **stop** — it terminates because the 
 A **finite harvest checklist the orchestrator RUNS at Land** (manual discipline, not automation — the orchestrator runs it; it does not trigger by itself). Sweep these five; for each, **emit the edit** or an explicit *"nothing durable this slice"*:
 
 - **(a)** A convention that recurred across review findings → **promote to STANDARDS / CLAUDE.md**.
-- **(b)** A manual/lens catch that a gate or checklist **could have made** → **open a gate item on `ROADMAP.md`** (not just a `claugentic-DECISIONS.md` line — a logged decision doesn't become a check by itself). *(Worked example: the `plugin.json`↔`marketplace.json` drift was hand-caught at Verify, logged to DECISIONS, then re-surfaced — this slice's `check_versions_synced.py` is that lesson finally made into a gate.)*
+- **(b)** A manual/lens catch that a gate or checklist **could have made** → **open a gate item on `ROADMAP.md`** (not just a `claugentic-DECISIONS.md` line — a logged decision doesn't become a check by itself). *(Worked example: a manual catch that recurred at Verify — logged as a decision but never enforced — gets opened as a `ROADMAP.md` gate item so it becomes a real check, not just a note.)*
 - **(c)** A prompt tweak that sharpened a specialist → **fold into the `.claude/agents/` role file**.
 - **(d)** Process friction → **edit this `WORKFLOW.md`**.
 - **(e)** Every non-trivial choice → **one dated line in `claugentic-DECISIONS.md`**.

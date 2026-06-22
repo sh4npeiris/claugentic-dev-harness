@@ -46,4 +46,4 @@ The harness's whole pitch is honesty, so here's the straight version:
 - **10 specialist sub-agents** (`.claude/agents/`) — a plan critic, a builder, a verifier, a product designer, a **product critic** that pushes your spec to be more ambitious, per-standard reviewers, an anti-over-engineering skeptic, and an honesty reviewer — so the main agent stays focused on your decisions.
 - A relevance-loaded **standards catalog** (`docs/claugentic-standards/`, ISO/IEC 25010-anchored), with each finding labeled by how confidently it was checked.
 
-Full file-by-file map: **[`docs/claugentic-ARCHITECTURE_TREE.md`](docs/claugentic-ARCHITECTURE_TREE.md)**. License: **Apache-2.0**.
+`init` generates a file-by-file map of your repo at `docs/claugentic-ARCHITECTURE_TREE.md`, kept current by the codebase-map check. License: **Apache-2.0**.
