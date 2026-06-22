@@ -111,7 +111,7 @@ invalid field — fail loud):
   model-upheld, NOT a mechanical guarantee). The bound is **per-command within a stage, never a stage
   wall-clock total**; residual: a single legitimate command exceeding the 600s hard max can't be
   bounded-and-completed in one foreground call — split that repo's suite, or it isn't bounded-runnable.
-- `builderFamily` — the orchestrator's session model family (the cross-model fallback).
+- `builderFamily` — the orchestrator's session model family (used by the honest same-model reporter).
 
 **The engine's pauses are returns — map each returned status to its pause/interaction:**
 
@@ -240,8 +240,7 @@ Draft `.claude/plans/NNNN-<item>.md` (the standard plan structure: Problem · Ap
 adversarially critique it, **escalating to the diverse panel per the WORKFLOW Principles
 trigger**: a contested design fork or a trust/honesty surface adds **`claugentic-dev-harness:yagni-sentinel`** +
 **`claugentic-dev-harness:honesty-reviewer`**; a user-facing change also adds **`claugentic-dev-harness:product-designer`**. **Spawn the
-judge roles — `claugentic-dev-harness:plan-reviewer` · `claugentic-dev-harness:honesty-reviewer`** — they run on Opus,
-the most-capable model (the `RUNNING AS:` self-report + structural clean-context independence live in
+judge roles — `claugentic-dev-harness:plan-reviewer` · `claugentic-dev-harness:honesty-reviewer`** — they run on the most capable available model (the `RUNNING AS:` self-report + structural clean-context independence live in
 **`docs/claugentic-WORKFLOW.md` → Principles → the reviews-run-on-the-most-capable-model principle** — point there, don't restate).
 Iterate the plan until the review verdict is **PASS**.
 
@@ -285,7 +284,7 @@ Dial the Verify depth per the **WORKFLOW's named triggers** (read them there —
 trigger **fans out** the `lens-reviewer`s + `yagni-sentinel`, and a trust/honesty/user-facing
 surface convenes the **diverse panel** per the WORKFLOW Principles — `architect-reviewer`
 then synthesizes. **Spawn the judge roles — `claugentic-dev-harness:architect-reviewer` · `claugentic-dev-harness:honesty-reviewer` ·
-`claugentic-dev-harness:finding-verifier`** — they run on Opus, the most-capable model (the `RUNNING AS:` self-report
+`claugentic-dev-harness:finding-verifier`** — they run on the most capable available model (the `RUNNING AS:` self-report
 + structural clean-context independence live in **`docs/claugentic-WORKFLOW.md` → Principles → the
 reviews-run-on-the-most-capable-model principle** — point there, don't restate). Run the
 **Definition-of-Done deterministic run-gates** (the canonical list lives in the WORKFLOW DoD —
@@ -381,8 +380,9 @@ or touches the `harness-product:backlog` fence.
 Carry each re-audit finding's **verification tag unchanged** — `(checked against the code)` /
 `(could not confirm independently — model's assertion)` / `(⚠ not yet verified — re-run to
 confirm)` mean exactly what they mean in the `audit` skill: a reduction of false confidence by
-a re-check from a different model family than the builder (the cross-model judge; on a
-same-family run, tagged as such), **not** a deterministic guarantee. Don't upgrade the framing
+a re-check from a separate specialist agent with a clean context (the clean-context judge; it
+never sees the finder's rationale, so it can't rubber-stamp it — it runs the same capable model,
+so model blind spots aren't independent), **not** a deterministic guarantee. Don't upgrade the framing
 because it's the loop re-checking its own work.
 
 **Then decide — continue or re-triage:**
@@ -564,4 +564,5 @@ that could drift from the backlog).
   names exactly which unlock conditions are unmet and what evidence was checked — never a vague
   "not yet," never a silent degrade to a weaker promise. Build-to-green, when it runs, is a
   reduction of unwatched-run risk, never a substitute for the unbuilt deterministic trust-gates
-  (the cross-model judge stays a reduction of shared-blind-spot risk, not a mechanical guarantee).
+  (the clean-context judge stays a reduction of rubber-stamping risk, not a mechanical guarantee —
+  it runs the same capable model, so model blind spots aren't independent).

@@ -31,10 +31,11 @@ export const meta = {
 // Pure functions only — they reference solely their params and each other (no closure over
 // tool primitives), so the test harness can extract this block and evaluate it standalone.
 
-// The judge model family, defined ONCE (single source of truth). Copied verbatim from
-// verify.js (Slice 2) — the shared cross-model contract. A coded `model:` param is the wired
-// cross-model spawn the prose used to uphold; the same-model TAG (below) stays the per-run
-// honesty guard.
+// The judge model, defined ONCE (single source of truth). `opus` is the MOST-CAPABLE tier
+// alias — it auto-resolves to the current top model, never a frozen version; change here (and
+// the agents' `model:` frontmatter) if the top tier is ever renamed. Judges run the most
+// capable available model; review independence is of role + clean context, not of model. The
+// RUNNING AS / same-model tag (below) stays an honest per-run model-relationship reporter.
 const MODELS = { judge: "opus" };
 
 // Bundled agents resolve only as `claugentic-dev-harness:<agent>` for an installed adopter

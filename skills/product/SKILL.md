@@ -176,7 +176,7 @@ checking is the QA workflow's job (`qa.js`); say so.**
 
    The criteria list (not a depth dial) bounds FIND — **lens depth is fixed at `deep`**. Findings
    join the **unchanged** path: coded dedup → synthesis prune → **exactly one `finding-verifier`
-   per surviving finding** (cross-model judge + same-model tagging owned by the script, per the
+   per surviving finding** (clean-context judge + same-model tagging owned by the script, per the
    shared `MODELS` contract); the shared budget cap + status-block resume apply with criterion ids
    as the cells.
 

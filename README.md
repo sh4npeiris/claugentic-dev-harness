@@ -37,7 +37,7 @@ New to this? Start with **[`docs/claugentic-PLAYBOOK.md`](docs/claugentic-PLAYBO
 The harness's whole pitch is honesty, so here's the straight version:
 
 - **Mechanical (a real gate):** the codebase-map check `init` installs — a deterministic, no-LLM hook that blocks "done" until every file is documented. It checks that files are *documented*, **not** that the code is *good*, and it composes with your own linters and tests rather than replacing them.
-- **Model-upheld (judgment, not a guarantee):** every review and the audit's double-checks. A skeptical reviewer runs by default on a **different Claude model family** than the builder — a reduction of shared-blind-spot risk, **not** independence (same vendor, so errors can still correlate). The audit *tries to refute* each finding and tags what came back; it never presents judgment as proof.
+- **Model-upheld (judgment, not a guarantee):** every review and the audit's double-checks. A skeptical reviewer is a **separate specialist agent with a clean context** — it never sees the builder's reasoning, so it can't rubber-stamp it. A reduction of rubber-stamping risk, **not** independence (it runs the same capable model, so model blind spots aren't independent). The audit *tries to refute* each finding and tags what came back; it never presents judgment as proof.
 - **Not built yet:** the mechanical trust-gates that would make a fully-unwatched run safe (a land-gate that blocks a bad commit, a secret-scan). So an unwatched "build-to-green" run is offered only where a repo has earned it (CI, a test baseline, an approved spec) — and otherwise declines honestly, naming what's missing.
 
 ## Under the hood *(optional)*

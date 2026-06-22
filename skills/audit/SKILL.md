@@ -22,7 +22,7 @@ Three phases, cheap → expensive, run end-to-end in one pass:
    the audit-plan as args; the script runs the FIND → PRUNE → VERIFY pipeline mechanically: a
    `lens-reviewer` fan-out per `(module × dir)` cell at the dial's **depth**, coded dedup, a
    synthesis self-review prune, and **exactly one `finding-verifier` per surviving finding**
-   (cross-model judge), with a deterministic budget cap + resume.
+   (clean-context judge), with a deterministic budget cap + resume.
 3. **Backlog** *(LIVE)* — the script's **structured return** is rendered into the
    `harness-audit:backlog` fence in `docs/claugentic-ROADMAP.md` as a **tiered, tagged, plain-English**
    backlog, ending with a recommended starting point.
@@ -234,7 +234,7 @@ pseudo-cell — it FINDS only, its findings join the same path), **PRUNE** (code
 self-review agent → cut-list, with the `missing-test-baseline` item **never** pruned; **at
 `thorough`, also an adversarial `yagni-sentinel` sweep** over the consolidated set, its cuts applied
 with the same never-prune-the-baseline protection), **VERIFY** (exactly one `finding-verifier` per
-surviving finding — **including blindspot-originated ones** — cross-model judge-pinned, clean-context
+surviving finding — **including blindspot-originated ones** — clean-context judge, clean-context
 input — never the finder's rationale). A lens batch (or the blind-spot pseudo-cell) that errors
 after one retry sends its cells to `pending` (the run goes `PARTIAL` — never a silent skip); the cap
 forces `PARTIAL` with exact `done`/`pending` cell lists for a deterministic resume (the blind-spot
@@ -288,7 +288,7 @@ file — read it there):
    over the set — the independent skeptic — and apply its cut-list. `.claude/agents/yagni-sentinel.md`.)
    **Exception: never prune the Tier-1 "establish a test baseline" item.**
 7. **VERIFY — re-check every surfaced finding** (all tiers, every level). Spawn one
-   `claugentic-dev-harness:finding-verifier` per finding — it **runs on Opus, the most-capable model** (the
+   `claugentic-dev-harness:finding-verifier` per finding — it **runs on the most capable available model** (the
    `RUNNING AS:` self-report, the honest same-model reporting, and the structural clean-context independence
    live in `docs/claugentic-WORKFLOW.md` → Principles → *the reviews-run-on-the-most-capable-model
    principle* — read it there). Pass each verifier **only** `{claim (plain + technical),
@@ -348,7 +348,7 @@ The heading and the markers are **SKILL-owned** — the renderer emits neither.
 3. **The closing run-report you say to the user** (conversationally, outside the fence) frames the
    refuted count as a trust signal. The rendered fence already carries the run-report line; **when
    `verification.crossModel` is false**, that line carries the verbatim same-model tag instead of the
-   cross-model parenthetical (never both) — and **on a prose-orchestrated run, also state that** in
+   clean-context-judge parenthetical (never both) — and **on a prose-orchestrated run, also state that** in
    your conversational report.
 
 ### Tag → discipline  *(the mapping lives in `docs/claugentic-WORKFLOW.md` — enforcement is not yet automated)*
@@ -366,5 +366,5 @@ backlog and **do not imply the hook (or any automatic gate) already exists.**
 After writing the fence and stamping the date, **report the dial level + coverage** conversationally
 (which cells ran, `COMPLETE` or `PARTIAL`, and any baseline fallback). The verification run-report
 line is already in the rendered fence; echo its trust framing to the user (count of dropped findings,
-the cross-model-or-same-model-tag clause exactly as the fence carries it). **Do not list the specific
+the clean-context-judge / same-model-tag clause exactly as the fence carries it). **Do not list the specific
 refuted claims** and **do not persist them.**
