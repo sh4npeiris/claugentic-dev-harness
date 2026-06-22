@@ -36,6 +36,7 @@ Harness Discipline.
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -376,7 +377,52 @@ def _check_written_file() -> int:
     return 2
 
 
+def _repo_root() -> Path:
+    """Repo root, derived from THIS script's location — never the process CWD, never hardcoded.
+
+    Every path the gate touches (`TREE_PATH`, each `_git` call, the staleness `Path.exists()`)
+    is repo-root-relative, but a hook can launch this script from ANY working directory — a
+    subdir, or the home dir certain hook events run from. Anchoring to the script's own location
+    makes the gate CWD-independent and portable across machines/adopters: the value is computed
+    at runtime from `__file__`, never written down. Git is authoritative; when git is unavailable
+    we fall back to `<script_dir>/..` (the script lives at `<repo>/scripts/`).
+    """
+    here = Path(__file__).resolve().parent
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(here), "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            check=True,
+        )
+        return Path(out.stdout.strip())
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return here.parent  # convention: the script lives at <repo>/scripts/
+
+
+def _force_utf8_output() -> None:
+    """Emit stdout/stderr as UTF-8 so non-ASCII glyphs in messages survive on Windows.
+
+    Python encodes stdout/stderr with the host locale codepage by default (cp1252 on Windows),
+    but the hook consumer decodes the stream as UTF-8 — so a lone em-dash (`—`, as in the "is
+    missing —" message) mojibakes to `�` (a strict cp1252 console can even raise
+    UnicodeEncodeError). Reconfiguring to UTF-8 fixes every message at once. A captured/replaced
+    stream (pytest, a pipe wrapper) may lack `.reconfigure` → guarded, best-effort.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8")  # Python 3.7+
+        except (AttributeError, ValueError):
+            pass
+
+
 def main(argv: list[str]) -> int:
+    # Boundary setup, run for EVERY mode (all route through main()): emit UTF-8 (Windows
+    # mojibake) and anchor to the repo root so the gate is CWD-independent — a Stop hook may
+    # launch it from anywhere, and every path below is repo-root-relative.
+    _force_utf8_output()
+    os.chdir(_repo_root())
     if "--hook-write" in argv:
         # A git failure must NOT block a file write — the write nudge is advisory only.
         try:

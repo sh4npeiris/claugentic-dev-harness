@@ -31,6 +31,9 @@ def repo(tmp_path, monkeypatch):
     as needed.
     """
     monkeypatch.chdir(tmp_path)
+    # main() now chdir's to _repo_root(); pin it to the scratch repo so the fixture's chdir
+    # stands (the real __file__ anchor would otherwise point main() at THIS repo's own tree).
+    monkeypatch.setattr(cat, "_repo_root", lambda: tmp_path)
     monkeypatch.setattr(cat, "TREE_PATH", cat.Path("docs/claugentic-ARCHITECTURE_TREE.md"))
     # Default: git reports nothing in scope (presence check is then trivially OK).
     monkeypatch.setattr(cat, "_git", lambda *args: [])
@@ -839,6 +842,8 @@ class TestGitInvocationFlags:
             raise UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte")
 
         monkeypatch.chdir(tmp_path)
+        # Pin _repo_root so main()'s chdir doesn't call the (stubbed-to-raise) subprocess.run.
+        monkeypatch.setattr(cat, "_repo_root", lambda: tmp_path)
         monkeypatch.setattr(cat, "_git", _REAL_GIT)
         monkeypatch.setattr(cat.subprocess, "run", fake_run)
         monkeypatch.setattr(cat.sys, "stdin", io.StringIO('{"tool_input": {"file_path": "scripts/a.py"}}'))
@@ -942,3 +947,78 @@ class TestFencedDiagrams:
         problems, summary = cat.evaluate()
         assert problems == [], f"a path inside a fence was wrongly treated as live: {problems}"
         assert "indexes all 1 in-scope files" in summary
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CWD-independence — the gate anchors to the repo root from __file__, NOT the
+# process CWD (the bug: a Stop hook launches the gate from outside the repo root)
+# ─────────────────────────────────────────────────────────────────────────────
+class TestCwdIndependence:
+    def test_main_resolves_against_repo_root_not_cwd(self, tmp_path, monkeypatch):
+        """THE regression (hermetic): main() resolves every path against `_repo_root()`, not
+        the CWD. Build a valid scratch repo, point `_repo_root` at it, then chdir to a DIFFERENT
+        directory — main() must still validate the scratch repo's tree (exit 0). Pre-fix (no
+        `os.chdir`), the relative TREE_PATH resolved against the wrong CWD → `.exists()` False →
+        short-circuit to 'is missing' → exit 2."""
+        import io
+
+        (tmp_path / "scripts").mkdir()
+        (tmp_path / "scripts" / "a.py").write_text("x", encoding="utf-8")
+        _write_tree(tmp_path, "# Tree\n- `scripts/a.py` — does a thing.\n")
+        monkeypatch.setattr(cat, "_repo_root", lambda: tmp_path)
+        monkeypatch.setattr(cat, "TREE_PATH", cat.Path("docs/claugentic-ARCHITECTURE_TREE.md"))
+        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], ["scripts/a.py"])
+
+        elsewhere = tmp_path.parent / f"{tmp_path.name}__elsewhere"
+        elsewhere.mkdir()
+        monkeypatch.chdir(elsewhere)  # CWD is NOT the (scratch) repo root
+        monkeypatch.setattr(cat.sys, "stdin", io.StringIO(""))
+
+        assert cat.main(["--hook"]) == 0
+
+    def test_no_absolute_path_leak_in_problem_message(self, repo, monkeypatch, capsys):
+        """User-facing messages stay repo-relative — never leak an absolute root / drive letter.
+        The `os.chdir` approach keeps TREE_DISPLAY and the git-emitted paths relative, so a
+        machine path like `C:\\Users\\…` can never appear in the output."""
+        import re
+
+        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], ["scripts/a.py"])
+        _touch(repo, "scripts/a.py")
+        _write_tree(repo, "# Tree\n(undocumented)\n")
+        cat.main([])
+        out = capsys.readouterr().out
+        assert "docs/claugentic-ARCHITECTURE_TREE.md" in out
+        assert "scripts/a.py" in out
+        assert not re.search(r"[A-Za-z]:[\\/]", out), f"absolute drive path leaked: {out!r}"
+
+    def test_force_utf8_output_is_safe_when_stream_lacks_reconfigure(self, monkeypatch):
+        """The mojibake fix must degrade gracefully: a stream without `.reconfigure` (a pytest
+        capture buffer, a pipe wrapper) is left untouched, never crashing the gate."""
+
+        class _NoReconfigure:
+            pass
+
+        monkeypatch.setattr(cat.sys, "stdout", _NoReconfigure())
+        monkeypatch.setattr(cat.sys, "stderr", _NoReconfigure())
+        cat._force_utf8_output()  # must not raise
+
+    @pytest.mark.integration
+    def test_repo_root_derives_real_repo_from_file_not_cwd(self, tmp_path, monkeypatch):
+        """`_repo_root()` finds THIS repo's root from the script's own `__file__`, regardless of
+        CWD — so the gate operates on its own repo even when launched from elsewhere."""
+        monkeypatch.chdir(tmp_path)  # CWD is a throwaway dir, not the repo
+        root = cat._repo_root()
+        assert (root / "scripts" / "claugentic-check_architecture_tree.py").exists()
+
+    @pytest.mark.integration
+    def test_hook_cwd_independent_inside_unrelated_git_repo(self, tmp_path, monkeypatch):
+        """The silent-corruption case: CWD is inside a DIFFERENT git repo. Pre-fix, the gate's
+        `git ls-files` scanned that wrong repo and reported nonsense with no error. Anchoring to
+        `__file__` makes it scan ITS OWN (green) repo → exit 0."""
+        import io
+        import subprocess as sp
+
+        sp.run(["git", "init", "-q"], cwd=tmp_path, check=True)
+        monkeypatch.chdir(tmp_path)
+        monkeypatch.setattr(cat.sys, "stdin", io.StringIO(""))
+        assert cat.main(["--hook"]) == 0

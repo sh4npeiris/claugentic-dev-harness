@@ -226,3 +226,26 @@ class TestReadErrorVsParseError:
         version, err = cvs._read_plugin_version(plugin)
         assert version is None
         assert "not valid JSON" in err
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# CWD-independence — the gate anchors to the repo root from __file__, NOT the CWD
+# ─────────────────────────────────────────────────────────────────────────────
+class TestCwdIndependence:
+    def test_repo_root_derives_real_repo_from_file_not_cwd(self, tmp_path, monkeypatch):
+        """`_repo_root()` finds THIS repo's root from the script's own `__file__`, regardless of
+        the process CWD — so the relative manifest paths resolve no matter where it's launched."""
+        monkeypatch.chdir(tmp_path)  # CWD is a throwaway dir, not the repo
+        root = cvs._repo_root()
+        assert (root / ".claude-plugin" / "plugin.json").exists()
+
+    @pytest.mark.integration
+    def test_main_cwd_independent_reads_real_manifests(self, tmp_path, monkeypatch, capsys):
+        """THE regression: run the gate from a dir that is NOT the repo root (no `manifests`
+        monkeypatch) → main() chdir's to `_repo_root()` and validates the real, synced manifests
+        → exit 0. Pre-fix, the relative `.claude-plugin/...` paths resolved against the wrong CWD
+        → 'is missing' → exit 1."""
+        monkeypatch.chdir(tmp_path)
+        rc = cvs.main([])
+        assert rc == 0
+        assert "OK:" in capsys.readouterr().out

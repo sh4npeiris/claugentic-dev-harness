@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python scripts/claugentic-check_architecture_tree.py --hook-write"
+            "command": "python \"${CLAUDE_PROJECT_DIR}/scripts/claugentic-check_architecture_tree.py\" --hook-write"
           }
         ]
       }
@@ -16,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python scripts/claugentic-check_architecture_tree.py --hook"
+            "command": "python \"${CLAUDE_PROJECT_DIR}/scripts/claugentic-check_architecture_tree.py\" --hook"
           }
         ]
       }

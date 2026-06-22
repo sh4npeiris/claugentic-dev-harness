@@ -24,11 +24,14 @@ run-gate, not hook-wired. See docs/claugentic-WORKFLOW.md -> Definition of Done.
 from __future__ import annotations
 
 import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 
-# Paths are repo-root-relative — this gate, like claugentic-check_architecture_tree.py, is
-# run from the repo root (`python scripts/check_versions_synced.py`).
+# Paths are repo-root-relative; `main()` chdir's to the repo root (derived from this script's
+# own location via `_repo_root()`, NEVER the caller's CWD), so they resolve no matter where the
+# gate is launched from — like claugentic-check_architecture_tree.py.
 PLUGIN_PATH = Path(".claude-plugin/plugin.json")
 MARKETPLACE_PATH = Path(".claude-plugin/marketplace.json")
 
@@ -108,7 +111,46 @@ def evaluate() -> tuple[list[str], str]:
     return ([], f"OK: {PLUGIN_PATH} and {MARKETPLACE_PATH} both at version {plugin_version}.")
 
 
+def _repo_root() -> Path:
+    """Repo root, derived from THIS script's location — never the process CWD, never hardcoded.
+
+    `PLUGIN_PATH`/`MARKETPLACE_PATH` are repo-root-relative, but the gate may be invoked from
+    any working directory; anchoring to the script's own location keeps it CWD-independent and
+    portable (computed at runtime from `__file__`). Git is authoritative; falls back to
+    `<script_dir>/..` (the script lives at `<repo>/scripts/`) when git is unavailable.
+    """
+    here = Path(__file__).resolve().parent
+    try:
+        out = subprocess.run(
+            ["git", "-C", str(here), "rev-parse", "--show-toplevel"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            check=True,
+        )
+        return Path(out.stdout.strip())
+    except (FileNotFoundError, subprocess.CalledProcessError):
+        return here.parent  # convention: the script lives at <repo>/scripts/
+
+
+def _force_utf8_output() -> None:
+    """Emit stdout as UTF-8 so non-ASCII glyphs in messages (the em-dashes in the drift/error
+    text) survive on Windows, where stdout defaults to the locale codepage (cp1252) while the
+    consumer decodes UTF-8 → mojibake. A captured/replaced stream may lack `.reconfigure` →
+    guarded, best-effort.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(encoding="utf-8")  # Python 3.7+
+        except (AttributeError, ValueError):
+            pass
+
+
 def main(argv: list[str]) -> int:
+    # Boundary setup: UTF-8 output (Windows mojibake) + anchor to the repo root so the gate is
+    # CWD-independent (it may be run from anywhere). See _repo_root / _force_utf8_output.
+    _force_utf8_output()
+    os.chdir(_repo_root())
     problems, summary = evaluate()
     if problems:
         print("\n".join(problems))
