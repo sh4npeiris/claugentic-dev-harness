@@ -3,7 +3,7 @@
 // Bundled agents resolve for an INSTALLED adopter only as `claugentic-dev-harness:<agent>`;
 // bare names resolve only when this repo dogfoods with project-local `.claude/agents/`. So
 // every CUSTOM-agent spawn in the engine scripts must be namespaced — bare names crashed
-// /audit and /build for every adopter at the first spawn (the an adopter pilot, 2026-06-15).
+// /audit and /build for every adopter at the first spawn (an adopter pilot, 2026-06-15).
 // Built-ins (`general-purpose`, `Explore`, `Plan`) stay BARE.
 //
 // This is a SOURCE-LEVEL guard (a verb-and-string grep, not a helper unit test): the

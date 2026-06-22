@@ -906,13 +906,13 @@ class TestNonAsciiIntegration:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Fenced ```-block handling — the v0.1.26 an adopter regression
+# Fenced ```-block handling — the v0.1.26 adopter regression
 # ─────────────────────────────────────────────────────────────────────────────
 class TestFencedDiagrams:
     def test_entry_after_a_fenced_diagram_is_still_found(self, repo, monkeypatch):
         """FAILS on pre-fix code: a ```-fenced ASCII directory diagram flips backtick-pair
         parity, so a correctly-formatted entry AFTER it reads as MISSING. The real adopter
-        regression (an adopter's tree carries 893 lines of diagram fences)."""
+        regression (a real adopter's tree carries 893 lines of diagram fences)."""
         _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], ["scripts/after.py"])
         _touch(repo, "scripts/after.py")
         _write_tree(

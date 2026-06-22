@@ -143,7 +143,7 @@ def _strip_fenced_blocks(text: str) -> str:
     `findall` non-overlapping): a fence's stray backticks flip pairing parity for every
     entry AFTER it, so correctly-formatted entries past an ASCII-diagram block read as
     MISSING and backticked tokens inside a diagram read as live references. This was the
-    v0.1.26 an adopter regression — a real adopter tree carrying ASCII directory diagrams in
+    v0.1.26 adopter regression — a real adopter tree carrying ASCII directory diagrams in
     fences. Strip whole fenced regions line-wise; an unterminated fence strips to EOF
     (fail safe: under-tokenize a malformed tail rather than desync the whole document).
     """
