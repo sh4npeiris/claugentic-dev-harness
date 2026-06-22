@@ -46,6 +46,7 @@ DEV_ONLY_FILES = frozenset(
         "docs/claugentic-PRODUCT.md",          # the harness's OWN product-discovery notes
         "docs/claugentic-PRODUCT_SPEC.md",     # the harness's OWN filled spec (the TEMPLATE ships)
         "docs/claugentic-ARCHITECTURE_TREE.md",  # the harness's own file map (init generates the adopter's)
+        "docs/claugentic-INVARIANTS.md",       # the harness's OWN invariants (adopters record their own, lazily)
         "docs/RELEASE_CHECKLIST.md",
         # Harness-self tooling + config (an install doesn't need them).
         "scripts/check_versions_synced.py",    # checks the plugin's two manifests — irrelevant to adopters

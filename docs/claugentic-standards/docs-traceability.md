@@ -1,19 +1,19 @@
 ---
 module: docs-traceability
 title: Docs & Traceability
-version: 0.1.0
+version: 0.1.1
 status: draft
 iso_25010: [maintainability]
 load_scope:
   keywords: [docs, readme, comment, docstring, adr, architecture-tree]
   globs: ["docs/**", "**/*.md"]
-last_reviewed: 2026-06-04
+last_reviewed: 2026-06-22
 ---
 
 # Docs & Traceability — the change is explainable, the architecture is navigable
 
 > **Loads when:** changes add, move, or remove files (ARCHITECTURE_TREE.md); introduce non-trivial decisions (DECISIONS.md); modify public APIs or non-obvious logic (docstrings/comments); or touch onboarding/runbook documentation.
-> **ISO/IEC 25010:** maintainability · **Status:** draft · **v0.1.0**
+> **ISO/IEC 25010:** maintainability · **Status:** draft · **v0.1.1**
 
 Each entry below is one **auditable dimension**. Per change, the reviewer applies the
 *relevant* ones **fully** (select-don't-skip), right-sized to the change — never
@@ -38,6 +38,17 @@ gold-plating an irrelevant one, never skipping a relevant one.
 - **Confidence —** `judgment` — what counts as "non-trivial" is a reviewer call.
 - **Tradeoff (plain English) —** A decisions log prevents the same debate from happening three times with three different outcomes; it costs 30 seconds per decision. Without it, future agents re-open closed decisions and introduce inconsistency.
 - **Sources —** Michael Nygard "Documenting Architecture Decisions" (https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions) — the original ADR essay; CLAUDE.md harness discipline.
+
+---
+
+## Load-bearing invariant traceability (INVARIANTS.md)
+
+- **Good looks like —** A constraint that *must stay true or something breaks* — and whose rationale is non-obvious from the code — is recorded in `docs/claugentic-INVARIANTS.md` as a standing entry: the **invariant** (what must hold), the **why** (the rationale / blast radius if violated), and **dated provenance** (when, and what failure or near-miss, motivated it). The file is **lazily created** — it exists only once a repo has its first load-bearing invariant to record (an empty repo has none, and that is correct). It is **user-owned documentation, not a gate**: nothing mechanically verifies the invariants hold — the value is that the *next* change near a constraint reads *why before touching it*. Distinct from `docs/claugentic-DECISIONS.md` (a historical "what we chose and why," read when revisiting a choice): an invariant is **live** — read every time code in its blast radius changes.
+- **Auditor checks —** `[J]` Did this change establish a non-obvious constraint that future code could silently violate (an ordering dependency, a "these two values must move together," an assumption a caller relies on) — and if so, is it captured in `docs/claugentic-INVARIANTS.md` with its why + dated provenance? `[J]` Did this change *touch the blast radius of an existing recorded invariant* — and if so, does it still hold (and is the entry still accurate)? `[J]` Is each entry genuinely load-bearing (a real "or it breaks"), not a restatement of a style preference or a decision that belongs in `claugentic-DECISIONS.md`?
+- **Confidence —** `judgment` — there is no gate; whether a constraint is load-bearing, and whether a change threatens one, is a reviewer call. (Deliberately ungated: a stale or missing invariant entry is a documentation gap, not a build failure — wiring a check here would over-engineer a doc into machinery.)
+- **Tradeoff (plain English) —** Writing down the handful of "this must stay true or X breaks" rules — with the story of the failure that taught you each one — means the next person (or agent) reads the landmine *before* stepping on it, instead of re-discovering it in production. The cost is a few lines per genuine invariant; the file stays tiny because most code carries none. Over-record it and it becomes noise nobody trusts — only truly load-bearing constraints earn an entry.
+- **Sources —** the claugentic-dev-harness invariants discipline (independently converged on by multiple adopter projects); D. Parnas, "On the Criteria To Be Used in Decomposing Systems into Modules" (the assumptions a module's clients rely on are exactly its load-bearing invariants); M. Nygard, "Documenting Architecture Decisions" (the sibling ADR practice this complements).
+- **Motivating incident —** load-bearing constraints (e.g. the two version manifests that must move together) were caught only by eye or in production, because the "or it breaks" rationale lived in nobody's head but the original author's; the next change near the constraint re-discovered the landmine instead of reading it. Multiple adopter projects independently started a constraints log for exactly this.
 
 ---
 

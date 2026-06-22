@@ -150,13 +150,14 @@ Iterate to meet this **fixed** bar, then **stop** — it terminates because the 
 
 ## 9. The learning loop (how the harness grows)
 
-A **finite harvest checklist the orchestrator RUNS at Land** (manual discipline, not automation — the orchestrator runs it; it does not trigger by itself). Sweep these five; for each, **emit the edit** or an explicit *"nothing durable this slice"*:
+A **finite harvest checklist the orchestrator RUNS at Land** (manual discipline, not automation — the orchestrator runs it; it does not trigger by itself). Sweep these six; for each, **emit the edit** or an explicit *"nothing durable this slice"*:
 
-- **(a)** A convention that recurred across review findings → **promote to STANDARDS / CLAUDE.md**.
+- **(a)** A convention that recurred across review findings → **promote to STANDARDS / CLAUDE.md**. A promoted lesson **must record the incident that motivated it** (the failure/near-miss it prevents) — so the rule is un-cargo-cultable and safe to delete once its cause is gone.
 - **(b)** A manual/lens catch that a gate or checklist **could have made** → **open a gate item on `ROADMAP.md`** (not just a `claugentic-DECISIONS.md` line — a logged decision doesn't become a check by itself). *(Worked example: a manual catch that recurred at Verify — logged as a decision but never enforced — gets opened as a `ROADMAP.md` gate item so it becomes a real check, not just a note.)*
 - **(c)** A prompt tweak that sharpened a specialist → **fold into the `.claude/agents/` role file**.
 - **(d)** Process friction → **edit this `WORKFLOW.md`**.
 - **(e)** Every non-trivial choice → **one dated line in `claugentic-DECISIONS.md`**.
+- **(f)** A **load-bearing invariant** this slice established or relied on (a "must stay true or X breaks" constraint whose rationale isn't obvious from the code) → **record it in `docs/claugentic-INVARIANTS.md`** with its why + dated provenance. **Create the file lazily** — only when you have the first genuine invariant to record (do not seed it empty); most slices have none, so the honest emit is usually *"no new invariant this slice."*
 
 **Promotion is two-tier (manual, user-approved):** a *universal* lesson → stage in `docs/claugentic-standards/CANDIDATES.md`, then promote upstream so every repo gets it on update; a *codebase-specific* lesson stays **local** (`CLAUDE.md` / `claugentic-DECISIONS.md`), never propagated.
 

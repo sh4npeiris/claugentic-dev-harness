@@ -423,7 +423,10 @@ free of both tree hooks; the tree stays model-upheld via the CLAUDE.md authority
   removed; settings churn is itself a never-clobber concern, and the recorded `gate off`
   choice plus `INCLUDE_GLOBS = []` already neutralize a stale hook's false-flagging.)
 - Write the **`${CLAUDE_PROJECT_DIR}`-rooted** command (cwd-independent) — **never** a bare
-  relative path. Hook **cwd is not guaranteed** to be the repo root (a subdir launch, or the
+  relative path. **Write the literal string `${CLAUDE_PROJECT_DIR}` verbatim into the JSON — do
+  NOT resolve/substitute it to the adopter's absolute path; Claude Code expands it at
+  hook-invocation time, so a resolved absolute path would be non-portable and break on any
+  machine but this one.** Hook **cwd is not guaranteed** to be the repo root (a subdir launch, or the
   home-dir cwd certain hook events run from, breaks a relative path), and Claude Code expands
   `${CLAUDE_PROJECT_DIR}` to an absolute path itself before invoking the shell, so the rooted
   form is Windows-safe regardless of shell. Use the **interpreter detected in step 1**
