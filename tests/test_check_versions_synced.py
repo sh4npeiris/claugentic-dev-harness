@@ -249,3 +249,34 @@ class TestCwdIndependence:
         rc = cvs.main([])
         assert rc == 0
         assert "OK:" in capsys.readouterr().out
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Marketplace source format — the install-source regression guard (v0.2.4)
+# ─────────────────────────────────────────────────────────────────────────────
+class TestMarketplaceSourceFormat:
+    """Guard the REAL marketplace.json plugin `source`: it must be the documented
+    object form `{source: github, repo, ref}`, NEVER the `owner/repo@ref` string.
+    The @ref string made Claude Code reject the plugin as an unsupported source type
+    (an uninstallable-plugin regression at v0.2.3); the @ref shorthand is valid only on
+    the `/plugin marketplace add` command, never as a plugin-entry source value."""
+
+    def test_real_marketplace_plugin_sources_are_object_form(self):
+        import json
+
+        mkt = json.loads(
+            (cvs._repo_root() / ".claude-plugin" / "marketplace.json").read_text(encoding="utf-8")
+        )
+        plugins = mkt.get("plugins", [])
+        assert plugins, "marketplace.json has no plugins"
+        for p in plugins:
+            src = p["source"]
+            assert isinstance(src, dict), (
+                f"{p.get('name')}: source must be the object form "
+                '{"source":"github","repo":...,"ref":...} — a string source (esp. with an @ref suffix) '
+                "is rejected by Claude Code as an unsupported source type"
+            )
+            assert src.get("source") == "github", f"{p.get('name')}: expected source type 'github'"
+            assert src.get("repo"), f"{p.get('name')}: missing repo"
+            assert "@" not in src["repo"], f"{p.get('name')}: repo must not carry an @ref suffix"
+            assert src.get("ref"), f"{p.get('name')}: missing ref (the branch/tag to pin)"
