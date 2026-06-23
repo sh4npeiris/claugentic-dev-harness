@@ -1,6 +1,6 @@
 {
   "name": "claugentic-dev-harness",
-  "version": "0.1.41",
+  "version": "0.2.0",
   "description": "A reusable, self-improving Claude Code development harness: a staged workflow, specialist agent roles, an ISO/IEC 25010 engineering-standards catalog, and deterministic architecture enforcement.",
   "license": "Apache-2.0",
   "author": { "name": "sh4npeiris" },
@@ -18,5 +18,18 @@
     "./.claude/agents/finding-verifier.md",
     "./.claude/agents/blindspot-reviewer.md",
     "./.claude/agents/honesty-reviewer.md"
-  ]
+  ],
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python \"${CLAUDE_PLUGIN_ROOT}/scripts/claugentic-advisor.py\""
+          }
+        ]
+      }
+    ]
+  }
 }

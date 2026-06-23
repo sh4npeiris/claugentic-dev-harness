@@ -133,6 +133,24 @@ TOKEN_PATTERN = re.compile(r"`([\w./\\-]+\.\w+)`")
 # counts as a path entry). The tree format already backticks every file path.
 BACKTICK_TOKEN_PATTERN = re.compile(r"`([^`]+)`")
 
+# Per-entry one-line FORM budget (configurable): the maximum characters a single index
+# entry line may span. The tree's own header promises a "one-line-per-file index"; this
+# is the deterministic ratchet that keeps entries one tight line and stops them rebloating
+# into paragraphs (genuinely-useful mechanism detail belongs in the file's own header
+# docstring — read on open — not in the index read every session). Form, NOT quality:
+# the gate measures length, never judges the description's wording (that stays
+# model-upheld + reviewer-caught). Tune this single constant to retune the budget.
+MAX_ENTRY_CHARS = 450
+
+# An index ENTRY line: a markdown list bullet (`^\s*- `) whose FIRST backtick-delimited
+# token is PATH-SHAPED (contains `/` or `.`). Anchored on the backtick-bullet-with-path
+# shape so the budget applies to file entries ONLY — NOT to "any list item" and NOT to
+# "any long line": a `- `-bullet whose first backtick token is a plain word (no `/`/`.`)
+# is prose, not an entry, and the two non-bullet prose lines (the top blurb, the
+# eval-section intro) never match `^\s*- ` at all. Group 1 captures that first token so
+# offenders can be reported by path.
+ENTRY_LINE_PATTERN = re.compile(r"^\s*- `([^`]+)`")
+
 
 def _strip_fenced_blocks(text: str) -> str:
     """Drop ```-fenced code/diagram blocks before any backtick tokenizing.
@@ -156,6 +174,37 @@ def _strip_fenced_blocks(text: str) -> str:
         if not in_fence:
             out.append(line)
     return "\n".join(out)
+
+
+def _form_violations(text: str) -> list[tuple[str, int]]:
+    """Entry lines OVER the `MAX_ENTRY_CHARS` one-line budget, as `(first-token-path, length)`.
+
+    PRECONDITION: `text` is ALREADY `_strip_fenced_blocks`'d, so a ```-fenced ASCII-diagram
+    line (which can legitimately be long) is exempt BY CONSTRUCTION — it was dropped before
+    this ever sees it. The caller (`evaluate()`) passes the same stripped text it tokenizes.
+
+    An ENTRY is a line matching `ENTRY_LINE_PATTERN` (a `^\\s*- `-bullet whose FIRST backtick
+    token is PATH-SHAPED — contains `/` or `.`). The path-shaped guard is what excludes a
+    `- `-bullet whose first backtick token is a plain word (e.g. `- `init` does X`): a plain
+    word is prose, not a file entry, so its length is none of the gate's business. The two
+    prose lines (the top blurb, the eval-section intro) never start with `- ` and so never
+    match either. For each entry line whose TOTAL length exceeds the budget, record its first
+    token (the file path, for the message) and the line's length. Pure: no I/O, no globals
+    mutated — just text in, offenders out.
+    """
+    violations: list[tuple[str, int]] = []
+    for line in text.splitlines():
+        match = ENTRY_LINE_PATTERN.match(line)
+        if match is None:
+            continue
+        token = match.group(1)
+        # Path-shaped first token only: a `/` or `.` marks it as a file path, not a prose word.
+        if "/" not in token and "." not in token:
+            continue
+        length = len(line)
+        if length > MAX_ENTRY_CHARS:
+            violations.append((token, length))
+    return violations
 
 
 def _backtick_tokens(text: str) -> set[str]:
@@ -308,6 +357,10 @@ def evaluate() -> tuple[list[str], str]:
     # census. With INCLUDE_GLOBS == [] presence/staleness above are no-ops (files == set()),
     # but drift stays LIVE — so an unset repo that grows real code is still caught here.
     drift = glob_drift(files)
+    # Form: entries over the one-line budget. Reads the SAME `_strip_fenced_blocks`'d `text`
+    # as presence/staleness above, so fenced ASCII-diagram lines are exempt by construction.
+    # Purely additive to `problems` — presence/staleness/drift are untouched.
+    over_budget = _form_violations(text)
 
     problems: list[str] = []
     if missing:
@@ -317,6 +370,12 @@ def evaluate() -> tuple[list[str], str]:
     if stale:
         problems.append(f"{TREE_DISPLAY} references files that NO LONGER EXIST (remove/update):")
         problems += [f"  - {f}" for f in stale]
+    if over_budget:
+        problems.append(
+            f"{TREE_DISPLAY} has entries OVER the one-line budget ({MAX_ENTRY_CHARS} chars) — "
+            "distill each to a single line:"
+        )
+        problems += [f"  ! {path} — {n} chars" for path, n in over_budget]
     if drift:
         problems.append(
             f"INCLUDE_GLOBS watches no files, but the repo contains source code (e.g. `{drift[0]}`) — "

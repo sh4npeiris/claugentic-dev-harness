@@ -73,7 +73,7 @@ table · contamination note.
   verifier's self-report did not resolve against the known-family set, so the run's
   disclosure is the **unresolved floor** (verbatim): *"could not resolve the judge's model
   family on this run — no cross-model claim is made (treated as the same-model trust floor,
-  not asserted as fact)."* — the third-state disclosure firing in real use, the day it landed.
+  not asserted as fact)."*
 - **Recall: 10/10** seeded defects surfaced (and all 10 independently verified).
 - **Precision proxy: 20/20** — 10 seeded + 10 bonus findings each judged real on review
   (incl. a genuine stored-XSS sink, a missing FK, an unclosed-connection leak the seeding
@@ -92,9 +92,7 @@ table · contamination note.
   manifest was in the exclude-set; one verifier's grep incidentally surfaced the manifest's
   *path* and the verifier explicitly declined to read it, stating its verdict rests on the
   application code only.
-- **Procedure note:** run performed on the pre-land working tree (the fixture's authoring
-  commit) rather than a scratch worktree; no fence write occurred (the script returns the
-  render — nothing was written to ROADMAP), so there was nothing to revert.
+- **Procedure note:** run performed on the pre-land working tree rather than a scratch worktree, and no fence write occurred (the script returns the render — nothing was written to ROADMAP), so there was nothing to revert.
 - **Scoring judgment note:** hit-matching and the bonus-findings "judged real" calls are
   the orchestrator's judgment against the key, per the calibration-honesty rule above.
 

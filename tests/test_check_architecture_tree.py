@@ -1022,3 +1022,118 @@ class TestCwdIndependence:
         monkeypatch.chdir(tmp_path)
         monkeypatch.setattr(cat.sys, "stdin", io.StringIO(""))
         assert cat.main(["--hook"]) == 0
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# _form_violations / evaluate() — the per-entry one-line FORM budget
+# ─────────────────────────────────────────────────────────────────────────────
+def _entry(path: str, pad: int) -> str:
+    """An index-entry line for `path` whose TOTAL length is exactly `pad` chars.
+
+    Builds `- `path` — <description>` and pads the description with `x` so the whole
+    line is `pad` chars long — lets a test pin behaviour exactly at/over the budget.
+    """
+    prefix = f"- `{path}` — "
+    fill = pad - len(prefix)
+    assert fill >= 0, f"pad {pad} too small for prefix len {len(prefix)}"
+    line = prefix + ("x" * fill)
+    assert len(line) == pad
+    return line
+
+
+class TestFormBudget:
+    def test_over_budget_entry_is_flagged_with_char_count(self, repo, monkeypatch):
+        """An entry longer than MAX_ENTRY_CHARS is flagged, named by its path + length."""
+        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], [])
+        _touch(repo, "scripts/big.py")  # exists → the only problem is the form one
+        over = cat.MAX_ENTRY_CHARS + 50
+        _write_tree(repo, "# Tree\n" + _entry("scripts/big.py", over) + "\n")
+        problems, _ = cat.evaluate()
+        assert any("OVER the one-line budget" in p for p in problems)
+        assert any(p.strip() == f"! scripts/big.py — {over} chars" for p in problems), problems
+
+    def test_entry_at_budget_is_not_flagged(self, repo, monkeypatch):
+        """An entry exactly AT the budget (not over) is clean — the bound is `>`, not `>=`."""
+        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], [])
+        _touch(repo, "scripts/edge.py")  # exists → no staleness noise; isolate the form check
+        _write_tree(repo, "# Tree\n" + _entry("scripts/edge.py", cat.MAX_ENTRY_CHARS) + "\n")
+        problems, _ = cat.evaluate()
+        assert problems == [], f"an at-budget entry was wrongly flagged: {problems}"
+
+    def test_entry_under_budget_is_not_flagged(self, repo, monkeypatch):
+        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], [])
+        _touch(repo, "scripts/small.py")  # exists → isolate the form check from staleness
+        _write_tree(repo, "# Tree\n- `scripts/small.py` — a tight one-liner.\n")
+        problems, _ = cat.evaluate()
+        assert problems == []
+
+    def test_long_prose_line_not_a_path_bullet_is_not_flagged(self, repo, monkeypatch):
+        """The `:5` blurb / `:112` eval-intro shape: a long PROSE line that is NOT a
+        `- `path`` bullet must NOT trip the form gate (form applies to file ENTRIES only)."""
+        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], [])
+        prose = "This index is a one-line-per-file map of the repo. " + ("blah " * 120)
+        assert len(prose) > cat.MAX_ENTRY_CHARS
+        _write_tree(repo, "# Tree\n" + prose + "\n- `scripts/a.py` — fine.\n")
+        _touch(repo, "scripts/a.py")
+        problems, _ = cat.evaluate()
+        assert problems == [], f"a long prose line was wrongly flagged as an entry: {problems}"
+
+    def test_long_fenced_diagram_line_is_not_flagged_runs_after_strip(self, repo, monkeypatch):
+        """Proves the form check runs AFTER `_strip_fenced_blocks`: a long ```-fenced
+        ASCII-diagram line — even one shaped like a path bullet — is exempt by construction."""
+        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], [])
+        long_diagram_line = "- `scripts/diagram.py` " + ("=" * (cat.MAX_ENTRY_CHARS + 100))
+        assert len(long_diagram_line) > cat.MAX_ENTRY_CHARS
+        _write_tree(
+            repo,
+            "# Tree\n"
+            "## Layout diagram\n"
+            "```\n"
+            f"{long_diagram_line}\n"
+            "```\n"
+            "- `scripts/a.py` — the real, in-budget entry.\n",
+        )
+        _touch(repo, "scripts/a.py")
+        problems, _ = cat.evaluate()
+        assert problems == [], f"a long fenced-diagram line was wrongly flagged: {problems}"
+
+    def test_long_bullet_with_non_path_first_token_is_not_flagged(self, repo, monkeypatch):
+        """A `- `-bullet whose FIRST backtick token is a plain WORD (no `/` or `.`) is prose,
+        not a file entry — even if long, it must NOT trip the path-anchored form gate."""
+        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], [])
+        word_bullet = "- `init` is a command that " + ("does things " * 50)
+        assert len(word_bullet) > cat.MAX_ENTRY_CHARS
+        _write_tree(repo, "# Tree\n" + word_bullet + "\n- `scripts/a.py` — fine.\n")
+        _touch(repo, "scripts/a.py")
+        problems, _ = cat.evaluate()
+        assert problems == [], f"a non-path-token bullet was wrongly flagged: {problems}"
+
+    def test_form_check_is_additive_presence_and_staleness_unchanged(self, repo, monkeypatch):
+        """Regression: the form block is PURELY additive. With NO over-budget entries, an
+        undocumented in-scope file still surfaces as MISSING and a dangling reference still
+        surfaces as STALE — exactly as before, and with no spurious form problem."""
+        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], ["scripts/a.py"])
+        _touch(repo, "scripts/a.py")  # in scope but NOT indexed → MISSING
+        # The tree cites a deleted file (→ STALE) and indexes nothing for scripts/a.py.
+        _write_tree(repo, "# Tree\n- `scripts/gone.py` — was deleted, still cited.\n")
+        problems, _ = cat.evaluate()
+        assert any("MISSING an entry" in p for p in problems)
+        assert any("scripts/a.py" in p for p in problems)
+        assert any("NO LONGER EXIST" in p for p in problems)
+        assert any("scripts/gone.py" in p for p in problems)
+        # No form problem injected when nothing is over budget.
+        assert not any("one-line budget" in p for p in problems), problems
+
+    def test_form_violations_helper_pure_on_stripped_text(self):
+        """Unit-level pin of the pure helper: over-budget path-entries flagged, an
+        at-budget entry + a non-path bullet + a plain prose line all spared."""
+        over = cat.MAX_ENTRY_CHARS + 25
+        text = "\n".join(
+            [
+                _entry("scripts/big.py", over),          # over → flagged
+                _entry("scripts/ok.py", cat.MAX_ENTRY_CHARS),  # at budget → spared
+                "- `notapath` " + ("x" * cat.MAX_ENTRY_CHARS),  # non-path bullet → spared
+                "Plain prose, " + ("y" * cat.MAX_ENTRY_CHARS),  # not a bullet → spared
+            ]
+        )
+        assert cat._form_violations(text) == [("scripts/big.py", over)]

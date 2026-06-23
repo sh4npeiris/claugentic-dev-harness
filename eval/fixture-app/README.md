@@ -4,10 +4,11 @@ The minimal runnable target for the harness's runtime-verification workflow (`en
 It is the smallest thing that boots and shows a list: a FastAPI server that serves a static page
 which fetches and renders an in-memory item list.
 
-**Why it exists:** Slice 4a proves `qa.js`'s boot vertical against something real — the app boots,
-answers a readiness probe, and is torn down; a deliberately-broken run command produces the honest
-`qa-could-not-run-app` finding instead of a silent skip. Slice 4b adds Playwright flow-driving and
-seeds two intentional UX defects (a missing empty state and a broken add flow) for the run to catch.
+**Why it exists:** it is the real boot+flow-driving target `qa.js` runs against. The boot vertical
+exercises against something real — the app boots, answers a readiness probe, and is torn down; a
+deliberately-broken run command produces the honest `qa-could-not-run-app` finding instead of a
+silent skip. The flow-driving vertical exercises Playwright against two intentional UX defects (a
+missing empty state and a broken add flow) the run is supposed to catch.
 
 ## Run
 
@@ -27,7 +28,7 @@ readiness URL `qa.js` probes is `http://localhost:8123`.
 ## The `FIXTURE_SEED` knob
 
 By default the app seeds 3 items at startup. Set `FIXTURE_SEED=0` to boot with an EMPTY list — the
-zero-data condition Slice 4b's empty-state check needs:
+zero-data condition the empty-state check needs:
 
 ```
 FIXTURE_SEED=0 uvicorn main:app --app-dir eval/fixture-app --port 8123
@@ -45,7 +46,7 @@ pip install -r eval/fixture-app/requirements.txt
 ## Seeded defects (intentional — DO NOT "fix")
 
 This fixture carries two **permanent, intentional UX defects** in `static/index.html`. They are the
-targets the Slice-4b flow-driving run is supposed to **catch** — fixing them would silently disarm
+targets the flow-driving run is supposed to **catch** — fixing them would silently disarm
 the run designed to exercise whether `engine/qa.js`'s driver+verifier surface them (model-upheld, not a guaranteed catch). Each maps to a named `docs/claugentic-standards/product-ux.md`
 dimension.
 

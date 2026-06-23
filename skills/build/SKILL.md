@@ -147,6 +147,15 @@ priority signal (two lenses flagged it), shown as *"merged from N findings"* so 
 this is a judgment, not a key-match, so I may occasionally miss an overlap (you'd see it twice)
 or over-merge two distinct issues (so merged rows are always shown as merged, never hidden).
 
+**Honor the rejected-findings memory.** A user can drop a finding they judge wrong — recorded
+in the **`<!-- harness-audit:rejected-findings -->`-fenced list** in `docs/claugentic-ROADMAP.md`
+(the create-on-first-use, user-owned memory `audit` defines, mirroring product spec mode's
+`<!-- product-critic:rejected-proposals -->` convention). **Read it before presenting the
+worklist and don't re-surface a dropped finding** — a dropped finding stays dropped. The same
+memory governs the scoped re-audit (step 10) and the closing full audit (step 11): both invoke
+the `audit` machinery, which reads this fence and skips listed findings, so a re-audit won't
+re-raise something the user already dismissed.
+
 Two stop-conditions hold **before** any selection, single or multi:
 
 - **No backlog, or it's stale** (no `harness-audit:backlog` fence, or it predates the
@@ -170,11 +179,12 @@ is broken, failing, or skipped** — there's simply no spec to check against yet
 Otherwise, branch on **how many items the ask names:**
 
 **(a) One named item — the fast path (no triage ceremony).** When the ask is specific —
-*"build Tier-1 item 2"*, *"build the input-validation item"* — match the user's words to
-exactly one item, by tier+number or by its title/topic. **If the match is ambiguous, ask**
-— name the candidates and let the user pick; never guess which item they meant. Then go
-straight to step 2 with a one-item worklist. **No tiered list, no "start now?" gate** — a
-specific ask is already the go-ahead.
+*"build Tier-1 item 2"*, *"build the input-validation item"*, **or just describe it in your
+own words — *"fix the thing where the form doesn't save"* — and I'll match it to the right
+backlog item and confirm** — match the user's words to exactly one item, by tier+number or by
+its title/topic. **If the match is ambiguous, ask** — name the candidates and let the user
+pick; never guess which item they meant. Then go straight to step 2 with a one-item worklist.
+**No tiered list, no "start now?" gate** — a specific ask is already the go-ahead.
 
 **(b) More than one item, a tier shortcut, or no item named — multi-item triage.** When the
 user asks for several items, a **tier-level shortcut** (*"all of Tier-1"*, *"do Tiers 1 and
@@ -301,12 +311,18 @@ run it, don't restate it).
 
 **Pause before landing** (pause 2), with the same plain-English frame as the spec pause —
 *what was just done* = the slice is built and passed Verify; *what's being decided* =
-whether to land it; *your options* = land · hold · stop.
+whether to land it; *your options* = land · hold · stop. **Gloss the git vocabulary in plain
+English** (matching the spec pause's plain-English style): *"landing means saving this change
+into the project's history (a commit) on this working branch — still local, nothing shared
+out yet."*
 
 **The irreversible hard-stop** (pause 3) — before **any** action in the **irreversible
 hard-stop set** (see *Guardrails* below — the single authoritative list, including
 push-to-`main`), **stop, name the exact action and its consequence in plain English, and
-ask; never proceed on silence.**
+ask; never proceed on silence.** **Bridge the git vocabulary the same way** — e.g.
+*"'push to main' means publishing this to the shared copy everyone else pulls from; once it's
+out, others can build on it, so it's hard to take back. Want me to go ahead?"* — never leave
+"push", "main", or "commit" unglossed at this pause.
 
 On approval, land per the WORKFLOW Stage 8: a **conventional commit**, **remove the completed
 plan from `.claude/plans/`** (git history keeps it), append a **`docs/claugentic-DECISIONS.md`** line for
@@ -324,13 +340,22 @@ never a blanket "verified/done":**
   `architect-reviewer` audited) — model-upheld judgment, **"passed the checks and the
   reviewer's audit,"** never "proven correct."
 
+**Surface the Stage-9 harvest result** (don't let the closing loop no-op silently). Emit one
+plain-English line naming what the harvest captured this slice — *"Lessons captured this
+slice: <X>"* (e.g. a new `docs/claugentic-DECISIONS.md` line, a ROADMAP follow-up, a CLAUDE.md
+note) — or, when nothing durable surfaced, say so explicitly: *"nothing durable to capture
+this slice."* Either way the closing loop is **demonstrably visible**, never a silent skip.
+
 **Then branch on the worklist:**
 
 - **Single named item (the fast path), or the worklist is now exhausted** → the next step:
   **another backlog item the same way, or re-run `/claugentic-dev-harness:audit`** for a
   fresh picture — you're finished when Tier 1 and Tier 2 come back empty. (When a loop's
   worklist is exhausted, the **stop/done** flow below runs the closing audit first — that's
-  what confirms "finished.")
+  what confirms "finished.") **When the worklist included product-origin items, or a
+  `harness-product:backlog` fence exists,** ALSO offer: **re-run `/claugentic-dev-harness:product`
+  gap mode for a fresh product picture** — `build` never regenerates the product fence, so it
+  can go stale as engineering items land.
 - **More worklist items remain** → don't run the full next-step prompt; this item's close-out
   is **one completed beat** (*"landed item 2 of 5"*), and you continue into the **scoped
   re-audit** (step 10) before the next item.
@@ -525,9 +550,13 @@ adds none.** Derive, don't store:
   **mid-build item never vanishes when a fence regenerates** — it lives in its plan file, not
   as a fence entry.
 - **An in-flight item** = its **plan file in `.claude/plans/`** with **unchecked
-  implementation boxes**. **Offer to continue it/them first** before re-confirming the rest of
-  the list — a **batch run can leave SEVERAL plans in-flight** (the run works the approved list
-  in order), so offer to continue **all** of them, not just one, before re-confirming the rest.
+  implementation boxes**. **The decomposition checkboxes are the authoritative resume signal —
+  the plan's prose `Resumable from:` line is a human-readable convenience derived from them, not
+  a second source of truth.** When the two disagree, **the unchecked boxes win** and the
+  `Resumable from:` line is the thing to correct (it's kept current *to* the boxes, never
+  consulted instead of them). **Offer to continue it/them first** before re-confirming the rest
+  of the list — a **batch run can leave SEVERAL plans in-flight** (the run works the approved
+  list in order), so offer to continue **all** of them, not just one, before re-confirming the rest.
 - **A done item** = its **plan no longer in `.claude/plans/`** (removed at Land, step 7 —
   git history keeps it).
 

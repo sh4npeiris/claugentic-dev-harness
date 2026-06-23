@@ -1,12 +1,19 @@
 // engine/qa.js — runtime verification (QA) as an executable Workflow script.
 //
-// Slice 4a scope: the BOOT VERTICAL only — start the app with the recorded run command,
-// probe a readiness URL within a bounded wait, ALWAYS tear down (the port is verifiably
-// freed), and on a boot failure surface the explicit, evidence-carrying "could not run the
-// app" finding (issueClass `qa-could-not-run-app`) — never a silent skip, never a fake pass.
-// Flow-driving (Playwright criteria → lens-shaped UX findings → cross-model verify) is Slice
-// 4b; the control flow leaves a clear seam for it (the boot/teardown wrapper, the criteria
-// args fields are reserved-and-validated-absent, the output carries `mode: 'boot-only'`).
+// Two modes, selected by whether acceptance criteria are passed:
+//   boot-only (no criteria) — the BOOT VERTICAL: start the app with the recorded run command,
+//     probe a readiness URL within a bounded wait, ALWAYS tear down (the port is verifiably
+//     freed), and on a boot failure surface the explicit, evidence-carrying "could not run the
+//     app" finding (issueClass `qa-could-not-run-app`) — never a silent skip, never a fake pass.
+//   full (criteria passed) — boot, then one driver agent PER DRIVABLE criterion, run
+//     SEQUENTIALLY (criteria mutate shared app state): Playwright via ToolSearch for check:e2e,
+//     Bash HTTP for check:api; it performs the flow, checks the expects + the named
+//     empty/loading/error states (loading may honestly be "too fast to observe"), and
+//     screenshots under `.qa-artifacts/<runLabel>/`. manual criteria are NEVER driven (listed
+//     for a human). Each fail folds to a lens-shaped UX finding (ux-broken-flow /
+//     ux-missing-{empty,loading,error}-state; route + evidence, no file:line), deduped on
+//     class+route, then EXACTLY ONE cross-model finding-verifier per surfaced finding (the
+//     could-not-run finding stays exempt with its observed-this-run tag).
 //
 // Distribution: read-from-install-path. Adopters invoke this from the version-stamped plugin
 // install dir (`${CLAUDE_PLUGIN_ROOT}/engine/qa.js`); this repo dogfoods it via the
