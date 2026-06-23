@@ -38,8 +38,8 @@ to be (who · job · promise · per-feature flow/states/what-good · machine-rea
 step-level mechanics; this is the product-level note.
 
 - **Capture → conform → *elevate*.** The designer (`product-designer`) **surfaces** the user's
-  truth and the standard (`docs/claugentic-standards/product-ux.md`) governs **conformance**; spec mode now
-  adds an **Excellence pass** — the `product-critic` agent (the SRP **elevate** counterpart to the
+  truth and the standard (`docs/claugentic-standards/product-ux.md`) governs **conformance**; the
+  **Excellence pass** — the `product-critic` agent (the SRP **elevate** counterpart to the
   designer) **critiques the draft by method** (forcing functions, not a dimension checklist) and
   returns a focused set of **proposals the user decides on** (adopt/adapt/reject/defer). It
   **proposes, never imposes** — proposals are *questions to the user*, never spec content until
@@ -58,7 +58,7 @@ step-level mechanics; this is the product-level note.
 # Build mode (`/claugentic-dev-harness:build`)
 
 The flagship Stage-1 product brief. Build mode is a **thin orchestration layer** over the
-existing [`WORKFLOW.md`](claugentic-WORKFLOW.md) pipeline and the [`audit`](../skills/audit/SKILL.md)
+[`WORKFLOW.md`](claugentic-WORKFLOW.md) pipeline and the [`audit`](../skills/audit/SKILL.md)
 skill — it does not invent process, it **drives** it. This section is product-level (flows ·
 states · what-good-feels-like · honesty); the skill file owns the step-level mechanics.
 
@@ -77,19 +77,19 @@ load-bearing — and nowhere else (decision-fatigue is a failure mode, not a saf
 
 ## The two modes (one seam)
 
-- **`checkpoint` — LIVE.** Auto-drives Plan → Review → Implement → Verify between the real
+- **`checkpoint` (default).** Auto-drives Plan → Review → Implement → Verify between the real
   human gates, and **pauses** at: (1) triage selection, (2) the spec, before any code
   (Stage 5) — **per item as you go, or pre-satisfied per item up front in one approval
   sitting** when the user asks to *spec everything first* (the batch ask), (3) before land /
   any irreversible action.
-- **`build-to-green` — REQUESTABLE, evidence-checked.** The flat autopilot refusal is
-  superseded by the **autonomy ladder** (the contract lives in `skills/build/SKILL.md` →
-  Mode handling): checkpoint stays the default; an unwatched build-to-green run unlocks
-  per-repo only on three evidence-stated conditions (CI running the deterministic gates ·
-  a test baseline on the touched code · an approved spec with testable acceptance criteria)
-  plus the engine being installed (`engine/build-item.js`). Anything unmet → an honest decline naming exactly what's missing,
-  offering checkpoint — never silently degrading to a weaker promise. Build-to-green is a
-  reduction of unwatched-run risk, never a substitute for the unbuilt deterministic trust-gates.
+- **`build-to-green` (requestable, evidence-checked).** Governed by the **autonomy ladder**
+  (the contract lives in `skills/build/SKILL.md` → Mode handling): checkpoint stays the default;
+  an unwatched build-to-green run unlocks per-repo only on three evidence-stated conditions
+  (CI running the deterministic gates · a test baseline on the touched code · an approved spec
+  with testable acceptance criteria) plus the engine being installed (`engine/build-item.js`).
+  Anything unmet → an honest decline naming exactly what's missing, offering checkpoint — never
+  silently degrading to a weaker promise. Build-to-green is a reduction of unwatched-run risk,
+  never a substitute for the unbuilt deterministic trust-gates.
 
 ## The key flows (end-to-end)
 
@@ -106,9 +106,8 @@ load-bearing — and nowhere else (decision-fatigue is a failure mode, not a saf
 3. **Re-audit → continue-or-re-triage** — after each item, a **scoped re-audit** over the
    touched `(module × dir)` cells (honest scope — cross-file fallout beyond those cells is
    owned by the closing full audit; the harness has no dependency graph and claims none). If
-   nothing material surfaced, **auto-continue**
-   the agreed list. If material new/obsoleted work surfaced, **pause to re-triage** — the
-   user re-picks before more is built.
+   nothing material surfaced, **auto-continue** the agreed list. If material new/obsoleted
+   work surfaced, **pause to re-triage** — the user re-picks before more is built.
 4. **Stop / done** — when the agreed list is worked through, one **full audit** confirms
    Tier-1+2 empty → the terminal "Sound on the audited dimensions" signal. Stop.
 5. **Build-to-green ask** — if the user asks for an unwatched run, check the ladder's

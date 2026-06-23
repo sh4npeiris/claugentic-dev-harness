@@ -2,7 +2,7 @@
 
 The forward backlog for the harness itself. Work runs through `docs/claugentic-WORKFLOW.md` (triage → plan → review → spec → approve → implement → verify → land → retrospect), sliced so each unit lands complete with no tech debt. Tangents land here, never silently into the current change.
 
-> The harness audits *adopter* repos via `/claugentic-dev-harness:audit`, which writes its own `harness-audit:overview` / `harness-audit:backlog` fences into that repo's `docs/claugentic-ROADMAP.md`. This file is the product's own roadmap, not a generated audit — an adopter generates theirs by running the skill.
+> The harness audits *adopter* repos via `/claugentic-dev-harness:audit`, which writes its own `harness-audit:overview` / `harness-audit:backlog` fences into that repo's `docs/claugentic-ROADMAP.md`. This file is the product's own roadmap, not a generated audit — an adopter generates theirs by running the `/claugentic-dev-harness:audit` + `/claugentic-dev-harness:product` gap fences.
 
 > **This is your backlog.** The two fenced sections just below are **regenerated automatically** — `/claugentic-dev-harness:audit` writes the engineering one, `/claugentic-dev-harness:product` gap mode writes the product one; don't hand-edit inside the fences (a re-run overwrites them). Run **`/claugentic-dev-harness:build`** to work them. Put **your own ideas and longer-term tracks** under *Standing tracks & later* at the bottom — that section is hand-written and never touched by any skill.
 
@@ -26,31 +26,4 @@ No product spec yet for the harness itself — run `/claugentic-dev-harness:prod
 
 ## Standing tracks & later — human-owned (yours · never auto-touched by any fence)
 
-This section is **hand-written and never regenerated** by any harness skill — the two backlog fences above are generated views, this is the durable record. Tangents land here, never silently into the current change.
-
-### Self-diagnostic backlog (2026-06-23, post v0.2.0) → see [docs/SELF-DIAGNOSTIC-2026-06.md](SELF-DIAGNOSTIC-2026-06.md)
-
-A research-backed deep self-diagnostic (frontier-vs-harness map + effectiveness audit, **every finding adversarially verified**) produced a prioritized 51-item backlog — full detail, evidence, and tags in the linked doc. **Headline:** the harness is now effectively all-opus, yet still carries the dropped "cross-model / different model family" copy in its index + run-reports — the #1-risk over-claim. **Top Tier-1 (cheap, high-leverage):** scrub the cross-model copy + delete the dead machinery (DIAG-01/02/03); fix the `agentic-`→`claugentic-` enable typo so the harness dogfoods itself (DIAG-32); portable hook interpreter so the one mechanical gate launches on python3-only machines (DIAG-14); reviewers structurally read-only (DIAG-18); seed a committed `permissions.deny` floor (DIAG-40). All measurement work is gated behind a re-taken all-opus eval baseline. **Awaiting scope approval before any build.** Items leave the doc by deletion as they land (git history is the archive).
-
-### The two standing tracks — growing the libraries (ongoing · just-in-time)
-
-The harness grows as it meets more codebases. Neither track is ever "done" — that's the right shape: additions are made when real use proves a gap, never speculatively.
-
-| Track | How it grows |
-|------|--------------|
-| **Grow the role library** (`.claude/agents/`) — add specialist agents as real use surfaces gaps the starter set lacks. | The workflow delegates to specialists; when real work keeps hitting a job no existing role owns, that's the signal to add one (and register it in `plugin.json`, the WORKFLOW roster, and the architecture tree). |
-| **Grow the standards catalog** (`docs/claugentic-standards/`) — author new quality modules and capability modules (Redis, queues, object-storage, …) as real projects pull them in. | A real audit or review that needs a bar the catalog doesn't carry is the signal to author it (conforming to `_TEMPLATE.md`, indexed in the catalog README). The catalog modernizes vibe-coded apps, not just cleans code. |
-
-### Later — surfaced by real use
-
-- **Agnostic `init` — brace-glob / curated-tree gate tolerance.** The agnostic-`init` path is shipped (scenario-based conditional hook wiring, a cheap-complete tree skeleton, the self-asserting CLAUDE.md authority clause, non-destructive conflict/harvest prompts). One sub-item stays deferred: brace-glob / curated-tree gate tolerance — only needed if a repo ever wants the tree-gate **on** over a brace-glob tree (gate-off already covers "keep your own tree" today).
-- **Doc-vs-behavior drift gate (gate candidate).** A managed doc whose claim depends on behavior in another file (e.g. `docs/claugentic-WORKFLOW.md`'s "wired only when the tree-gate is enabled" ↔ `init`'s actual wiring) can silently over-claim, and no current gate catches it. A standing check that pins doc claims to the behavior they describe would close the class — pairs naturally with the skills-prose-namespace gate below.
-- **Release base-ancestry guard — *mechanical half DONE* (plan 0023 Slice 1).** `build_release.py --apply` now refuses to build the `release` branch from a stale base (one that excludes merge commits reachable from `origin/main`) — the root-cause fix for the v0.1.40 distillation drop. The `@release` **force-push itself stays model-upheld** (checklist-gated by `docs/RELEASE_CHECKLIST.md`'s `git range-diff` drop-check): the guard reduces, not eliminates, the recurrence risk — it cannot make a wrong-base force-push mechanically impossible.
-- **Cross-surface "agents are namespaced" gate (gate candidate).** The engine half is already pinned: `tests/workflows/agent-namespace.test.mjs` asserts every `engine/*.js` spawn uses `nsAgent("…")` and `cross-script.test.mjs` pins the helper byte-identical. The **skills-prose half is still unguarded** — a contributor could add a bare `spawn \`lens-reviewer\`` directive to a `skills/*/SKILL.md` and nothing deterministic would catch it (it relies on orchestrator runtime resolution). A standing check that every imperative spawn directive in the skill prose carries the `claugentic-dev-harness:` prefix would close it. *Fold in a related limit:* the engine guard's `CUSTOM_AGENTS` allowlist must be updated when a new bundled agent is added — the same gate can keep that allowlist from silently falling out of sync.
-
-### Later — candidates surfaced by real use
-
-- **PreToolUse irreversible-guard (mechanical).** Convert the model-upheld push-to-`main` / irreversible hard-stop into a deterministic `PreToolUse(Bash)` hook (`permissionDecision: deny` on a `git push … main` match — API-confirmed viable). The highest-value safety upgrade on the list: it turns a model-upheld stop into a hook-enforced one. Would pair with the SessionStart advisor as the harness's second bundled hook.
-- **Cross-model-tag surfacing per result.** Render the already-computed three-state cross-model disclosure as one plain-English sentence at each reviewed/audited result — the signature trust signal, currently abstract in docs only. Trivial: reuses the computed tag, no new logic.
-- **Context-budget-aware audit dial.** Let remaining session context bias the audit notch + `maxCellsPerRun` toward a clean PARTIAL/resume in tight sessions, reusing the existing deterministic-resume path. No per-step token accounting (rejected by principle — see DECISIONS).
-- **Name the honest decline as a peak-end moment (product).** Build-to-green's honest "I haven't earned it — here's exactly why" is the category-differentiated surprise. The product spec could elevate it from a behaviour to a named, screenshot-worthy peak. Pickup is not automatic — it has to be named, or it re-raises on a spec refresh.
+The harness is **feature-complete — there is no open backlog.** New work, if it arises, is surfaced by an audit (the fences above) or added here by hand.
