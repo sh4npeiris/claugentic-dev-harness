@@ -71,7 +71,7 @@ This repo builds the **`claugentic-dev-harness`** Claude Code plugin. Its execut
 
 ## .claude-plugin/ — plugin manifest (makes this repo installable)
 
-- `.claude-plugin/plugin.json` — plugin manifest (name `claugentic-dev-harness`, version, metadata); exposes the 10 specialist agents via the `agents` field pointing at `.claude/agents/*` (DRY — no duplicate `agents/` dir). Skills live under `skills/`; bundled hooks/gates not yet shipped.
+- `.claude-plugin/plugin.json` — plugin manifest (name `claugentic-dev-harness`, version, metadata); exposes the 10 specialist agents via the `agents` field pointing at `.claude/agents/*` (DRY — no duplicate `agents/` dir). Skills live under `skills/`; ships ONE bundled hook — the SessionStart advisor (`hooks` field; portable `python3 || python` launcher) — while the tree-check hook is wired per-repo by `init`, not bundled.
 - `.claude-plugin/marketplace.json` — single-plugin marketplace (`name: sh4npeiris`) so `/plugin marketplace add sh4npeiris/claugentic-dev-harness` → `/plugin install claugentic-dev-harness@sh4npeiris` works.
 
 ## skills/ — harness entry points (the `/claugentic-dev-harness:*` family)
