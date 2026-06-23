@@ -111,7 +111,7 @@ const BLINDSPOT_CELL = cellKey("blindspot", "(scope)");
 // caveat). Defined once here; renderBacklogFence emits it verbatim so it cannot drift.
 const LEGEND =
   "`refactor` = tidy without changing behavior · `capability-upgrade` = add/upgrade a technology · `dependency-health` = update/patch dependencies · `bug` = fix wrong behavior · `feature` = new behavior.\n" +
-  "`(checked against the code)` = a separate agent re-read the code and couldn't refute it · `(could not confirm independently — model's assertion)` = still just the model's claim · `(⚠ not yet verified — re-run to confirm)` = budget ran out before checking — a re-check by a different model family than the builder (the cross-model judge; on a same-family run, tagged as such) — a reduction of shared-blind-spot risk, not a mechanical guarantee.";
+  "`(checked against the code)` = a separate agent re-read the code and couldn't refute it · `(could not confirm independently — model's assertion)` = still just the model's claim · `(⚠ not yet verified — re-run to confirm)` = budget ran out before checking — each surfaced finding is re-checked by a separate clean-context agent that never saw the finder's reasoning — a reduction of rubber-stamping risk, not a mechanical guarantee.";
 
 // The architecturally-sound terminal signal — emitted as the recommended-starting-point IFF Tiers
 // 1 and 2 both come back empty (the explicit "stop" signal). Verbatim; the PARTIAL covered-cells
@@ -952,7 +952,7 @@ function renderRunReport(verification) {
   const unconfirmed = v.unconfirmed != null ? v.unconfirmed : 0;
   const deferred = v.deferred != null ? v.deferred : 0;
   const judgeClause = v.crossModel
-    ? "(the cross-model judge — by default a different model family than the builder)"
+    ? "(re-checked by a separate clean-context agent — a reduction of shared-blind-spot risk, not independence)"
     : v.sameModelTag != null
       ? v.sameModelTag
       : SAME_MODEL_TAG;

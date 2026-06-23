@@ -33,7 +33,7 @@ const EXPECTED_UNRESOLVED_FAMILY_TAG =
 // pinned by exact string compare (drift = test failure, not a model-discipline failure).
 const EXPECTED_LEGEND =
   "`refactor` = tidy without changing behavior · `capability-upgrade` = add/upgrade a technology · `dependency-health` = update/patch dependencies · `bug` = fix wrong behavior · `feature` = new behavior.\n" +
-  "`(checked against the code)` = a separate agent re-read the code and couldn't refute it · `(could not confirm independently — model's assertion)` = still just the model's claim · `(⚠ not yet verified — re-run to confirm)` = budget ran out before checking — a re-check by a different model family than the builder (the cross-model judge; on a same-family run, tagged as such) — a reduction of shared-blind-spot risk, not a mechanical guarantee.";
+  "`(checked against the code)` = a separate agent re-read the code and couldn't refute it · `(could not confirm independently — model's assertion)` = still just the model's claim · `(⚠ not yet verified — re-run to confirm)` = budget ran out before checking — each surfaced finding is re-checked by a separate clean-context agent that never saw the finder's reasoning — a reduction of rubber-stamping risk, not a mechanical guarantee.";
 
 const EXPECTED_TERMINAL_SIGNAL =
   "Sound on the audited dimensions — what remains is optional polish; you don't need to keep re-auditing.";
@@ -801,9 +801,10 @@ test("LEGEND is exactly two lines and verbatim (drift pin)", () => {
   assert.equal(H.LEGEND.split("\n").length, 2);
 });
 
-test("LEGEND line 2 carries the cross-model / not-a-guarantee caveat", () => {
+test("LEGEND line 2 carries the clean-context re-check / not-a-guarantee caveat", () => {
   const line2 = H.LEGEND.split("\n")[1];
-  assert.ok(line2.includes("different model family than the builder"));
+  assert.ok(line2.includes("re-checked by a separate clean-context agent"));
+  assert.ok(!line2.includes("different model family")); // no cross-model over-claim — all judges run the same model
   assert.ok(line2.includes("not a mechanical guarantee"));
   assert.ok(line2.includes("⚠ not yet verified — re-run to confirm"));
 });
@@ -886,9 +887,9 @@ test("renderRecommendation falls to the first Tier-2 item when Tier 1 is empty b
 // ─────────────────────────────────────────────────────────────────────────────
 // renderRunReport — same-model replacement rule (never both clauses)
 // ─────────────────────────────────────────────────────────────────────────────
-test("renderRunReport emits the cross-model parenthetical when crossModel is true", () => {
+test("renderRunReport emits the clean-context parenthetical when crossModel is true", () => {
   const line = H.renderRunReport({ verified: 4, unconfirmed: 1, deferred: 0, refuted: 2, crossModel: true });
-  assert.ok(line.includes("the cross-model judge — by default a different model family than the builder"));
+  assert.ok(line.includes("re-checked by a separate clean-context agent — a reduction of shared-blind-spot risk, not independence"));
   assert.ok(line.includes("dropped 2 that couldn't be confirmed"));
   assert.ok(line.includes("verified 4 · unconfirmed 1 · deferred 0"));
   assert.ok(!line.includes(EXPECTED_SAME_MODEL_TAG)); // never both clauses

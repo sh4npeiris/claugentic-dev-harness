@@ -10,17 +10,28 @@ no model judgement), run in the Definition-of-Done gate suite at Verify/Land and
 in CI, but **NOT hook-wired** (the one hook-enforced gate stays the architecture
 -tree check). See docs/claugentic-WORKFLOW.md -> Definition of Done.
 
+Two thresholds per ledger. The budget is a forcing function that keeps the
+always-/often-loaded context lean; the **WARN band** (a ledger past WARN_RATIO of
+its budget) fixes the "breaks the build with no prior signal" handicap — it emits
+a WARN (printed, exit 0), the cue to plan a compaction pass BEFORE the hard
+ceiling. Only a STRICT excess over the budget is a breach (exit 1). Caps differ
+by load profile: CLAUDE.md is the always-loaded anchor (kept tight); DECISIONS.md
+is read ON-DEMAND (consulted before re-litigating a past choice), so it carries a
+more generous cap — condense it periodically when the WARN fires rather than
+letting it grow unbounded.
+
 Budgets are TOTAL bytes per ledger, NOT per-item: a per-item gate would wrongly
 flag legitimate deferred-but-unplanned ROADMAP detail — the "1-liner + plan-file
 once an item is planned" rule stays a model-upheld convention, not a gate.
 
 Each ledger is read INDEPENDENTLY (mirroring the version-sync gate's discipline):
-one oversize / missing / unreadable file must never mask a breach in another, so
-every breach surfaces in one run. A missing budgeted file is a fail-loud problem
-(don't silently skip — a deleted ledger is a contract breach, not a free pass).
+one oversize / missing / unreadable / warn file must never mask a breach in
+another, so every breach surfaces in one run. A missing budgeted file is a
+fail-loud problem (don't silently skip — a deleted ledger is a contract breach).
 
 Fails loud: a breach, a missing file, or an unreadable file each produce a plain,
 actionable message + exit 1 — never a swallowed exception, never a silent pass.
+A WARN never changes the exit code (it is a heads-up, not a failure).
 
 Modes:
     python scripts/check_doc_budgets.py    # human/CI: stdout, exit 0 OK / exit 1 on any problem
@@ -35,58 +46,74 @@ from pathlib import Path
 # run from the repo root (`python scripts/check_doc_budgets.py`).
 DOC_BUDGETS = {
     "CLAUDE.md": {"max_bytes": 6000},
-    "docs/claugentic-DECISIONS.md": {"max_bytes": 40000},
+    "docs/claugentic-DECISIONS.md": {"max_bytes": 60000},
     "docs/claugentic-ROADMAP.md": {"max_bytes": 12000},
 }
 
-# The single source of the named fix — printed verbatim on every breach so the
-# remediation never drifts between message instances.
+# Emit a WARN (not a breach) once a ledger crosses this fraction of its budget —
+# the cue to plan a compaction pass BEFORE the hard ceiling breaks the build.
+WARN_RATIO = 0.9
+
+# The named fixes, printed verbatim so the remediation never drifts between
+# message instances.
 REMEDIATION = "over budget — run a compaction pass (merge superseded entries to git history)"
+WARN_REMEDIATION = "approaching budget — plan a compaction pass soon (merge superseded entries to git history)"
 
 
-def _check_one(rel_path: str, max_bytes: int) -> str | None:
-    """Measure one ledger against its byte budget. Returns an error line or None.
+def _check_one(rel_path: str, max_bytes: int) -> tuple[str, str] | None:
+    """Measure one ledger. Returns (level, message) or None (well within budget).
 
-    None means within budget. A non-None string is a plain, actionable problem:
-    a missing file, an unreadable file, or an over-budget breach (the named fix).
-    Reads this file alone (no shared state) so a sibling's failure can't mask it.
+    level is "error" (missing / unreadable / strict breach -> exit 1) or "warn"
+    (within budget but at/over WARN_RATIO -> printed, exit 0). Reads this file
+    alone (no shared state) so a sibling's failure can't mask it.
     """
     path = Path(rel_path)
     if not path.exists():
-        return f"{rel_path} is missing — a budgeted ledger must exist (cannot measure it)."
+        return ("error", f"{rel_path} is missing — a budgeted ledger must exist (cannot measure it).")
     try:
         measured = len(path.read_bytes())
     except OSError as exc:
-        return f"{rel_path} could not be read ({exc}) — check the file exists and is readable."
+        return ("error", f"{rel_path} could not be read ({exc}) — check the file exists and is readable.")
     if measured > max_bytes:
-        return f"{rel_path}: {measured} bytes vs budget {max_bytes} — {REMEDIATION}"
+        return ("error", f"{rel_path}: {measured} bytes vs budget {max_bytes} — {REMEDIATION}")
+    if measured >= int(max_bytes * WARN_RATIO):
+        return (
+            "warn",
+            f"{rel_path}: {measured} bytes vs budget {max_bytes} (>= {int(WARN_RATIO * 100)}%) — {WARN_REMEDIATION}",
+        )
     return None
 
 
-def evaluate() -> tuple[list[str], str]:
-    """Return (problem_lines, success_summary). Empty problem_lines == OK.
+def evaluate() -> tuple[list[str], list[str], str]:
+    """Return (problem_lines, warning_lines, success_summary).
 
-    Checks every ledger INDEPENDENTLY so one breach/missing/unreadable file can't
-    mask another — all problems surface in a single run.
+    Empty problem_lines == no breach. warning_lines is informational (it never
+    changes the exit code). Checks every ledger INDEPENDENTLY so one
+    breach/missing/unreadable/warn file can't mask another — all surface in one run.
     """
-    problems = [
-        msg
-        for rel_path, rule in DOC_BUDGETS.items()
-        if (msg := _check_one(rel_path, rule["max_bytes"])) is not None
-    ]
+    problems: list[str] = []
+    warnings: list[str] = []
+    for rel_path, rule in DOC_BUDGETS.items():
+        result = _check_one(rel_path, rule["max_bytes"])
+        if result is None:
+            continue
+        level, msg = result
+        (problems if level == "error" else warnings).append(msg)
     if problems:
-        return (problems, "")
+        return (problems, warnings, "")
     # ASCII-only output (no `<=` glyph) — the gate runs on Windows consoles
     # (cp1252) and CI alike; the version-sync template keeps its messages ASCII
     # for the same portability reason.
     summary = "OK: all managed ledgers within budget - " + ", ".join(
         f"{rel_path} <= {rule['max_bytes']} bytes" for rel_path, rule in DOC_BUDGETS.items()
     )
-    return ([], summary)
+    return ([], warnings, summary)
 
 
 def main(argv: list[str]) -> int:
-    problems, summary = evaluate()
+    problems, warnings, summary = evaluate()
+    for w in warnings:
+        print(f"WARN: {w}")
     if problems:
         print("\n".join(problems))
         return 1

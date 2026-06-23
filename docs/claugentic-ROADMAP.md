@@ -28,6 +28,10 @@ No product spec yet for the harness itself — run `/claugentic-dev-harness:prod
 
 This section is **hand-written and never regenerated** by any harness skill — the two backlog fences above are generated views, this is the durable record. Tangents land here, never silently into the current change.
 
+### Self-diagnostic backlog (2026-06-23, post v0.2.0) → see [docs/SELF-DIAGNOSTIC-2026-06.md](SELF-DIAGNOSTIC-2026-06.md)
+
+A research-backed deep self-diagnostic (frontier-vs-harness map + effectiveness audit, **every finding adversarially verified**) produced a prioritized 51-item backlog — full detail, evidence, and tags in the linked doc. **Headline:** the harness is now effectively all-opus, yet still carries the dropped "cross-model / different model family" copy in its index + run-reports — the #1-risk over-claim. **Top Tier-1 (cheap, high-leverage):** scrub the cross-model copy + delete the dead machinery (DIAG-01/02/03); fix the `agentic-`→`claugentic-` enable typo so the harness dogfoods itself (DIAG-32); portable hook interpreter so the one mechanical gate launches on python3-only machines (DIAG-14); reviewers structurally read-only (DIAG-18); seed a committed `permissions.deny` floor (DIAG-40). All measurement work is gated behind a re-taken all-opus eval baseline. **Awaiting scope approval before any build.** Items leave the doc by deletion as they land (git history is the archive).
+
 ### The two standing tracks — growing the libraries (ongoing · just-in-time)
 
 The harness grows as it meets more codebases. Neither track is ever "done" — that's the right shape: additions are made when real use proves a gap, never speculatively.

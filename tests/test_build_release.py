@@ -24,10 +24,11 @@ class TestClassify:
                 "docs/claugentic-PRODUCT_SPEC.md",
                 "docs/claugentic-ARCHITECTURE_TREE.md",
                 "docs/RELEASE_CHECKLIST.md",
+                "docs/SELF-DIAGNOSTIC-2026-06.md",
             ]
         )
         assert ship == []
-        assert len(strip) == 6
+        assert len(strip) == 7
 
     def test_managed_docs_and_runtime_files_ship(self):
         files = [

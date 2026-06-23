@@ -48,6 +48,7 @@ DEV_ONLY_FILES = frozenset(
         "docs/claugentic-ARCHITECTURE_TREE.md",  # the harness's own file map (init generates the adopter's)
         "docs/claugentic-INVARIANTS.md",       # the harness's OWN invariants (adopters record their own, lazily)
         "docs/RELEASE_CHECKLIST.md",
+        "docs/SELF-DIAGNOSTIC-2026-06.md",     # transient dev self-diagnostic backlog (deleted as items are worked)
         # Harness-self tooling + config (an install doesn't need them).
         "scripts/check_versions_synced.py",    # checks the plugin's two manifests — irrelevant to adopters
         "scripts/build_release.py",            # this script

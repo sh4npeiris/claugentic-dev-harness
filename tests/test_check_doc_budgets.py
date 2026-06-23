@@ -60,7 +60,7 @@ class TestWithinAndOverBudget:
         ledgers("A", 50)
         ledgers("B", 100)
         ledgers("C", 150)
-        problems, summary = cdb.evaluate()
+        problems, warnings, summary = cdb.evaluate()
         assert problems == []
         assert "OK:" in summary
 
@@ -69,7 +69,7 @@ class TestWithinAndOverBudget:
         ledgers("A", 100)
         ledgers("B", 200)
         ledgers("C", 300)
-        problems, summary = cdb.evaluate()
+        problems, warnings, summary = cdb.evaluate()
         assert problems == []
         assert "OK:" in summary
 
@@ -77,7 +77,7 @@ class TestWithinAndOverBudget:
         ledgers("A", 101)  # one byte over its 100 budget
         ledgers("B", 100)
         ledgers("C", 150)
-        problems, summary = cdb.evaluate()
+        problems, warnings, summary = cdb.evaluate()
         assert summary == ""
         blob = "\n".join(problems)
         assert "101" in blob  # measured
@@ -94,7 +94,7 @@ class TestMissingFile:
         ledgers("A", None)  # A.md absent — must not be a silent skip
         ledgers("B", 100)
         ledgers("C", 150)
-        problems, summary = cdb.evaluate()
+        problems, warnings, summary = cdb.evaluate()
         assert summary == ""
         assert any("is missing" in p and "A.md" in p for p in problems)
 
@@ -117,7 +117,7 @@ class TestUnreadableFile:
             return real_read(self, *a, **k)
 
         monkeypatch.setattr(Path, "read_bytes", boom)
-        problems, summary = cdb.evaluate()  # must NOT raise
+        problems, warnings, summary = cdb.evaluate()  # must NOT raise
         assert summary == ""
         blob = "\n".join(problems)
         assert "could not be read" in blob
@@ -133,7 +133,7 @@ class TestIndependentReads:
         ledgers("A", 150)  # over its 100 budget
         ledgers("B", 100)  # fine
         ledgers("C", 400)  # over its 300 budget
-        problems, summary = cdb.evaluate()
+        problems, warnings, summary = cdb.evaluate()
         assert summary == ""
         blob = "\n".join(problems)
         assert "A.md" in blob
@@ -143,11 +143,47 @@ class TestIndependentReads:
         ledgers("A", None)  # missing
         ledgers("B", 100)  # fine
         ledgers("C", 400)  # over budget — must still surface despite A missing
-        problems, summary = cdb.evaluate()
+        problems, warnings, summary = cdb.evaluate()
         assert summary == ""
         blob = "\n".join(problems)
         assert "is missing" in blob and "A.md" in blob
         assert "C.md" in blob and "400" in blob
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# evaluate() — the WARN band (>= WARN_RATIO of budget, but not over): heads-up, not a breach
+# ─────────────────────────────────────────────────────────────────────────────
+class TestWarnBand:
+    def test_in_warn_band_warns_not_breaches(self, ledgers):
+        # A=95 is in [90, 100]: past the 90% warn threshold but within the 100 budget.
+        ledgers("A", 95)
+        ledgers("B", 100)
+        ledgers("C", 150)
+        problems, warnings, summary = cdb.evaluate()
+        assert problems == []  # not a breach
+        assert "OK:" in summary  # run still passes
+        blob = "\n".join(warnings)
+        assert "A.md" in blob
+        assert "approaching budget" in blob
+
+    def test_warn_does_not_mask_a_real_breach(self, ledgers):
+        ledgers("A", 95)  # warn band
+        ledgers("B", 100)  # fine
+        ledgers("C", 400)  # breach
+        problems, warnings, summary = cdb.evaluate()
+        assert summary == ""
+        assert any("C.md" in p for p in problems)  # the breach still surfaces (exit 1)
+        assert any("A.md" in w for w in warnings)  # the warn still surfaces
+
+    def test_main_prints_warn_and_exits_0(self, ledgers, capsys):
+        ledgers("A", 95)  # warn band only — no breach
+        ledgers("B", 100)
+        ledgers("C", 150)
+        rc = cdb.main([])
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "WARN:" in out
+        assert "A.md" in out
 
 
 # ─────────────────────────────────────────────────────────────────────────────
