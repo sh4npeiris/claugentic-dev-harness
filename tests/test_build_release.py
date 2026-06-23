@@ -8,6 +8,9 @@ not unit-tested here (it's exercised manually at release).
 
 from __future__ import annotations
 
+import subprocess
+from pathlib import Path
+
 import build_release as br
 
 
@@ -85,3 +88,32 @@ class TestClassify:
     def test_classify_output_is_sorted(self):
         ship, _ = br.classify(["README.md", "LICENSE", "engine/qa.js", "engine/audit.js"])
         assert ship == sorted(ship)
+
+
+class TestBaseAncestryGuard:
+    """`_dropped_merges` is the mechanical defense against rebuilding the release from a
+    stale base (the v0.1.40 distillation drop). These are pure/offline — `_git` is
+    monkeypatched so no real `git`/network is touched."""
+
+    def test_current_base_drops_nothing(self, monkeypatch):
+        # rev-parse (verify) succeeds; rev-list returns nothing → base is current.
+        monkeypatch.setattr(br, "_git", lambda *args: "")
+        assert br._dropped_merges(Path(".")) == []
+
+    def test_stale_base_returns_dropped_shas(self, monkeypatch):
+        def fake_git(*args):
+            if "rev-parse" in args:
+                return ""
+            return "a7d2151\ndf20ed1\n"
+
+        monkeypatch.setattr(br, "_git", fake_git)
+        assert br._dropped_merges(Path(".")) == ["a7d2151", "df20ed1"]
+
+    def test_missing_upstream_ref_returns_none(self, monkeypatch):
+        def fake_git(*args):
+            if "rev-parse" in args:
+                raise subprocess.CalledProcessError(1, ["git", *args])
+            return ""
+
+        monkeypatch.setattr(br, "_git", fake_git)
+        assert br._dropped_merges(Path(".")) is None

@@ -17,6 +17,7 @@ Always: **validate at boundaries, trust internal code · make invalid states unr
 - **Read `docs/claugentic-ARCHITECTURE_TREE.md` first.** It's a one-line-per-file index — use it to find the right files instead of reading the whole tree. Keep it current: every file add/move/remove updates the tree (a hook enforces presence + staleness; descriptions are authored by you).
 - **Keep this CLAUDE.md lean.** Dense one-liners, not paragraphs; **index, don't duplicate.** Point to the source-of-truth doc rather than restating it. Add only genuinely non-obvious gotchas/commands/patterns; don't add anything derivable from reading the code.
 - **Record decisions.** Append a dated one-liner to `docs/claugentic-DECISIONS.md` for any non-trivial choice (consult it before re-litigating a past one). Out-of-scope ideas → `docs/claugentic-ROADMAP.md`, not into the current change.
+- **Releasing? Follow `docs/RELEASE_CHECKLIST.md`.** Anchor on the current `origin/main` (`git fetch` first) and run the `git range-diff` drop-check before any `@release` force-push. `build_release.py --apply` mechanically refuses a stale base (the BUILD); the force-push stays checklist-gated.
 
 ## Development Workflow
 

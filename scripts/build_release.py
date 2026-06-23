@@ -16,7 +16,7 @@ release; the list is short and reviewed at release.)
 
 Usage (run from anywhere — the script anchors to its own repo root):
     python scripts/build_release.py            # dry-run: print ship vs strip, exit 0
-    python scripts/build_release.py --apply     # (re)build the LOCAL `release` branch (no push)
+    python scripts/build_release.py --apply     # (re)build the LOCAL `release` branch (no push); refuses a stale base
 
 `--apply` force-resets a `release` branch to current `HEAD` in a throwaway worktree,
 removes the dev-only files there, and commits — the dev working tree is never touched.
@@ -68,6 +68,11 @@ DEV_ONLY_DIRS = (
 )
 
 RELEASE_BRANCH = "release"
+
+# The live upstream tip the release MUST be anchored on. A build from a base that
+# excludes merge commits reachable from here silently drops merged work (this is how
+# the v0.1.40 distillation was lost — see docs/RELEASE_CHECKLIST.md).
+UPSTREAM_REF = "origin/main"
 
 
 def is_dev_only(path: str) -> bool:
@@ -139,9 +144,40 @@ def _dry_run() -> int:
     return 0
 
 
+def _dropped_merges(root: Path) -> list[str] | None:
+    """Merge commits reachable from `UPSTREAM_REF` but NOT from HEAD (the build base).
+
+    Returns the dropped-merge SHAs (empty list = base is current — safe to build), or
+    `None` if `UPSTREAM_REF` is absent (the operator hasn't fetched — fail loud, never
+    silently build on an unknown base)."""
+    try:
+        _git("-C", str(root), "rev-parse", "--verify", "--quiet", f"{UPSTREAM_REF}^{{commit}}")
+    except subprocess.CalledProcessError:
+        return None
+    out = _git("-C", str(root), "rev-list", "--merges", UPSTREAM_REF, "--not", "HEAD")
+    return [line.strip() for line in out.splitlines() if line.strip()]
+
+
 def _apply() -> int:
-    """(Re)build the LOCAL `release` branch = HEAD minus the dev-only files. No push."""
+    """(Re)build the LOCAL `release` branch = HEAD minus the dev-only files. Refuses on a
+    stale base; no push."""
     root = _repo_root()
+    # base == HEAD because _apply builds from HEAD; keep in sync if that changes.
+    dropped = _dropped_merges(root)
+    if dropped is None:
+        print(
+            f"ERROR: '{UPSTREAM_REF}' not found — run `git fetch origin` before --apply.",
+            file=sys.stderr,
+        )
+        return 1
+    if dropped:
+        print(
+            f"ERROR: refusing to build — HEAD excludes {len(dropped)} merge commit(s) "
+            f"reachable from {UPSTREAM_REF}; building here would DROP merged work "
+            f"(see docs/RELEASE_CHECKLIST.md). Dropped: {', '.join(dropped)}",
+            file=sys.stderr,
+        )
+        return 1
     if _git("-C", str(root), "status", "--porcelain").strip():
         print("ERROR: working tree not clean — commit or stash before --apply.", file=sys.stderr)
         return 1
