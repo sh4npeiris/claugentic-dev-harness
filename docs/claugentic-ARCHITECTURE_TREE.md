@@ -6,7 +6,7 @@ This repo builds the **`claugentic-dev-harness`** Claude Code plugin. Its execut
 
 ## Root
 
-- `README.md` — what `claugentic-dev-harness` is + the concrete value it delivers (the three commands: init · audit · build), how it installs, how it works (init → audit → build the reviewed pipeline), and an honest status section.
+- `README.md` — what `claugentic-dev-harness` is + the concrete value it delivers (the four commands: init · product · audit · build), how it installs and updates, how it works (init → audit → build the reviewed pipeline), and an honest status section.
 - `CLAUDE.md` — lean, generalized guidance for agents working in THIS repo: engineering principles, harness discipline, workflow pointer, and a one-line Definition-of-Done pointer to `docs/claugentic-WORKFLOW.md` (the canonical gate list).
 - `.gitignore` — ignores local junk + build artifacts; **shares** `.claude/agents/`, `.claude/plans/`, `.claude/settings.json` (ignores only `.claude/settings.local.json`).
 - `.gitattributes` — normalizes line endings (`* text=auto eol=lf`; scripts forced LF) for a cross-platform plugin.

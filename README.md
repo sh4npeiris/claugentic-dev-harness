@@ -32,6 +32,17 @@ You're set up right away — the enforcement hook activates the moment `init` wr
 
 New to this? Start with **[`docs/claugentic-PLAYBOOK.md`](docs/claugentic-PLAYBOOK.md)** — a plain-English guide for non-engineers.
 
+## Updating
+
+The plugin installs once (globally); each repo gets the docs via `init`. To move to a newer release:
+
+```
+/plugin marketplace update sh4npeiris
+/plugin update claugentic-dev-harness@sh4npeiris
+```
+
+Then re-run **`/claugentic-dev-harness:init`** in each repo — it's version-aware: it refreshes the managed docs to the new version and **never touches your own content** (your spec, roadmap, and edits are left alone). *(Commands not refreshing? See the troubleshooting note above.)*
+
 ## Honest about what's real
 
 The harness's whole pitch is honesty, so here's the straight version:
