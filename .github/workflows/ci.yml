@@ -49,7 +49,7 @@ jobs:
         run: node --test tests/workflows/*.test.mjs
 
   gates:
-    name: deterministic gates (tree + version-sync)
+    name: deterministic gates (tree + version-sync + doc-budgets)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -64,3 +64,5 @@ jobs:
         run: python scripts/claugentic-check_architecture_tree.py
       - name: Plugin-version sync check
         run: python scripts/check_versions_synced.py
+      - name: Managed-ledger byte-budget check
+        run: python scripts/check_doc_budgets.py
