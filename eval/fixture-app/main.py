@@ -3,7 +3,7 @@
 Purpose: a real, runnable target for `engine/qa.js` (the harness's runtime-verification
 workflow — boot + flow-driving against the seeded UX defects). Deliberately minimal — `GET /` serves a static page that
 fetches and renders the item list; `GET /api/items` returns an in-memory list; `POST /api/items`
-appends. The ONE knob `FIXTURE_SEED=0` boots empty (the zero-data condition Slice 4b's
+appends. The ONE knob `FIXTURE_SEED=0` boots empty (the zero-data condition the
 empty-state check needs).
 
 Run: `uvicorn main:app --app-dir eval/fixture-app --port 8123`

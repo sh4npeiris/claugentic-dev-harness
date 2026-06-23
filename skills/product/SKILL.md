@@ -141,6 +141,9 @@ phase genuinely needs the user — it stays a conversation.**
 **Register:** spec mode produced a *contract*. It **checked nothing** — checking is gap mode
 (static, below) and the QA workflow (`qa.js`, runtime). Say so.
 
+**Next:** run **gap mode** to check the code against this spec, or
+**`/claugentic-dev-harness:build`** to start working items.
+
 ---
 
 ## Gap mode — intent vs implementation → the backlog  *(LIVE — invoke the script)*
@@ -211,3 +214,5 @@ checking is the QA workflow's job (`qa.js`); say so.**
 
 **Register throughout:** gap mode **attempts / tags / reduces the risk** the product diverged from
 intent. It is **never proof** the product is good — and it **reads code, it does not run the app.**
+
+**Interrupted?** If the run reported `PARTIAL`, just re-run — it picks up where it left off.

@@ -426,6 +426,8 @@ const lensTasks = modulesAudited.map((modulePath) => () =>
   agent(
     `Verify-diff mode. Your lens is the standards module: ${modulePath}. ` +
       `Audit the change against that module's dimensions only. ` +
+      `Locate the implementing code via docs/claugentic-ARCHITECTURE_TREE.md (the file index) ` +
+      `instead of reading whole files. ` +
       `Diff scope: ${diffScope}. ` +
       `Spec: ${input.specPath}.`,
     { agentType: nsAgent("lens-reviewer"), schema: LENS_SCHEMA, label: `lens:${modulePath}`, phase: "Panel" },

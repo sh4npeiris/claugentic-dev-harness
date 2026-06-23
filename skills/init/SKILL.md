@@ -642,7 +642,19 @@ also **surfaces** the doc once so the user can decide whether to **harvest** les
 
 ### 9. Report
 
-**Lead with a plain-English headline** — before the grouped technical summary — so a
+**Open with a one-line readiness summary** — a plain-English "is the setup healthy?" line
+that **reuses the detections `init` already ran** (no new mechanism): the step-4 tree-gate
+decision, the step-1 Python interpreter, and the step-5c plugin self-reference. (NOT the
+scripted engine — its availability is a per-session, run-time condition the Workflow tool
+decides when a command runs; `init` cannot know it at setup time, so it is not reported here.)
+Each item reads `<on>` when healthy, or **`reduced — <what's missing>`** when
+degraded — e.g. *"Setup: tree-gate ON · Python found (`python3`) · plugin declared for
+teammates"*, or with a degraded item flagged, *"Setup: tree-gate ON · Python **reduced — none
+found; install Python 3 to enable the tree check** · plugin declared for teammates"*.
+(Tree-gate is `OFF` not "reduced" on the Keep-mine choice — that's a healthy chosen state,
+not a degradation.)
+
+**Then lead with a plain-English headline** — before the grouped technical summary — so a
 non-engineer reads the reassurance first. **Branch the headline on the Refreshed group (and, when it's empty, on the Created group —
 never claim a refresh that didn't happen):**
 - **Refreshed empty AND Created empty (a true no-op) →** *"Done — everything is already at
