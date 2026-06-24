@@ -122,5 +122,17 @@ The harness has three "finders" of work, but the lifecycle from *finding* to *do
 
 ---
 
+## Build execution — bootstrapping discipline (active tools ≠ source)
+
+Implementing these plans = using the harness to improve the harness. Manageable because the **active tools and the source are already separate**: the harness RUNNING the build is the **INSTALLED plugin (v0.2.4)** — namespaced agents `claugentic-dev-harness:*` + install-path engine — distinct from this repo's working tree (the source we edit). **No separate clone needed** (source-vs-installed IS the isolation). Disciplines:
+1. **Build machinery stays on installed v0.2.4 throughout** — plan-reviewer, implementer, the Verify panel spawn the stable installed agents; editing the source never breaks the active tools mid-build.
+2. **Validate engine/agent edits via the TEST SUITE** (`node --test tests/workflows/*.test.mjs` + `python -m pytest`), NOT by live-spawning them. **Never run the half-edited repo-local `engine/*.js` as the build's own Verify** — the one way to break the machinery mid-run.
+3. **Edit agent + engine + tests in LOCKSTEP per slice** — a rename moves the agent file, every `nsAgent("…")` spawn, and the `agent-namespace`/`cross-script` pins together.
+4. **Republish at the END = the "replace."** RELEASE_CHECKLIST: bump both manifests → `build_release.py --apply` → push `release` → `/plugin update`. Only then do the new agents/engine become the active tools; validate the republished version on a real adopter repo.
+
+**Per-plan risk:** 0024 + the lens-coverage audit fix touch no agent-spawn ids → low bootstrapping risk (engine-script edits still test-validated). 0025/0026 edit agents + engine → full discipline above.
+
+---
+
 ## Review  _(filled by plan-reviewer, Stage 3 — after the outline is fleshed out)_
 - **Verdict:** —
