@@ -315,8 +315,14 @@ def glob_drift(in_scope: set[str]) -> list[str]:
     return _repo_source_files()[:8]
 
 
-def in_scope_files() -> set[str]:
-    """Tracked + staged + untracked-not-ignored files matching INCLUDE_GLOBS, minus exclusions."""
+def in_scope_files(include_untracked: bool = True) -> set[str]:
+    """Tracked + staged (+ untracked-not-ignored unless `include_untracked` is False) files
+    matching INCLUDE_GLOBS, minus exclusions.
+
+    `include_untracked=False` is the **pre-commit (`--staged`) scope**: check only what is being
+    committed — the index (tracked + staged-new) — NOT unrelated untracked source lying in the
+    working tree, so an unstaged scratch file can't block an unrelated commit. The default `True`
+    keeps the manual/CI scope (catch a file you forgot to `git add`)."""
     # Empty-globs guard: `git ls-files --` with NO pathspec lists EVERY file (a fail-open
     # bug — the gate would presence-check the whole repo). An unset INCLUDE_GLOBS means
     # "tracking not configured yet" → no in-scope files; drift (above) is what catches a
@@ -325,20 +331,24 @@ def in_scope_files() -> set[str]:
         return set()
     tracked = _git("ls-files", "--", *INCLUDE_GLOBS)
     staged = _git("diff", "--cached", "--name-only", "--diff-filter=ACMR", "--", *INCLUDE_GLOBS)
-    untracked = _git("ls-files", "--others", "--exclude-standard", "--", *INCLUDE_GLOBS)
-    files = {f.replace("\\", "/") for f in (*tracked, *staged, *untracked)}
+    groups = [tracked, staged]
+    if include_untracked:
+        groups.append(_git("ls-files", "--others", "--exclude-standard", "--", *INCLUDE_GLOBS))
+    files = {f.replace("\\", "/") for group in groups for f in group}
     return {f for f in files if not any(x in f for x in EXCLUDE_SUBSTR)}
 
 
-def evaluate() -> tuple[list[str], str]:
-    """Return (problem_lines, success_summary). Empty problem_lines == OK."""
+def evaluate(include_untracked: bool = True) -> tuple[list[str], str]:
+    """Return (problem_lines, success_summary). Empty problem_lines == OK.
+
+    `include_untracked` threads to `in_scope_files`: False is the pre-commit (`--staged`) scope."""
     if not TREE_PATH.exists():
         return ([f"ERROR: {TREE_DISPLAY} is missing — create the architecture index."], "")
     # Strip ```-fenced blocks once: both the presence tokenizer (_backtick_tokens, which
     # re-strips defensively) and the staleness tokenizer (TOKEN_PATTERN.findall below) read
     # this text, and an index entry never lives inside a diagram fence.
     text = _strip_fenced_blocks(TREE_PATH.read_text(encoding="utf-8"))
-    files = in_scope_files()
+    files = in_scope_files(include_untracked)
     # Presence: a file is indexed iff its path appears as an EXACT backtick-delimited
     # token — NOT a raw substring. The old `f not in text` false-green'd a root `a.py`
     # whenever a longer `scripts/a.py` appeared anywhere in the tree, and would have
@@ -490,11 +500,14 @@ def main(argv: list[str]) -> int:
             return 0
 
     hook_mode = "--hook" in argv
+    # `--staged` = the pre-commit scope: check only the index (tracked + staged), never unrelated
+    # untracked working-tree files, so an unstaged scratch file can't block an unrelated commit.
+    staged = "--staged" in argv
     if hook_mode and _stop_hook_active_from_stdin():
         # Loop-breaker: a prior blocking Stop already reported; never re-block the same stop.
         return 0
     try:
-        problems, summary = evaluate()
+        problems, summary = evaluate(include_untracked=not staged)
     except RuntimeError as exc:
         # The gate could not run — fail loud, never report a false green.
         if hook_mode:

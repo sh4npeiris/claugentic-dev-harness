@@ -66,7 +66,8 @@ This repo builds the **`claugentic-dev-harness`** Claude Code plugin. Its execut
 
 ## .claude/ — harness config
 
-- `.claude/settings.json` — Claude Code hooks: PostToolUse(Write) nudge + Stop backstop that run the architecture-tree check.
+- `.claude/settings.json` — Claude Code settings (currently `{}`): the tree gate moved OFF the per-action `PostToolUse`/`Stop` hooks onto the git `pre-commit` hook (commit-time, zero per-tool overhead). The SessionStart advisor hook lives plugin-side (`plugin.json`).
+- `.githooks/pre-commit` — git pre-commit hook (wired via `core.hooksPath=.githooks`): runs `scripts/claugentic-check_architecture_tree.py --staged` once per `git commit`, locally; exit 1 aborts the commit. The commit-time replacement for the removed per-action hooks (no adopter CI — next commit catches a miss).
 
 ## .claude-plugin/ — plugin manifest (makes this repo installable)
 

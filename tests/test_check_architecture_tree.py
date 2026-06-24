@@ -1137,3 +1137,45 @@ class TestFormBudget:
             ]
         )
         assert cat._form_violations(text) == [("scripts/big.py", over)]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# --staged (pre-commit) scope — gate the INDEX, not unrelated untracked files
+# ─────────────────────────────────────────────────────────────────────────────
+class TestStagedScope:
+    """The pre-commit hook runs `--staged` so it gates what's being COMMITTED (tracked +
+    staged), never an unrelated untracked scratch file in the working tree (which the old
+    per-action Write nudge deliberately DID include). `include_untracked=False` drops that group."""
+
+    def _split_git(self, monkeypatch, *, untracked, indexed):
+        def fake_git(*args):
+            return list(untracked) if "--others" in args else list(indexed)
+        monkeypatch.setattr(cat, "INCLUDE_GLOBS", [":(glob)scripts/**/*.py"])
+        monkeypatch.setattr(cat, "EXTS", {"py"})
+        monkeypatch.setattr(cat, "_git", fake_git)
+
+    def test_include_untracked_false_drops_the_untracked_group(self, repo, monkeypatch):
+        self._split_git(monkeypatch, untracked=["scripts/untracked.py"], indexed=["scripts/tracked.py"])
+        assert cat.in_scope_files(include_untracked=True) == {"scripts/tracked.py", "scripts/untracked.py"}
+        assert cat.in_scope_files(include_untracked=False) == {"scripts/tracked.py"}
+
+    def test_evaluate_staged_ignores_untracked_missing(self, repo, monkeypatch):
+        """An untracked in-scope file absent from the tree is MISSING by default but NOT under
+        --staged (it isn't being committed). A TRACKED indexed file keeps in_scope non-empty so
+        glob-drift (a separate zero-coverage concern that always censuses the whole repo, and is
+        unaffected by --staged) does not fire and conflate the two."""
+        self._split_git(monkeypatch, untracked=["scripts/scratch.py"], indexed=["scripts/tracked.py"])
+        _touch(repo, "scripts/tracked.py")
+        _write_tree(repo, "# Tree\n- `scripts/tracked.py` — indexed; scratch.py is not.\n")
+        assert any("scripts/scratch.py" in p for p in cat.evaluate(include_untracked=True)[0])
+        assert cat.evaluate(include_untracked=False)[0] == []
+
+    def test_main_staged_flag_threads_through(self, repo, monkeypatch, capsys):
+        """`main(["--staged"])` plumbs include_untracked=False end to end: exit 0 when the only
+        un-indexed in-scope file is untracked; the same repo without --staged exits 1."""
+        self._split_git(monkeypatch, untracked=["scripts/scratch.py"], indexed=["scripts/tracked.py"])
+        _touch(repo, "scripts/tracked.py")
+        _write_tree(repo, "# Tree\n- `scripts/tracked.py` — the indexed, committed file.\n")
+        assert cat.main(["--staged"]) == 0
+        capsys.readouterr()
+        assert cat.main([]) == 1
