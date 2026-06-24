@@ -1,6 +1,6 @@
 # 0024 — Harness context-economy & lifecycle hygiene
 
-- **Status:** Draft — scope & key designs locked (this conversation). Ready for plan-reviewer (Stage 3) on user's go. **doctor + the unified finder→select→plan→build pipeline → plan `0025`** (not built here).
+- **Status:** Draft — scope & key designs locked. **S2 own-repo switch LANDED 2026-06-24 (commit `eae7b28`); the adopter-facing `init`-wiring of S2 still remains.** Ready for plan-reviewer (Stage 3) on the rest. **doctor + the unified finder→select→plan→build pipeline → plan `0025`** (not built here).
 - **Resumable from:** awaiting user instruction to run plan-reviewer on 0024 (or continue refining). Slices S1–S5 below.
 - **Blockers:** none. S4 (init solo) composes with S2's pre-commit wiring — sequence S2 before S4.
 - **Roadmap item:** seed in `docs/claugentic-ROADMAP.md` on approval (+ a pointer to `0025`).
@@ -110,7 +110,7 @@ A grounded multi-agent review (10 agents) + this design conversation established
 ## Decomposition (slices)
 Each lands complete in one session, no debt.
 - [ ] **S1 — Tree condensation + CLAUDE.md read-economy wording.** Doc-only; biggest token win; independent.
-- [ ] **S2 — Tree enforcement → pre-commit hook** (remove per-action hooks; `.githooks` + init wiring; staged-scope; no adopter CI). Independent of S1.
+- [~] **S2 — Tree enforcement → pre-commit hook.** OWN-REPO switch **DONE** (`eae7b28`: per-action hooks removed, `.githooks/pre-commit` + `core.hooksPath=.githooks` common config, `--staged` index-scope mode + tests; verified pytest 167 / node 344 / hook passes-clean+blocks-staged). **REMAINS: adopter-facing `init` wiring** — `init` writes `.githooks/pre-commit` + sets `core.hooksPath` for a shared adopter, `.git/hooks/` for solo (S4). Independent of S1.
 - [ ] **S3 — INVARIANTS budget + advisor off-switch & audience-split.** Two scripts + two test updates; independent.
 - [ ] **S4 — `init` solo/local-only mode.** Depends on S2 (uses its pre-commit wiring in `.git/hooks/`).
 - [ ] **S5 — Plan lifecycle: disposition (blocked→defer→close) + scope-creep handling + Bugs capture + ROADMAP taxonomy.** WORKFLOW + build SKILL + TEMPLATE + ROADMAP sections; independent.
