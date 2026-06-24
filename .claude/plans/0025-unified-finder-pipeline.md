@@ -95,5 +95,32 @@ The harness has three "finders" of work, but the lifecycle from *finding* to *do
 
 ---
 
+## ★ Audit lens-coverage integrity — a CURRENT BUG in `engine/audit.js` (do EARLY)
+
+**Symptom (observed on 0.2.4, real adopter audit):** a `standard` run over a large repo (8 lenses × 8 dirs = 64 cells) at `maxCellsPerRun: 28` returned `PARTIAL` with **4 of 8 lenses never run** (zero findings) + a 5th half-covered. No lens was truncated mid-run (each that ran ran to full `depthForDial`); the budget dropped **whole lenses**.
+
+**Root cause (verified in code):** `enumerateCells` (audit.js:316-331) orders cells **module-major** (`m0×d0…m0×dN, m1×d0…`); `applyCellBudget` (audit.js:336-341) is a flat prefix `slice(0, N)`. Any `N < total` consumes the first lenses fully and **starves the tail to zero**. No interleaving, no per-lens floor.
+
+**It violates the documented promise.** `skills/audit/SKILL.md:184`: *"all relevant lenses run at every level — depth, never lens-count, is the lever."* Dial = DEPTH (focused/deep/exhaustive + blindspot/yagni at thorough); cell-budget = a SEPARATE cost/context bound. So a `standard` pass SHOULD hear from every lens (at deep depth) — the fix **aligns the engine with the promise**, NOT "make standard like thorough."
+
+**Why the cap exists (the real ceiling):** `maxCellsPerRun` bounds the **synthesis context** — N finder outputs in one dedup/prune pass. "Just run at N=64" only works when the synthesizer can hold 64 outputs; on a big repo it can't (that's why the cap was low). So the fix has TWO prongs: make a LIMITED pass cover all lenses, AND make a FULL pass feasible at scale.
+
+**The fix (ranked):**
+1. **Interleave + per-lens floor** — enumerate round-robin across lenses (priority dirs inner) + ≥1 cell per configured lens. A budget-limited pass covers EVERY lens's top dirs (broad-then-deep); starvation structurally impossible.
+2. **Auto-size the cap** from `lenses × dirs` (clamped to the synthesis ceiling); default to a **full single pass** (`N ≥ total`, one global dedup) when it fits. Stop hand-picking N (28 was a footgun).
+3. **Hierarchical synthesis** (per-lens roll-up → global dedup) — raises the synthesis ceiling so a full pass is feasible on LARGE repos. This is what makes "always all lenses" work at scale (not optional for big repos).
+4. **Per-lens finding counts (incl. explicit `CLEAN`) in the run report** — confirm "all lenses spoke" before prioritizing (the user's workflow goal).
+5. **(Separate, optional) per-dir fan-out** — one agent per `(lens × dir)` for deeper/uniform reading; a DEPTH/parallelism boost, NOT the coverage fix; bounded by the concurrency cap `min(16, cores−2)` + needs #3.
+
+**Acceptance:** a sub-total budget covers every configured lens ≥1 cell (verify via `done-cells`); a full budget completes all lenses in ONE pass with ONE global dedup; the done/pending cell-key ordering stays a deterministic resume contract after the ordering change; per-lens counts (incl. CLEAN) visible.
+
+**Sibling — same principle, two engines.** This (audit: selected lenses don't get STARVED) pairs with 0026's **lens-completeness gate** (verify: all relevant lenses get SELECTED). Together = **"every relevant lens actually runs and reports"** = the harness's core trustworthiness. Treat as one **lens-coverage integrity** theme.
+
+**Ordering impact (RECOMMENDED — confirm):** current bug in the flagship deliverable + self-contained + clear acceptance + tests → **autonomous-tier eligible (like 0024), high-priority, do EARLY** — before the 0025-pipeline / 0026-spine rewrites (both touch `audit.js`/`verify.js` and should build on the fixed cell logic). **New order:** `0024` → **lens-coverage integrity (audit budget + verify completeness) [autonomous, early]** → `0025` → `0026`. Pull 0026's lens-completeness gate forward to pair here.
+
+**Immediate adopter unblock (NOT a harness change; done in the ADOPTER session, not this repo):** re-run that audit at `maxCellsPerRun: 64` (full pass) or resume from the fence — all 8 lenses report now, IF the adopter's synthesis fits 64 outputs (else resume in chunks). The engine fix makes this the reliable default.
+
+---
+
 ## Review  _(filled by plan-reviewer, Stage 3 — after the outline is fleshed out)_
 - **Verdict:** —
