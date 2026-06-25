@@ -39,8 +39,8 @@ step-level mechanics; this is the product-level note.
 
 - **Capture → conform → *elevate*.** The designer (`product-designer`) **surfaces** the user's
   truth and the standard (`docs/claugentic-standards/product-ux.md`) governs **conformance**; the
-  **Excellence pass** — the `product-critic` agent (the SRP **elevate** counterpart to the
-  designer) **critiques the draft by method** (forcing functions, not a dimension checklist) and
+  **Excellence pass** — the `product-designer` agent's **elevate** mode (the **elevate** counterpart
+  to discover) **critiques the draft by method** (forcing functions, not a dimension checklist) and
   returns a focused set of **proposals the user decides on** (adopt/adapt/reject/defer). It
   **proposes, never imposes** — proposals are *questions to the user*, never spec content until
   adopted, which extends (never violates) the designer's never-invent-scope rule. **Default-on

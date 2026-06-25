@@ -229,8 +229,8 @@ Call the Workflow tool with:
 **Tell the user first, in plain English** (so a multi-minute pass isn't a silent stall): *"This can
 take several minutes on a larger repo — I'm reading the code through several quality lenses in
 parallel."* What the script then runs mechanically: **FIND** (one `lens-reviewer` per module batch
-at `depthForDial(dial)`; **at `thorough`, also one `blindspot-reviewer` over the whole scope** as a
-pseudo-cell — it FINDS only, its findings join the same path), **PRUNE** (coded dedup → a synthesis
+at `depthForDial(dial)`; **at `thorough`, also one `lens-reviewer` in whole-scope mode over the
+whole scope** as a pseudo-cell — it FINDS only, its findings join the same path), **PRUNE** (coded dedup → a synthesis
 self-review agent → cut-list, with the `missing-test-baseline` item **never** pruned; **at
 `thorough`, also an adversarial `yagni-sentinel` sweep** over the consolidated set, its cuts applied
 with the same never-prune-the-baseline protection), **VERIFY** (exactly one `finding-verifier` per
@@ -277,9 +277,9 @@ file — read it there):
    status block and continue from `pending`, never redoing a `done` cell.
 4. **Fan out lenses — one look per cell.** One `claugentic-dev-harness:lens-reviewer` (audit-scope mode) per module batch,
    in parallel, passed its module + scoped dirs + exclude-set + the dial's `depth`
-   (`.claude/agents/lens-reviewer.md`). *(thorough only:* also one `claugentic-dev-harness:blindspot-reviewer` over the
-   whole scope at `exhaustive` — it FINDS only; its findings join the same dedup → prune → verify
-   path. `.claude/agents/blindspot-reviewer.md`.)
+   (`.claude/agents/lens-reviewer.md`). *(thorough only:* also one `claugentic-dev-harness:lens-reviewer`
+   in **whole-scope mode** over the whole scope at `exhaustive` — it FINDS only; its findings join the
+   same dedup → prune → verify path. `.claude/agents/lens-reviewer.md`.)
 5. **Dedup + synthesize.** Key dedup on **issue-class**, not file·location alone; roll up systemic
    cross-file duplicates into one "recurs in N files" item; carry each finding's confidence label
    unchanged. **Citation-guard:** re-confirm every `file:line` against the actual file first.
@@ -376,7 +376,7 @@ It lives in `docs/claugentic-ROADMAP.md` **OUTSIDE** the regenerate-don't-accumu
 fence — exactly as the product memory lives in the user-owned spec, **not** inside a regenerated fence —
 so a re-audit (which wipes the backlog fence) **never wipes it**. **Before rendering the backlog, read
 this fence and skip re-surfacing any listed finding** — a dropped finding stays dropped (the same way
-`product-critic` reads its fence and never re-pitches a rejected idea). This is a **user override of the
+the `product-designer` elevate mode reads its fence and never re-pitches a rejected idea). This is a **user override of the
 model's judgment**, not a deletion of evidence: if the underlying code genuinely changes the picture, the
 user can clear the line themselves; the harness never silently second-guesses a recorded dismissal.
 

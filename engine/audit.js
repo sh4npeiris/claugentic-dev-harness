@@ -535,15 +535,16 @@ function buildCriterionLensPrompt(criterion, excludeSet) {
   );
 }
 
-// Build the whole-scope blind-spot sweep prompt (`thorough` only — per
-// .claude/agents/blindspot-reviewer.md): no single module, the whole scope, red-team posture,
+// Build the whole-scope blind-spot sweep prompt (`thorough` only — the lens-reviewer's WHOLE-SCOPE
+// mode, per .claude/agents/lens-reviewer.md): no single module, the whole scope, red-team posture,
 // always exhaustive depth. It FINDS only; its findings carry `issueClass` like a lens return and
 // join the same dedupFindings path with no special handling.
 function buildBlindspotPrompt(scopeDirs, excludeSet) {
   const exclude = Array.isArray(excludeSet) ? excludeSet : [];
   return (
-    `Audit-scope mode (no diff). You have NO single standards module — your lens is the WHOLE ` +
-    `audited scope. Red-team posture: a checklist-driven per-module review just ran over this ` +
+    `You are in WHOLE-SCOPE mode. Audit-scope target (no diff). You have NO single standards ` +
+    `module — your lens is the WHOLE audited scope. Red-team posture: a checklist-driven ` +
+    `per-module review just ran over this ` +
     `scope — hunt what it would STRUCTURALLY miss (emergent architectural smells, integration ` +
     `gaps between components, cross-cutting concerns applied inconsistently, systemic issues that ` +
     `fall BETWEEN the per-module lenses). ` +
@@ -1226,7 +1227,7 @@ const findTasks = batches.map((batch) => () =>
 if (runHasBlindspot) {
   findTasks.push(() =>
     guardedAgent(buildBlindspotPrompt(input.scopeDirs, excludeSet), {
-      agentType: nsAgent("blindspot-reviewer"),
+      agentType: nsAgent("lens-reviewer"),
       schema: LENS_SCHEMA,
       label: "blindspot:(scope)",
       phase: "Find",

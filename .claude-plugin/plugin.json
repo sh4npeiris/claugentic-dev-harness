@@ -11,11 +11,9 @@
     "./.claude/agents/synthesizer-gate.md",
     "./.claude/agents/implementer.md",
     "./.claude/agents/product-designer.md",
-    "./.claude/agents/product-critic.md",
     "./.claude/agents/lens-reviewer.md",
     "./.claude/agents/yagni-sentinel.md",
     "./.claude/agents/finding-verifier.md",
-    "./.claude/agents/blindspot-reviewer.md",
     "./.claude/agents/honesty-reviewer.md"
   ],
   "hooks": {

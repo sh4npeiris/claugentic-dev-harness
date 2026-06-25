@@ -38,7 +38,7 @@ the failure or near-miss that taught it).
 ## The scrubbed-file set must never regain the de-correlation claim
 
 - **Invariant —** the SCRUBBED-FILE SET — `.claude/agents/honesty-reviewer.md` · `synthesizer-gate.md`
-  · `product-critic.md` · `finding-verifier.md` · `README.md` ·
+  · `product-designer.md` · `lens-reviewer.md` · `finding-verifier.md` · `README.md` ·
   `docs/claugentic-{WORKFLOW,PLAYBOOK,DECISIONS}.md` · `skills/{audit,build,product,init}/SKILL.md`
   · the rewritten comment block in `engine/audit.js` — must NOT assert model-family
   independence / de-correlation. The honest claim is "a different model family — a *reduction*

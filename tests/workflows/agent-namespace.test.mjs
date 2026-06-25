@@ -32,11 +32,9 @@ const CUSTOM_AGENTS = [
   "synthesizer-gate",
   "implementer",
   "product-designer",
-  "product-critic",
   "lens-reviewer",
   "yagni-sentinel",
   "finding-verifier",
-  "blindspot-reviewer",
   "honesty-reviewer",
 ];
 

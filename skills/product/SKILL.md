@@ -56,20 +56,21 @@ phase genuinely needs the user — it stays a conversation.**
 
 5. **The Product Excellence pass — elevate the draft (default-on, skippable on ask).** The
    draft is *capture + conform*; this pass raises the bar before it's written. **Default-on every
-   spec-mode run; skip only if the user asks.** The honesty register runs through it: the critic
+   spec-mode run; skip only if the user asks.** The honesty register runs through it: the elevate pass
    **proposes / raises the bar — you decide**; it **never** guarantees the spec is excellent, and
    any benchmark/competitor claim it makes without a deep-research round is **model knowledge,
    tagged not-verified** (only a research round carries citations).
 
-   1. **Convene `claugentic-dev-harness:product-critic`** (per `.claude/agents/product-critic.md` — no new agents; a second
-      subagent, allowed under the top-level-agent constraint). Pass it: the **draft spec** + the
+   1. **Convene `claugentic-dev-harness:product-designer` in its elevate mode** (per
+      `.claude/agents/product-designer.md` — no new agents; a second subagent, allowed under the
+      top-level-agent constraint). Pass it: the **elevate mode** + the **draft spec** + the
       **spec-conversation context** (what the user said that didn't survive structuring) + the
       **rejected-proposals memory** (the `<!-- product-critic:rejected-proposals -->`-fenced list in
-      `docs/claugentic-PRODUCT_SPEC.md`, when present — so it never re-pitches a decided idea). The critic
+      `docs/claugentic-PRODUCT_SPEC.md`, when present — so it never re-pitches a decided idea). The elevate pass
       **critiques by method** (the forcing functions: second-session walkthrough · pre-mortem ·
       kill-test · tell-a-friend · the **mandatory premise-challenge**) and **points at**
       `docs/claugentic-standards/product-ux.md` for conformance — it does not re-audit states/flow-completeness
-      (the designer + standard own those). It opens with **what's already strong** and is **licensed
+      (discover + the standard own those). It opens with **what's already strong** and is **licensed
       to return few or no proposals** when the spec is already strong — never filler.
 
    2. **Present TIERED — a conversation, not a flat ballot.** Don't dump every proposal as one
@@ -95,7 +96,7 @@ phase genuinely needs the user — it stays a conversation.**
 
    5. **Record the decided proposals — a lightweight, user-owned memory.**
       - **Rejected** proposals → append to the `<!-- product-critic:rejected-proposals -->`-fenced
-        list in `docs/claugentic-PRODUCT_SPEC.md` (one terse line each — the idea, so the critic recognizes and
+        list in `docs/claugentic-PRODUCT_SPEC.md` (one terse line each — the idea, so the elevate pass recognizes and
         skips it next refresh). The fence lives in the **user-owned** spec, is **never stamped**, and
         co-locates with the spec it concerns; spec mode preserves it (step 7's "preserve any user
         content outside the template's own structure" rule). Create the fence if absent.
@@ -107,15 +108,15 @@ phase genuinely needs the user — it stays a conversation.**
 
    6. **Refresh-path scoping.** On the **refresh path** (an existing spec — step 2), critique the
       **changed sections + a light whole-spec scan**, not a full re-critique every time
-      (decision-fatigue is most acute on a small refresh). Tell the critic the scope.
+      (decision-fatigue is most acute on a small refresh). Tell the elevate pass the scope.
 
    7. **Deep-research on demand (for a feature the user asks to benchmark).** If the user wants a
       proposal grounded in how the best products actually solve a job, the orchestrator invokes the
       **`deep-research` skill** (a session-available skill — the deep-research harness, **not** a repo
       file) scoped to *"how do the best products solve `<job>`, and where do they underserve"* →
-      feed the **cited** findings to the critic for a grounded round (those claims carry citations;
+      feed the **cited** findings to the elevate pass for a grounded round (those claims carry citations;
       everything else stays model-knowledge-tagged). **If `deep-research` is unavailable this
-      session: say so plainly and fall back to critique-only** — the critic's benchmark claims are
+      session: say so plainly and fall back to critique-only** — the elevate pass's benchmark claims are
       then model knowledge, tagged *not verified this run*. **Never claim research that didn't run.**
 
    8. **A deferred proposal → `docs/claugentic-ROADMAP.md`, the human-owned area (the standing tangents→ROADMAP

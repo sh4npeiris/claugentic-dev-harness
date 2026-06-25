@@ -51,12 +51,10 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 
 - `.claude/agents/synthesizer-gate.md` — the GATE (integrate→verdict→loop) at three altitudes: plan-gate (Stage-3, EDITS the plan's Review section), verify-verdict (Stage-7, solo or synthesizes the panel), audit-synthesis (tiers audit findings); clean-context opus, opens `RUNNING AS:`; pinned in `engine/verify.js` + `engine/audit.js` (merge of plan-reviewer+architect-reviewer).
 - `.claude/agents/implementer.md` — Stage-6 builder (native implement): implements one approved, spec'd slice to standard in an isolated worktree; lands code + tests + docs, no debt; upholds the CLAUDE.md principles (points at them) + the in-scope standards.
-- `.claude/agents/product-designer.md` — Stage-1 product/UX discovery (user-facing work): user, JTBD, flows, states, "what good feels like"; applies `product-ux`, persists to `docs/claugentic-PRODUCT.md`.
-- `.claude/agents/product-critic.md` — the elevate counterpart to product-designer: critiques a draft product spec by method (forcing functions + mandatory premise-challenge), returns adopt/adapt/reject/defer proposals; read-only.
-- `.claude/agents/lens-reviewer.md` — audits a diff (Verify) or audit-scope against ONE named standards module; per-lens in a fan-out; Audit-scope reads at the passed `depth` (`focused`/`deep`/`exhaustive`); read-only, returns per-dimension findings.
+- `.claude/agents/product-designer.md` — product/UX lens, two modes: Discover (Stage-1, user-facing) surfaces user/JTBD/flows/states/"what good feels like"; Elevate (spec mode) critiques a draft spec by method (forcing functions + mandatory premise-challenge) → adopt/adapt/reject/defer proposals. Applies `product-ux`, persists to `docs/claugentic-PRODUCT.md` (elevate folded from product-critic).
+- `.claude/agents/lens-reviewer.md` — applies ONE standards module (the lens), four modes: Verify-diff (Stage-7), Audit-scope (passed `depth` focused/deep/exhaustive), Plan-design (Stage-2b advisory), Whole-scope (the `thorough` cross-cutting red-team sweep, no single module — folded from blindspot-reviewer; FINDS-only, always exhaustive). Per-lens in a fan-out; read-only, returns per-finding results.
 - `.claude/agents/yagni-sentinel.md` — the anti-over-engineering skeptic: argues a plan/diff over-builds (speculative abstraction, premature infra, gold-plating); read-only, returns a cut-list. Also the audit's `thorough`-only prune.
 - `.claude/agents/finding-verifier.md` — the audit's refute counterpart: given ONE finding (claim + `file:line`, never the finder's rationale) tries to refute it → Verified/Refuted/Unconfirmed; per-finding after the prune; structural safeguard, read-only, `model: opus`.
-- `.claude/agents/blindspot-reviewer.md` — the `thorough`-only cross-cutting sweep: red-teams the risk no single module-lens owns (emergent smells, seam gaps, systemic issues); always `exhaustive`, FINDS-only (re-checked by finding-verifier), read-only, opus.
 - `.claude/agents/honesty-reviewer.md` — the over-claim lens: refutes COPY not code (verb discipline · `[D]`/`[J]` integrity · `cross-model ≠ independent`); bar embedded in the prompt; on the diverse panel at Plan/Verify on trust surfaces; read-only, `model: opus`.
 
 ## .claude/plans/ — plan template (active plans land here while in flight)
@@ -70,7 +68,7 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 
 ## .claude-plugin/ — plugin manifest (makes this repo installable)
 
-- `.claude-plugin/plugin.json` — open to change the manifest: name/version/metadata; exposes the 10 agents via the `agents` field → `.claude/agents/*` (DRY); skills under `skills/`; ships ONE bundled hook (the SessionStart advisor, `python3 || python` launcher).
+- `.claude-plugin/plugin.json` — open to change the manifest: name/version/metadata; exposes the 7 agents via the `agents` field → `.claude/agents/*` (DRY); skills under `skills/`; ships ONE bundled hook (the SessionStart advisor, `python3 || python` launcher).
 - `.claude-plugin/marketplace.json` — single-plugin marketplace (`name: sh4npeiris`) so `/plugin marketplace add sh4npeiris/claugentic-dev-harness` → `/plugin install claugentic-dev-harness@sh4npeiris` works.
 
 ## skills/ — harness entry points (the `/claugentic-dev-harness:*` family)
@@ -79,7 +77,7 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 - `skills/audit/SKILL.md` — open to change the audit entry: thin trigger (Understand → invoke `engine/audit.js` → write the backlog between `harness-audit:backlog` markers, replace-only). `thorough` adds blind-spot + yagni-sentinel. Format SoT = `renderBacklogFence`; carries the prose fallback.
 - `skills/build/SKILL.md` — open to change the build go-button: thin layer driving backlog items through the WORKFLOW pipeline, decision-gated (stop only for a fork/trade-off/irreversible · flag reversible judgments + surface at close); reads BOTH fences into one tier-interleaved worklist; build-to-green (unwatched) requestable.
 
-- `skills/product/SKILL.md` — open to change the product layer: two modes — Spec (product-designer draft → product-critic Excellence pass → frozen-schema validate → user-owned PRODUCT_SPEC.md) and Gap (`engine/audit.js` criteria mode → `harness-product:backlog` fence).
+- `skills/product/SKILL.md` — open to change the product layer: two modes — Spec (product-designer discover draft → product-designer elevate Excellence pass → frozen-schema validate → user-owned PRODUCT_SPEC.md) and Gap (`engine/audit.js` criteria mode → `harness-product:backlog` fence).
 
 - `skills/doctor/SKILL.md` — open for harness-OWN-health (NOT your code — that's audit): runs the existing gates read-only + plan-scan + init post-conditions + report-only Stage-9 signal → green/WARN/breach snapshot → SELECT → treat bounded-mechanical-set-on-approval / substantive → roadmap.
 
