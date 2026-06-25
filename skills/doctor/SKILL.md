@@ -1,5 +1,5 @@
 ---
-description: Check the harness's OWN health (distinct from /audit, which checks YOUR code vs the standards) — run the existing deterministic gates read-only (architecture-tree always · version-sync + doc-budgets are harness-self, run only where their script is present, else N-A in an adopter), scan for landed/cold plans, re-assert the init post-conditions, and flag a likely-skipped Stage-9 harvest, then report a green/WARN/breach snapshot. It treats only the bounded-mechanical set (delete a landed/cold plan · re-wire the pre-commit hook · apply a user-approved doc-condensation diff · tree hygiene) — and ONLY on your explicit approval, never silently. Anything substantive is routed to the roadmap → plan → offered to build. The diagnose is strictly read-only; nothing is mutated before you select and approve.
+description: Check the harness's OWN health (distinct from /audit, which checks YOUR code vs the standards) — run the existing deterministic gates read-only (architecture-tree always · version-sync + doc-budgets + shipped-content are harness-self, run only where their script is present, else N-A in an adopter), scan for landed/cold plans, re-assert the init post-conditions, and flag a likely-skipped Stage-9 harvest, then report a green/WARN/breach snapshot. It treats only the bounded-mechanical set (delete a landed/cold plan · re-wire the pre-commit hook · apply a user-approved doc-condensation diff · tree hygiene) — and ONLY on your explicit approval, never silently. Anything substantive is routed to the roadmap → plan → offered to build. The diagnose is strictly read-only; nothing is mutated before you select and approve.
 ---
 
 # /claugentic-dev-harness:doctor
@@ -42,9 +42,9 @@ below. Run each check and record its result for the report:
 
 Run each via the Bash tool and classify by exit code — **run them, do not re-implement them.**
 **The rule:** the **tree gate always ships and always runs**; the **harness-self gates**
-(version-sync, doc-budgets) run **iff their script is present** — when a script is ABSENT
-(an adopter repo: both are stripped from the release) the gate is **N-A (harness-self — not
-shipped to adopters)**, never a breach and never an error. (Per-script presence is the
+(version-sync, doc-budgets, shipped-content) run **iff their script is present** — when a script
+is ABSENT (an adopter repo: all are stripped from the release) the gate is **N-A (harness-self —
+not shipped to adopters)**, never a breach and never an error. (Per-script presence is the
 adopter signal — there is no separate "am I an adopter" flag.)
 
 - **`python scripts/claugentic-check_architecture_tree.py`** — exit **0 = green** · exit **1
@@ -60,6 +60,13 @@ adopter signal — there is no separate "am I an adopter" flag.)
   it hard-breaks) · exit **1 = breach** (a ledger over budget). **The INVARIANTS cap already lives
   in this script** (added in 0024 S3) — doctor just runs it; **there is no script change.**
   **If absent:** mark **N-A**, do not run.
+- **`python scripts/check_shipped_content.py`** — *(harness-self — N-A in an adopter; its script is
+  stripped from the release)*. Scans the SHIPPED tree's text for release/init-contract content
+  breaches. **If the script is present:** exit **0 + no `WARN:` line = green** · exit **0 + a
+  `WARN:` line = WARN** (the heuristic uncaveated-gate-mention pass flagged a mention to eyeball —
+  never a hard fail) · exit **1 = breach** (a stranded `claugentic-dev-harness:<token>` namespace
+  literal or a dangling reference to a stripped-uncreated path — the exact-literal cases). **If
+  absent:** mark **N-A**, do not run.
 
 A gate's classification is `[D]` — report the **exact** exit status, never your gloss of it.
 **N-A is a presence fact** (the script isn't there), not a pass — report it plainly; never
@@ -119,6 +126,7 @@ doctor regenerates it from scratch.
 | architecture-tree gate | green / breach | `[D]` exit code |
 | version-sync gate | green / breach / **N-A** | `[D]` exit code (N-A if script absent — harness-self) |
 | doc-budgets gate | green / WARN / breach / **N-A** | `[D]` exit code (+ `WARN:` line); N-A if script absent — harness-self |
+| shipped-content gate | green / WARN / breach / **N-A** | `[D]` exit code (+ `WARN:` line); N-A if script absent — harness-self |
 | landed plan present | flag | `[J]` classification |
 | cold / stale plan | flag | `[J]` classification |
 | init post-condition | green / flag | read-only check |
@@ -186,6 +194,6 @@ doctor. Route it:
   own* wiring/ledgers/plans. They share the pipeline, not the target.
 - **Not a new gate.** Doctor **runs** the existing gates — it adds none, wires no hook, and persists
   no fence. The only mechanical facts in its report are the gate scripts' exit codes (the tree gate
-  always; the two harness-self gates only where their script is present, else N-A).
+  always; the three harness-self gates only where their script is present, else N-A).
 - **Not a silent fixer.** Every treat is on explicit approval, and substantive work goes through the
   roadmap → plan → build pipeline like any other committed item.

@@ -49,7 +49,7 @@ jobs:
         run: node --test tests/workflows/*.test.mjs
 
   gates:
-    name: deterministic gates (tree + version-sync + doc-budgets)
+    name: deterministic gates (tree + version-sync + doc-budgets + shipped-content)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -66,3 +66,5 @@ jobs:
         run: python scripts/check_versions_synced.py
       - name: Managed-ledger byte-budget check
         run: python scripts/check_doc_budgets.py
+      - name: Shipped-content scan (stranded namespace tokens / dangling stripped-path refs)
+        run: python scripts/check_shipped_content.py

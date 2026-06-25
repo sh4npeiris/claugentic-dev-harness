@@ -89,5 +89,10 @@ the failure or near-miss that taught it).
   wholesale (a degraded dangling ref); and the stronger (2) `check_doc_budgets.py` shipped and — new at
   0.3.0, after plan 0024 added the `INVARIANTS.md` budget row — **fail-louded on the lazily-created
   `INVARIANTS.md`**, a hard error a fresh 0.3.0 adopter would hit. Live gate:
-  `tests/test_build_release.py::TestReleaseInitContract` (membership only) + the model-upheld
-  systematic grep — NOT mechanically content-enforced.
+  `tests/test_build_release.py::TestReleaseInitContract` (membership) + `scripts/check_shipped_content.py`
+  (a **run-gate, NOT hook-enforced**; 0028 S3) — the latter now mechanically pins the **exact-literal**
+  cases: a dangling stripped-uncreated path reference (Pass A.a, hard) and a stranded
+  `claugentic-dev-harness:<token>` namespace literal (Pass B, hard). Its uncaveated-gate-mention pass
+  (A.b) is **WARN-heuristic**, not a hard gate. The contract is therefore pinned mechanically for the
+  exact literals only — NOT *fully* content-enforced; the membership test + model-upheld review still
+  complement it.

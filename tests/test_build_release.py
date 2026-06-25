@@ -121,9 +121,11 @@ class TestReleaseInitContract:
 
     def test_harness_self_gates_strip(self):
         # Harness-self tooling never reaches an adopter: doc-budgets (S2 strip), version-sync,
-        # and the release builder itself. doctor/WORKFLOW/implementer treat them adopter-aware.
+        # the shipped-content scanner (0028 S3), and the release builder itself.
+        # doctor/WORKFLOW/implementer treat them adopter-aware.
         assert br.is_dev_only("scripts/check_doc_budgets.py") is True
         assert br.is_dev_only("scripts/check_versions_synced.py") is True
+        assert br.is_dev_only("scripts/check_shipped_content.py") is True
         assert br.is_dev_only("scripts/build_release.py") is True
 
     def test_harness_own_plans_strip_cleanly(self):

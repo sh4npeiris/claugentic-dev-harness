@@ -51,6 +51,7 @@ DEV_ONLY_FILES = frozenset(
         # Harness-self tooling + config (an install doesn't need them).
         "scripts/check_versions_synced.py",    # checks the plugin's two manifests — irrelevant to adopters
         "scripts/check_doc_budgets.py",        # budgets the harness's OWN ledgers (harness-tuned caps; fail-louds on the harness-only INVARIANTS.md) — irrelevant to adopters
+        "scripts/check_shipped_content.py",     # scans the SHIPPED tree's text for stranded namespace tokens / dangling stripped-path refs — harness-self, reasons about the release, never ships
         "scripts/build_release.py",            # this script
         ".claude/settings.json",               # the dev repo's OWN dogfooding hooks
         "CLAUDE.md",                           # "this repo builds the harness…" — dev context
