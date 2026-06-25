@@ -3,6 +3,7 @@
 - **Status:** Draft | In Review | Spec'd | Approved | Implementing | Done
 - **Resumable from:** `<the exact next unchecked slice/box, or "awaiting user reply on §X">` — kept current as the plan evolves.
 - **Blockers:** `<none | short list with expected resolution>`
+- **Disposition at close:** the plan completes (and is deleted — git history keeps it) once every remaining unchecked item is **done** (checked) · **deferred** (a `docs/claugentic-ROADMAP.md` line, or — for a substantial / externally-blocked remainder — moved into a NEW plan + a roadmap line) · or **rejected** (a declined-decision line in `docs/claugentic-DECISIONS.md`). Gated only on the committed slice — never on deferred/rejected/blocked parts; never left lingering on an external blocker. (Source of truth: `docs/claugentic-WORKFLOW.md` → Plan file lifecycle.)
 - **Roadmap item:** <link to docs/claugentic-ROADMAP.md entry>
 - **References:** `docs/claugentic-ARCHITECTURE_TREE.md` · `docs/claugentic-DECISIONS.md` · related plans
 

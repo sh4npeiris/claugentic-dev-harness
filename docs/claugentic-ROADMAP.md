@@ -24,6 +24,18 @@ No product spec yet for the harness itself — run `/claugentic-dev-harness:prod
 
 ---
 
-## Standing tracks & later — human-owned (yours · never auto-touched by any fence)
+## Standing sections — human/agent-owned (yours · never auto-touched by any fence)
 
-The harness is **feature-complete — there is no open backlog.** New work, if it arises, is surfaced by an audit (the fences above) or added here by hand.
+Everything below lives **outside** the two generated fences above (`harness-audit:backlog` / `harness-product:backlog`), so a re-audit or re-gap — which replace **only** the text between their start/end markers — **never wipes it.** Add a section only on real need (KISS/YAGNI); a lightweight type tag on an item is preferred over spawning a new section. (Dismissed audit findings are NOT a hand-written section here — they live in the audit's own **wired** `<!-- harness-audit:rejected-findings -->` fence, created on first use, which the audit/build engines read to skip a dropped finding.)
+
+### Bugs
+
+Out-of-scope defects spotted mid-work, jotted here as **planless one-liners** so capturing one stays cheap (trivial / mechanical fixes skip even this). A bug stays a one-liner until you select it to fix — selecting it triggers its own plan (per `0025`); it's then triaged / built via the normal pipeline.
+
+- _(none open)_
+
+### Later / Ideas
+
+Longer-term tracks and ideas — hand-written, never fence-touched. Deferred harness-maintenance / `doctor` findings ride here with a **`harness`** tag (no separate section). The harness is **feature-complete — there is no open backlog;** new work, if it arises, is surfaced by an audit (the fences above) or added here by hand.
+
+- _(none open)_

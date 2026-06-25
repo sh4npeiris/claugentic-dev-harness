@@ -19,11 +19,11 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 
 ## docs/ — process, standards, and project memory
 
-- `docs/claugentic-WORKFLOW.md` — open for the process + the canonical Definition of Done: the 10-stage workflow (`FRAME → APPROVE → BUILD → CLOSE`), source of truth for the gate list.
+- `docs/claugentic-WORKFLOW.md` — open for the process + canonical Definition of Done: the 10-stage workflow (`FRAME → APPROVE → BUILD → CLOSE`), gate-list source of truth + the plan-disposition / in-flight-scope-split lifecycle.
 - `docs/claugentic-ENGINEERING_STANDARDS.md` — thin entry point to the `docs/claugentic-standards/` catalog (the quality bar); per-repo Current-scope added by `init`.
 - `docs/claugentic-ARCHITECTURE_TREE.md` — this file: the one-line-per-file index.
 - `docs/claugentic-DECISIONS.md` — open before re-litigating a past choice: the forward-looking maintainer guide of standing decisions by area (honesty, gates, judges, audit, build, workflow, plugin) + Readiness footer. Condensed (not append-only).
-- `docs/claugentic-ROADMAP.md` — open for the harness's own backlog (currently cleared) + the two generated fences (`harness-audit:backlog` / `harness-product:backlog`); adopters generate their own by running the skills.
+- `docs/claugentic-ROADMAP.md` — open for the harness's own backlog: two generated fences (`harness-audit:backlog` / `harness-product:backlog`) + durable standing sections OUTSIDE them (Bugs · Later/Ideas — never fence-wiped; dismissed findings live in the audit's wired `rejected-findings` fence).
 - `docs/RELEASE_CHECKLIST.md` — open before a release: model-upheld runbook (bump both manifests, eval drift-check, anchor on `origin/main`, `build_release.py --apply` refuses a stale base, `git range-diff` drop-check before the `@release` force-push).
 - `docs/claugentic-PLAYBOOK.md` — open for the non-engineer's driving guide: the pipeline, three leverage points, orchestration patterns (fan-out, adversarial-verify, effort dial), worked example, glossary.
 - `docs/claugentic-PRODUCT.md` — open for durable product/UX context (`product-designer` Stage-1 output): user + design language, the product-layer/Excellence-pass note, and the Build-mode brief (JTBD, flows, states, UX failure modes, honesty surface).

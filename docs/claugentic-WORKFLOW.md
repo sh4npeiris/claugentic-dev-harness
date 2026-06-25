@@ -167,4 +167,21 @@ A **finite harvest checklist the orchestrator RUNS at Land** (manual discipline,
 
 ## Plan file lifecycle
 
-`​.claude/plans/NNNN-<slug>.md` (active, contains Plan + Review + Spec + slice checklist) → on completion, **remove it** — git history keeps it. One plan per substantial change; the slices inside it are the per-session units. Numbering is sequential (`0001`, `0002`, …).
+`​.claude/plans/NNNN-<slug>.md` (active, contains Plan + Review + Spec + slice checklist) — one plan per substantial change; the slices inside it are the per-session units. Numbering is sequential (`0001`, `0002`, …).
+
+**A plan completes — and is removed (git history keeps it) — once every remaining item has a disposition, gated *only* on the committed slice, never on deferred/rejected/blocked parts.** At close (or on demand), give each still-unchecked item one of three dispositions:
+
+- **done** — checked off (it landed).
+- **defer** — a one-line item on `docs/claugentic-ROADMAP.md`; OR, for a substantial / externally-blocked remainder, **move the remaining items into a NEW plan file** (+ one roadmap line pointing to it). Either way the *current* plan closes now.
+- **reject** — recorded as a declined decision (a `docs/claugentic-DECISIONS.md` line so it isn't re-proposed) and dropped.
+
+Then the plan **completes and is deleted.** A plan **never lingers `pending` waiting on an outside event** — when the last pieces are blocked externally, defer-to-new-plan (or reject) and **close now**. (`skills/build/SKILL.md` close-out + `.claude/plans/TEMPLATE.md`'s Disposition note carry the same model.)
+
+### Scope that emerges mid-build — the in-flight split
+
+Work surfacing *while building* is **not** silently absorbed; it splits two ways (the user makes the call at plan-review / approve, or at disposition; the architect-pass frames what is genuinely in-scope):
+
+- **(a) intrinsic to the feature** (genuinely part of *this* plan's requirement) → **fold it into the plan**: account · spec · deliver, and **re-run the steps** (plan → review → spec → build → verify). The decomposition grows because it *is* the feature — that is agile in-scope discovery, not creep.
+- **(b) out-of-scope** (a defect, or unrelated work) → does **not** bloat the plan. Record it on `docs/claugentic-ROADMAP.md` (a defect → the **Bugs** section; other work → the relevant backlog) and carry on.
+
+**There is no "tech-debt" parking section — debt is structurally prevented, not parked.** Every slice lands complete (the Definition of Done, no shortcuts) and Verify audits the diff against the in-scope standards *before* it lands — so work that would otherwise become debt is built wholly instead: in-scope discovery → fold and re-run; a too-big slice → re-decompose into complete slices; an emergent design flaw → re-plan + re-review; genuinely out-of-scope work → its own roadmap item + its own complete plan (built wholly later); an external blocker → deferred + tracked. *Deferring scope* (tracked, completed wholly later) is not *creating debt* (a half-done thing left in code — not allowed). This is **model-upheld and reviewer-caught, not a mechanical guarantee** — the process prevents debt structurally; it does not make debt impossible by machine. *Existing* debt in an adopter codebase is the **audit's** domain (Quality findings, tracked-to-fix).

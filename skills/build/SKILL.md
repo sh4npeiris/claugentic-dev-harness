@@ -324,10 +324,18 @@ ask; never proceed on silence.** **Bridge the git vocabulary the same way** — 
 out, others can build on it, so it's hard to take back. Want me to go ahead?"* — never leave
 "push", "main", or "commit" unglossed at this pause.
 
-On approval, land per the WORKFLOW Stage 8: a **conventional commit**, **remove the completed
-plan from `.claude/plans/`** (git history keeps it), append a **`docs/claugentic-DECISIONS.md`** line for
-any non-trivial choice, and **run the Stage-9 harvest checklist** (the five sweeps — see
-`docs/claugentic-WORKFLOW.md` §9; point at it, don't restate it).
+On approval, land per the WORKFLOW Stage 8: a **conventional commit**, **dispose of the plan**
+(below), append a **`docs/claugentic-DECISIONS.md`** line for any non-trivial choice, and **run
+the Stage-9 harvest checklist** (the five sweeps — see `docs/claugentic-WORKFLOW.md` §9; point
+at it, don't restate it).
+
+**Disposition before removal (gated only on the committed slice).** A plan is **removed from
+`.claude/plans/`** (git history keeps it) only once **every remaining unchecked item has a
+disposition** — and *never* gated on the deferred/rejected/blocked parts (the WORKFLOW *Plan
+file lifecycle* is the source of truth — point there, don't restate the three dispositions).
+**Don't let a plan linger waiting on an external blocker** — defer-to-new-plan (or reject) and
+**close now**. A substantial remainder moves into a **new plan file** (+ one roadmap line); a
+small one becomes a **roadmap item**; a rejected one becomes a **declined-decision line**.
 
 ### 8. Close-out *(per item)*
 
@@ -583,9 +591,20 @@ that could drift from the backlog).
   consequence in plain English, and **ask. Never proceed on silence.** This set holds in
   checkpoint today and on the build-to-green rung — it is the line autonomy never crosses
   unasked.
-- **Never invent scope.** If a genuinely-new feature surfaces mid-build (something outside
-  the item being built), it goes to **`docs/claugentic-ROADMAP.md` for the user's approval** — it is
-  **not built**. The work never silently expands.
+- **Never invent scope — the in-flight split.** Work that surfaces mid-build is **never
+  silently absorbed**; the user makes the call (the WORKFLOW *Plan file lifecycle → in-flight
+  split* is the source of truth — point there, don't restate it):
+  - **(a) intrinsic to the item being built** (genuinely part of *this* item's requirement) →
+    **fold it in** — account · spec · deliver, re-running the steps; the slice grows because it
+    *is* the feature. If folding it makes the slice no longer fit one session, **pause and
+    re-slice** (step 5's re-slice pause), never half-build.
+  - **(b) out-of-scope** (a genuinely-new feature, or a defect) → it is **not built** here; it
+    goes to **`docs/claugentic-ROADMAP.md`** — a new feature to the relevant backlog for the
+    user's approval, **a defect to the durable `Bugs` section** (a one-line, planless jotting;
+    selecting it later triggers its own plan). The work never silently expands.
+  - **No debt is left behind either way** — deferring scope (tracked, built wholly later) is not
+    creating debt (a half-done thing in code). This is **model-upheld + reviewer-caught at
+    Verify, not a mechanical guarantee.**
 - **Honesty register.** Say a slice **"passed the checks and the reviewer's audit,"** never
   "proven correct" / "guaranteed" / "bug-free." **"done" is scoped to the audited
   dimensions** (and the deterministic gates that ran), never a blanket claim. Progress is
