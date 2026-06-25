@@ -350,7 +350,10 @@ then synthesizes. **Spawn the judge roles — `claugentic-dev-harness:synthesize
 + structural clean-context independence live in **`docs/claugentic-WORKFLOW.md` → Principles → the
 reviews-run-on-the-most-capable-model principle** — point there, don't restate). Run the
 **Definition-of-Done deterministic run-gates** (the canonical list lives in the WORKFLOW DoD —
-run it, don't restate it).
+run it, don't restate it). **On the LAST slice of a multi-slice item's plan, make it the
+whole-feature closing pass** (WORKFLOW → *Stage 7, the whole-feature closing pass*): hand the
+item's Stage-1 job-to-be-done into the `synthesizer-gate` verify prompt so it also confirms the
+*assembled* feature works end-to-end — model-upheld, the orchestrator passes the JTBD.
 
 **On a failed Verify, iterate implement→verify up to a small bounded number of attempts
 (2–3).** If it still fails after that bound, **pause and ask — the item-failure pause:**
