@@ -397,8 +397,10 @@ small one becomes a **roadmap item**; a rejected one becomes a **declined-decisi
 Tell the user, in plain English, **what landed** and **which gate-class passed — separately,
 never a blanket "verified/done":**
 
-- the **deterministic gates** that passed (tests, the architecture-tree check, version-sync,
-  the project's lint/type/security gates), and
+- the **deterministic gates** that passed (tests, the architecture-tree check, the project's
+  lint/type/security gates — plus, *in the harness's own repo only*, the harness-self gates
+  version-sync + doc-budgets; an adopter close-out names neither, the canonical list is the
+  WORKFLOW DoD), and
 - the **reviewer sign-offs** (the in-scope `docs/claugentic-standards/` dimensions the
   `synthesizer-gate` audited) — model-upheld judgment, **"passed the checks and the
   reviewer's audit,"** never "proven correct."

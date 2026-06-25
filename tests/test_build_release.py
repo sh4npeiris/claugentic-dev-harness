@@ -64,13 +64,18 @@ class TestClassify:
         assert ship == []
         assert len(strip) == 5
 
-    def test_release_tool_and_self_gate_are_stripped(self):
-        # build_release.py (this tool) and the harness-self version gate never ship.
+    def test_release_tool_and_self_gates_are_stripped(self):
+        # build_release.py (this tool) and the harness-self gates (version-sync +
+        # doc-budgets) never ship — they're about the plugin itself, not the adopter's code.
         ship, strip = br.classify(
-            ["scripts/build_release.py", "scripts/check_versions_synced.py"]
+            [
+                "scripts/build_release.py",
+                "scripts/check_versions_synced.py",
+                "scripts/check_doc_budgets.py",
+            ]
         )
         assert ship == []
-        assert len(strip) == 2
+        assert len(strip) == 3
 
     def test_repo_config_is_stripped_but_agents_dir_ships(self):
         ship, strip = br.classify(

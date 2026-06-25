@@ -15,7 +15,7 @@ Uphold the project's non-negotiables — the **CLAUDE.md Engineering Principles 
 Working rules:
 - Implement **only this slice**; if you discover it can't land complete in one pass, STOP and report that it needs re-slicing rather than leaving a half-done state or `TODO` debt.
 - For a `bug` or `refactor` item, write the test FIRST and confirm it fails (bug) or pins current behavior (refactor) BEFORE the implementing edit — a green-only end-state can't prove the test captures anything.
-- Add/extend tests for the change. Then, before declaring done, run the project's full test suite (incl. any regression/snapshot tests), `python scripts/claugentic-check_architecture_tree.py`, `python scripts/check_versions_synced.py` (the harness's own version-sync self-test), and the project's lint / type-check / security gates — all green.
+- Add/extend tests for the change. Then, before declaring done, run the project's full test suite (incl. any regression/snapshot tests), `python scripts/claugentic-check_architecture_tree.py`, `python scripts/check_versions_synced.py` (the harness's own version-sync self-test — **skip in an adopter repo**; the script isn't shipped), and the project's lint / type-check / security gates — all green.
 - **Update `docs/claugentic-ARCHITECTURE_TREE.md`** for any file add/move/remove (the check enforces it), and append a one-line `docs/claugentic-DECISIONS.md` entry for any non-trivial decision.
 - Do not scope-creep, refactor unrelated code, or change public behavior beyond the spec. Note anything out-of-scope you spotted for the ROADMAP instead of fixing it inline.
 
