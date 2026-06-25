@@ -23,7 +23,7 @@ Always: **validate at boundaries, trust internal code · make invalid states unr
 
 ## Development Workflow
 
-Substantial work follows the staged pipeline in **`docs/claugentic-WORKFLOW.md`** — Triage → Discuss → Plan → Review-the-plan → Spec → **Approve** → Implement → Verify → Land → Retrospect. Small/local changes take the lightweight path (Implement + Verify), still updating `claugentic-ARCHITECTURE_TREE.md`/`claugentic-DECISIONS.md`. Specialist roles live in `.claude/agents/`; the orchestrator delegates to preserve context. Active plans live in `.claude/plans/` (start from `TEMPLATE.md`).
+Substantial work follows the staged pipeline in **`docs/claugentic-WORKFLOW.md`** — Triage → Discuss → Plan → Review-the-plan → Spec → **Approve** → Implement → Verify → Land → Retrospect. Small/local changes take the lightweight path (Implement + Verify), still updating `claugentic-ARCHITECTURE_TREE.md`/`claugentic-DECISIONS.md`. Specialist roles live in `.claude/agents/`; the orchestrator delegates to preserve context. Active plans live in `.claude/plans/` (start from `docs/claugentic-PLAN_TEMPLATE.md`).
 
 ## Definition of Done
 

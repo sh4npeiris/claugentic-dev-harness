@@ -27,7 +27,7 @@ the `main()` env boundary (fail-safe to silent; the renderer stays pure). Unset 
 DERIVE-DON'T-STORE — it introduces NO new state store. It reads only:
   * the `harness-audit:backlog` / `harness-product:backlog` fences in
     `docs/claugentic-ROADMAP.md` (written by `audit` / `product` gap mode),
-  * in-flight `.claude/plans/*.md` (SKIP `TEMPLATE.md`; in-flight == it still
+  * in-flight `.claude/plans/*.md` (in-flight == it still
     lives in the plans dir, refined by unchecked `- [ ]` boxes / non-Done Status —
     the decomposition checkboxes are the authoritative in-flight signal, the
     `Resumable from:` line is the derived human-readable convenience; see
@@ -77,9 +77,6 @@ from pathlib import Path
 ROADMAP_PATH = Path("docs/claugentic-ROADMAP.md")
 PLANS_DIR = Path(".claude/plans")
 CLAUDE_MD_PATH = Path("CLAUDE.md")
-
-# The plan-template stub is NOT an in-flight plan — never surface it.
-TEMPLATE_PLAN_NAME = "TEMPLATE.md"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # OUTPUT BUDGET — the HARD ceiling for each emitted line (one tight line each).
@@ -265,7 +262,7 @@ def _plan_age(path: Path) -> str | None:
 
 
 def _read_plans() -> tuple[PlanState, ...]:
-    """Derive the in-flight plans from `.claude/plans/*.md` (SKIP `TEMPLATE.md`).
+    """Derive the in-flight plans from `.claude/plans/*.md`.
 
     A missing/unreadable plans dir yields () — the fresh-repo silent path. An
     individual unreadable plan is skipped (degrade, don't crash). Sorted by filename
@@ -279,8 +276,6 @@ def _read_plans() -> tuple[PlanState, ...]:
     except OSError:
         return ()
     for path in candidates:
-        if path.name == TEMPLATE_PLAN_NAME:
-            continue
         try:
             text = path.read_text(encoding="utf-8")
         except OSError:

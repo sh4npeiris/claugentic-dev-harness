@@ -141,6 +141,7 @@ line** with the managed-stamp (convention 1). The managed set is exactly:
 | `docs/claugentic-ENGINEERING_STANDARDS.md` | the thin standards entry point |
 | `docs/claugentic-PLAYBOOK.md` | the plain-English guide for the human driving the harness |
 | `docs/claugentic-PRODUCT_SPEC_TEMPLATE.md` | the product-spec contract template (pure verbatim copy; the filled `docs/claugentic-PRODUCT_SPEC.md` is user-owned, never managed) |
+| `docs/claugentic-PLAN_TEMPLATE.md` | the plan-file contract template (verbatim copy; adopters copy one per plan into their own .claude/plans/) |
 | `scripts/claugentic-check_architecture_tree.py` | the deterministic architecture-tree gate |
 
 **Per file, decide one of four verdicts (this is `init`'s judgment, rule-bound — there is

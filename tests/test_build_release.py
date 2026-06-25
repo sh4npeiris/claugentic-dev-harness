@@ -35,6 +35,7 @@ class TestClassify:
             "docs/claugentic-PLAYBOOK.md",
             "docs/claugentic-ENGINEERING_STANDARDS.md",
             "docs/claugentic-PRODUCT_SPEC_TEMPLATE.md",
+            "docs/claugentic-PLAN_TEMPLATE.md",
             "docs/claugentic-standards/security.md",
             "skills/init/SKILL.md",
             "engine/audit.js",
@@ -56,7 +57,7 @@ class TestClassify:
                 "eval/fixture-app/main.py",
                 "eval/BASELINE.md",
                 "tests/conftest.py",
-                ".claude/plans/TEMPLATE.md",
+                ".claude/plans/0027-release-init-consistency.md",
                 ".github/workflows/ci.yml",
             ]
         )

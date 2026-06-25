@@ -28,6 +28,7 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 - `docs/claugentic-PLAYBOOK.md` — open for the non-engineer's driving guide: the pipeline, three leverage points, orchestration patterns (fan-out, adversarial-verify, effort dial), worked example, glossary.
 - `docs/claugentic-PRODUCT.md` — open for durable product/UX context (`product-designer` Stage-1 output): user + design language, the product-layer/Excellence-pass note, and the Build-mode brief (JTBD, flows, states, UX failure modes, honesty surface).
 - `docs/claugentic-PRODUCT_SPEC_TEMPLATE.md` — open when editing the product-spec contract: managed template (who-for · JTBD · promise · Features · Acceptance-criteria) carrying the FROZEN JSON schema (`id`/`feature`/`flow`/`expect`/`states`/`check`) the audit/qa engines + test pin.
+- `docs/claugentic-PLAN_TEMPLATE.md` — open when starting a plan: the managed plan-file contract template (Problem/Goals/Approach/**Architecture-&-holistic-fit**/Affected-files/Research/Risks/Tests/Decomposition/Review/Spec + Status block). Adopters copy one per plan into their own `.claude/plans/`.
 - `docs/claugentic-PRODUCT_SPEC.md` — the harness's own filled spec (dogfood example): who-for/job/promise, the honest-disclosure invariant, the four command-features + frozen-schema criteria PS-1..PS-5 (all `manual`). User-owned, never stamped/auto-refreshed.
 - `docs/claugentic-INVARIANTS.md` — open before touching an invariant's blast radius: live (non-gate) record of load-bearing invariants — invariant · why · dated provenance (sibling to DECISIONS: chose-vs-must-hold). Kept lean.
 
@@ -59,9 +60,9 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 - `.claude/agents/runtime-qa.md` — the runs-correct (≠ reads-correct) reviewer: drives the RUNNING app to verify ONE acceptance criterion (Playwright via ToolSearch / curl via Bash), pushes safety/negative paths, emits an intent-vs-behavior judgment through the existing report. READ-ONLY on source, NON-DESTRUCTIVE; spawned at the DRIVE step of `engine/qa.js`; attempts + tags, never fakes a pass.
 - `.claude/agents/retrospect-harvester.md` — the Stage-9 ACTIVE harvest: after a slice lands, sweeps the six learning-loop categories over the landed change and proposes the concrete harness-improvement edits (or "nothing durable"). Orchestrator-invoked post-Land (no engine spawn); READ-ONLY/proposes, the orchestrator applies; the active counterpart to `doctor`'s passive "harvest likely skipped" flag.
 
-## .claude/plans/ — plan template (active plans land here while in flight)
+## .claude/plans/ — in-flight plans
 
-- `.claude/plans/TEMPLATE.md` — open when starting a plan: the template (Problem/Goals/Approach/**Architecture-&-holistic-fit**/Affected-files/Research/Risks/Tests/Decomposition/Review/Spec + Status block). In-flight plans live here as `NNNN-*.md` until Land, then deleted (git history keeps them).
+- In-flight plans live here as `NNNN-*.md` until Land, then deleted (git history keeps them). The plan-file contract template is the managed doc `docs/claugentic-PLAN_TEMPLATE.md`.
 
 ## .claude/ — harness config
 

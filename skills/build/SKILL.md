@@ -291,7 +291,7 @@ since touched its named files, refreshing the affected sections). It is **`synth
 
 **Else produce it architecture-first via Stage 2 — the architect-pass.** When the item has no
 pre-made plan, draft `.claude/plans/NNNN-<item>.md` via **Stage 2** (`docs/claugentic-WORKFLOW.md`
-→ Stage 2): **2a** plan-mode draft **structured by `.claude/plans/TEMPLATE.md`** (incl. the
+→ Stage 2): **2a** plan-mode draft **structured by `docs/claugentic-PLAN_TEMPLATE.md`** (incl. the
 **Architecture & holistic fit** section — the forcing function) → **2b** advisory panel **for
 substantial work only** (the Stage-0 substantial triggers; trivial plans skip the panel) → **2c**
 incorporate → the **Stage-3 `synthesizer-gate` gate** (plan altitude) below. Slice into ≤1-session units per the
