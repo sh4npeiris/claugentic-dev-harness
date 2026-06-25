@@ -420,3 +420,13 @@ refuted claims** and **do not persist them.**
 **Resume note (one line, user-facing):** *"Interrupted? If the run reported `PARTIAL`, just re-run
 `/claugentic-dev-harness:audit` — it picks up where it left off"* (it reads the status block's
 `done-cells`/`pending-cells` and sweeps only what's left — the resume contract above).
+
+### OFFER-BUILD — the finder→build bridge  *(after the write — offered, never forced)*
+
+Don't dead-end into a manual `/build`. After the backlog is written (post-SELECT), run the
+finder-pipeline **OFFER-BUILD** step (contract: `docs/claugentic-WORKFLOW.md` → **The finder
+pipeline** → *OFFER-BUILD* — don't restate it): ask via **AskUserQuestion** *"build these now, or
+leave them in the backlog?"* — **default = leave** (build is **offered, never forced**; forced
+auto-build is an explicit non-goal). **Build now** → enter the `build` procedure on the kept items.
+**Leave** → the backlog persists for a later `/claugentic-dev-harness:build`. (Skip the offer when
+SELECT kept nothing — there's nothing to build.)

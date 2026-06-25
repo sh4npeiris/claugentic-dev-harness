@@ -189,7 +189,9 @@ The harness has three **finders** that surface candidate work — `audit` (engin
 - **Build now** → enter the **build loop** (it consumes the pre-made plans and runs the JIT per-slice spec — see *BUILD* below).
 - **Leave** → the selected items persist as backlog lines for a later `/build`; their plans are produced JIT then. Either way the **find→do flow is continuous** — no manual re-invoke needed.
 
-**BUILD (the continuing contract).** Build works selected items **one at a time**, each starting from its pre-made plan, with the **deep per-slice Spec → Approve → Implement → Verify run just-in-time** as build reaches that slice (step-level pruning happens at plan-review / approve, so no slice is deep-spec'd before its turn).
+**BUILD (the continuing contract).** Build works selected items **one at a time**, each starting from its **pre-made plan if it has one** (else planned architecture-first via Stage 2 before its slices), with the **deep per-slice Spec → Approve → Implement → Verify run just-in-time** as build reaches that slice (step-level pruning happens at plan-review / approve, so no slice is deep-spec'd before its turn).
+
+**Scope approval precedes the deep per-slice Spec (the lifecycle ordering).** The finder's **SELECT gates *scope*** — *which items* the user wants — and it happens **before** Stage 4 ever runs: an item is **not deep-spec'd until it has been selected / committed**, so a specialist never deep-specs a step the user will later reject (the original "plans had steps I didn't want" pain). Read the two as separate altitudes: **SELECT gates scope** (which items) · **Stage 4 gates steps** (which slices, JIT) · **Stage 5 approves the spec**. (The Stage table is unchanged — Spec → Approval, no code before Approval; this note only names where the finder's scope-gate sits relative to it.)
 
 **Commitment, not capture, triggers the plan:** selecting an item *is* committing it *is* the Stage-2 trigger — a raw Bug / Later one-liner stays planless until selected, and a trivial / mechanical item skips the backlog entirely and is just done.
 

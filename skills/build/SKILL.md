@@ -165,12 +165,19 @@ invalid field — fail loud):
 
 ### 1. Triage — locate the item(s) and confirm the worklist
 
-Read **both backlog fences** in `docs/claugentic-ROADMAP.md` — the **`harness-audit:backlog` fence**
-(the engineering item universe the `audit` skill wrote) **and** the
-**`harness-product:backlog` fence** (the intent-vs-implementation gaps the `product` gap mode
-wrote, if present). Present **one worklist interleaved by tier** — all tier-1 items across
-**both** lenses first, then tier-2, then tier-3 — each item **origin-tagged** (`engineering`
-/ `product`) so the user always sees which lens raised it. **Dedup:** if the same underlying
+Read **three candidate sources** in `docs/claugentic-ROADMAP.md` — the **`harness-audit:backlog`
+fence** (the engineering item universe the `audit` skill wrote), the **`harness-product:backlog`
+fence** (the intent-vs-implementation gaps the `product` gap mode wrote, if present), **and the
+durable `### Bugs` section** (`docs/claugentic-ROADMAP.md`, *outside* the fences — the one-line,
+planless defect jottings; see *Never invent scope → in-flight split → (b)* below). This is
+**build-TRIAGE** — the 3-source SELECT that assembles the *worklist*, distinct from a finder's own
+per-run SELECT; see `docs/claugentic-WORKFLOW.md` → **The finder pipeline** → *"Two SELECTs at two
+altitudes."* Present **one worklist interleaved by tier** — all tier-1 items across **all three**
+sources first, then tier-2, then tier-3 — each item **origin-tagged** (`engineering` / `product` /
+`bug`) so the user always sees which source raised it. **A Bug is a planless one-liner until
+selected: selecting it COMMITS it → triggers its plan** (per *Commitment, not capture, triggers
+the plan* in the finder-pipeline contract; a committed Bug then runs Step 3 like any other item).
+**Dedup:** if the same underlying
 issue is flagged by both fences, present it once tagged with **both** origins — that's a
 priority signal (two lenses flagged it), shown as *"merged from N findings"* so you can verify;
 this is a judgment, not a key-match, so I may occasionally miss an overlap (you'd see it twice)
@@ -191,8 +198,9 @@ Two stop-conditions hold **before** any selection, single or multi:
   current code) → **don't invent one.** Say so plainly and suggest running
   **`/claugentic-dev-harness:audit`** first so there's a current, verified backlog to build
   from.
-- **Empty backlog / already-sound** (Tier 1 **and** Tier 2 both empty across both fences —
-  only Tier-3 polish, or nothing) → **don't enter the build flow and don't manufacture work.**
+- **Empty backlog / already-sound** (Tier 1 **and** Tier 2 both empty across both fences **and
+  the `### Bugs` section carries no jottings** — only Tier-3 polish, or nothing) → **don't enter
+  the build flow and don't manufacture work.**
   Reuse the audit's terminal phrasing **plus the real next step** (a fork, never a dead end):
   *"Sound on the audited dimensions — what remains is optional polish; you don't need to
   keep re-auditing. From here you can start something new — just tell me what you want to
@@ -274,8 +282,23 @@ imply it does.)
 
 ### 3. Auto-drive Plan → Review *(Stages 2–3 — no pause)*
 
-Draft `.claude/plans/NNNN-<item>.md` (the standard plan structure: Problem · Approach · Risks · Test strategy · slices · Review · Spec), sliced into
-≤1-session units per the WORKFLOW *Principles*. Then spawn **`claugentic-dev-harness:plan-reviewer`** to
+**Start from the item's pre-made plan if it has one.** A committed item (selected via a finder's
+SELECT, or a prior session) may already carry a **plan file in `.claude/plans/`** — produced
+preemptively via the architect-pass (the finder-pipeline PLAN step). **If a pre-made plan exists,
+START FROM IT** — don't re-draft from scratch; **currency-check it** (re-confirm if landed work has
+since touched its named files, refreshing the affected sections). It is **`plan-reviewer`-gated
+reviewed groundwork, not a guarantee of quality** — the Review below still runs.
+
+**Else produce it architecture-first via Stage 2 — the architect-pass.** When the item has no
+pre-made plan, draft `.claude/plans/NNNN-<item>.md` via **Stage 2** (`docs/claugentic-WORKFLOW.md`
+→ Stage 2): **2a** plan-mode draft **structured by `.claude/plans/TEMPLATE.md`** (incl. the
+**Architecture & holistic fit** section — the forcing function) → **2b** advisory panel **for
+substantial work only** (the Stage-0 substantial triggers; trivial plans skip the panel) → **2c**
+incorporate → the **Stage-3 `plan-reviewer` gate** below. Slice into ≤1-session units per the
+WORKFLOW *Principles*. Reference the architect-pass; don't restate it. Either way the plan precedes
+the item's slices (architecture-first per the plan-volume bound — at most one fresh plan at a time);
+**the deep per-slice Spec stays just-in-time in Step 4** (unchanged — selection settled *scope*; the
+per-slice Spec is the *step*-pruning gate, cheaper JIT). Then spawn **`claugentic-dev-harness:plan-reviewer`** to
 adversarially critique it, **escalating to the diverse panel per the WORKFLOW Principles
 trigger**: a contested design fork or a trust/honesty surface adds **`claugentic-dev-harness:yagni-sentinel`** +
 **`claugentic-dev-harness:honesty-reviewer`**; a user-facing change also adds **`claugentic-dev-harness:product-designer`**. **Spawn the
@@ -589,9 +612,10 @@ A resumed `/claugentic-dev-harness:build` **reconstructs** the worklist from the
 stores the harness already keeps — **there is no build-session state file, and this slice
 adds none.** Derive, don't store:
 
-- **The item universe + status** = **both backlog fences** in `docs/claugentic-ROADMAP.md`
-  (`harness-audit:backlog` + `harness-product:backlog`) — each fence's status block + tiered
-  items, exactly what triage reads in step 1. **Each fence's `done-cells`/`pending-cells`
+- **The item universe + status** = **both backlog fences + the durable `### Bugs` section** in
+  `docs/claugentic-ROADMAP.md` (`harness-audit:backlog` + `harness-product:backlog` + Bugs) — the
+  three triage sources (step 1); each fence's status block + tiered items, plus the planless Bug
+  one-liners. **Each fence's `done-cells`/`pending-cells`
   resumes against its OWN generating skill — the cells are NEVER crossed:** the engineering
   fence's `module×dir` cells resume against the audit script, the product fence's criterion-id
   cells against the gap script. Plan-files remain the state-of-record for in-flight work, so a

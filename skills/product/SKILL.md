@@ -230,3 +230,12 @@ checking is the QA workflow's job (`qa.js`); say so.**
 intent. It is **never proof** the product is good — and it **reads code, it does not run the app.**
 
 **Interrupted?** If the run reported `PARTIAL`, just re-run — it picks up where it left off.
+
+6. **OFFER-BUILD — the finder→build bridge** *(after the write — offered, never forced)*. Don't
+   dead-end into a manual `/build`. After the product backlog is written (post-SELECT), run the
+   finder-pipeline **OFFER-BUILD** step (contract: `docs/claugentic-WORKFLOW.md` → **The finder
+   pipeline** → *OFFER-BUILD* — don't restate it): ask via **AskUserQuestion** *"build these now, or
+   leave them in the backlog?"* — **default = leave** (build is **offered, never forced**; forced
+   auto-build is an explicit non-goal). **Build now** → enter the `build` procedure on the kept
+   items. **Leave** → the backlog persists for a later `/claugentic-dev-harness:build`. (Skip the
+   offer when SELECT kept nothing.)
