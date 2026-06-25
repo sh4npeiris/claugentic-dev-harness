@@ -1,7 +1,7 @@
 # 0025 — Unified finder→select→plan→build pipeline (+ doctor)
 
 - **Status:** Draft outline — captured from design conversation; needs its own design + plan-reviewer pass. **Depends on `0024`** (plan-lifecycle S5; the pre-commit + init patterns).
-- **Resumable from:** flesh out the Approach into per-slice specs after 0024 lands and this outline is reviewed.
+- **Resumable from:** the ★ audit cell-budget fix LANDED (step 2). **Next: the 0025-rest pipeline** (shared finder contract + doctor + the Stage-2 plan sub-process + retrofits) + decision-gated autonomy — needs per-slice specs + plan-review (this outline isn't yet sliced). 0024 has LANDED (its lifecycle/disposition patterns are available).
 - **Blockers:** 0024 not yet landed.
 - **References:** `skills/audit/SKILL.md` · `skills/product/SKILL.md` · `skills/build/SKILL.md` · `engine/audit.js` · `docs/claugentic-WORKFLOW.md` · `.claude/plans/0024-harness-context-and-lifecycle.md` · `.claude/plans/0026-conceptual-spine-and-roster.md` (the extracted spine + the lens-completeness gate that pairs with this plan's audit cell-budget fix)
 
