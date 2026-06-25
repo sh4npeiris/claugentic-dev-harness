@@ -62,7 +62,7 @@ This repo builds the **`claugentic-dev-harness`** Claude Code plugin. Its execut
 
 ## .claude/plans/ — plan template (active plans land here while in flight)
 
-- `.claude/plans/TEMPLATE.md` — the plan template (Problem / Goals / Approach / Affected files / Research-grounding / Risks / Tests / Decomposition / Review / Spec, with Resumable-from + Blockers in the Status block) every plan starts from. Completed plans are not kept here once landed — they live in git history; no plans are currently in flight.
+- `.claude/plans/TEMPLATE.md` — the plan template (Problem / Goals / Approach / Affected files / Research-grounding / Risks / Tests / Decomposition / Review / Spec, with Resumable-from + Blockers in the Status block) every plan starts from. Completed plans are not kept here once landed — they live in git history; in-flight plans live here as `NNNN-*.md` until they Land (then are deleted).
 
 ## .claude/ — harness config
 
