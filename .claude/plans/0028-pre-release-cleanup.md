@@ -75,7 +75,7 @@ The gate must be **GREEN on the current tree at commit** — but ★ note the pl
 - All slices: full suite (`node --test tests/workflows/*.test.mjs` + `python -m pytest -q`) + tree + version-sync + doc-budget + the new scanner + ruff/mypy green before each commit.
 
 ## Decomposition (slices)
-- [ ] **S1 — renderOnly log line.** 2 additive lines in `engine/audit.js`; honesty clause; no behavior/schema change. Lands complete (trivial; warm-up + validates the loop).
+- [x] **S1 — renderOnly log line.** ✅ LANDED 2026-06-25 (2 additive lines in `engine/audit.js`; honesty clause "no FIND/PRUNE/VERIFY this pass"; 372 node + 161 pytest + tree green; no behavior/schema change).
 - [ ] **S2 — `build_release._apply` regression test.** `TestApplyHookBypass` (hermetic real-git, armed hook, `--no-verify` proven via a control). Additive test only; closes the ROADMAP build_release item.
 - [ ] **S3 — unified shipped-content scanner gate.** NEW `check_shipped_content.py` (Pass A.a + B hard, A.b WARN; VALID = agents ∪ skills ∪ {update}) + hermetic tests + wiring (ci/WORKFLOW/doctor/build_release/tree/INVARIANTS). Green on current tree (purely additive). Closes ROADMAP content-grep + namespace items.
 - [ ] **S4 — seed-migration.** NEW `_DECISIONS.md`/`_ROADMAP.md` seeds + `init` step-7 copy-and-rename (create-if-absent, out of managed-set) + tests + tree. Closes the ROADMAP seed item.

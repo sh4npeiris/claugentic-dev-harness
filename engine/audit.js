@@ -1135,6 +1135,8 @@ async function spawnVerifier(input) {
 // pipeline, and the isGap branch — so it serves both audit and product gap-mode. renderOnlyResult
 // validates its own payload at the boundary (this branch bypasses validateArgs by design).
 if (args && args.renderOnly) {
+  const selectedCount = Array.isArray(args.renderOnly.items) ? args.renderOnly.items.length : 0;
+  log(`audit renderOnly — re-rendering the backlog fence over ${selectedCount} selected item(s); no FIND/PRUNE/VERIFY this pass.`);
   return renderOnlyResult(args.renderOnly);
 }
 
