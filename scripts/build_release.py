@@ -189,7 +189,11 @@ def _apply() -> int:
         _git("-C", str(root), "worktree", "add", "--force", "-B", RELEASE_BRANCH, tmp, "HEAD")
         for f in strip:
             _git("-C", tmp, "rm", "-q", "-r", "--ignore-unmatch", "--", f)
-        _git("-C", tmp, "commit", "-qm", f"release: clean build from {head}")
+        # --no-verify: the release build is a mechanical clean-tree transform that INTENTIONALLY
+        # strips the dev-only architecture tree (DEV_ONLY_FILES). The dogfooding pre-commit
+        # tree-gate (init step 5b, plan 0024) would otherwise fire on this commit and fail with
+        # "ARCHITECTURE_TREE.md is missing" — the gate guards the DEV tree, never the release build.
+        _git("-C", tmp, "commit", "--no-verify", "-qm", f"release: clean build from {head}")
         ship_count = len(_tracked_files()) - len(strip)
         print(f"OK: rebuilt local '{RELEASE_BRANCH}' branch from {head} ({ship_count} files). NOT pushed.")
         print(f"Review with:  git diff main {RELEASE_BRANCH} --stat")
