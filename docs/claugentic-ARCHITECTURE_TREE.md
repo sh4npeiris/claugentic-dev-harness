@@ -78,7 +78,7 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 
 - `skills/init/SKILL.md` — open to change adoption/scaffolding: the 9-step never-clobber upsert (managed docs, tree+globs, pre-commit hook, plugin self-ref, ROADMAP/DECISIONS). Two modes — Shared (committed, default) vs Solo/local-only (kept fully local; git stays clean).
 - `skills/audit/SKILL.md` — open to change the audit entry: thin trigger (Understand → invoke `engine/audit.js` → write the backlog between `harness-audit:backlog` markers, replace-only). `thorough` adds blind-spot + yagni-sentinel. Format SoT = `renderBacklogFence`; carries the prose fallback.
-- `skills/build/SKILL.md` — open to change the build go-button: thin layer driving backlog items through the WORKFLOW pipeline in checkpoint mode (per-item code/land/irreversible pauses); reads BOTH fences into one tier-interleaved worklist; build-to-green requestable; irreversible hard-stop guardrail.
+- `skills/build/SKILL.md` — open to change the build go-button: thin layer driving backlog items through the WORKFLOW pipeline, decision-gated (stop only for a fork/trade-off/irreversible · flag reversible judgments + surface at close); reads BOTH fences into one tier-interleaved worklist; build-to-green (unwatched) requestable.
 
 - `skills/product/SKILL.md` — open to change the product layer: two modes — Spec (product-designer draft → product-critic Excellence pass → frozen-schema validate → user-owned PRODUCT_SPEC.md) and Gap (`engine/audit.js` criteria mode → `harness-product:backlog` fence).
 

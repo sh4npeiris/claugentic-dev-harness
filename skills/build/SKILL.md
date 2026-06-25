@@ -1,5 +1,5 @@
 ---
-description: Drive your audit backlog through the full reviewed pipeline — plan → adversarial review → spec → your approval → implement → verify → land — pausing only at the decisions that are yours. Pick one item, several, or a whole tier; it works them one by one, re-checking the code it touched between items and pausing for you only when new important work surfaces, to the honest "sound on the audited dimensions" stop-signal. Checkpoint mode. Honest about its limits: every item's spec needs your approval before any code — per item as you go, or all at once up front in a single approval sitting if you say "spec everything first" — and it stops before anything irreversible; autonomy is a ladder — checkpoint is the default, and unwatched build-to-green is requestable but runs only where the repo has earned it (CI running the gates, a test baseline, a testable approved spec) and the engine is installed; otherwise it declines naming exactly what's missing and offers checkpoint.
+description: Drive your audit backlog through the full reviewed pipeline — plan → adversarial review → spec → your approval → implement → verify → land — pausing only at the decisions that are genuinely yours. Pick one item, several, or a whole tier; it works them one by one, re-checking the code it touched between items and pausing for you only when new important work surfaces, to the honest "sound on the audited dimensions" stop-signal. Decision-gated: it proceeds autonomously and stops only for a real decision (a design fork · a spec trade-off · anything irreversible), researches factual uncertainties instead of asking, flags reversible judgment-calls and surfaces them at the close. Honest about its limits: every item's spec needs your approval before any code — per item as you go, or all at once up front in a single approval sitting if you say "spec everything first" — and it stops before anything irreversible; running unwatched (build-to-green) is requestable but runs only where the repo has earned it (CI running the gates, a test baseline, a testable approved spec) and the engine is installed; otherwise it declines naming exactly what's missing and offers a watched run.
 ---
 
 # /claugentic-dev-harness:build
@@ -28,15 +28,27 @@ diverse panel), and subagents can't spawn subagents (the same constraint `audit`
 carry). Invoke it in plain English — *"build Tier-1 item 2"*, *"build the input-validation
 item"*, *"/claugentic-dev-harness:build the test-baseline item"*.
 
-**What "checkpoint mode" means for you:** you can name one item and get back a landed,
-reviewed change with **at most three interruptions per item** — each in plain English (*what
-was just done · what's being decided · your options*). Everything between those three pauses
-auto-drives. A failed item **pauses and tells you plainly that nothing partial landed**.
-The three pauses are: (1) the spec, before any code — fired **per item** as you go, **or
-pre-satisfied per item up front in a single approval sitting** if you ask to *spec everything
-first* (see *Batch approval (on request)*) · (2) before land · (3) before any irreversible
-action. *(Two further pauses fire only on exceptions — a mid-build re-slice and a failed
-item — never on the happy path.)*
+**What "decision-gated" means for you:** you can name one item and get back a landed,
+reviewed change that **auto-drives, stopping only for a decision that is genuinely yours**
+(the model is `docs/claugentic-WORKFLOW.md` → *Decision-gated autonomy* — read it there;
+this skill applies it). Each stop is in plain English (*what was just done · what's being
+decided · your options*). The **three blocking-stop classes** map onto the three concrete
+pauses below — they are the *same* three, not a parallel set:
+
+- **(a) a design fork / (b) a spec trade-off** → the **spec pause, before any code** — fired
+  **per item** as you go, **or pre-satisfied per item up front in a single approval sitting**
+  if you ask to *spec everything first* (see *Batch approval (on request)*). This is where a
+  genuine fork or a trade-off-to-accept becomes your call.
+- **(c) an irreversible / outward action** → the **before-land pause** and the **irreversible
+  hard-stop**. A wrong "proceed" here can't be undone by later review, so it is a HARD stop the
+  flag path can **never** absorb — even on a low-confidence call.
+
+Everything else **auto-drives**: a **factual / technical uncertainty is researched (cited),
+not asked**; a **reversible judgment-call** (a deviation from the spec · an accepted risk · a
+low-confidence choice) is **flagged — one line + the chosen default — and the run CONTINUES**,
+surfaced for you at the close (step 8), never as a mid-run interruption. A failed item
+**pauses and tells you plainly that nothing partial landed**. *(Two further pauses fire only on
+exceptions — a mid-build re-slice and a failed item — never on the happy path.)*
 
 **The full-backlog loop is live.** Pick several items (or "all of Tier-1"), confirm the
 ordered worklist, and it works them one by one — after each landed item it **re-checks the
@@ -50,10 +62,27 @@ than one.
 
 ## Mode handling *(read this first)*
 
-Build mode is an **autonomy ladder — earned per-repo, by evidence, never assumed:**
+**Decision-gated is how build mode stops, always** — it proceeds autonomously and stops only
+for a genuine user-decision (the model is `docs/claugentic-WORKFLOW.md` → *Decision-gated
+autonomy*: STOP only for a design fork · a spec trade-off · an irreversible action · RESEARCH a
+factual uncertainty · FLAG a reversible judgment + CONTINUE · SURFACE flags at the close). That
+governs **when to stop** on *every* run. The mode below is a **separate axis — who watches the
+run** — earned per-repo, by evidence, never assumed:
 
-- **`checkpoint` — the default, and the only rung with no preconditions.** Everything below runs in checkpoint. If the user names no mode, this is what runs.
-- **`build-to-green` — the requestable rung.** Any ask to run unwatched — *"autopilot"*, *"run unwatched"*, *"build to green"* — is a build-to-green request. Before agreeing, check the **unlock conditions** below and **state the evidence per condition** (what you looked at, what you found). All met → run the item through the engine script (`${CLAUDE_PLUGIN_ROOT}/engine/build-item.js` via the Workflow tool — the skill invokes the script, and the script then runs the implement → gates → verify → QA → fix loop mechanically), returning to you only at the retained pauses: **before land · before anything irreversible · on a new Tier-1/2 finding.** Any condition unmet → the decline below, naming exactly what's missing, then offer checkpoint.
+- **Watched (the default — no preconditions).** The orchestrator drives the per-item engine in
+  this session, applying the decision-gated rules above. If the user names no mode, this runs.
+- **`build-to-green` — running unwatched (requestable, earned per-repo).** Any ask to run
+  unwatched — *"autopilot"*, *"run unwatched"*, *"build to green"* — is a build-to-green
+  request. Before agreeing, check the **unlock conditions** below and **state the evidence per
+  condition** (what you looked at, what you found). All met → run the item through the engine
+  script (`${CLAUDE_PLUGIN_ROOT}/engine/build-item.js` via the Workflow tool — the skill invokes
+  the script, and the script then runs the implement → gates → verify → QA → fix loop
+  mechanically), returning to you only at the **decision-gated hard stops, now surfaced as engine
+  returns: before land · before anything irreversible (class (c)) · on a new Tier-1/2 finding.**
+  Any condition unmet → the decline below, naming exactly what's missing, then offer the watched
+  run. *(Unwatched changes who is present, not when to stop — the same decision-gated rules hold;
+  reversible judgments are flagged-and-continued, the irreversible class (c) is a return, never
+  absorbed.)*
 
 Build-to-green is **a reduction of unwatched-run risk, never a substitute for the unbuilt deterministic trust-gates** (the land-gate hook · the secret-scan · the characterization-first hook — `docs/claugentic-DECISIONS.md` → The deterministic gates).
 
@@ -61,15 +90,15 @@ Build-to-green is **a reduction of unwatched-run risk, never a substitute for th
 
 1. **CI runs the deterministic gates.** Evidence: a CI config (e.g. `.github/workflows/*.yml`) whose steps run this repo's Definition-of-Done deterministic gates (the test suite + the gate scripts). Name the file and the commands found.
 2. **A test baseline covers the code this item touches.** Evidence: named test files that assert observable behavior of the files the item will change (not merely execute them) — so a regression in that behavior would fail a test. (The `refactor` characterization-tests-first precondition is this condition's hard case — unchanged.)
-3. **The item traces to an approved spec with testable acceptance criteria.** Evidence: a plan in `.claude/plans/` with `Status: Approved` whose acceptance criteria are all checkable without a human mid-run — each maps to a deterministic gate or test, or to a `docs/claugentic-PRODUCT_SPEC.md` criterion whose `check` is `e2e` or `api`. A `check: "manual"` criterion needs a human, so it keeps that item in checkpoint.
+3. **The item traces to an approved spec with testable acceptance criteria.** Evidence: a plan in `.claude/plans/` with `Status: Approved` whose acceptance criteria are all checkable without a human mid-run — each maps to a deterministic gate or test, or to a `docs/claugentic-PRODUCT_SPEC.md` criterion whose `check` is `e2e` or `api`. A `check: "manual"` criterion needs a human, so it keeps that item on the watched run.
 
-**And one session precondition (not a repo rung):** build-to-green runs **only** via `engine/build-item.js` through the Workflow tool — there is **no prose-orchestrated build-to-green, ever** (an unwatched prose loop is exactly the unearned autonomy this ladder exists to prevent). The Workflow tool or the script unavailable → named in the decline like any other missing condition.
+**And one session precondition (not a repo condition):** build-to-green runs **only** via `engine/build-item.js` through the Workflow tool — there is **no prose-orchestrated build-to-green, ever** (an unwatched prose loop is exactly the unearned autonomy the who-watches axis exists to prevent). The Workflow tool or the script unavailable → named in the decline like any other missing condition.
 
 **The decline (verbatim frame — the list carries ONLY the unmet conditions, each with the evidence checked):**
 
 > Build-to-green isn't earned here yet — here's exactly what's missing:
 > [one line per unmet condition, from the fixed lines below]
-> Build-to-green is a reduction of unwatched-run risk, never a substitute for the unbuilt deterministic trust-gates (the land-gate hook · the secret-scan · the characterization-first hook — none of these exist yet), and these checks are my judgment against the evidence I named, not a mechanical gate. Here's checkpoint instead — the same pipeline, with the three routine pauses.
+> Build-to-green is a reduction of unwatched-run risk, never a substitute for the unbuilt deterministic trust-gates (the land-gate hook · the secret-scan · the characterization-first hook — none of these exist yet), and these checks are my judgment against the evidence I named, not a mechanical gate. Here's a watched run instead — the same pipeline, decision-gated: I drive it with you present, stopping for a real decision and flagging the reversible judgment-calls for you to review at the close.
 
 The fixed per-condition lines (angle-bracket slots filled per run from the evidence actually checked):
 - *CI running the deterministic gates — I found <no CI config | `<file>`, but it doesn't run <the missing gate commands>>.*
@@ -128,11 +157,11 @@ invalid field — fail loud):
   **nothing partial landed** — the branch is left for inspection, nothing merged. Offer
   retry / skip / stop.
 - **`blocked`** → report the boundary error plainly (e.g. a `check:"manual"` criterion needs a
-  human, or criteria exist with no run-the-app command) and run the item in checkpoint instead.
+  human, or criteria exist with no run-the-app command) and run the item watched instead.
 
 ---
 
-## The procedure *(checkpoint mode)*
+## The procedure *(the watched, decision-gated run)*
 
 ### 1. Triage — locate the item(s) and confirm the worklist
 
@@ -272,9 +301,9 @@ technical detail** — this is the non-engineer's steering wheel:
 > - **What "done" means for you:** …
 > - **What you're accepting (risks / trade-offs):** …
 
-Frame the checkpoint as *what was just done · what's being decided now · your options* —
-the spec is written and reviewed; what's being decided is whether to build it; the options
-are approve, adjust, or stop. The file-by-file detail sits **beneath** the triad, to verify
+Frame the stop as *what was just done · what's being decided now · your options* —
+the spec is written and reviewed; what's being decided is whether to build it (a class-(a)/(b)
+decision that's yours); the options are approve, adjust, or stop. The file-by-file detail sits **beneath** the triad, to verify
 against, not to decode. **Wait for an explicit yes before Stage 6.**
 
 ### 5. Implement *(Stage 6 — no pause)*
@@ -348,6 +377,16 @@ never a blanket "verified/done":**
   `architect-reviewer` audited) — model-upheld judgment, **"passed the checks and the
   reviewer's audit,"** never "proven correct."
 
+**Surface the flags — "things to review"** (the decision-gated close-out). List **every flag**
+raised during the run (the reversible judgment-calls the run flagged-and-continued — each a
+one-line *what + the chosen default* from the plan file's `Flags:` sub-line) so the user can
+review them **async, now that the work has landed.** This is a **distinct concern from the plan
+disposition** (which closes out the *unbuilt* items): surface flags and dispositions as two
+separate lists, never merged. **No flags this run → say so explicitly** (*"no judgment-calls to
+review this slice"*) so the close-out is demonstrably visible, never a silent skip. (A flag is a
+reversible call the user can now act on or wave through; an *irreversible* call was never a flag
+— it was a class-(c) stop that already paused mid-run.)
+
 **Surface the Stage-9 harvest result** (don't let the closing loop no-op silently). Emit one
 plain-English line naming what the harvest captured this slice — *"Lessons captured this
 slice: <X>"* (e.g. a new `docs/claugentic-DECISIONS.md` line, a ROADMAP follow-up, a CLAUDE.md
@@ -386,12 +425,13 @@ re-checking the code it touched…"*, then *"clean — moving to item 3."* This 
 completed-beat discipline steps 3–7 use within an item, now spanning the worklist. **Never**
 estimate how long the remaining items will take, never say "nearly through the list."
 
-The per-item checkpoint pauses hold across the loop: the **before-land** and **irreversible**
-pauses **fire on every item**; the **spec** pause fires per item as you go, **or is
-pre-satisfied per item by a batch sitting** (see *Batch approval (on request)*) — never
-skipped, only satisfied earlier. **The loop never suppresses a pause that hasn't been
-explicitly satisfied.** The build-to-green unlock contract, the irreversible hard-stop set, and
-no-invented-scope all hold unchanged across the whole loop.
+The per-item decision-gated stops hold across the loop: the **before-land** and **irreversible**
+stops (class (c)) **fire on every item**; the **spec** stop (class (a)/(b)) fires per item as
+you go, **or is pre-satisfied per item by a batch sitting** (see *Batch approval (on request)*)
+— never skipped, only satisfied earlier. **The loop never suppresses a stop that hasn't been
+explicitly satisfied.** Reversible judgment-calls are flagged-and-continued across the loop and
+surfaced together at the close. The build-to-green unlock contract, the irreversible hard-stop
+set, and no-invented-scope all hold unchanged across the whole loop.
 
 ### 10. The scoped re-audit + re-triage *(flow 3 — after each landed item)*
 
@@ -433,7 +473,7 @@ because it's the loop re-checking its own work.
   scope, and never silently skip it.
 - **Nothing new, or only Tier-3 polish** → **auto-continue** the agreed list. No pause — just
   the completed beat (*"clean — moving to item 3"*) and on to the next item. A clean re-check
-  is **not** a checkpoint; interruptions taper as the criticals clear. (This is the deliberate
+  is **not** a stop; interruptions taper as the criticals clear. (This is the deliberate
   safety-over-fatigue trade: any new Tier-1/2 interrupts, a clean or polish-only re-check does
   not.)
 
@@ -586,11 +626,12 @@ that could drift from the backlog).
 
 ## Guardrails *(non-negotiable, both now and in any future mode)*
 
-- **Irreversible hard-stops.** Before any **push to a shared remote (incl. `main`),
-  deploy, data deletion, spend, or external side-effect**: stop, name the action + its
-  consequence in plain English, and **ask. Never proceed on silence.** This set holds in
-  checkpoint today and on the build-to-green rung — it is the line autonomy never crosses
-  unasked.
+- **Irreversible hard-stops (decision-gated class (c)).** Before any **push to a shared remote
+  (incl. `main`), deploy, data deletion, spend, or external side-effect**: stop, name the action
+  + its consequence in plain English, and **ask. Never proceed on silence.** This is the
+  decision-gated irreversible class (c) — a HARD stop the FLAG path can **never** absorb, even on
+  a low-confidence call. It holds on the watched run today and on the build-to-green (unwatched)
+  rung — it is the line autonomy never crosses unasked.
 - **Never invent scope — the in-flight split.** Work that surfaces mid-build is **never
   silently absorbed**; the user makes the call (the WORKFLOW *Plan file lifecycle → in-flight
   split* is the source of truth — point there, don't restate it):
