@@ -68,6 +68,40 @@ const KNOWN_MODULES = [
   "testing",
 ];
 
+// Test-path patterns: a changed file that exercises behavior assertions. Reasonably broad
+// across ecosystems — name-substring (`test`/`spec`), dir-segment (`tests/`/`__tests__/`),
+// dotted-suffix (`.test.`/`.spec.`), and python (`test_*.py`/`*_test.py`). The list is the
+// single source of the "diff touches tests" signal (piece #2). Match is case-insensitive and
+// works on a posix-or-windows path (separators normalized). Documented patterns:
+//   *test* · *spec* · tests/ · __tests__/ · *.test.* · *.spec.* · test_*.py · *_test.py
+function isTestPath(path) {
+  if (typeof path !== "string" || path.length === 0) {
+    return false;
+  }
+  const p = path.replace(/\\/g, "/").toLowerCase();
+  const base = p.split("/").pop() || "";
+  return (
+    /(^|\/)__tests__\//.test(p) ||
+    /(^|\/)tests?\//.test(p) ||
+    /\.(test|spec)\./.test(base) ||
+    /^test_.*\.py$/.test(base) ||
+    /_test\.py$/.test(base) ||
+    base.includes("test") ||
+    base.includes("spec")
+  );
+}
+
+// The "diff touches tests" signal, computed from verify.js's ACTUAL inputs (single rule).
+// Two inputs can carry it: `files` (a concrete changed-file list — matched mechanically here)
+// and `testDiff` (an explicit boolean the caller sets when it has only the opaque `diffRef`
+// and already knows the diff touched tests). Either positive ⇒ the testing lens is required.
+function diffTouchesTests(args) {
+  if (Array.isArray(args.files) && args.files.some(isTestPath)) {
+    return true;
+  }
+  return args.testDiff === true;
+}
+
 // Validate the args contract at the boundary (fail loud — the caller throws on a non-empty
 // list). Returns every shape error PLUS any dimension not in the catalog; empty array = valid.
 function validateArgs(args) {
@@ -90,6 +124,17 @@ function validateArgs(args) {
       if (!KNOWN_MODULES.includes(dim)) {
         errors.push(`unknown dimension '${dim}' — not a docs/claugentic-standards/ module slug`);
       }
+    }
+    // Piece #2 — force-include the testing lens on a test-diff (mechanical where the signal
+    // exists; in-sandbox, no globs/fs). When the change touches tests, the testing lens MUST be
+    // in the panel — a green suite can hide a loosened assertion, and finding-verifier only
+    // refutes SURFACED findings. Fail loud (the caller adds it deliberately): a test-touching
+    // diff with `testing` absent is a contract error, never silently allowed.
+    if (diffTouchesTests(args) && !args.dimensions.includes("testing")) {
+      errors.push(
+        "the change touches test files but 'testing' is not in dimensions — the testing lens is " +
+          "mandatory on a test-diff (add 'testing' to dimensions); never verify a test change without it",
+      );
     }
   }
   if (typeof args.trustSurface !== "boolean") {
@@ -277,6 +322,20 @@ function coverageGaps(lensReturns, modulePaths) {
     }
   });
   return gaps;
+}
+
+// Piece #1 — mechanical presence-assertion on the panel's OWN outputs (honestly NOT a
+// completeness gate over the diff). The verdict is normally passed through from synthesis; but
+// a panel where a NAMED lens produced no usable result must NEVER report all-green, even if the
+// synthesis judge said PASS. So when there is at least one deterministic could-not-run gap (the
+// presence check on `lensReturns` that `coverageGaps` already computes), force CHANGES_REQUIRED.
+// This is a presence check on the panel's OWN results — no filesystem, no globs, no completeness
+// claim over the diff, no second-guessing which lenses were selected. PURE so it is unit-tested.
+function finalVerdict(synthesisVerdict, unrunLensCount) {
+  if (unrunLensCount > 0) {
+    return "CHANGES_REQUIRED"; // a named lens silently no-showed — never report all-green
+  }
+  return synthesisVerdict === "PASS" ? "PASS" : "CHANGES_REQUIRED";
 }
 
 // Split the ordered parallel() results back into panel roles. parallel() preserves INPUT
@@ -488,6 +547,17 @@ for (const lensReturn of lensReturns) {
 const unrunGaps = coverageGaps(lensReturns, modulesAudited);
 const dedupedFindings = dedupFindings([...lensGaps, ...unrunGaps]);
 const panelDegraded = unrunGaps.length > 0 || yagni == null;
+// Piece #1 — observability: a named lens that produced no usable result is LOGGED loudly here
+// (it also forces CHANGES_REQUIRED at the return via finalVerdict), so an unrun lens never reads
+// as a silently-clean dimension. Presence-check on the panel's own outputs — not a completeness
+// claim over the diff.
+if (unrunGaps.length > 0) {
+  log(
+    `verify: ${unrunGaps.length} named lens(es) produced NO usable result ` +
+      `(${unrunGaps.map((g) => g.dimension).join(", ")}) — forcing CHANGES_REQUIRED; ` +
+      `a named lens cannot silently no-show from the panel's own outputs.`,
+  );
+}
 
 // --- Synthesis phase: architect-reviewer over the deduped findings + yagni + honesty. ---
 phase("Synthesis");
@@ -534,8 +604,11 @@ const crossModel = crossModelOutcome(
 );
 
 return {
-  // The script never overrides judgment — the verdict is passed through from synthesis.
-  verdict: synthesis ? synthesis.verdict : "CHANGES_REQUIRED",
+  // The script never overrides JUDGMENT — synthesis owns the verdict. The ONE mechanical
+  // override is the presence-assertion (finalVerdict): a named lens that produced no usable
+  // result forces CHANGES_REQUIRED so the panel can never report all-green with one of its own
+  // named lenses missing. This is a presence-check on the panel's outputs, not a diff-coverage gate.
+  verdict: finalVerdict(synthesis ? synthesis.verdict : "CHANGES_REQUIRED", unrunGaps.length),
   crossModel: { claimed: crossModel.claimed, tag: crossModel.tag, judges },
   findings: synthesis ? synthesis.findings : [],
   yagni: yagni == null ? { couldNotRun: true } : yagni,

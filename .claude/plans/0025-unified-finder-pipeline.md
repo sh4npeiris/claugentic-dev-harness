@@ -94,7 +94,7 @@ The harness has three "finders" of work, but the lifecycle from *finding* to *do
 
 **Acceptance:** a sub-total budget covers every configured lens ≥1 cell (verify via `done-cells`); a full budget completes all lenses in ONE pass with ONE global dedup; the done/pending cell-key ordering stays a deterministic resume contract after the ordering change; per-lens counts (incl. CLEAN) visible.
 
-**Sibling — same principle, two engines.** This (audit: selected lenses don't get STARVED) pairs with 0026's **lens-completeness gate** (verify: all relevant lenses get SELECTED). Together = **"every relevant lens actually runs and reports"** = the harness's core trustworthiness. Treat as one **lens-coverage integrity** theme.
+**Sibling — same theme, two engines.** This (audit: selected lenses don't get STARVED) pairs with 0026 §A's verify-side **loud advisory + presence-check** (a NAMED lens can't silently no-show — mechanical presence-assertion; the `testing` lens is mandatory on a test-diff; relevant-but-unselected lenses surfaced as a loud, *model-upheld* advisory — NOT a mechanical completeness gate, which was rejected). Together = **"every relevant lens actually runs and reports"** = the harness's core trustworthiness. Treat as one **lens-coverage integrity** theme.
 
 **Ordering impact (RECOMMENDED — confirm):** current bug in the flagship deliverable + self-contained + clear acceptance + tests → **autonomous-tier eligible (like 0024), high-priority, do EARLY** — before the 0025-pipeline / 0026-spine rewrites (both touch `audit.js`/`verify.js` and should build on the fixed cell logic). **New order:** `0024` → **lens-coverage integrity (audit budget + verify completeness) [autonomous, early]** → `0025` → `0026`. Pull 0026's lens-completeness gate forward to pair here.
 
@@ -104,7 +104,7 @@ The harness has three "finders" of work, but the lifecycle from *finding* to *do
 
 ## Build execution — bootstrapping discipline → EXTRACTED to `0026` §0
 
-The "active tools ≠ source" bootstrapping discipline (build machinery stays on installed v0.2.4; validate engine/agent edits via the test suite, never by live-spawning the half-edited repo-local `engine/*.js`; edit agent+engine+tests in lockstep; republish only at the END) is **governance for the whole multi-plan build** and now lives in `.claude/plans/0026-conceptual-spine-and-roster.md` §0. **Per-plan risk:** `0024` + the lens-coverage gates (this plan's audit fix + `0026` §A) touch no agent-spawn ids → low bootstrapping risk; `0025`-rest / `0026` §C edit agents + engine → full discipline.
+The "active tools ≠ source" bootstrapping discipline (build machinery stays on installed v0.2.4; validate engine/agent edits via the test suite, never by live-spawning the half-edited repo-local `engine/*.js`; edit agent+engine+tests in lockstep; republish only at the END) is **governance for the whole multi-plan build** and now lives in `.claude/plans/0026-conceptual-spine-and-roster.md` §0. **Per-plan risk:** `0024` + the lens-coverage **integrity work** (this plan's audit cell-budget fix + `0026` §A's presence-check + test-diff rule) touch no agent-spawn ids → low bootstrapping risk; `0025`-rest / `0026` §C edit agents + engine → full discipline.
 
 ---
 

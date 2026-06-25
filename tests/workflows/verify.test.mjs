@@ -37,6 +37,8 @@ const H = loadHelpersFrom(SCRIPT_PATH, [
   "UNRESOLVED_FAMILY_TAG",
   "KNOWN_FAMILIES",
   "KNOWN_MODULES",
+  "isTestPath",
+  "diffTouchesTests",
   "validateArgs",
   "modulesFor",
   "modelFamily",
@@ -48,6 +50,7 @@ const H = loadHelpersFrom(SCRIPT_PATH, [
   "parseArgs",
   "judgeOutcome",
   "coverageGaps",
+  "finalVerdict",
   "splitPanelResults",
   "LENS_SCHEMA",
   "YAGNI_SCHEMA",
@@ -77,6 +80,8 @@ test("extraction harness finds the marked block and all helper names", () => {
     "UNRESOLVED_FAMILY_TAG",
     "KNOWN_FAMILIES",
     "KNOWN_MODULES",
+    "isTestPath",
+    "diffTouchesTests",
     "validateArgs",
     "modulesFor",
     "modelFamily",
@@ -85,6 +90,7 @@ test("extraction harness finds the marked block and all helper names", () => {
     "dedupKey",
     "dedupFindings",
     "panelRoster",
+    "finalVerdict",
   ]) {
     assert.ok(H[name] !== undefined, `helper '${name}' was not extracted`);
   }
@@ -152,6 +158,88 @@ test("validateArgs flags a missing/non-boolean trustSurface (never defaulted)", 
 
 test("validateArgs rejects a non-object arg", () => {
   assert.deepEqual(H.validateArgs(null), ["args must be an object"]);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Piece #2 — force-include the testing lens on a test-diff (mechanical, in-sandbox)
+// ─────────────────────────────────────────────────────────────────────────────
+test("isTestPath matches the documented test-path patterns (broad, cross-ecosystem)", () => {
+  for (const p of [
+    "tests/workflows/verify.test.mjs",
+    "src/__tests__/foo.tsx",
+    "lib/foo.spec.ts",
+    "app/components/Button.test.jsx",
+    "test_widget.py",
+    "widget_test.py",
+    "test/helpers.js",
+    "src\\feature\\thing.test.ts", // windows separator normalized
+    "MySpecHelper.cs",
+  ]) {
+    assert.equal(H.isTestPath(p), true, `expected a test path: ${p}`);
+  }
+});
+
+test("isTestPath does NOT match ordinary source paths", () => {
+  for (const p of [
+    "engine/verify.js",
+    "src/auth/token.ts",
+    "docs/claugentic-WORKFLOW.md",
+    "lib/contest.js", // 'contest' contains 'test' as a substring → matches (documented broad)
+  ]) {
+    // 'contest' is a known broad-match edge — assert the genuinely-source ones do not match.
+    if (p === "lib/contest.js") {
+      assert.equal(H.isTestPath(p), true, "documented: name-substring 'test' matches broadly");
+    } else {
+      assert.equal(H.isTestPath(p), false, `expected NOT a test path: ${p}`);
+    }
+  }
+  assert.equal(H.isTestPath(""), false);
+  assert.equal(H.isTestPath(null), false);
+});
+
+test("diffTouchesTests is true when files include a test path", () => {
+  assert.equal(H.diffTouchesTests({ files: ["src/a.js", "src/a.test.js"] }), true);
+  assert.equal(H.diffTouchesTests({ files: ["src/a.js", "src/b.js"] }), false);
+});
+
+test("diffTouchesTests honors the explicit testDiff signal (opaque-diff path)", () => {
+  // Only a diffRef is available (no file list) — the caller carries the signal explicitly.
+  assert.equal(H.diffTouchesTests({ diffRef: "main...HEAD", testDiff: true }), true);
+  assert.equal(H.diffTouchesTests({ diffRef: "main...HEAD", testDiff: false }), false);
+  assert.equal(H.diffTouchesTests({ diffRef: "main...HEAD" }), false);
+});
+
+test("validateArgs FAILS LOUD when a test-diff omits the testing lens (files path)", () => {
+  const errors = H.validateArgs(
+    validArgs({ diffRef: undefined, files: ["src/a.js", "src/a.test.js"], dimensions: ["security"] }),
+  );
+  assert.ok(
+    errors.some((e) => e.includes("testing") && e.includes("test-diff")),
+    "expected a loud testing-lens-mandatory error",
+  );
+});
+
+test("validateArgs FAILS LOUD when testDiff is set but testing is absent (opaque-diff path)", () => {
+  const errors = H.validateArgs(validArgs({ testDiff: true, dimensions: ["security"] }));
+  assert.ok(errors.some((e) => e.includes("testing") && e.includes("test-diff")));
+});
+
+test("validateArgs accepts a test-diff that DOES include the testing lens", () => {
+  assert.deepEqual(
+    H.validateArgs(
+      validArgs({ diffRef: undefined, files: ["src/a.js", "src/a.test.js"], dimensions: ["testing", "security"] }),
+    ),
+    [],
+  );
+  assert.deepEqual(H.validateArgs(validArgs({ testDiff: true, dimensions: ["testing"] })), []);
+});
+
+test("validateArgs does NOT force testing on a non-test diff", () => {
+  assert.deepEqual(H.validateArgs(validArgs({ dimensions: ["security"] })), []);
+  assert.deepEqual(
+    H.validateArgs(validArgs({ diffRef: undefined, files: ["src/a.js"], dimensions: ["security"] })),
+    [],
+  );
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -381,6 +469,36 @@ test("coverageGaps: a null lens return becomes an explicit deterministic could-n
 test("coverageGaps: all lenses ran → no gaps", () => {
   const ok = { verdict: "CLEAN", findings: [] };
   assert.deepEqual(H.coverageGaps([ok, ok], ["a", "b"]), []);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Piece #1 — finalVerdict: the mechanical presence-assertion (a named lens cannot no-show)
+// ─────────────────────────────────────────────────────────────────────────────
+test("finalVerdict: a named lens with no usable result forces CHANGES_REQUIRED even on a PASS synthesis", () => {
+  // The fail-open hole this closes: synthesis returns PASS while a named lens silently no-showed.
+  assert.equal(H.finalVerdict("PASS", 1), "CHANGES_REQUIRED");
+  assert.equal(H.finalVerdict("PASS", 3), "CHANGES_REQUIRED");
+});
+
+test("finalVerdict: a complete panel passes synthesis through untouched", () => {
+  assert.equal(H.finalVerdict("PASS", 0), "PASS");
+  assert.equal(H.finalVerdict("CHANGES_REQUIRED", 0), "CHANGES_REQUIRED");
+});
+
+test("finalVerdict: never PASS when synthesis itself is non-PASS, regardless of presence", () => {
+  assert.equal(H.finalVerdict("CHANGES_REQUIRED", 0), "CHANGES_REQUIRED");
+  assert.equal(H.finalVerdict("CHANGES_REQUIRED", 2), "CHANGES_REQUIRED");
+  // Any non-PASS synthesis verdict (including a missing/garbage one) is never silently upgraded.
+  assert.equal(H.finalVerdict(undefined, 0), "CHANGES_REQUIRED");
+});
+
+test("finalVerdict integrates with coverageGaps: a null lens return drives the override", () => {
+  // The wired path: coverageGaps computes the unrun count that finalVerdict consumes.
+  const ok = { verdict: "CLEAN", findings: [] };
+  const gaps = H.coverageGaps([ok, null], ["docs/claugentic-standards/testing.md", "docs/claugentic-standards/security.md"]);
+  assert.equal(H.finalVerdict("PASS", gaps.length), "CHANGES_REQUIRED");
+  const clean = H.coverageGaps([ok, ok], ["a", "b"]);
+  assert.equal(H.finalVerdict("PASS", clean.length), "PASS");
 });
 
 test("crossModelOutcome: an unresolvable BUILDER family reports UNRESOLVED, never a claim", () => {

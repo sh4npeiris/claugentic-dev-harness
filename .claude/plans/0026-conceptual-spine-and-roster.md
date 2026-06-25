@@ -1,8 +1,8 @@
 # 0026 — The conceptual spine: native plan+implement + agent-roster redesign
 
-- **Status:** Draft — extracted from `0025`'s scattered notes (the design conversation + workflow `wf_0ba75e61` first-principles validation). Needs its own plan-reviewer (Stage 3) pass before the §C rewrite. **§A lens-completeness gate is PULLED FORWARD and built in build-step 2 (the lens-coverage-integrity phase) — see "Build phasing" below; do NOT rebuild it here.**
-- **Resumable from:** **§A (lens-completeness gate) is BLOCKED on a user design decision** — the Stage-3 review found it reverses a recorded "load_scope is advisory, NOT a gate" decision (`README.md`/`DECISIONS.md`/`_TEMPLATE.md`) and `verify.js` is sandboxed (can't glob-match without a hardcoded SoT). See `## Review` + the gate-design options surfaced to the user 2026-06-24. Then §C (spine + roster). **The audit-side sibling (0025 ★) LANDED in step 2.**
-- **Blockers:** §C depends on `0025` (the finder pipeline + the Stage-2 plan sub-process it formalizes) and on `0024` (plan-lifecycle disposition). §A (lens-completeness gate) is independent and built early.
+- **Status:** Draft — extracted from `0025`'s scattered notes (the design conversation + workflow `wf_0ba75e61` first-principles validation). Needs its own plan-reviewer (Stage 3) pass before the §C rewrite. **§A's lens-coverage work (loud advisory + presence-check) was PULLED FORWARD and LANDED in build-step 2 (the lens-coverage-integrity phase) — see "Build phasing" below; do NOT rebuild it here.**
+- **Resumable from:** **§A's mechanical pieces LANDED in step 2** (the user chose "loud advisory + presence-check" 2026-06-24, resolving the Stage-3 blocker — the full glob-driven mechanical gate was REJECTED so the recorded "`load_scope` is advisory, NOT a gate" decision stands; the presence-assertion + test-diff rule are in-sandbox and need no glob SoT). Next is §C (spine + roster). **The audit-side sibling (0025 ★) also LANDED in step 2.**
+- **Blockers:** §C depends on `0025` (the finder pipeline + the Stage-2 plan sub-process it formalizes) and on `0024` (plan-lifecycle disposition). §A (lens-coverage: loud advisory + presence-check) is independent and was built early (step 2).
 - **Roadmap item:** seed in `docs/claugentic-ROADMAP.md` on approval.
 - **References:** `docs/claugentic-WORKFLOW.md` · `.claude/agents/*` · `engine/verify.js` · `engine/audit.js` · `engine/build-item.js` · `engine/qa.js` · `docs/claugentic-standards/*` (the `load_scope` frontmatter) · `.claude/plans/0025-unified-finder-pipeline.md` (the finder pipeline this composes with) · `.claude/plans/0024-harness-context-and-lifecycle.md` · first-principles validation workflow `wf_0ba75e61` (2026-06-24)
 
@@ -19,19 +19,19 @@ This plan is "the conceptual spine" — the same capability-first pattern applie
 **Goals**
 - **Native Claude capability does the creation** — **plan** (plan mode, the `0025` Stage-2a draft) and **implement** (Stage 6). The harness *enables* (best prompt + spec + worktree isolation), never wraps/handicaps. Drop the "architect" wrappers as identities.
 - **Standards = the lens library** (single source of the quality bar); **`lens-reviewer` = the one generic agent that applies a standard** (N standards, 1 agent). Review **both** plan-design (the `0025` Stage-2b advisory panel) and code (Stage-7 Verify gate) with the in-scope lenses + cross-cutting critics, then **synthesize → iterate to the gate**.
-- **Make lens-coverage MECHANICAL on both engines** — the audit-side cell fix (`0025`) + the verify-side **lens-completeness gate** (§A): drive lens-selection from the `load_scope` frontmatter that already exists in each module; assert every module matching the changed files is present; **FAIL LOUD**. A sibling to the tree gate (silent · compounding · cheap+deterministic).
+- **Strengthen lens-coverage integrity on both engines** — the audit-side cell fix (`0025`, mechanical/in-engine) + the verify-side **"loud advisory + presence-check"** (§A): a **mechanical presence-assertion** on the panel's OWN outputs (a named lens can't silently no-show) + a **mechanical test-diff rule** (the `testing` lens is mandatory on a test-touching change) + a **model-upheld** loud coverage-gap surfacing driven from each module's *advisory* `load_scope`. The full glob-driven mechanical FAIL-LOUD gate was **REJECTED** (it reversed the recorded "`load_scope` is advisory, not a gate" decision and is structurally mismatched with `verify.js`'s sandbox). `load_scope` STAYS advisory.
 - **Right-size the roster top-down from the pipeline's distinct FUNCTIONS** (generative · lens · critic · gate · product), agents map to functions and steps compose them; agents never duplicate standards content (point at the catalog).
 - **Close the structural review gaps:** add `runtime-qa` (agent), add `retrospect-harvester` (Stage 9), merge the two judging roles, demote `product-critic` to a `product-designer` mode, fold `blindspot` into a `lens-reviewer` whole-scope mode.
 
 **Non-goals**
 - Consolidating for a *smaller count* rather than for DRY — **keep distinct postures separate** (find ≠ refute ≠ gate ≠ synthesize ≠ critique); a focused single-posture prompt is more prescriptive than a multi-mode one. Only merge where the posture is genuinely the same.
-- Turning any model-upheld gate mechanical beyond the two lens-coverage gates (honesty: only the tree gate + these two are mechanical).
+- Turning any model-upheld discipline mechanical beyond what's already wired. The mechanical surfaces stay: the tree gate, plus §A's verify-side **presence-assertion** (a named lens can't silently no-show) + **test-diff rule** (`testing` mandatory on a test-diff), and `0025`'s audit cell-budget interleave — **none of which is a completeness gate over the diff**; lens-SELECTION coverage stays model-upheld (`load_scope` advisory).
 - A new always-loaded doc or a new runtime hook.
 - Re-opening the engineering→product "graduation" idea (rejected in `0024`).
 
 ## Build phasing (this plan builds in two non-adjacent steps)
 
-- **§A — Lens-completeness gate → BUILD STEP 2 (early, the lens-coverage-integrity phase).** Pulled forward to pair with `0025`'s audit cell-budget fix (its engine sibling) and to avoid editing `engine/verify.js` twice. No agent-spawn-id changes → low bootstrapping risk. **Marked DONE-IN-STEP-2; not rebuilt in §C.**
+- **§A — Lens-coverage: loud advisory + presence-check → BUILT IN STEP 2 (the lens-coverage-integrity phase).** Paired with `0025`'s audit cell-budget fix (its engine sibling) to avoid editing `engine/verify.js` twice. No agent-spawn-id changes → low bootstrapping risk. The mechanical pieces (presence-assertion + test-diff rule) **LANDED in step 2**; the model-upheld coverage-gap surfacing (piece #3) folds into §C's roster work, **not rebuilt in §C.**
 - **§C — The spine + agent-roster redesign → BUILD STEP 4 (last).** Higher-touch: it rewrites the review machinery (which can't review its own rewrite) and edits agents + engine + tests in lockstep. Each new agent/engine design is surfaced to the user for a quick look before implementing (one line, proceed-unless-objected).
 - **§0 governance (bootstrapping discipline)** applies throughout the whole multi-plan build (0024→0025→0026).
 
@@ -45,24 +45,27 @@ Implementing these plans = using the harness to improve the harness. Manageable 
 3. **Edit agent + engine + tests in LOCKSTEP per slice** — a rename moves the agent file, every `nsAgent("…")` spawn, and the `agent-namespace`/`cross-script` pins together.
 4. **Republish at the END = the "replace."** RELEASE_CHECKLIST: bump both manifests → `build_release.py --apply` → push `release` → `/plugin update`. Only then do the new agents/engine become the active tools; validate the republished version on a real adopter repo.
 
-**Per-plan risk:** `0024` + the lens-coverage gates (§A + `0025`'s audit fix) touch no agent-spawn ids → low bootstrapping risk (engine-script edits still test-validated). `0025`/`0026` §C edit agents + engine → full discipline above.
+**Per-plan risk:** `0024` + the lens-coverage **integrity work** (§A's presence-check + test-diff rule + `0025`'s audit cell-budget fix) touch no agent-spawn ids → low bootstrapping risk (engine-script edits still test-validated). `0025`/`0026` §C edit agents + engine → full discipline above.
 
 ---
 
-## §A — Lens-completeness gate (the SECOND mechanical gate) · BUILD STEP 2 · DONE-IN-STEP-2
+## §A — Lens-coverage on the verify side: presence-check (mechanical) + loud-advisory selection · BUILD STEP 2
 
 **The gap (verified in code intent).** `verify.js` only validates each `args.dimensions` slug is a real module, never that the set is COMPLETE for the diff → an un-selected lens is a dimension with **zero** review, all gates green (e.g. SSRF un-audited because only `{maintainability,testing}` were named).
 
-**The fix.** Drive lens-selection from the `load_scope:{keywords,globs}` frontmatter that **already exists** in each `docs/claugentic-standards/*` module; given the diff's changed files, compute the set of modules whose `load_scope` matches; **assert every matching module is present** in the panel's lens set; **FAIL LOUD** if a relevant lens is missing (don't silently proceed). Converts the biggest model-upheld coverage gap to MECHANICAL, **no new agent**. Meets the enforce-bar (silent · compounding · cheap+deterministic) — a sibling to the tree gate and to `0025`'s audit cell fix.
+**DECISION (user, 2026-06-24 — "Loud advisory + presence-check"; the full glob-driven mechanical FAIL-LOUD gate was REJECTED).** The Stage-3 review found the original "drive a FAIL-LOUD gate from `load_scope.globs`" design (a) **reverses a recorded decision** — `load_scope.globs` is documented in `README.md`/`DECISIONS.md`/`_TEMPLATE.md` as an **advisory relevance HINT, NOT a gate** (never a hard filter; never silently drops a lens — chosen to avoid false-positive storms on adopters off `src/**`), and (b) is **structurally mismatched** with `verify.js`'s sandbox (no filesystem; the diff arrives as opaque strings; a mechanical glob-match would need a hardcoded module→globs SoT that drifts from the 11 files — the exact drift `KNOWN_MODULES` exists to kill). So `load_scope` **STAYS advisory.** The decided design (three pieces):
 
-**Companion rules folded in here (same `verify.js` touch, same theme):**
-- **Testing lens MANDATORY + adversarial on any test-diff** — force-include the `testing` lens whenever the diff touches tests, prompted to *"prove these assertions didn't get weaker"* (closes builder-written-test-weakening: a green suite hides a loosened assertion; `finding-verifier` only refutes *surfaced* findings, and a weakened test surfaces none). A `lens-reviewer` mode + a forced-inclusion rule.
+1. **Mechanical presence-assertion (in-sandbox, honestly mechanical) — `verify.js`.** After the lens fan-out, assert **every dimension named in `args.dimensions` actually produced a lens-reviewer result**; if a named lens silently yielded nothing (spawn error / dropped output), **FAIL LOUD** — never report all-green with a named lens missing from the panel's own outputs. This closes "named but silently skipped" mechanically (a presence check on the panel's OWN results — no fs, no globs, no decision-reversal). Honest claim: a mechanical presence-check, NOT a "completeness gate."
+2. **Force-include the `testing` lens on a test-diff (mechanical where the signal is available).** When the change touches test files, the `testing` lens MUST be in the panel (adversarial: *"prove these assertions didn't get weaker"*). The implementer designs the precise mechanism against `verify.js`'s actual inputs (does it receive the changed-file list, or only an opaque diff? — if the file list is available, mechanically require `testing` when a test path is present; otherwise enforce via the caller that prepares `args.dimensions`). Closes builder-written-test-weakening (a green suite hides a loosened assertion; `finding-verifier` only refutes *surfaced* findings).
+3. **Loud-advisory selection from `load_scope` (model-upheld — NOT a hard fail).** Strengthen the lens-SELECTION guidance so the caller uses each module's `load_scope` as the relevance hint it already is, and **surfaces any module whose `load_scope` matches the diff but is unselected as a LOUD coverage-gap warning** (the existing `architect-reviewer` `coverageGaps`/`missed_dimensions` is the model-upheld owner; strengthen its prompt + the WORKFLOW/skill selection guidance). Loud, but advisory — honoring the recorded "advisory, not a gate" decision.
 
-**Acceptance:** given a diff touching files that match module X's `load_scope`, a panel that omits X **fails loud** (not silently green); a complete set passes; a test-touching diff always includes the `testing` lens; the `KNOWN_MODULES`⇄catalog pin stays green; helper unit-tested in `tests/workflows/verify.test.mjs`.
+**Honesty (critical — the #1 rule):** this adds NO new over-claimed mechanical gate. Only piece #1 (and piece #2 where the file signal exists) is mechanical, and it is honestly a *presence-check on the panel's own outputs*, not a *completeness gate over the diff*. The selection/coverage-gap surfacing (#3) is **model-upheld and must say so**. Do NOT describe §A as "the second mechanical gate" anywhere (update any such copy — the original plan/DECISIONS framing).
 
-**Sibling — same principle, two engines.** §A (verify: all relevant lenses get SELECTED) pairs with `0025`'s audit cell-budget fix (audit: selected lenses don't get STARVED). Together = **"every relevant lens actually runs and reports"** = a single **lens-coverage integrity** theme, both built in step 2.
+**Acceptance:** a panel where a NAMED lens produced no result FAILS LOUD (piece #1); a test-touching diff requires/includes the `testing` lens (piece #2); a module matching the diff's `load_scope` but unselected is surfaced as a LOUD advisory coverage-gap (piece #3, model-upheld); `load_scope` is NOT promoted to a hard gate (the recorded decision stands); the `KNOWN_MODULES`⇄catalog pin stays green; helpers unit-tested in `tests/workflows/verify.test.mjs`.
 
-**Bootstrapping:** §A touches `engine/verify.js` + `tests/workflows/verify.test.mjs` only (no agent-spawn-id rename) → validated by the test suite, low risk; lands before the §C roster rewrite touches `verify.js` again.
+**Sibling — same theme, two engines.** §A (verify: a named lens can't silently no-show; missed-but-relevant lenses are surfaced loudly) pairs with `0025`'s audit cell-budget fix (audit: selected lenses don't get STARVED — LANDED). Together = the **lens-coverage integrity** theme.
+
+**Bootstrapping:** §A touches `engine/verify.js` + `tests/workflows/verify.test.mjs` (+ possibly the `architect-reviewer`/`lens-reviewer` prompt for #3 and the Verify caller in WORKFLOW/build SKILL) — **confirm no `nsAgent("<role>")` spawn-id rename** → validated by the test suite, low risk; lands before §C touches `verify.js` again. **0026 is higher-touch: surface the concrete `verify.js` seam design before implementing.**
 
 ---
 
@@ -99,7 +102,7 @@ Design capability-first: agents map to FUNCTIONS; steps COMPOSE them (some steps
 3 independent rosters with NO sight of ours + research + red-team. Verdict: **we were close — ~8 core decisions independently re-derived** (parameterized `lens-reviewer` = 4-of-4 with identical rationale; isolated `implementer`; clean-context `finding-verifier`; `yagni`; `honesty`; blindspot; synthesizer-as-integrator; native generation stays with the orchestrator). The roster deltas it forced are the Adds/Merges above.
 
 ### RED-TEAM — bulletproofing fails STRUCTURALLY, not in the roster
-- **★ Lens-completeness gate** → §A (the #1 build item; pulled forward to step 2).
+- **★ Lens-coverage integrity (verify side)** → §A's loud-advisory + presence-check (the #1 build item; pulled forward to step 2). NOT a mechanical completeness gate — see §A.
 - **Whole-feature re-verify** on the last slice of a multi-slice plan (`synthesizer-gate`, whole-feature scope vs the Stage-1 job-to-be-done) — closes cross-slice integration regressions.
 - **Intent-vs-behavior** line in `runtime-qa`/`product-designer` Verify output; **Land-stage worktree-hygiene** check (an abandoned/escalated slice is left clean/disposed). Added responsibilities/modes + a few lines in `verify.js`/`WORKFLOW.md` — **NOT new agents.**
 
@@ -109,7 +112,7 @@ Worktree **isolation** for parallel implement · the **spec contract** · the Ve
 ## Affected files (§C)
 - `docs/claugentic-WORKFLOW.md` — Stage 2/6/7 rewrite (native plan/implement framing) + the Roles section (the redesigned roster) + whole-feature re-verify + Land worktree-hygiene.
 - `.claude/agents/*` — rename/slim/strip-standards: `implementer-architect`→`implementer`; `architect-reviewer`+`plan-reviewer`→`synthesizer-gate`; `blindspot-reviewer`→a `lens-reviewer` mode; `product-critic`→a `product-designer` mode; ADD `runtime-qa`, `retrospect-harvester`.
-- `engine/verify.js` — the `lens-reviewer` plan-design-review mode (composes with `0025` Stage-2b); the `synthesizer-gate` spawn id; the whole-feature re-verify scope. **(§A's lens-completeness gate already landed here in step 2.)**
+- `engine/verify.js` — the `lens-reviewer` plan-design-review mode (composes with `0025` Stage-2b); the `synthesizer-gate` spawn id; the whole-feature re-verify scope. **(§A's presence-assertion + test-diff rule already landed here in step 2.)**
 - `engine/audit.js`, `engine/build-item.js`, `engine/qa.js` — every `nsAgent("<role>")` spawn updated for the renames, in lockstep.
 - `.claude/plans/TEMPLATE.md` — the architect-pass section (shared with `0025`; land once).
 - `.claude-plugin/plugin.json` — the `agents` field roster (added/removed agents).
@@ -136,7 +139,7 @@ Worktree **isolation** for parallel implement · the **spec contract** · the Ve
 - Validate the republished version on a real adopter repo after the END republish (§0.4).
 
 ## Decomposition (slices)
-- [x] **§A — Lens-completeness gate** — built in **step 2** (the lens-coverage-integrity phase), with `0025`'s audit cell-budget fix. **DONE-IN-STEP-2; not rebuilt here.** *(Checkbox reflects schedule, not yet-built status; flip to actually-done when step 2 lands.)*
+- [x] **§A — Lens-coverage: loud advisory + presence-check** — built in **step 2** (the lens-coverage-integrity phase), with `0025`'s audit cell-budget fix. Mechanical pieces (presence-assertion `finalVerdict` + test-diff `testing`-lens rule) LANDED in `engine/verify.js` + `tests/workflows/verify.test.mjs`; the model-upheld coverage-gap surfacing (piece #3) folds into §C. **DONE-IN-STEP-2; not rebuilt here.**
 - [ ] **§C1 — Roster redesign spec + WORKFLOW Roles/Stage rewrite** (design surfaced to user first): the function→agent map, the merges/renames/adds, the Stage 2/6/7 framing. Doc + design; no engine spawn changes yet.
 - [ ] **§C2 — `implementer-architect`→`implementer`** (strip inline principles → point at CLAUDE.md + standards) + every `nsAgent` spawn + namespace/cross-script pins, lockstep. Lands complete because the rename is mechanical + test-guarded.
 - [ ] **§C3 — `plan-reviewer`+`architect-reviewer`→`synthesizer-gate`** (two altitudes) + spawn sites + pins + the whole-feature re-verify scope. Lands complete because the two roles share one posture.
