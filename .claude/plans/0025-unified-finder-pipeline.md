@@ -134,5 +134,23 @@ Implementing these plans = using the harness to improve the harness. Manageable 
 
 ---
 
+## Decision-gated autonomy + async flags (refine the autonomy ladder)
+
+**Today:** `WORKFLOW.md:133` has a BINARY ladder — *checkpoint* (3 routine pauses) vs *build-to-green*. Crude: checkpoint over-stops on ceremony; build-to-green under-surfaces (no async signal). The build skill *aspires* to "pause only for the decisions that are yours" but lacks the mechanism.
+
+**The refined model — decision-gated:**
+- **STOP (blocking) ONLY for must-decide:** (a) a genuine design fork (multiple valid options); (b) a spec with a real trade-off to accept; (c) an irreversible/outward action (commit-to-shared · republish · delete user content).
+- **RESEARCH, don't ask** — a FACTUAL/technical uncertainty the agent can resolve from official/trusted sources is resolved by research (cited), **never a user stop**. Stops are for the user's PREFERENCE/JUDGMENT, not facts the agent can look up.
+- **FLAG (non-blocking)** — a should-know (a judgment call · accepted risk · deviation · low-confidence choice): record a one-line flag + the **chosen default** + CONTINUE. Async-reviewable.
+- **SURFACE flags at the close** — the close-out lists all flags ("things to review") so the user reviews async, not mid-run.
+
+**Surfaces:** `docs/claugentic-WORKFLOW.md` (replace the binary ladder with the decision-gated model + flag mechanism) · `skills/build/SKILL.md` (mode handling + the close-out flag summary) · the plan file's Status/Flags block (the running flag list).
+
+**Acceptance:** an autonomous run completes without stopping for anything that isn't a genuine user-action; every non-blocking judgment is flagged with a chosen default + surfaced at close; a factual uncertainty triggers research (cited), not a stop; the three blocking-stop classes always stop.
+
+**Honesty:** model-upheld (the agent JUDGES "is this a real choice?"), not a mechanical gate — the bar is the criteria + examples. A wrong "proceed" is bounded by flag-and-surface (the user sees it at close), so a mis-judgment costs a flagged item to review, not a silent action. **Bootstrapping note:** this run encodes the behavior manually in its kickoff; landing this feature makes it the built-in default for all future runs.
+
+---
+
 ## Review  _(filled by plan-reviewer, Stage 3 — after the outline is fleshed out)_
 - **Verdict:** —
