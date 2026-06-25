@@ -23,7 +23,7 @@ Stage-9 harvest); the item universe is the **`harness-audit:backlog` fence** tha
 it does not restate them.
 
 A **top-level agent (the orchestrator) runs this skill** — it spawns the pipeline
-subagents (`plan-reviewer`, `implementer-architect`, `architect-reviewer`, the lenses, the
+subagents (`plan-reviewer`, `implementer`, `architect-reviewer`, the lenses, the
 diverse panel), and subagents can't spawn subagents (the same constraint `audit` and `init`
 carry). Invoke it in plain English — *"build Tier-1 item 2"*, *"build the input-validation
 item"*, *"/claugentic-dev-harness:build the test-baseline item"*.
@@ -331,7 +331,7 @@ against, not to decode. **Wait for an explicit yes before Stage 6.**
 
 ### 5. Implement *(Stage 6 — no pause)*
 
-On approval, spawn **`claugentic-dev-harness:implementer-architect`** for the slice (one slice per session,
+On approval, spawn **`claugentic-dev-harness:implementer`** for the slice (one slice per session,
 isolated, lands vertically complete per the WORKFLOW). Continue the completed-beat
 narration.
 

@@ -48,7 +48,7 @@
 export const meta = {
   name: "build-item",
   description:
-    "The build-to-green engine: one approved item iterated implement (implementer-architect in a worktree) → deterministic gates (an agent runs the repo's gate commands; pass/fail is exit codes) → Verify panel (the verify.js child workflow) → QA flows (the qa.js child workflow, only when machine-checkable acceptance criteria exist) → fix, until green or the iteration/budget cap. The script NEVER lands/pushes/merges/touches git — every terminal status is a return-to-orchestrator: green (the before-land pause is the orchestrator's), needs-irreversible (the irreversible hard-stop), new-tier12 (a finding outside the item — re-triage), not-green (the cap: 'not green; here is the residual', nothing partial landed), blocked (a boundary error, e.g. a manual criterion or criteria with no run-app command). A green close-out claims only 'passed the deterministic gates and the reviewers' audit on this run' — a reduction of unwatched-run risk, never a substitute for the unbuilt deterministic trust-gates, never 'proven correct'.",
+    "The build-to-green engine: one approved item iterated implement (implementer in a worktree) → deterministic gates (an agent runs the repo's gate commands; pass/fail is exit codes) → Verify panel (the verify.js child workflow) → QA flows (the qa.js child workflow, only when machine-checkable acceptance criteria exist) → fix, until green or the iteration/budget cap. The script NEVER lands/pushes/merges/touches git — every terminal status is a return-to-orchestrator: green (the before-land pause is the orchestrator's), needs-irreversible (the irreversible hard-stop), new-tier12 (a finding outside the item — re-triage), not-green (the cap: 'not green; here is the residual', nothing partial landed), blocked (a boundary error, e.g. a manual criterion or criteria with no run-app command). A green close-out claims only 'passed the deterministic gates and the reviewers' audit on this run' — a reduction of unwatched-run risk, never a substitute for the unbuilt deterministic trust-gates, never 'proven correct'.",
   // Bounded call count: per iteration = 1 implement/fix + 1 gates agent + 1 verify child + (≤1
   // qa child) — no unbounded loops (maxIterations caps it). The static budget below is a
   // backstop; caps.maxIterations is the true bound, enforced in code by nextAction.
@@ -700,12 +700,12 @@ for (let iteration = 1; iteration <= maxIterations; iteration++) {
   iterationsUsed = iteration;
   phase(`iteration-${iteration}`);
 
-  // 1. Implement (iteration 1) or Fix (later) — implementer-architect in a worktree (first only;
+  // 1. Implement (iteration 1) or Fix (later) — implementer in a worktree (first only;
   //    later iterations reuse the branch). agent() returns null AND can throw — guard both.
   let report = null;
   try {
     report = await agent(implementPrompt(item, repo, residual, branch, stageTimeouts.implement), {
-      agentType: nsAgent("implementer-architect"),
+      agentType: nsAgent("implementer"),
       // Worktree ownership: the platform auto-reclaims an UNCHANGED worktree; a changed one
       // survives every terminal return — the ORCHESTRATOR reclaims it after land (green) or
       // keeps it for inspection (cap-stop/escalation). The BRANCH is the durable artifact.

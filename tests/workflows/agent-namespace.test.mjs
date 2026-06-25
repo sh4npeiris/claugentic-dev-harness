@@ -30,7 +30,7 @@ const ENGINE_SCRIPTS = ["audit.js", "verify.js", "build-item.js", "qa.js"];
 // every spawn site. (Built-ins like `general-purpose` are deliberately NOT in this set.)
 const CUSTOM_AGENTS = [
   "plan-reviewer",
-  "implementer-architect",
+  "implementer",
   "architect-reviewer",
   "product-designer",
   "product-critic",

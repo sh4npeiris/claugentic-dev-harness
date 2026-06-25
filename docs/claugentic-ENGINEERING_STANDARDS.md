@@ -4,7 +4,7 @@ The engineering quality bar is a **modular catalog** under [`docs/claugentic-sta
 
 **Start here → [`docs/claugentic-standards/README.md`](claugentic-standards/README.md)** — the catalog index, the meta-rules (select-don't-skip, additive, novel-patterns-allowed), the two-tier global/local model, and versioning. The module contract is [`docs/claugentic-standards/_TEMPLATE.md`](claugentic-standards/_TEMPLATE.md).
 
-**How it plugs into the workflow:** the spec (Stage 4) names the in-scope modules/dimensions; `implementer-architect` builds to them; `architect-reviewer` audits against them; "done" = the in-scope dimensions pass (see `docs/claugentic-WORKFLOW.md` → Definition of Done).
+**How it plugs into the workflow:** the spec (Stage 4) names the in-scope modules/dimensions; `implementer` builds to them; `architect-reviewer` audits against them; "done" = the in-scope dimensions pass (see `docs/claugentic-WORKFLOW.md` → Definition of Done).
 
 > Capability modules (Redis, queues, storage, …) are authored just-in-time, when a change pulls one in.
 

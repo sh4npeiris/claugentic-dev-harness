@@ -9,7 +9,7 @@
   "keywords": ["harness", "workflow", "code-review", "engineering-standards", "architecture", "agents", "self-improving"],
   "agents": [
     "./.claude/agents/plan-reviewer.md",
-    "./.claude/agents/implementer-architect.md",
+    "./.claude/agents/implementer.md",
     "./.claude/agents/architect-reviewer.md",
     "./.claude/agents/product-designer.md",
     "./.claude/agents/product-critic.md",

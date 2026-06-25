@@ -7,7 +7,7 @@ touches its concern (see each module's `load_scope`), so the catalog can grow to
 
 - **Entry point:** `docs/claugentic-ENGINEERING_STANDARDS.md` (thin — points here).
 - **Module contract:** every module copies `_TEMPLATE.md`.
-- **Who uses it:** the spec (Stage 4) names the in-scope modules/dimensions; `implementer-architect` builds to them; `architect-reviewer` audits against them (see `docs/claugentic-WORKFLOW.md` → Definition of Done).
+- **Who uses it:** the spec (Stage 4) names the in-scope modules/dimensions; `implementer` builds to them; `architect-reviewer` audits against them (see `docs/claugentic-WORKFLOW.md` → Definition of Done).
 
 ## How to use this catalog (meta-rules)
 
