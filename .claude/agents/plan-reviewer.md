@@ -17,6 +17,7 @@ Evaluate the plan against the **Stage-3 gate**:
 5. **Risks & test strategy** are explicit and adequate (incl. regression/snapshot tests where existing behavior or output could change).
 6. **Over-engineering (YAGNI)** — call out speculative abstraction or scope creep; simpler-that-works beats clever.
 7. **Harness impact** — does this imply a new STANDARD, agent, or doc update (Stage 9)? Name it.
+8. **Architecture & holistic fit** — for substantial work, is the plan's *Architecture & holistic fit* section **genuinely reasoned, not hand-waved and not gold-plated**? The codebase fit is real (not boilerplate), the quality dimensions are mapped to actual `docs/claugentic-standards/` modules, and YAGNI is respected (it frames what to uphold, not a mandate to build every abstraction). A trivial/lightweight change may give it a one-liner or skip it.
 
 Be specific and cite `file:line`. Prefer a few high-impact findings over a long list of nits. If a slice is fine, say so — don't invent problems.
 

@@ -49,7 +49,7 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 
 ## .claude/agents/ — specialist role library
 
-- `.claude/agents/plan-reviewer.md` — Stage-3 gate: adversarially critiques a draft plan (soundness, sizing, risk, YAGNI, harness impact); edits only the plan's Review section. Structural safeguard (clean-context contract), `model: opus`, opens `RUNNING AS:`.
+- `.claude/agents/plan-reviewer.md` — Stage-3 gate: adversarially critiques a draft plan (soundness, sizing, risk, YAGNI, architecture-&-holistic-fit, harness impact); edits only the plan's Review section. Structural safeguard (clean-context contract), `model: opus`, opens `RUNNING AS:`.
 - `.claude/agents/implementer-architect.md` — Stage-6 builder: implements one approved, spec'd slice to standard in an isolated worktree; lands code + tests + docs, no debt.
 - `.claude/agents/architect-reviewer.md` — owns the Stage-7 Verify gate: audits the diff against in-scope standards modules (solo) or synthesizes lens-reviewer + yagni-sentinel (fan-out); read-only, `model: opus`, script runs pinned via `engine/verify.js`.
 - `.claude/agents/product-designer.md` — Stage-1 product/UX discovery (user-facing work): user, JTBD, flows, states, "what good feels like"; applies `product-ux`, persists to `docs/claugentic-PRODUCT.md`.
@@ -62,7 +62,7 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 
 ## .claude/plans/ — plan template (active plans land here while in flight)
 
-- `.claude/plans/TEMPLATE.md` — open when starting a plan: the template (Problem/Goals/Approach/Affected-files/Research/Risks/Tests/Decomposition/Review/Spec + Status block). In-flight plans live here as `NNNN-*.md` until Land, then deleted (git history keeps them).
+- `.claude/plans/TEMPLATE.md` — open when starting a plan: the template (Problem/Goals/Approach/**Architecture-&-holistic-fit**/Affected-files/Research/Risks/Tests/Decomposition/Review/Spec + Status block). In-flight plans live here as `NNNN-*.md` until Land, then deleted (git history keeps them).
 
 ## .claude/ — harness config
 
