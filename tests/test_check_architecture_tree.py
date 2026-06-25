@@ -1023,6 +1023,33 @@ class TestCwdIndependence:
         monkeypatch.setattr(cat.sys, "stdin", io.StringIO(""))
         assert cat.main(["--hook"]) == 0
 
+    def test_repo_root_strips_hook_git_env_for_discovery(self, monkeypatch):
+        """Regression (linked git worktree): a git hook runs with GIT_DIR/GIT_WORK_TREE/
+        GIT_INDEX_FILE set. Those OVERRIDE `git -C <here> rev-parse --show-toplevel`, making it
+        return the `scripts/` subdir instead of the repo root — the gate then chdir's there and
+        reports the tree 'missing' though it exists. The discovery call must strip those vars so
+        git walks UP from the script's own location to the correct (linked-worktree) root."""
+        monkeypatch.setenv("GIT_DIR", "/main/.git/worktrees/wt")
+        monkeypatch.setenv("GIT_WORK_TREE", "/main/wt")
+        monkeypatch.setenv("GIT_INDEX_FILE", "/main/.git/worktrees/wt/index")
+        captured: dict = {}
+
+        class _Done:
+            stdout = "/the/repo/root\n"
+
+        def _fake_run(cmd, **kw):
+            captured.update(kw)
+            return _Done()
+
+        monkeypatch.setattr(cat.subprocess, "run", _fake_run)
+        root = cat._repo_root()
+
+        env = captured.get("env") or {}
+        assert "GIT_DIR" not in env
+        assert "GIT_WORK_TREE" not in env
+        assert "GIT_INDEX_FILE" not in env
+        assert str(root).replace("\\", "/") == "/the/repo/root"
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # _form_violations / evaluate() — the per-entry one-line FORM budget

@@ -457,6 +457,17 @@ def _repo_root() -> Path:
     we fall back to `<script_dir>/..` (the script lives at `<repo>/scripts/`).
     """
     here = Path(__file__).resolve().parent
+    # A git hook (e.g. the pre-commit gate) runs with GIT_DIR/GIT_WORK_TREE/GIT_INDEX_FILE set in
+    # the environment. Those OVERRIDE the `-C <here>` discovery, so `--show-toplevel` returns the
+    # `-C` directory (the `scripts/` subdir) instead of the repo root — chdir'ing there hides every
+    # repo-root-relative path and the tree reads as "missing" (observed in a linked git worktree).
+    # Strip them for the discovery call so git walks UP from the script's own location, resolving
+    # the correct root for a main OR a linked worktree. (The later `_git` index reads keep the
+    # inherited env — there GIT_DIR/GIT_INDEX_FILE correctly point at what's being committed.)
+    discover_env = {
+        k: v for k, v in os.environ.items()
+        if k not in ("GIT_DIR", "GIT_WORK_TREE", "GIT_INDEX_FILE")
+    }
     try:
         out = subprocess.run(
             ["git", "-C", str(here), "rev-parse", "--show-toplevel"],
@@ -464,6 +475,7 @@ def _repo_root() -> Path:
             text=True,
             encoding="utf-8",
             check=True,
+            env=discover_env,
         )
         return Path(out.stdout.strip())
     except (FileNotFoundError, subprocess.CalledProcessError):
