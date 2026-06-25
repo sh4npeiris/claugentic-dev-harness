@@ -57,6 +57,7 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 - `.claude/agents/finding-verifier.md` — the audit's refute counterpart: given ONE finding (claim + `file:line`, never the finder's rationale) tries to refute it → Verified/Refuted/Unconfirmed; per-finding after the prune; structural safeguard, read-only, `model: opus`.
 - `.claude/agents/honesty-reviewer.md` — the over-claim lens: refutes COPY not code (verb discipline · `[D]`/`[J]` integrity · `cross-model ≠ independent`); bar embedded in the prompt; on the diverse panel at Plan/Verify on trust surfaces; read-only, `model: opus`.
 - `.claude/agents/runtime-qa.md` — the runs-correct (≠ reads-correct) reviewer: drives the RUNNING app to verify ONE acceptance criterion (Playwright via ToolSearch / curl via Bash), pushes safety/negative paths, emits an intent-vs-behavior judgment through the existing report. READ-ONLY on source, NON-DESTRUCTIVE; spawned at the DRIVE step of `engine/qa.js`; attempts + tags, never fakes a pass.
+- `.claude/agents/retrospect-harvester.md` — the Stage-9 ACTIVE harvest: after a slice lands, sweeps the six learning-loop categories over the landed change and proposes the concrete harness-improvement edits (or "nothing durable"). Orchestrator-invoked post-Land (no engine spawn); READ-ONLY/proposes, the orchestrator applies; the active counterpart to `doctor`'s passive "harvest likely skipped" flag.
 
 ## .claude/plans/ — plan template (active plans land here while in flight)
 

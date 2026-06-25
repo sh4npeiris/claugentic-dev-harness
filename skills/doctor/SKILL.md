@@ -93,8 +93,8 @@ skipped"** (Stage-9 is a manual discipline the orchestrator runs at Land; see
 a *might-have-missed*, not a fact.
 
 > **Doctor only REPORTS this signal — it does not run the harvest.** The active retrospect /
-> harvest is owned by the `retrospect-harvester` seam (plan 0026 §C5). Doctor surfaces the flag;
-> that actor (when it lands) does the harvest. No double-build.
+> harvest is owned by the `retrospect-harvester` agent (plan 0026 §C5b). Doctor surfaces the flag;
+> that actor does the harvest. No double-build.
 
 ## Report — a transient green/WARN/breach snapshot  *(NOT a persisted fence)*
 

@@ -37,6 +37,7 @@ const CUSTOM_AGENTS = [
   "finding-verifier",
   "honesty-reviewer",
   "runtime-qa",
+  "retrospect-harvester",
 ];
 
 function readEngine(name) {
