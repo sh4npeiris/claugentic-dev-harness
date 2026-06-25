@@ -38,7 +38,7 @@ class TestClassify:
             "docs/claugentic-standards/security.md",
             "skills/init/SKILL.md",
             "engine/audit.js",
-            ".claude/agents/plan-reviewer.md",
+            ".claude/agents/synthesizer-gate.md",
             "scripts/claugentic-check_architecture_tree.py",
             ".claude-plugin/plugin.json",
             ".claude-plugin/marketplace.json",

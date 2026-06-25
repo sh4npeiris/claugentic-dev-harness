@@ -26,7 +26,7 @@ The **initial architect pass** — frames how this item sits in the codebase/pro
 - **Quality dimensions to uphold** — the relevant subset, **each mapped to its REAL `docs/claugentic-standards/` module** (e.g. maintainability/extensibility → `maintainability-structure` · performance → `performance-efficiency` · security → `security` · reliability → `reliability-resilience` · data → `data-and-persistence` · API → `api-and-contracts`) so the standards FRAME the plan from the start. This is the **forward-pointer to the Spec's "In-scope standards dimensions"** — name them here; the Spec refines them per slice (don't restate standards content, and don't fork a second dimension list).
 - **Future-proofing** — what's likely to change; what to keep open *without building it now*.
 
-_Substantial work fills this; trivial/lightweight changes may give it a one-liner or skip it (honor the effort-dial — no holistic pass on a typo fix). Model-upheld + `plan-reviewer`-audited; the template forces the section to exist, the reviewer audits it's genuinely reasoned._
+_Substantial work fills this; trivial/lightweight changes may give it a one-liner or skip it (honor the effort-dial — no holistic pass on a typo fix). Model-upheld + `synthesizer-gate` (plan-gate)-audited; the template forces the section to exist, the reviewer audits it's genuinely reasoned._
 
 ## Affected files
 `path` — what changes.
@@ -51,7 +51,7 @@ Each slice must land **complete in one ≤1M-context session, no debt**.
 
 ---
 
-## Review  _(filled by plan-reviewer, Stage 3)_
+## Review  _(filled by synthesizer-gate in its plan-gate altitude, Stage 3)_
 - **Verdict:** PASS | CHANGES REQUIRED
 - **Required changes:** …
 - **Sizing/completeness:** per-slice OK / split …

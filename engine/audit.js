@@ -1285,14 +1285,14 @@ const synthesisScope = isGap ? ["product-gap: intent vs implementation"] : input
 
 let synthesis = await agent(
   buildSynthesisPrompt(dedupedFindings, synthesisModules, synthesisScope),
-  { agentType: nsAgent("architect-reviewer"), schema: SYNTHESIS_SCHEMA, label: "synthesis", phase: "Prune" },
+  { agentType: nsAgent("synthesizer-gate"), schema: SYNTHESIS_SCHEMA, label: "synthesis", phase: "Prune" },
 );
 if (!synthesis || !Array.isArray(synthesis.items)) {
   // Single-point seam: a null synthesis would discard the whole FIND sweep. Retry once
   // before the fail-loud terminal (the throw stays — never proceed without the prune).
   synthesis = await agent(
     buildSynthesisPrompt(dedupedFindings, synthesisModules, synthesisScope),
-    { agentType: nsAgent("architect-reviewer"), schema: SYNTHESIS_SCHEMA, label: "synthesis:respawn", phase: "Prune" },
+    { agentType: nsAgent("synthesizer-gate"), schema: SYNTHESIS_SCHEMA, label: "synthesis:respawn", phase: "Prune" },
   );
 }
 if (!synthesis || !Array.isArray(synthesis.items)) {

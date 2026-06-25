@@ -432,17 +432,17 @@ test("parseArgs fails loud on an unparseable string", () => {
 });
 
 test("judgeOutcome: first success is cross-model eligible", () => {
-  const d = H.judgeOutcome("synthesis", "architect-reviewer", { out: { verdict: "PASS" } });
+  const d = H.judgeOutcome("synthesis", "synthesizer-gate", { out: { verdict: "PASS" } });
   assert.deepEqual(d, { out: { verdict: "PASS" }, forcedSameModel: false });
 });
 
 test("judgeOutcome: first failure with no second attempt asks for the retry", () => {
   assert.deepEqual(
-    H.judgeOutcome("synthesis", "architect-reviewer", { out: null, err: "boom" }),
+    H.judgeOutcome("synthesis", "synthesizer-gate", { out: null, err: "boom" }),
     { needRetry: true },
   );
   // A null return (skipped agent) is a failure too — never a usable judge verdict.
-  assert.deepEqual(H.judgeOutcome("synthesis", "architect-reviewer", { out: null }), { needRetry: true });
+  assert.deepEqual(H.judgeOutcome("synthesis", "synthesizer-gate", { out: null }), { needRetry: true });
 });
 
 test("judgeOutcome: retry success is force-tagged same-model", () => {
@@ -452,7 +452,7 @@ test("judgeOutcome: retry success is force-tagged same-model", () => {
 
 test("judgeOutcome: two failures throw — never a silent partial PASS", () => {
   assert.throws(
-    () => H.judgeOutcome("synthesis", "architect-reviewer", { out: null, err: "a" }, { out: null, err: "b" }),
+    () => H.judgeOutcome("synthesis", "synthesizer-gate", { out: null, err: "a" }, { out: null, err: "b" }),
     /failed twice.*Never a silent partial PASS/s,
   );
 });

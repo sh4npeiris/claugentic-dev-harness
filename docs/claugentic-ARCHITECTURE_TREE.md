@@ -49,9 +49,8 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 
 ## .claude/agents/ — specialist role library
 
-- `.claude/agents/plan-reviewer.md` — Stage-3 gate: adversarially critiques a draft plan (soundness, sizing, risk, YAGNI, architecture-&-holistic-fit, harness impact); edits only the plan's Review section. Structural safeguard (clean-context contract), `model: opus`, opens `RUNNING AS:`.
+- `.claude/agents/synthesizer-gate.md` — the GATE (integrate→verdict→loop) at three altitudes: plan-gate (Stage-3, EDITS the plan's Review section), verify-verdict (Stage-7, solo or synthesizes the panel), audit-synthesis (tiers audit findings); clean-context opus, opens `RUNNING AS:`; pinned in `engine/verify.js` + `engine/audit.js` (merge of plan-reviewer+architect-reviewer).
 - `.claude/agents/implementer.md` — Stage-6 builder (native implement): implements one approved, spec'd slice to standard in an isolated worktree; lands code + tests + docs, no debt; upholds the CLAUDE.md principles (points at them) + the in-scope standards.
-- `.claude/agents/architect-reviewer.md` — owns the Stage-7 Verify gate: audits the diff against in-scope standards modules (solo) or synthesizes lens-reviewer + yagni-sentinel (fan-out); read-only, `model: opus`, script runs pinned via `engine/verify.js`.
 - `.claude/agents/product-designer.md` — Stage-1 product/UX discovery (user-facing work): user, JTBD, flows, states, "what good feels like"; applies `product-ux`, persists to `docs/claugentic-PRODUCT.md`.
 - `.claude/agents/product-critic.md` — the elevate counterpart to product-designer: critiques a draft product spec by method (forcing functions + mandatory premise-challenge), returns adopt/adapt/reject/defer proposals; read-only.
 - `.claude/agents/lens-reviewer.md` — audits a diff (Verify) or audit-scope against ONE named standards module; per-lens in a fan-out; Audit-scope reads at the passed `depth` (`focused`/`deep`/`exhaustive`); read-only, returns per-dimension findings.
@@ -86,7 +85,7 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 
 ## engine/ — executable choreography (Workflow-tool scripts)
 
-- `engine/verify.js` — open to change the Stage-7 Verify panel: fans one lens-reviewer per in-scope module + yagni-sentinel + honesty-reviewer, dedups gaps, then architect-reviewer synthesis (`model: MODELS.judge`); three-state disclosure in code. `finalVerdict` forces CHANGES_REQUIRED on a NAMED-lens no-show (presence-check, not a diff-coverage gate); `validateArgs` fails loud if a test-diff omits `testing`. Helpers tested by `verify.test.mjs`.
+- `engine/verify.js` — open to change the Stage-7 Verify panel: fans one lens-reviewer per in-scope module + yagni-sentinel + honesty-reviewer, dedups gaps, then synthesizer-gate synthesis (`model: MODELS.judge`); three-state disclosure in code. `finalVerdict` forces CHANGES_REQUIRED on a NAMED-lens no-show (presence-check, not a diff-coverage gate); `validateArgs` fails loud if a test-diff omits `testing`. Helpers tested by `verify.test.mjs`.
 - `engine/audit.js` — audit pipeline (FIND→PRUNE→VERIFY): fans lens-reviewer over INTERLEAVED `(module×dir)` cells (round-robin → no lens starvation; deterministic resume), one finding-verifier per finding; returns `renderedBacklog` + per-lens `lensCoverage` (ran-clean vs never-ran). `thorough` adds blindspot (last) + yagni-sentinel; criteria + agent-free `renderOnly` (SELECT-subset re-render) are args modes. Three-state disclosure.
 
 - `engine/build-item.js` — open to change the build-to-green engine: iterates one approved item implement (implementer) → gates (`gatesGreen`, never fail-open) → Verify → QA → fix until green/cap. NEVER touches git (every terminal status returns to the orchestrator); spawns no judge.

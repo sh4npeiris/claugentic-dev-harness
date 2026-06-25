@@ -23,7 +23,7 @@ Stage-9 harvest); the item universe is the **`harness-audit:backlog` fence** tha
 it does not restate them.
 
 A **top-level agent (the orchestrator) runs this skill** — it spawns the pipeline
-subagents (`plan-reviewer`, `implementer`, `architect-reviewer`, the lenses, the
+subagents (`synthesizer-gate`, `implementer`, the lenses, the
 diverse panel), and subagents can't spawn subagents (the same constraint `audit` and `init`
 carry). Invoke it in plain English — *"build Tier-1 item 2"*, *"build the input-validation
 item"*, *"/claugentic-dev-harness:build the test-baseline item"*.
@@ -286,23 +286,23 @@ imply it does.)
 SELECT, or a prior session) may already carry a **plan file in `.claude/plans/`** — produced
 preemptively via the architect-pass (the finder-pipeline PLAN step). **If a pre-made plan exists,
 START FROM IT** — don't re-draft from scratch; **currency-check it** (re-confirm if landed work has
-since touched its named files, refreshing the affected sections). It is **`plan-reviewer`-gated
-reviewed groundwork, not a guarantee of quality** — the Review below still runs.
+since touched its named files, refreshing the affected sections). It is **`synthesizer-gate`-gated
+(plan altitude) reviewed groundwork, not a guarantee of quality** — the Review below still runs.
 
 **Else produce it architecture-first via Stage 2 — the architect-pass.** When the item has no
 pre-made plan, draft `.claude/plans/NNNN-<item>.md` via **Stage 2** (`docs/claugentic-WORKFLOW.md`
 → Stage 2): **2a** plan-mode draft **structured by `.claude/plans/TEMPLATE.md`** (incl. the
 **Architecture & holistic fit** section — the forcing function) → **2b** advisory panel **for
 substantial work only** (the Stage-0 substantial triggers; trivial plans skip the panel) → **2c**
-incorporate → the **Stage-3 `plan-reviewer` gate** below. Slice into ≤1-session units per the
+incorporate → the **Stage-3 `synthesizer-gate` gate** (plan altitude) below. Slice into ≤1-session units per the
 WORKFLOW *Principles*. Reference the architect-pass; don't restate it. Either way the plan precedes
 the item's slices (architecture-first per the plan-volume bound — at most one fresh plan at a time);
 **the deep per-slice Spec stays just-in-time in Step 4** (unchanged — selection settled *scope*; the
-per-slice Spec is the *step*-pruning gate, cheaper JIT). Then spawn **`claugentic-dev-harness:plan-reviewer`** to
+per-slice Spec is the *step*-pruning gate, cheaper JIT). Then spawn **`claugentic-dev-harness:synthesizer-gate`** (plan-gate altitude) to
 adversarially critique it, **escalating to the diverse panel per the WORKFLOW Principles
 trigger**: a contested design fork or a trust/honesty surface adds **`claugentic-dev-harness:yagni-sentinel`** +
 **`claugentic-dev-harness:honesty-reviewer`**; a user-facing change also adds **`claugentic-dev-harness:product-designer`**. **Spawn the
-judge roles — `claugentic-dev-harness:plan-reviewer` · `claugentic-dev-harness:honesty-reviewer`** — they run on the most capable available model (the `RUNNING AS:` self-report + structural clean-context independence live in
+judge roles — `claugentic-dev-harness:synthesizer-gate` · `claugentic-dev-harness:honesty-reviewer`** — they run on the most capable available model (the `RUNNING AS:` self-report + structural clean-context independence live in
 **`docs/claugentic-WORKFLOW.md` → Principles → the reviews-run-on-the-most-capable-model principle** — point there, don't restate).
 Iterate the plan until the review verdict is **PASS**.
 
@@ -342,10 +342,10 @@ re-slice it (and re-confirm the new shape) before continuing.
 ### 6. Verify *(Stage 7 — no pause unless it fails)*
 
 Dial the Verify depth per the **WORKFLOW's named triggers** (read them there — the Stage-0
-"substantial" triggers): a **solo `architect-reviewer`** is the small/local default; a named
+"substantial" triggers): a **solo `synthesizer-gate`** is the small/local default; a named
 trigger **fans out** the `lens-reviewer`s + `yagni-sentinel`, and a trust/honesty/user-facing
-surface convenes the **diverse panel** per the WORKFLOW Principles — `architect-reviewer`
-then synthesizes. **Spawn the judge roles — `claugentic-dev-harness:architect-reviewer` · `claugentic-dev-harness:honesty-reviewer` ·
+surface convenes the **diverse panel** per the WORKFLOW Principles — `synthesizer-gate`
+then synthesizes. **Spawn the judge roles — `claugentic-dev-harness:synthesizer-gate` · `claugentic-dev-harness:honesty-reviewer` ·
 `claugentic-dev-harness:finding-verifier`** — they run on the most capable available model (the `RUNNING AS:` self-report
 + structural clean-context independence live in **`docs/claugentic-WORKFLOW.md` → Principles → the
 reviews-run-on-the-most-capable-model principle** — point there, don't restate). Run the
@@ -397,7 +397,7 @@ never a blanket "verified/done":**
 - the **deterministic gates** that passed (tests, the architecture-tree check, version-sync,
   the project's lint/type/security gates), and
 - the **reviewer sign-offs** (the in-scope `docs/claugentic-standards/` dimensions the
-  `architect-reviewer` audited) — model-upheld judgment, **"passed the checks and the
+  `synthesizer-gate` audited) — model-upheld judgment, **"passed the checks and the
   reviewer's audit,"** never "proven correct."
 
 **Surface the flags — "things to review"** (the decision-gated close-out). List **every flag**

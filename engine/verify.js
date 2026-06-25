@@ -254,7 +254,7 @@ function dedupFindings(findings) {
 
 // Derive the panel roster from the validated args: one lens-reviewer per in-scope module,
 // the yagni-sentinel, the honesty-reviewer IFF this is a trust surface (judge-pinned), and
-// the architect-reviewer synthesis (judge-pinned). Logged up front and echoed in the result.
+// the synthesizer-gate synthesis (judge-pinned). Logged up front and echoed in the result.
 function panelRoster(args) {
   const roster = [];
   for (const modulePath of modulesFor(args.dimensions)) {
@@ -264,7 +264,7 @@ function panelRoster(args) {
   if (args.trustSurface) {
     roster.push({ role: "honesty", agentType: nsAgent("honesty-reviewer"), model: MODELS.judge });
   }
-  roster.push({ role: "synthesis", agentType: nsAgent("architect-reviewer"), model: MODELS.judge });
+  roster.push({ role: "synthesis", agentType: nsAgent("synthesizer-gate"), model: MODELS.judge });
   return roster;
 }
 
@@ -559,11 +559,11 @@ if (unrunGaps.length > 0) {
   );
 }
 
-// --- Synthesis phase: architect-reviewer over the deduped findings + yagni + honesty. ---
+// --- Synthesis phase: synthesizer-gate over the deduped findings + yagni + honesty. ---
 phase("Synthesis");
 const synthesisResult = await spawnJudge(
   "synthesis",
-  nsAgent("architect-reviewer"),
+  nsAgent("synthesizer-gate"),
   `Synthesizer mode. Consolidate the panel into one verdict. ` +
     `Open with RUNNING AS: <model family> and report it in reported_model_family. ` +
     `Deduped lens findings: ${JSON.stringify(dedupedFindings)}. ` +

@@ -29,9 +29,8 @@ const ENGINE_SCRIPTS = ["audit.js", "verify.js", "build-item.js", "qa.js"];
 // The full set of this plugin's CUSTOM bundled agents — the names that MUST be namespaced at
 // every spawn site. (Built-ins like `general-purpose` are deliberately NOT in this set.)
 const CUSTOM_AGENTS = [
-  "plan-reviewer",
+  "synthesizer-gate",
   "implementer",
-  "architect-reviewer",
   "product-designer",
   "product-critic",
   "lens-reviewer",

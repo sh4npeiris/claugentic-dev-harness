@@ -50,4 +50,4 @@ Return, in structured form:
 - **A dual-layer summary** — the technical verdict *plus* one plain-English line per real finding ("what this means / how bad / what could break").
 - **Lens verdict** — `CLEAN` or `GAPS`.
 
-The synthesizer (`architect-reviewer` in Verify; the orchestrator's audit synthesis in `/claugentic-dev-harness:audit`) consumes these — so keep the structure and the confidence labels intact for either consumer.
+The synthesizer (`synthesizer-gate` in Verify; the orchestrator's audit synthesis in `/claugentic-dev-harness:audit`) consumes these — so keep the structure and the confidence labels intact for either consumer.
