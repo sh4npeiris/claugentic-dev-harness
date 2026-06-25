@@ -315,6 +315,38 @@ to own — **format source of truth: `renderBacklogFence` in `engine/audit.js`**
 *prose-orchestrated fallback* only, you author the body by hand, following that same documented shape
 — see the renderer + its tests for the exact format.)
 
+### SELECT — the scope gate  *(before the fence write)*
+
+**Run the finder-pipeline SELECT step before writing the fence** — the user picks which findings to
+keep, so the backlog never bloats with work they never wanted. The contract is the single source:
+`docs/claugentic-WORKFLOW.md` → **The finder pipeline** (read the SELECT mechanics + the skip-vs-reject
+distinction there; don't restate them). The audit-specific wiring:
+
+1. **Read `<!-- harness-audit:rejected-findings -->` first** (the rejected-findings memory below — this
+   already happens) and **omit** any already-rejected candidate from what's presented.
+2. **Present the remaining `result.items` as an editable `- [ ]` checklist** — one line per candidate
+   in the rendered item form (titlePlain · tier · tag), a **transient conversational artifact** (never
+   written into the fence). Offer a **"keep all"** shortcut.
+3. **Write paths** *(the kept subset is what reaches the fence):*
+   - **Keep all** (or **the run found nothing** → no candidates) → write the engine's **original
+     `renderedBacklog`** directly; **no `renderOnly` needed.**
+   - **Keep a non-empty subset (≥1 dropped)** → **re-invoke the Workflow tool** with
+     `args.renderOnly = { ...result, items: <selected> }`; it re-renders the fence over the selected
+     subset while passing `lensCoverage`/`verification` through **full-scope** (the renderer stays the
+     single source). Write the returned `renderedBacklog`.
+   - **★ Keep NONE but the full run had Tier-1/2 findings** → **do NOT call `renderOnly`.** An empty
+     `items` re-render emits the engine's terminal "sound" signal — which would be a **false** claim
+     (you found things; the user just chose not to act on them now). Handle it **conversationally**
+     (*"found N this run — you kept none; re-run `/claugentic-dev-harness:audit` to see them again"*)
+     and **skip/clear** the backlog write.
+   - **Named precondition:** **`renderOnly` is never invoked with an empty `items` when the full run
+     carried Tier-1/2 findings** (the false-terminal-signal guard — this is the honesty payload of the
+     SELECT seam).
+
+A **skip** (left unchecked) is **per-run** and may resurface; **explicit rejection** ("this finding is
+*wrong*") appends to the rejected-findings memory below so it stays dropped — the WORKFLOW contract's
+skip-vs-reject distinction (never infer rejection from a non-tick).
+
 ### The backlog fence  *(load-bearing convention — mirrors the overview fence)*
 
 The backlog lives in `docs/claugentic-ROADMAP.md` between exact HTML-comment markers:

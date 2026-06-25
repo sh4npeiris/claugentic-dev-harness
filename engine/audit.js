@@ -1073,6 +1073,21 @@ function mergePriorItems(currentItems, priorItems) {
   }));
   return [...carried, ...current];
 }
+
+// renderOnly re-render: re-render the backlog fence from an ALREADY-SELECTED item subset while
+// passing lensCoverage/verification through full-scope (the SELECT seam — the SKILL filters items,
+// the renderer stays the single source of the fence format). Validates its own payload at the
+// boundary because the run-body branch that calls it returns BEFORE parseArgs/validateArgs.
+// The guard checks the envelope (object + items array), not per-element shape: items are always a
+// subset of the engine's OWN result.items (the SKILL ticks a transient display checklist, never
+// authors item objects), so a malformed element is unreachable on the real path — deeper
+// per-element validation would guard an impossible state (YAGNI).
+function renderOnlyResult(payload) {
+  if (payload == null || typeof payload !== "object" || !Array.isArray(payload.items)) {
+    throw new Error("renderOnly requires an object payload with an items array");
+  }
+  return { ...payload, renderedBacklog: renderBacklogFence(payload) };
+}
 // --- end helpers ---
 
 // Spawn a judge (finding-verifier) with the cross-model `model:` pin; one respawn without it on
@@ -1113,6 +1128,14 @@ async function spawnVerifier(input) {
 }
 
 // ── Top-level control flow (Workflow scripts run in an async context; no module wrapper). ──
+
+// renderOnly fast-path (the SELECT seam): an agent-free re-render of the backlog fence over an
+// ALREADY-SELECTED item subset. Returns BEFORE parseArgs/validateArgs, the FIND/PRUNE/VERIFY
+// pipeline, and the isGap branch — so it serves both audit and product gap-mode. renderOnlyResult
+// validates its own payload at the boundary (this branch bypasses validateArgs by design).
+if (args && args.renderOnly) {
+  return renderOnlyResult(args.renderOnly);
+}
 
 // Validate at the boundary — fail loud with the full error list.
 const input = parseArgs(args);

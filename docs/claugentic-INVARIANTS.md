@@ -53,3 +53,21 @@ the failure or near-miss that taught it).
   (plan 0023) — `main` was the start for the scrubbed set precisely so the claim could not
   return, and this is the durable form of that rule. Live gate: the honesty-reviewer over the
   diff (model-upheld; nothing mechanically enforces this).
+
+---
+
+## The SELECT re-render keeps coverage full-scope and never emits a false terminal signal
+
+- **Invariant —** the SELECT seam (`renderOnly` in `engine/audit.js`) passes `lensCoverage` /
+  `verification` through **full-scope** — never recomputed over the user's selected subset — and
+  `renderOnly` is **never invoked with an empty selection** when the full run carried Tier-1/2
+  findings (a keep-none result is handled conversationally + the fence write is skipped, never
+  re-rendered through the engine).
+- **Why —** recomputing coverage over the kept subset would falsely claim "every lens spoke" about
+  only the findings the user kept; an empty `renderOnly` re-render over a run that *did* find things
+  emits the engine's terminal "sound on the audited dimensions" signal — a lie when the run actually
+  surfaced work the user simply chose not to act on now. Both break the harness honesty rule.
+- **Provenance —** 2026-06-25 (plan 0025 S5): a focused plan-review found the prior "filter-before-
+  render, zero engine change" SELECT design was unreachable from a prose skill (un-exported renderer)
+  and its only literal implementation (string-dropping rendered blocks) was dishonest; the `renderOnly`
+  seam replaced it, and this is the honesty contract that seam exists to uphold.

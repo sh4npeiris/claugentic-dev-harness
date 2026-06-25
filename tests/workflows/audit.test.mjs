@@ -139,6 +139,7 @@ const H = loadHelpersFrom(SCRIPT_PATH, [
   "renderLensCoverage",
   "renderRunReport",
   "renderBacklogFence",
+  "renderOnlyResult",
 ]);
 
 /** Build a valid args object; override fields per-case. */
@@ -1148,6 +1149,74 @@ test("toResultItem: a tier-less finding defaults to Tier 2 — never silently dr
     verification: { verified: 0, unconfirmed: 0, deferred: 1, refuted: 0, crossModel: false, sameModelTag: H.SAME_MODEL_TAG },
   });
   assert.ok(fence.includes("t"), "the tier-defaulted item must appear in the rendered fence");
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// renderOnlyResult — the SELECT re-render seam (Slice 5): renders the SELECTED subset while
+// passing lensCoverage/verification through FULL-SCOPE (the honesty contract). Boundary-validated.
+// ─────────────────────────────────────────────────────────────────────────────
+test("renderOnlyResult re-renders the SELECTED subset: recommendation names the first selected Tier-1 item, the dropped Tier-2 reads _(empty)_", () => {
+  // The FULL audit found a Tier-1, a Tier-2, and a Tier-3; the user SELECTED only the Tier-1 + Tier-3.
+  const selected = [
+    makeItem({ tier: 1, titlePlain: "Fix the auth boundary", findingKey: "auth" }),
+    makeItem({ tier: 3, titlePlain: "Tidy a comment", findingKey: "comment" }),
+  ];
+  const out = H.renderOnlyResult({
+    status: "COMPLETE",
+    level: "standard",
+    doneCells: ["security×src", "testing×src"],
+    pendingCells: [],
+    items: selected,
+    // FULL-SCOPE coverage/run-report: computed over ALL findings, NOT the selected subset.
+    lensCoverage: [
+      { module: "security", state: "ran-found", findings: 3 },
+      { module: "testing", state: "pending", findings: 0 },
+    ],
+    verification: { verified: 3, unconfirmed: 0, deferred: 0, refuted: 1, crossModel: true },
+  });
+  const body = out.renderedBacklog;
+  // (a) recommendation names the first SELECTED Tier-1 item (not the dropped Tier-2)
+  assert.ok(body.includes("**Recommended starting point:** Fix the auth boundary."));
+  assert.ok(!body.includes(EXPECTED_TERMINAL_SIGNAL)); // a Tier-1 was kept — not the terminal signal
+  // (b) tiers reflect the SELECTED subset: Tier 1 + Tier 3 present, Tier 2 (dropped) reads _(empty)_
+  assert.ok(body.includes("Fix the auth boundary"));
+  assert.ok(body.includes("Tidy a comment"));
+  assert.ok(body.includes("### Tier 2 — important\n\n_(empty)_"));
+  // (c) THE CORE HONESTY ASSERTION: lens-coverage line + run-report reflect the PASSED-THROUGH
+  // full-scope values (3 findings for security, testing still pending; verified 3 · refuted 1) —
+  // NOT recomputed over the 2-item subset.
+  assert.ok(body.includes("`security`: 3 findings"));
+  assert.ok(body.includes("`testing`: did not run this pass — re-run to cover it"));
+  assert.ok(body.includes("dropped 1 that couldn't be confirmed"));
+  assert.ok(body.includes("verified 3 · unconfirmed 0 · deferred 0"));
+  // the payload passes through unchanged but for renderedBacklog
+  assert.equal(out.status, "COMPLETE");
+  assert.deepEqual(out.items, selected);
+});
+
+test("renderOnlyResult FAILS LOUD on a malformed payload (validate-at-the-boundary)", () => {
+  assert.throws(() => H.renderOnlyResult(null), /renderOnly requires an object payload with an items array/);
+  assert.throws(() => H.renderOnlyResult({}), /renderOnly requires an object payload with an items array/);
+  assert.throws(() => H.renderOnlyResult({ items: "x" }), /renderOnly requires an object payload with an items array/);
+});
+
+test("renderOnlyResult with an EMPTY selection renders _(empty)_ tiers + the engine TERMINAL_SIGNAL (the edge the SKILL precondition guards against)", () => {
+  // The engine's correct behavior for an empty item set IS the terminal signal — so the audit SKILL
+  // must NOT invoke renderOnly with an empty selection when the full run carried Tier-1/2 findings
+  // (that would falsely claim "sound"); this test documents the edge so the precondition is grounded.
+  const out = H.renderOnlyResult({
+    status: "COMPLETE",
+    level: "standard",
+    doneCells: ["security×src"],
+    pendingCells: [],
+    items: [],
+    lensCoverage: [{ module: "security", state: "ran-found", findings: 2 }],
+    verification: { verified: 2, unconfirmed: 0, deferred: 0, refuted: 0, crossModel: true },
+  });
+  const body = out.renderedBacklog;
+  assert.ok(body.includes("### Tier 1 — critical\n\n_(empty)_"));
+  assert.ok(body.includes("### Tier 2 — important\n\n_(empty)_"));
+  assert.ok(body.includes(EXPECTED_TERMINAL_SIGNAL)); // why the SKILL must guard the empty-selection call
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
