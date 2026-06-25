@@ -22,6 +22,19 @@ the failure or near-miss that taught it).
 
 ---
 
+## `eval/` source stays OUT of the tree gate's `INCLUDE_GLOBS`
+
+- **Invariant —** `eval/**` (`fixture-defects/app/*.py`, `fixture-app/*.py`) must never enter
+  `INCLUDE_GLOBS` (today `scripts/**/*.py` + `engine/**/*.js`). `glob_drift` short-circuits whenever
+  the globs already match ≥1 file (they do), so eval source is invisible to the gate by design.
+- **Why —** the eval is a measurement fixture, not shipped code: presence/staleness-checking the
+  seeded-defect files would force them into the index (leaking the answer key into a read-first doc)
+  and the zero-coverage drift census would fire on intentional fixtures. Both disarm the exam.
+- **Provenance —** carried as tree-entry rationale until 2026-06-24 (plan 0024 S1), then evicted here
+  as the durable "must hold" so the tree index stays a thin pointer.
+
+---
+
 ## The scrubbed-file set must never regain the de-correlation claim
 
 - **Invariant —** the SCRUBBED-FILE SET — `.claude/agents/{honesty,architect,plan}-reviewer.md`
