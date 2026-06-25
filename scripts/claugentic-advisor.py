@@ -14,6 +14,16 @@ the Definition-of-Done gate list. The `additionalContext` it injects is prefixed
 "Derived suggestion (confirm before acting):" so a SessionStart injection can never
 silently auto-drive a resume past `build`'s deliberate re-confirm gate (RETURN-6).
 
+AUDIENCE-SPLIT (anti-nudge, 0024 problem #5) — `additionalContext` (the AGENT-facing
+line) is injected ONLY for the in-flight-plan RESUME recommendation (a genuine
+next-action for committed work). The promotional nudges (open-backlog / PARTIAL-rerun
+/ no-product-spec — "work the user didn't ask for") are `systemMessage`-ONLY: the USER
+stays oriented, the AGENT is not nudged. RETURN-6 is intact — the disclaimer prefix is
+preserved wherever `additionalContext` IS emitted.
+
+OFF-SWITCH — `CLAUDE_HARNESS_ADVISOR=off` mutes the advisor entirely (`{}`), read at
+the `main()` env boundary (fail-safe to silent; the renderer stays pure). Unset = on.
+
 DERIVE-DON'T-STORE — it introduces NO new state store. It reads only:
   * the `harness-audit:backlog` / `harness-product:backlog` fences in
     `docs/claugentic-ROADMAP.md` (written by `audit` / `product` gap mode),
@@ -28,10 +38,11 @@ DERIVE-DON'T-STORE — it introduces NO new state store. It reads only:
     SOURCE repo has no such fence, so it is gracefully absent here (never a crash).
 
 OUTPUT CONTRACT (SessionStart):
-  * exit 0 ALWAYS; emit JSON `{ systemMessage, additionalContext }` on stdout.
-  * SILENT path — nothing actionable (fresh repo / no fences / no plans) — emits
-    NEITHER key (an empty-but-present key still costs tokens; the no-nag posture
-    means literally no surface). The silent path prints `{}`.
+  * exit 0 ALWAYS; emit JSON on stdout — `{ systemMessage }` for a nudge, both
+    `{ systemMessage, additionalContext }` for the resume branch (see AUDIENCE-SPLIT).
+  * SILENT path — nothing actionable (fresh repo / no fences / no plans), OR the
+    off-switch — emits NEITHER key (an empty-but-present key still costs tokens; the
+    no-nag posture means literally no surface). Both print `{}`.
   * SIZE-CAPPED — each of `systemMessage` / `additionalContext` is one tight line,
     capped at `MAX_LINE_CHARS` (this slice exists to fix context bloat; the
     advisor's own output is budgeted like any managed surface).
@@ -51,6 +62,7 @@ Modes:
 from __future__ import annotations
 
 import json
+import os
 import re
 import subprocess
 import sys
@@ -390,31 +402,57 @@ def _cap(line: str) -> str:
     return line[: MAX_LINE_CHARS - 1].rstrip() + "…"
 
 
-def build_output(state: AdvisorState) -> dict[str, str]:
-    """The SessionStart JSON payload (a plain dict).
+def build_output(state: AdvisorState, *, enabled: bool = True) -> dict[str, str]:
+    """The SessionStart JSON payload (a plain dict). PURE — no I/O, no env reads.
 
-    SILENT path: nothing actionable -> `{}` (NEITHER key). Otherwise both keys, each
-    capped to one tight line: `systemMessage` is the user-facing line; `additionalContext`
-    is the SAME line prefixed with the advisory disclaimer (RETURN-6) so it never reads
-    as an instruction the agent silently auto-drives.
+    OFF-SWITCH (dependency-inversion): when `enabled` is False the advisor is fully
+    muted -> `{}` (NEITHER key). `main()` is the env boundary that derives `enabled`
+    from `CLAUDE_HARNESS_ADVISOR`; the renderer stays pure (it never reads the
+    environment), so this stays trivially testable and fail-safe-to-silent. Default
+    True keeps existing behaviour unchanged when the env var is unset.
+
+    SILENT path: nothing actionable -> `{}` (NEITHER key).
+
+    AUDIENCE-SPLIT (0024 problem #5 — anti-nudge). `systemMessage` is the user-facing
+    orientation line and is emitted on EVERY actionable path so the USER stays
+    oriented. `additionalContext` (the AGENT-facing line, with the RETURN-6
+    `ADVISORY_PREFIX` disclaimer) is emitted ONLY for the in-flight-plan RESUME
+    recommendation — `recommend_next` priority 1, which fires iff `state.plans` is
+    truthy, the genuine next-action the agent should see when resuming committed work.
+    The three PROMOTIONAL nudges (priority 2 open-backlog / 3 PARTIAL-rerun / 4
+    no-product-spec) push "work the user didn't ask for", so they go systemMessage-ONLY
+    — the user stays oriented, the agent is NOT nudged. This does NOT regress RETURN-6:
+    the `ADVISORY_PREFIX` disclaimer is preserved wherever `additionalContext` IS
+    emitted (the resume branch).
     """
+    if not enabled:
+        return {}
     recommendation = recommend_next(state)
     if recommendation is None:
         return {}
-    system_message = _cap(recommendation)
-    additional_context = _cap(ADVISORY_PREFIX + recommendation)
-    return {"systemMessage": system_message, "additionalContext": additional_context}
+    output = {"systemMessage": _cap(recommendation)}
+    # Mirror priority-1 of recommend_next: resume == in-flight plans present. Only the
+    # agent-facing context for that genuine next-action carries the disclaimer prefix.
+    agent_relevant = bool(state.plans)
+    if agent_relevant:
+        output["additionalContext"] = _cap(ADVISORY_PREFIX + recommendation)
+    return output
 
 
 def main(argv: list[str]) -> int:
     """Always exit 0; emit the JSON payload on stdout. FAIL-SAFE outer boundary.
 
+    ENV BOUNDARY: this is where the off-switch is read (keeping `build_output` pure).
+    `CLAUDE_HARNESS_ADVISOR=off` (case-insensitive, trimmed) mutes the advisor ->
+    `{}`; any other value (or unset) leaves it enabled (no behaviour change).
+
     ANY error anywhere in derive/recommend/render collapses here to exit 0 with no
     output (a SessionStart hook must never block or slow a session). The silent path
     prints `{}` (valid JSON, no keys — costs the agent nothing).
     """
+    enabled = os.environ.get("CLAUDE_HARNESS_ADVISOR", "").strip().lower() != "off"
     try:
-        payload = build_output(derive_state())
+        payload = build_output(derive_state(), enabled=enabled)
     except Exception:  # noqa: BLE001 — fail-safe: a SessionStart hook must never crash a session
         return 0
     print(json.dumps(payload))

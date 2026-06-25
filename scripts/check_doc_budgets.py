@@ -48,6 +48,11 @@ DOC_BUDGETS = {
     "CLAUDE.md": {"max_bytes": 6000},
     "docs/claugentic-DECISIONS.md": {"max_bytes": 60000},
     "docs/claugentic-ROADMAP.md": {"max_bytes": 12000},
+    # INVARIANTS is an ACCRETING ledger (sibling to DECISIONS) whose only growth-
+    # bound is this gate — budgeted because it accretes, even though it is read
+    # ON-DEMAND (not auto-loaded). ~3.5 KB today; 20 KB is generous on-demand
+    # headroom. WARN@90% + breach@100% + condense-on-WARN apply for free.
+    "docs/claugentic-INVARIANTS.md": {"max_bytes": 20000},
 }
 
 # Emit a WARN (not a breach) once a ledger crosses this fraction of its budget —

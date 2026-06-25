@@ -19,6 +19,7 @@ Always: **validate at boundaries, trust internal code · make invalid states unr
 - **Record decisions.** Append a dated one-liner to `docs/claugentic-DECISIONS.md` for any non-trivial choice (consult it before re-litigating a past one). Out-of-scope ideas → `docs/claugentic-ROADMAP.md`, not into the current change.
 - **Durable repo context lives here.** This CLAUDE.md (an adopter's `harness:` block) is the home for hard-won, durable structural/domain context — the gotchas a fresh agent must read first and record as it learns them. Model-upheld, never authoritative; keep it dense.
 - **Releasing? Follow `docs/RELEASE_CHECKLIST.md`.** Anchor on the current `origin/main` (`git fetch` first) and run the `git range-diff` drop-check before any `@release` force-push. `build_release.py --apply` mechanically refuses a stale base (the BUILD); the force-push stays checklist-gated.
+- **Mute the SessionStart advisor** (`scripts/claugentic-advisor.py`) with `CLAUDE_HARNESS_ADVISOR=off` (any other value/unset = on). It emits agent-facing `additionalContext` only on the resume branch; the backlog nudges are user-facing `systemMessage` only.
 
 ## Development Workflow
 

@@ -187,6 +187,52 @@ class TestWarnBand:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# INVARIANTS ledger — parity coverage at BOTH bands (WARN >= 90%, breach >= 100%).
+# INVARIANTS is the accreting sibling to DECISIONS; its 20 KB budget earns the same
+# WARN/breach treatment as the other ledgers, so both bands are pinned for parity.
+# ─────────────────────────────────────────────────────────────────────────────
+@pytest.fixture
+def invariants(tmp_path, monkeypatch):
+    """Point DOC_BUDGETS at a single tmp INVARIANTS ledger with the real 20 KB cap.
+
+    Mirrors the `ledgers` fixture's hermetic style: the tmp file's absolute path IS
+    the DOC_BUDGETS key (so `_check_one`'s `Path(key)` resolves straight to it, no
+    path-string juggling). Returns a `write(n_bytes)` helper so a test materialises
+    the ledger at an exact size to land in the WARN band (>= 18,000) or the breach
+    band (>= 20,001) of the production 20,000 budget.
+    """
+    path = tmp_path / "claugentic-INVARIANTS.md"
+    monkeypatch.setattr(cdb, "DOC_BUDGETS", {str(path): {"max_bytes": 20000}})
+
+    def write(n_bytes: int) -> None:
+        path.write_bytes(b"x" * n_bytes)
+
+    return write
+
+
+class TestInvariantsBudget:
+    def test_invariants_warn_band_warns_not_breaches(self, invariants):
+        # 18,000 B is exactly 90% of the 20,000 budget — in the WARN band, within budget.
+        invariants(18000)
+        problems, warnings, summary = cdb.evaluate()
+        assert problems == []  # not a breach — exit 0
+        assert "OK:" in summary
+        blob = "\n".join(warnings)
+        assert "claugentic-INVARIANTS.md" in blob
+        assert "approaching budget" in blob
+
+    def test_invariants_breach_band_fails_exit_1(self, invariants, capsys):
+        # 20,001 B is a STRICT excess over the 20,000 budget — a breach (exit 1).
+        invariants(20001)
+        rc = cdb.main([])
+        assert rc == 1
+        out = capsys.readouterr().out
+        assert "claugentic-INVARIANTS.md" in out
+        assert "20001" in out  # measured
+        assert "compaction pass" in out  # the named remediation
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # main() — exit codes + stdout
 # ─────────────────────────────────────────────────────────────────────────────
 class TestMainDispatch:

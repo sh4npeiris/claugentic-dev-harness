@@ -95,8 +95,8 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 - `scripts/claugentic-check_architecture_tree.py` — open to change the tree gate: deterministic, checks presence + staleness + the `MAX_ENTRY_CHARS`=450 FORM budget (`_form_violations`) + glob drift; `--hook`/`--hook-write`/`--staged` modes; `INCLUDE_GLOBS` the one per-repo knob.
 - `scripts/check_versions_synced.py` — open to change the version-sync gate: `plugin.json` version is SoT; fails loud (exit 1) if `marketplace.json` disagrees or on broken input. DoD run-gate, not hook-wired; the two files parsed independently.
 - `scripts/build_release.py` — open to change the release builder: `classify()` splits tracked files ship-vs-strip (default-include); `--apply` rebuilds a local `release` branch (refuses a stale base via `_dropped_merges`), `--dry-run` prints the split.
-- `scripts/check_doc_budgets.py` — open to change the ledger byte-budget gate: flags a managed ledger over its `DOC_BUDGETS` cap (CLAUDE 6K · DECISIONS 60K · ROADMAP 12K) + a WARN at ≥90% (`WARN_RATIO`); independent fail-loud reads; exit 1 on breach. Not hook-wired.
-- `scripts/claugentic-advisor.py` — open to change the SessionStart advisor (not a gate): derives ONE "where am I / what's next" line from the ROADMAP fences + in-flight plans (+ adopter CLAUDE.md version); emits size-capped `{systemMessage, additionalContext}` JSON; fail-safe exit 0.
+- `scripts/check_doc_budgets.py` — open to change the ledger byte-budget gate: flags a managed ledger over its `DOC_BUDGETS` cap (CLAUDE 6K · DECISIONS 60K · ROADMAP 12K · INVARIANTS 20K) + a WARN at ≥90% (`WARN_RATIO`); independent fail-loud reads; exit 1 on breach. Not hook-wired.
+- `scripts/claugentic-advisor.py` — open to change the SessionStart advisor (not a gate): derives ONE "where am I / what's next" line; size-capped JSON, agent-facing `additionalContext` ONLY on the resume branch (nudges = `systemMessage` only); `CLAUDE_HARNESS_ADVISOR=off` mutes; fail-safe exit 0.
 
 ## tests/ — gate test suite
 

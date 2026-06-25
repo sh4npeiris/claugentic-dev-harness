@@ -13,6 +13,11 @@ tests lock the HARD invariants the slice exists to guarantee:
     absent managed fence) -> exit 0 with no crash.
   * The RETURN-2 (plan age) / RETURN-3 (PARTIAL re-run) / RETURN-6 (advisory
     prefix) audit-delta branches.
+  * AUDIENCE-SPLIT (0024 problem #5) — `additionalContext` (agent-facing, with the
+    RETURN-6 disclaimer) is emitted ONLY on the in-flight-plan RESUME branch; the
+    three promotional nudges are `systemMessage`-ONLY.
+  * OFF-SWITCH — `CLAUDE_HARNESS_ADVISOR=off` mutes the advisor to `{}` even with
+    actionable state present (fail-safe to silent; read at the `main()` boundary).
 
 Hermetic by construction: `tmp_path` materialises real roadmap/plan/CLAUDE.md
 files; the advisor's PATH CONSTANTS are monkeypatched to point at them, so no real
@@ -165,6 +170,10 @@ class TestRecommendationPriority:
         assert "0022-advisor" in payload["systemMessage"]
         assert "1 plan in flight" in payload["systemMessage"]
         assert "D1" in payload["systemMessage"]  # the Resumable from line surfaced
+        # AUDIENCE-SPLIT: the RESUME branch (priority 1) is the one agent-relevant
+        # next-action -> BOTH keys, additionalContext carrying the RETURN-6 disclaimer.
+        assert "additionalContext" in payload
+        assert payload["additionalContext"].startswith(adv.ADVISORY_PREFIX)
 
     def test_in_flight_outranks_open_backlog(self, repo):
         # An open audit backlog AND an in-flight plan: the plan wins (priority 1).
@@ -187,6 +196,9 @@ class TestRecommendationPriority:
         payload = adv.build_output(adv.derive_state())
         assert adv.BUILD_CMD in payload["systemMessage"]
         assert "backlog" in payload["systemMessage"].lower()
+        # AUDIENCE-SPLIT: a promotional nudge (priority 2) is systemMessage-ONLY —
+        # no additionalContext, so the agent isn't nudged toward unrequested work.
+        assert "additionalContext" not in payload
 
     def test_no_product_spec_recommends_product(self, repo):
         # Empty audit + a present product fence still carrying the no-spec sentinel.
@@ -195,6 +207,8 @@ class TestRecommendationPriority:
         payload = adv.build_output(adv.derive_state())
         assert adv.PRODUCT_CMD in payload["systemMessage"]
         assert "product spec" in payload["systemMessage"].lower()
+        # AUDIENCE-SPLIT: a promotional nudge (priority 4) is systemMessage-ONLY.
+        assert "additionalContext" not in payload
 
     def test_open_audit_outranks_no_product_spec(self, repo):
         repo.roadmap(AUDIT_OPEN + PRODUCT_NO_SPEC)
@@ -222,6 +236,8 @@ class TestPartialReRun:
         payload = adv.build_output(adv.derive_state())
         assert "partial" in payload["systemMessage"].lower()
         assert "re-run" in payload["systemMessage"].lower()
+        # AUDIENCE-SPLIT: a promotional nudge (priority 3) is systemMessage-ONLY.
+        assert "additionalContext" not in payload
 
     def test_partial_outranks_no_product_spec(self, repo):
         repo.roadmap(AUDIT_PARTIAL + PRODUCT_NO_SPEC)
@@ -265,16 +281,66 @@ class TestPlanAge:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# RETURN-6 — additionalContext carries the advisory prefix.
+# RETURN-6 — additionalContext carries the advisory prefix (on the RESUME branch,
+# the only path that now emits it per the AUDIENCE-SPLIT).
 # ─────────────────────────────────────────────────────────────────────────────
 class TestAdvisoryPrefix:
     def test_additional_context_is_prefixed(self, repo):
+        # The resume branch (in-flight plan) is the one path emitting additionalContext.
         repo.roadmap(AUDIT_EMPTY + PRODUCT_NO_SPEC)
-        repo.ensure_empty_plans_dir()
+        repo.plan("0022-advisor.md", PLAN_IN_FLIGHT)
         payload = adv.build_output(adv.derive_state())
         assert payload["additionalContext"].startswith(adv.ADVISORY_PREFIX)
         # The user-facing line carries NO disclaimer (it's a greeting, not an instruction).
         assert not payload["systemMessage"].startswith(adv.ADVISORY_PREFIX)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# OFF-SWITCH — CLAUDE_HARNESS_ADVISOR=off mutes the advisor to {} (fail-safe to
+# silent), read at the main() env boundary so build_output stays pure.
+# ─────────────────────────────────────────────────────────────────────────────
+class TestOffSwitch:
+    def test_off_switch_mutes_even_with_actionable_state(self, repo, monkeypatch, capsys):
+        # An in-flight plan IS actionable (would normally emit both keys) — but the
+        # off-switch mutes it to {} regardless.
+        repo.roadmap(AUDIT_OPEN)
+        repo.plan("0022-advisor.md", PLAN_IN_FLIGHT)
+        monkeypatch.setenv("CLAUDE_HARNESS_ADVISOR", "off")
+        rc = adv.main([])
+        assert rc == 0
+        assert json.loads(capsys.readouterr().out.strip()) == {}
+
+    def test_off_switch_is_case_and_whitespace_insensitive(self, repo, monkeypatch, capsys):
+        repo.roadmap(AUDIT_OPEN)
+        repo.plan("0022-advisor.md", PLAN_IN_FLIGHT)
+        monkeypatch.setenv("CLAUDE_HARNESS_ADVISOR", "  OFF  ")
+        rc = adv.main([])
+        assert rc == 0
+        assert json.loads(capsys.readouterr().out.strip()) == {}
+
+    def test_unset_env_leaves_advisor_enabled(self, repo, monkeypatch, capsys):
+        # No env var = on (no behaviour change for existing users).
+        repo.roadmap(AUDIT_OPEN)
+        repo.plan("0022-advisor.md", PLAN_IN_FLIGHT)
+        monkeypatch.delenv("CLAUDE_HARNESS_ADVISOR", raising=False)
+        rc = adv.main([])
+        assert rc == 0
+        assert "Resume work in progress" in json.loads(capsys.readouterr().out.strip())["systemMessage"]
+
+    def test_other_env_value_leaves_advisor_enabled(self, repo, monkeypatch, capsys):
+        # Any value other than "off" leaves it on (off-switch is opt-IN to silence).
+        repo.roadmap(AUDIT_OPEN)
+        repo.plan("0022-advisor.md", PLAN_IN_FLIGHT)
+        monkeypatch.setenv("CLAUDE_HARNESS_ADVISOR", "on")
+        rc = adv.main([])
+        assert rc == 0
+        assert "Resume work in progress" in json.loads(capsys.readouterr().out.strip())["systemMessage"]
+
+    def test_build_output_disabled_flag_returns_empty(self, repo):
+        # The pure renderer mutes directly on enabled=False — no env read in build_output.
+        repo.roadmap(AUDIT_OPEN)
+        repo.plan("0022-advisor.md", PLAN_IN_FLIGHT)
+        assert adv.build_output(adv.derive_state(), enabled=False) == {}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
