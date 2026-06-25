@@ -14,7 +14,8 @@
     "./.claude/agents/lens-reviewer.md",
     "./.claude/agents/yagni-sentinel.md",
     "./.claude/agents/finding-verifier.md",
-    "./.claude/agents/honesty-reviewer.md"
+    "./.claude/agents/honesty-reviewer.md",
+    "./.claude/agents/runtime-qa.md"
   ],
   "hooks": {
     "SessionStart": [

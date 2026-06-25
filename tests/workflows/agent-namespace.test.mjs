@@ -36,6 +36,7 @@ const CUSTOM_AGENTS = [
   "yagni-sentinel",
   "finding-verifier",
   "honesty-reviewer",
+  "runtime-qa",
 ];
 
 function readEngine(name) {
@@ -77,8 +78,9 @@ test("agent namespace: built-ins are NEVER namespaced (no nsAgent(\"general-purp
 });
 
 test('agent namespace: the general-purpose built-in stays BARE where it is spawned (qa.js, build-item.js)', () => {
-  // qa.js spawns general-purpose for boot/drive/teardown; build-item.js for the gates stage.
-  // These are built-ins — the bare double-quoted literal must remain.
+  // qa.js spawns general-purpose for the mechanical boot/teardown lifecycle (the DRIVE step is the
+  // namespaced runtime-qa specialist); build-item.js spawns it for the gates stage. These remaining
+  // uses are built-ins — the bare double-quoted literal must remain.
   for (const script of ["qa.js", "build-item.js"]) {
     const src = readEngine(script);
     assert.ok(

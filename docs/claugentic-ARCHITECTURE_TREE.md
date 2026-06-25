@@ -56,6 +56,7 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 - `.claude/agents/yagni-sentinel.md` — the anti-over-engineering skeptic: argues a plan/diff over-builds (speculative abstraction, premature infra, gold-plating); read-only, returns a cut-list. Also the audit's `thorough`-only prune.
 - `.claude/agents/finding-verifier.md` — the audit's refute counterpart: given ONE finding (claim + `file:line`, never the finder's rationale) tries to refute it → Verified/Refuted/Unconfirmed; per-finding after the prune; structural safeguard, read-only, `model: opus`.
 - `.claude/agents/honesty-reviewer.md` — the over-claim lens: refutes COPY not code (verb discipline · `[D]`/`[J]` integrity · `cross-model ≠ independent`); bar embedded in the prompt; on the diverse panel at Plan/Verify on trust surfaces; read-only, `model: opus`.
+- `.claude/agents/runtime-qa.md` — the runs-correct (≠ reads-correct) reviewer: drives the RUNNING app to verify ONE acceptance criterion (Playwright via ToolSearch / curl via Bash), pushes safety/negative paths, emits an intent-vs-behavior judgment through the existing report. READ-ONLY on source, NON-DESTRUCTIVE; spawned at the DRIVE step of `engine/qa.js`; attempts + tags, never fakes a pass.
 
 ## .claude/plans/ — plan template (active plans land here while in flight)
 
@@ -68,7 +69,7 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 
 ## .claude-plugin/ — plugin manifest (makes this repo installable)
 
-- `.claude-plugin/plugin.json` — open to change the manifest: name/version/metadata; exposes the 7 agents via the `agents` field → `.claude/agents/*` (DRY); skills under `skills/`; ships ONE bundled hook (the SessionStart advisor, `python3 || python` launcher).
+- `.claude-plugin/plugin.json` — open to change the manifest: name/version/metadata; exposes the 8 agents via the `agents` field → `.claude/agents/*` (DRY); skills under `skills/`; ships ONE bundled hook (the SessionStart advisor, `python3 || python` launcher).
 - `.claude-plugin/marketplace.json` — single-plugin marketplace (`name: sh4npeiris`) so `/plugin marketplace add sh4npeiris/claugentic-dev-harness` → `/plugin install claugentic-dev-harness@sh4npeiris` works.
 
 ## skills/ — harness entry points (the `/claugentic-dev-harness:*` family)
@@ -87,7 +88,7 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 - `engine/audit.js` — audit pipeline (FIND→PRUNE→VERIFY): fans lens-reviewer over INTERLEAVED `(module×dir)` cells (round-robin → no lens starvation; deterministic resume), one finding-verifier per finding; returns `renderedBacklog` + per-lens `lensCoverage` (ran-clean vs never-ran). `thorough` adds blindspot (last) + yagni-sentinel; criteria + agent-free `renderOnly` (SELECT-subset re-render) are args modes. Three-state disclosure.
 
 - `engine/build-item.js` — open to change the build-to-green engine: iterates one approved item implement (implementer) → gates (`gatesGreen`, never fail-open) → Verify → QA → fix until green/cap. NEVER touches git (every terminal status returns to the orchestrator); spawns no judge.
-- `engine/qa.js` — open to change runtime verification: boot + flow-driving (`boot-only` / `full`). A boot agent probes `appUrl` on a bounded `readinessPlan` (failed boot ⇒ a could-not-run finding); full mode drives one agent per criterion → findings re-checked by one finding-verifier. Three-state disclosure block.
+- `engine/qa.js` — open to change runtime verification: boot + flow-driving (`boot-only` / `full`). A boot agent probes `appUrl` on a bounded `readinessPlan` (failed boot ⇒ a could-not-run finding); full mode drives one `runtime-qa` agent per criterion (boot/teardown stay bare general-purpose) → findings re-checked by one finding-verifier. Three-state disclosure block.
 
 ## scripts/ — tooling
 

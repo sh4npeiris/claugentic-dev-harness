@@ -1023,18 +1023,21 @@ try {
     log(`qa boot READY after ${bootReport && bootReport.attempts != null ? bootReport.attempts : "?"} probe(s).`);
   }
 
-  // ── Flow-driving (full mode only, and only when the app booted): one driver agent per
-  // drivable criterion, run SEQUENTIALLY (criteria mutate app state — parallel drivers would
-  // interfere). Each driver's report folds to a pass|fail|not-checkable verdict; every fail
-  // becomes a lens-shaped UX finding. A boot failure already produced the could-not-run finding;
-  // we do NOT drive against a dead app (every e2e verdict would be a false fail). ──
+  // ── Flow-driving (full mode only, and only when the app booted): one runtime-qa driver agent
+  // per drivable criterion, run SEQUENTIALLY (criteria mutate app state — parallel drivers would
+  // interfere). The DRIVE step is the QA-judgment seam (runs-correct vs reads-correct, the
+  // safety/negative-path push, the intent-vs-behavior line) — so it spawns the `runtime-qa`
+  // specialist, NOT the bare general-purpose used for the mechanical boot/teardown lifecycle.
+  // Each driver's report folds to a pass|fail|not-checkable verdict; every fail becomes a
+  // lens-shaped UX finding. A boot failure already produced the could-not-run finding; we do NOT
+  // drive against a dead app (every e2e verdict would be a false fail). ──
   if (mode === "full" && ready) {
     phase("Drive");
     for (const criterion of drivable) {
       let report = null;
       try {
         report = await agent(driverPrompt(runConfig, criterion, runLabel, artifactDir), {
-          agentType: "general-purpose",
+          agentType: nsAgent("runtime-qa"),
           schema: DRIVER_SCHEMA,
           label: `qa:drive:${criterion.id}`,
           phase: "Drive",
