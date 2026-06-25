@@ -11,7 +11,7 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 - `.gitignore` — open when changing what's tracked: ignores local junk + build artifacts; shares `.claude/{agents,plans,settings.json}`, ignores only `.claude/settings.local.json`.
 - `.gitattributes` — line-ending normalization (`* text=auto eol=lf`, scripts forced LF) for a cross-platform plugin.
 - `LICENSE` — Apache-2.0 (public repo; © 2026 Shan Peiris).
-- `pyproject.toml` — pytest config (`testpaths=["tests"]` + `integration` marker); open when changing test discovery.
+- `pyproject.toml` — pytest config (`testpaths=["tests"]` + `integration` marker) + ruff config (`extend-exclude=["eval"]` keeps lint off the seeded-defect fixtures); open when changing test discovery or lint scope.
 
 ## .github/ — CI
 

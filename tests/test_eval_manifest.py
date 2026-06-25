@@ -32,8 +32,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-import pytest
-
 REPO_ROOT = Path(__file__).resolve().parent.parent
 FIXTURE_ROOT = REPO_ROOT / "eval" / "fixture-defects"
 APP_DIR = FIXTURE_ROOT / "app"
