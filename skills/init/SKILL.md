@@ -1,5 +1,5 @@
 ---
-description: Scaffold the claugentic-dev-harness into the current repo — upsert the managed harness set (standards catalog, workflow, playbook, tree-check) to the installed plugin version, generate docs/claugentic-ARCHITECTURE_TREE.md, set the tree-check globs, wire the hook, declares the plugin for teammates (seeds the harness's plugin self-reference into the committed .claude/settings.json so a cloned adopter repo prompts teammates to install it), git-init if needed, seed ROADMAP/DECISIONS, refresh the CLAUDE.md harness fence, and compose with existing lint/type-check/test tooling. Re-running converges the repo to the installed version and never clobbers user content; a true no-op only when already at the installed version.
+description: Scaffold the claugentic-dev-harness into the current repo — upsert the managed harness set (standards catalog, workflow, playbook, tree-check) to the installed plugin version, generate docs/claugentic-ARCHITECTURE_TREE.md, set the tree-check globs, wire the pre-commit hook, declares the plugin for teammates (seeds the harness's plugin self-reference into the committed .claude/settings.json so a cloned adopter repo prompts teammates to install it), git-init if needed, seed ROADMAP/DECISIONS, refresh the CLAUDE.md harness fence, and compose with existing lint/type-check/test tooling. Asks Shared (default — committed for the team) vs Solo / local-only (this clone alone via .git/info/exclude + .git/hooks/pre-commit + CLAUDE.local.md, leaving git status clean and the committed .gitignore untouched). Re-running converges the repo to the installed version and never clobbers user content; a true no-op only when already at the installed version.
 ---
 
 # /claugentic-dev-harness:init
@@ -89,6 +89,36 @@ Run these in order. Each is **detect → upsert-to-installed / refresh-in-fence 
   — note that the tree-check hook won't run until Python is installed, and that the agent
   can fall back to **`Glob`** to generate/maintain the tree. (Report + continue — a missing
   interpreter is not fatal to scaffolding.)
+- **Resolve the harness mode — Shared (default) or Solo / local-only.** This one choice
+  governs four later divergences (steps 3, 5b, 5c, 6); resolve it **here**, before step 3
+  writes any managed docs, so every diverging step reads a single settled value.
+  - **Read the recorded mode FIRST (re-run idempotency, mirrors step 4's tree-choice
+    contract).** Before any prompt, read the **`- Harness mode:` line** from the
+    detected-tooling block — the local CLAUDE source for it is `CLAUDE.local.md` in solo
+    mode, the `CLAUDE.md` detected-tooling block in shared mode (check both; either presence
+    settles it). **Exact line:** `- Harness mode: <shared | solo (local-only)>`, keyed on the
+    `Harness mode:` label. If present, **honor it and skip the prompt** (a re-`init` stays
+    consistent — a recorded `solo` keeps every solo divergence; a recorded `shared` is exactly
+    today's behavior).
+  - **No recorded mode → prompt once (AskUserQuestion):** *"Adopt the harness **Shared with
+    teammates** (the managed docs, tree gate, and plugin self-reference are committed so the
+    whole team gets them), or **Solo / local-only** (you dogfood it on this clone alone — `git
+    status` stays clean, your `.gitignore` is untouched, and a teammate's clone is unaffected)?"*
+    **Default — and the value on silence / a timeout / AskUserQuestion being unavailable — is
+    Shared** (no change for an existing adopter or the no-question path; the same
+    confirmation discipline as the step-4 Replace prompt — never diverge to the less-common
+    branch without an explicit choice).
+  - **Record the chosen/honored mode** so a re-run reads it: step 6 writes the `- Harness
+    mode:` line into the detected-tooling block (in `CLAUDE.local.md` for solo, in `CLAUDE.md`
+    for shared), append-if-line-absent on the `Harness mode:` label. Recording it is what makes
+    **make-invalid-states-unrepresentable** hold: a recorded `solo` short-circuits the shared
+    branches (step 5c never runs; the pre-commit hook never goes to `.githooks/`).
+  - **Shared mode = the steps exactly as written below (today's S4a behavior — unchanged).**
+    **Solo mode diverges in exactly four places, each flagged inline as a `> **Solo
+    divergence**` block — and nowhere else.** The solo invariant the divergences exist to
+    uphold: **solo writes ZERO new tracked paths, makes NO edit to the committed `.gitignore`,
+    and sets NO shared git config** — so `git status` stays clean and a teammate's clone is
+    byte-identical. Everything not flagged as a solo divergence is identical in both modes.
 
 ### 2. `git init` if absent
 
@@ -232,6 +262,21 @@ Rules:
   credentials) into the repo or surface their contents. This step copies *from the
   harness source*, so it touches none of those — but the same exclude discipline governs
   the tree generation in step 4.
+
+> **Solo divergence (a) — managed paths → `.git/info/exclude`, NEVER the committed
+> `.gitignore`.** In **solo mode**, every managed file `init` writes to disk (the managed
+> set above, plus the generated tree from step 4 and the copied tree script from step 5a) is
+> written **exactly as in shared mode** — but its path/path-pattern is then **appended to
+> `.git/info/exclude`** so `git status` shows it as ignored (nothing to commit). `.git/info/exclude`
+> is **per-clone and inherently untracked** (`.git/` is never tracked) — it does the same job as
+> `.gitignore` for *this* clone only, so a teammate's clone never sees these paths. **NEVER edit the
+> committed `.gitignore` in solo mode** (it is a tracked file — an edit disturbs teammates and
+> breaks the solo invariant). Append the patterns that cover what `init` actually wrote:
+> `docs/claugentic-*` (the managed docs + tree + DECISIONS/ROADMAP seeds), `docs/claugentic-standards/`,
+> `scripts/claugentic-check_architecture_tree.py`, and `CLAUDE.local.md` (step 6). **Append-if-absent**
+> (keyed on each pattern line — never duplicate a line on a re-run) so a re-`init` is a no-op on
+> `.git/info/exclude`. In **shared mode** none of this runs — managed paths commit normally and the
+> committed `.gitignore` is the only ignore surface (step 5c manages its negation).
 
 ### 4. Provision `docs/claugentic-ARCHITECTURE_TREE.md` (scenario-based) + decide the tree-gate
 
@@ -458,6 +503,35 @@ then stays model-upheld via the CLAUDE.md authority anchor.
   stop-if-ambiguous posture as the rest of `init` — never silently clobber the adopter's
   hook config.
 
+> **Solo divergence (b) — pre-commit hook → `.git/hooks/pre-commit`, NOT `.githooks/` +
+> `core.hooksPath`.** In **solo mode** with the gate **ON** (Fresh / Mature-no-tree /
+> Replace), write the **same wrapper** (run-logic byte-identical to the shared `.githooks/pre-commit`
+> above) to **`.git/hooks/pre-commit`** instead, and **make it executable** (`chmod +x`). That
+> path is **inherently local + untracked** (`.git/` is never tracked), so it places **no tracked
+> file** and needs **no shared git config** — therefore **do NOT run `git config core.hooksPath
+> .githooks`** and **do NOT create a tracked `.githooks/` directory** in solo mode (`.githooks/`
+> would be a tracked path — a solo-invariant violation). `core.hooksPath` stays at its git default,
+> so `.git/hooks/pre-commit` fires on every commit in this clone. **Never-clobber:** if
+> `core.hooksPath` is already set to a **non-default** value, `.git/hooks/` would **not** run — so
+> the hook wouldn't fire. Mirroring the shared branch, **REPORT the conflict** ("core.hooksPath is
+> set to `<value>`; in solo mode the tree gate's `.git/hooks/pre-commit` was written but won't fire
+> while hooksPath points elsewhere — unset it or chain the gate from your own hook") and
+> **continue** (write the wrapper to `.git/hooks/pre-commit` so it's on disk; leave their config
+> untouched — never silently clobber). **Idempotency:** "already wired" in solo = `.git/hooks/pre-commit`
+> exists with the wrapper body → skip (write nothing). **Gate OFF (Keep-mine-gate-off)** wires no
+> hook in solo mode either (same as shared). In **shared mode** the `.githooks/` + `core.hooksPath`
+> wiring above runs unchanged.
+
+> **Solo divergence (c) — SKIP step 5c entirely.** In **solo mode**, do **not** run any of
+> step 5c: no plugin self-reference into `.claude/settings.json`, **no `.gitignore`
+> negation** (`!.claude/settings.json`), and **no teammate prompt** on clone. Solo adoption is
+> deliberately **invisible to teammates** — declaring the plugin in the committed
+> `.claude/settings.json` (and editing the committed `.gitignore` to make it trackable) would
+> place a tracked path and a committed-`.gitignore` edit, the exact two things the solo
+> invariant forbids. So `init` writes **nothing** to `.claude/settings.json` and **nothing** to
+> `.gitignore` in solo mode. (The user installed the plugin on this clone themselves; nothing
+> needs to prompt them.) In **shared mode** step 5c runs exactly as written below.
+
 **(c) Plugin self-reference — declare the harness for teammates (team distribution).**
 The harness is a **plugin**: its agents, skills, and engine live in the plugin install,
 **not** in the adopter's repo. A teammate who clones the adopter repo gets the committed
@@ -504,6 +578,19 @@ gate is a git pre-commit hook). So `.claude/settings.json` is parsed and written
 the plugin-self-reference merge never-clobber.
 
 ### 6. Write the CLAUDE.md harness section (create / append-at-EOF / refresh-inside-fence)
+
+> **Solo divergence (d) — the harness anchor → `CLAUDE.local.md`, NOT the committed
+> `CLAUDE.md`.** In **solo mode**, write **everything this step writes** — the managed fence,
+> the seeded **Current scope** block, and the **detected-tooling block** (including the
+> recorded `- Harness mode: solo (local-only)`, `- Architecture tree:`, and `- Run the app:`
+> lines from steps 1/4/8) — into **`CLAUDE.local.md`** instead of `CLAUDE.md`. `CLAUDE.local.md`
+> is Claude Code's conventional **local** anchor (loaded as repo context like `CLAUDE.md`); **git
+> does NOT ignore it by default** — divergence (a) above appends it to `.git/info/exclude`, and
+> that is what keeps it untracked on this clone, so the committed `CLAUDE.md` is left
+> **byte-untouched** (a teammate's clone never sees the harness fence). **All three cases below
+> (absent / no-fence / refresh-in-fence) apply unchanged — just to `CLAUDE.local.md` as the
+> target file.** The `Harness mode:` line written here is what a re-`init` reads in step 1 to
+> stay in solo mode. In **shared mode** this step writes to `CLAUDE.md` exactly as below.
 
 Three cases — **never modify existing content outside the managed fence** (the
 Current-scope and detected-tooling blocks are *seeded* outside it on first run, but an
@@ -628,6 +715,15 @@ volatile content** so a re-write is byte-identical:
   `harness-skeleton (gate on)` outcome so the next re-run reads a value consistent with
   on-disk state. A settled re-run (on-disk matches the record) rewrites nothing — the block
   stays byte-identical.
+- **Record the harness mode (step 1's contract).** Write the recorded-mode line into this
+  same detected-tooling block: `- Harness mode: <shared | solo (local-only)>`, **keyed on the
+  `Harness mode:` label**, append-if-line-absent (it is not rewritten on a re-run — the mode is
+  a once-chosen adoption setting, like `Run the app:`, not a state that tracks on-disk drift).
+  Step 1 read this line **before** prompting, so the value written here reflects the
+  honored/chosen mode. **The block this line lives in is itself routed by the mode** (step 6's
+  solo divergence (d)): in **solo** mode the whole detected-tooling block — and this line — is
+  in **`CLAUDE.local.md`**; in **shared** mode it is in `CLAUDE.md`. This is what makes a
+  re-`init` read its own mode back and stay consistent.
 
 **(detect a competing way-of-work doc — non-destructive; never delete).** Adopting onto a
 repo that carries an *obvious* rival way-of-work / agent-instruction doc can mislead agents.
@@ -668,16 +764,19 @@ also **surfaces** the doc once so the user can decide whether to **harvest** les
 ### 9. Report
 
 **Open with a one-line readiness summary** — a plain-English "is the setup healthy?" line
-that **reuses the detections `init` already ran** (no new mechanism): the step-4 tree-gate
-decision, the step-1 Python interpreter, and the step-5c plugin self-reference. (NOT the
-scripted engine — its availability is a per-session, run-time condition the Workflow tool
-decides when a command runs; `init` cannot know it at setup time, so it is not reported here.)
-Each item reads `<on>` when healthy, or **`reduced — <what's missing>`** when
-degraded — e.g. *"Setup: tree-gate ON · Python found (`python3`) · plugin declared for
-teammates"*, or with a degraded item flagged, *"Setup: tree-gate ON · Python **reduced — none
-found; install Python 3 to enable the tree check** · plugin declared for teammates"*.
-(Tree-gate is `OFF` not "reduced" on the Keep-mine choice — that's a healthy chosen state,
-not a degradation.)
+that **reuses the detections `init` already ran** (no new mechanism): the step-1 harness
+mode, the step-4 tree-gate decision, the step-1 Python interpreter, and the step-5c plugin
+self-reference. (NOT the scripted engine — its availability is a per-session, run-time
+condition the Workflow tool decides when a command runs; `init` cannot know it at setup time,
+so it is not reported here.) Each item reads `<on>` when healthy, or **`reduced — <what's
+missing>`** when degraded — e.g. *"Setup: mode SHARED · tree-gate ON · Python found
+(`python3`) · plugin declared for teammates"*, or with a degraded item flagged, *"Setup: mode
+SHARED · tree-gate ON · Python **reduced — none found; install Python 3 to enable the tree
+check** · plugin declared for teammates"*. (Tree-gate is `OFF` not "reduced" on the Keep-mine
+choice — that's a healthy chosen state, not a degradation.) **In solo mode** the line reads
+*"Setup: mode SOLO (local-only) · tree-gate ON · Python found (`python3`)"* — and **omits the
+plugin-self-reference item** (step 5c is skipped in solo, so there is nothing to report);
+mode SOLO is a healthy chosen state, never "reduced."
 
 **Then lead with a plain-English headline** — before the grouped technical summary — so a
 non-engineer reads the reassurance first. **Branch the headline on the Refreshed group (and, when it's empty, on the Created group —
@@ -718,18 +817,46 @@ branched on step 4's outcome (each is honest about what was created/overwritten/
 Then tell the user the **setup is live** — honestly, so no restart is implied where none is
 needed (a skill **cannot** restart a session; don't pretend otherwise):
 - **When the tree-gate is ON:** the **tree gate runs at commit time** — a git **pre-commit
-  hook** (`core.hooksPath=.githooks`) checks the tree once per `git commit` (no restart, no
-  per-action overhead); a missing entry aborts that commit until you add it. **When the
-  tree-gate is OFF (Keep-mine-gate-off):** say so plainly — *no* tree hook was wired; run
-  `python scripts/claugentic-check_architecture_tree.py` manually only if you ever want a
-  one-off check (it would flag a non-backtick tree, which is why the gate is off).
+  hook** checks the tree once per `git commit` (no restart, no per-action overhead); a missing
+  entry aborts that commit until you add it. Name the **hook path per mode**: **shared** →
+  `.githooks/pre-commit` via `core.hooksPath=.githooks` (travels with the repo); **solo** →
+  `.git/hooks/pre-commit` (local to this clone, untracked — `core.hooksPath` left at its
+  default). **When the tree-gate is OFF (Keep-mine-gate-off):** say so plainly — *no* tree
+  hook was wired; run `python scripts/claugentic-check_architecture_tree.py` manually only if
+  you ever want a one-off check (it would flag a non-backtick tree, which is why the gate is
+  off).
 - **You (the agent) have adopted the harness workflow for the rest of this session** — you just
   scaffolded it and follow `docs/claugentic-WORKFLOW.md` from here, so work continues immediately.
 - **Suggest `/clear` or `/compact`** (quick — not a whole new chat) for the cleanest standing
-  setup: that's what loads the new `CLAUDE.md` as cached context (it's read once at session start
-  and a skill can't force a re-read). Recommend it before a big `audit` run (clean context);
-  optional otherwise; in place next session regardless. **Never tell the user they *must* "start
-  a fresh chat."**
+  setup: that's what loads the new `CLAUDE.md` (or **`CLAUDE.local.md`** in solo mode) as cached
+  context (it's read once at session start and a skill can't force a re-read). Recommend it
+  before a big `audit` run (clean context); optional otherwise; in place next session
+  regardless. **Never tell the user they *must* "start a fresh chat."**
+
+**The solo-mode honesty + verification block — emit ONLY in solo mode** (in shared mode this
+block is omitted entirely; nothing changes there):
+- **Solo honesty line:** *"I adopted the harness **solo / local-only** — everything I wrote
+  lives on this clone alone: the managed docs, code map, and the `CLAUDE.local.md` anchor are
+  kept untracked via `.git/info/exclude` (not your committed `.gitignore`, which I did **not**
+  touch — git does not ignore `CLAUDE.local.md` on its own), and the tree gate is
+  `.git/hooks/pre-commit` (local). **No
+  new tracked file, no committed-`.gitignore` edit, no shared git config — a teammate's clone
+  is byte-identical and unaffected.**"*
+- **Verification claim (state it as what you confirmed, honestly):** run `git status
+  --porcelain` and confirm it shows **zero new TRACKED paths** (solo-written paths show only as
+  ignored / not at all), and run `git diff -- .gitignore` and confirm it is **empty** (the
+  committed `.gitignore` is byte-unchanged). Report both: *"Verified: `git status` shows no new
+  tracked paths; `git diff -- .gitignore` is empty."*
+- **The `git check-ignore` guard — FAIL LOUD if a should-be-local path is not ignored.** For
+  **each** solo-written path (the managed docs/tree/tree-script patterns appended to
+  `.git/info/exclude`, and `CLAUDE.local.md`), run `git check-ignore <path>` and confirm it
+  reports the path as ignored. If **any** should-be-local path is **not** ignored (it would
+  therefore become a tracked change and leak to teammates), **do NOT paper over it** — report
+  it **loudly** as a solo-invariant breach naming the exact path, and tell the user the solo
+  guarantee does not hold for that path until it is excluded. (This is the same fail-loud,
+  never-swallow posture as the rest of `init`: a silent leak is the worst outcome, so surface
+  it.) When every path checks out, the verification claim above is honest; if not, the failure
+  line replaces the clean claim.
 
 Then the **next step, branched on whether the repo already has application
 source** — the *Application source present* predicate defined in
@@ -755,19 +882,25 @@ Then emit the clear summary, grouped:
   source (left byte-untouched, even if the stamp semver was older).
 - **Skipped (user file / unrecognized stamp)** — present files that are not genuine managed
   copies; left untouched, reported so the user can reconcile.
-- **Wired** — the tree-gate **pre-commit hook**: `.githooks/pre-commit` written +
-  `core.hooksPath=.githooks` set (gate ON), "pre-commit hook already wired" (idempotent
-  re-run), a `core.hooksPath` **conflict** flagged (gate ON but the adopter has their own
-  hooks path — see step 5b), or **"tree-gate OFF — no pre-commit hook wired"**
-  (Keep-mine-gate-off).
+- **Wired** — the tree-gate **pre-commit hook**, named **per mode**: **shared** →
+  `.githooks/pre-commit` written + `core.hooksPath=.githooks` set (gate ON); **solo** →
+  `.git/hooks/pre-commit` written (gate ON, local + untracked, no `core.hooksPath` change);
+  "pre-commit hook already wired" (idempotent re-run), a `core.hooksPath` **conflict** flagged
+  (the adopter has their own hooks path — see step 5b, both modes), or **"tree-gate OFF — no
+  pre-commit hook wired"** (Keep-mine-gate-off).
 - **Merged** — the `.claude/settings.json` plugin self-reference (`extraKnownMarketplaces` +
-  `enabledPlugins`), or "already declared" on a re-run.
+  `enabledPlugins`), or "already declared" on a re-run. **In solo mode this group is
+  omitted** — step 5c is skipped, so `.claude/settings.json` and the committed `.gitignore`
+  are untouched (report that explicitly under the solo honesty block above).
+- **Locally excluded (solo mode only)** — the solo-written paths appended to
+  `.git/info/exclude` (managed docs/tree/tree-script + `CLAUDE.local.md`), each confirmed
+  ignored via `git check-ignore` (per the guard above). Omitted in shared mode.
 - **Detected** — the ecosystem, the interpreter, the existing tooling, the recorded
-  architecture-tree choice (`Architecture tree:` line — gate on/off), and any **competing
-  way-of-work doc** found: name it, state the harvest outcome (**harvested → lessons promoted
-  into the harness, or left in place**), and confirm **it was NOT deleted** (nothing of the
-  user's is ever removed). When a harvest promoted something, list the ROADMAP/DECISIONS/
-  standards item it proposed.
+  **harness mode** (`Harness mode:` line — shared/solo) and **architecture-tree choice**
+  (`Architecture tree:` line — gate on/off), and any **competing way-of-work doc** found: name
+  it, state the harvest outcome (**harvested → lessons promoted into the harness, or left in
+  place**), and confirm **it was NOT deleted** (nothing of the user's is ever removed). When a
+  harvest promoted something, list the ROADMAP/DECISIONS/standards item it proposed.
 
 **On a repo already at the installed version, the whole run is a true no-op** that reports
 "already at the installed version — nothing to refresh." When managed content had drifted,
@@ -804,10 +937,18 @@ At a fixed installed version it holds because:
   suppresses re-wiring). The **`.claude/settings.json` plugin self-reference** merge is keyed
   on the `sh4npeiris` marketplace + `claugentic-dev-harness@sh4npeiris` plugin keys (both
   present → skip; never a duplicate).
-- The **CLAUDE.md** fence is refreshed inside the markers from a template with **no volatile
-  content**, so once it embeds the installed `{VERSION}` a re-run regenerates a
-  byte-identical inner block → no-op (everything outside the markers is preserved
-  byte-for-byte).
+- The **harness mode** is recorded (`Harness mode:` line) and **read before any prompt** (step
+  1), so a re-`init` honors it and never re-prompts. **In solo mode** every solo divergence is
+  itself idempotent: `.git/info/exclude` is append-if-absent (re-run adds nothing); the solo
+  pre-commit hook is "already wired" when `.git/hooks/pre-commit` exists (re-run writes
+  nothing); step 5c is skipped (so `.claude/settings.json` and the committed `.gitignore`
+  stay untouched on every run); and the `CLAUDE.local.md` fence is the byte-identical-inner-block
+  refresh below, just targeting `CLAUDE.local.md`. So a settled solo re-run is also a no-op —
+  `git status` stays clean (nothing was tracked to begin with).
+- The **CLAUDE.md** fence (or **`CLAUDE.local.md`** in solo mode) is refreshed inside the
+  markers from a template with **no volatile content**, so once it embeds the installed
+  `{VERSION}` a re-run regenerates a byte-identical inner block → no-op (everything outside the
+  markers is preserved byte-for-byte).
 
 **Acceptance of a 2nd run at the same installed version:** `git status` in the target shows
 **zero changes** and the report says everything was already current. If such a re-run
@@ -826,7 +967,14 @@ dirties the repo, an idempotency guard is missing — that is a bug, not expecte
   `claugentic-check_architecture_tree.py` `INCLUDE_GLOBS` knob, preserved per step 3); on a genuine
   drift the installed version wins (reported by path) and **git is the review/recovery
   net** for content you committed (an uncommitted edit isn't recoverable — see the roadmap).
-- It does **not** reconcile the `.githooks/pre-commit` wrapper **contents** if the shipped
-  wrapper changes between versions — idempotency keys only on the file's presence +
-  `core.hooksPath=.githooks` (out of scope; tracked on the roadmap).
+- It does **not** reconcile the pre-commit wrapper **contents** if the shipped wrapper
+  changes between versions — idempotency keys only on the hook's presence (+
+  `core.hooksPath=.githooks` in shared mode; the `.git/hooks/pre-commit` presence in solo
+  mode) (out of scope; tracked on the roadmap).
+- **In solo / local-only mode it does NOT** declare the plugin for teammates, edit your
+  committed `.gitignore`, or set any shared git config — solo adoption is invisible to
+  teammates by design (everything lives on this clone via `.git/info/exclude`,
+  `.git/hooks/pre-commit`, and `CLAUDE.local.md`). The trade-off: a teammate who clones gets
+  **none** of the harness (no managed docs, no tree gate, no plugin prompt) — switch to
+  **Shared** mode (re-`init`, choose Shared) when the team should adopt it too.
 - It does **not** audit your code or write a backlog — that is **`/claugentic-dev-harness:audit`**.
