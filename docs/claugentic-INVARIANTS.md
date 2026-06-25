@@ -71,3 +71,23 @@ the failure or near-miss that taught it).
   render, zero engine change" SELECT design was unreachable from a prose skill (un-exported renderer)
   and its only literal implementation (string-dropping rendered blocks) was dishonest; the `renderOnly`
   seam replaced it, and this is the honesty contract that seam exists to uphold.
+
+---
+
+## The release strips ⇒ init recreates ⇒ nothing shipped dangles
+
+- **Invariant —** whatever `scripts/build_release.py` strips that the workflow needs in ANY repo
+  (Class-B: DECISIONS/ROADMAP/ARCHITECTURE_TREE/INVARIANTS, the plan & product-spec templates,
+  PRODUCT*), `init` must (re)create or manage; and no SHIPPED file may reference a stripped-uncreated
+  file, nor run a harness-self gate (Class-A: version-sync, doc-budgets), without adopter-awareness
+  (a caveat / an N-A path).
+- **Why —** a release built by stripping the dev tree otherwise ships a harness that points an adopter
+  at a file that isn't there, or runs a gate that errors in their repo — the harness fails in the
+  adopter's context though every harness-self test was green.
+- **Provenance —** 2026-06-25 (plan 0027): two instances — (1) shipped WORKFLOW / build-SKILL said a
+  plan is "structured by `TEMPLATE.md`" while `.claude/plans/` (the template's home) is stripped
+  wholesale (a degraded dangling ref); and the stronger (2) `check_doc_budgets.py` shipped and — new at
+  0.3.0, after plan 0024 added the `INVARIANTS.md` budget row — **fail-louded on the lazily-created
+  `INVARIANTS.md`**, a hard error a fresh 0.3.0 adopter would hit. Live gate:
+  `tests/test_build_release.py::TestReleaseInitContract` (membership only) + the model-upheld
+  systematic grep — NOT mechanically content-enforced.
