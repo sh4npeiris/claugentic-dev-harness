@@ -96,6 +96,41 @@ class TestClassify:
         assert ship == sorted(ship)
 
 
+class TestReleaseInitContract:
+    """Pins the release/init contract (INVARIANT, plan 0027): whatever the release STRIPS
+    that's adopter-relevant, `init` must (re)create — and nothing shipped may reference a
+    stripped-uncreated file or run a harness-self gate without adopter-awareness.
+
+    SCOPE — HONEST: this pins ship/strip *set membership* only (the load-bearing facts the
+    S1/S2 fixes turned on). It does NOT prove "no shipped file's *text* references a stripped
+    path" — that is a heavier content-grep over the shipped tree, deliberately out of scope
+    here (a ROADMAP candidate; the S1/S2 manual grep + this membership pin are the contract).
+    Asserts via the pure `is_dev_only()` (no git), and is the single greppable home for the
+    contract — the broader membership is also covered by `TestClassify`
+    (`test_managed_docs_and_runtime_files_ship` pins PLAN_TEMPLATE ships;
+    `test_release_tool_and_self_gates_are_stripped` pins the three .py gates strip), not
+    re-litigated here.
+    """
+
+    def test_plan_template_ships_init_manages_it(self):
+        # S1 moved the plan template out of the stripped `.claude/plans/` into `/docs/` so it
+        # ships like any managed doc; init copies it into the adopter's tree.
+        assert br.is_dev_only("docs/claugentic-PLAN_TEMPLATE.md") is False
+
+    def test_harness_self_gates_strip(self):
+        # Harness-self tooling never reaches an adopter: doc-budgets (S2 strip), version-sync,
+        # and the release builder itself. doctor/WORKFLOW/implementer treat them adopter-aware.
+        assert br.is_dev_only("scripts/check_doc_budgets.py") is True
+        assert br.is_dev_only("scripts/check_versions_synced.py") is True
+        assert br.is_dev_only("scripts/build_release.py") is True
+
+    def test_harness_own_plans_strip_cleanly(self):
+        # The template move (S1) left `.claude/plans/` holding only the harness's OWN plans —
+        # all stripped via the dir-prefix rule. Adopters read the /docs/ template and write
+        # their own plans into their own `.claude/plans/`.
+        assert br.is_dev_only(".claude/plans/0027-release-init-consistency.md") is True
+
+
 class TestBaseAncestryGuard:
     """`_dropped_merges` is the mechanical defense against rebuilding the release from a
     stale base (the v0.1.40 distillation drop). These are pure/offline — `_git` is
