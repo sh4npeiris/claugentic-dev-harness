@@ -234,6 +234,8 @@ A **finite harvest checklist run at Land** (model-upheld discipline, not automat
 
 `​.claude/plans/NNNN-<slug>.md` (active, contains Plan + Review + Spec + slice checklist) — one plan per substantial change; the slices inside it are the per-session units. Numbering is sequential (`0001`, `0002`, …).
 
+**Commit the plan file at draft (Stage 2), not only at Land.** A plan left uncommitted-and-untracked is unrecoverable if the session crashes — and once `.claude/plans/` is emptied by a prior Land, git no longer tracks the dir, so an untracked new plan has no safety net. Commit each plan (and each slice) promptly; never leave a durable artifact uncommitted across a long gap. *(Provenance: 2026-06-25, plan 0028 — its draft was lost once exactly this way, then recreated and committed.)*
+
 **A plan completes — and is removed (git history keeps it) — once every remaining item has a disposition, gated *only* on the committed slice, never on deferred/rejected/blocked parts.** At close (or on demand), give each still-unchecked item one of three dispositions:
 
 - **done** — checked off (it landed).
