@@ -49,9 +49,10 @@ OUTPUT CONTRACT (SessionStart):
 
 FAIL-SAFE — ANY error (missing files, parse failure, non-repo, missing plans dir)
 collapses to exit 0 with no output. A SessionStart hook must NEVER block or slow a
-session (mirrors the tree gate's `--hook-write` returning 0 on git failure). The
-fail-safe is the OUTER boundary in `main()`; internal readers already degrade to
-"absent input" rather than raising, so a single bad input never blanks the rest.
+session (the same fail-soft posture as the pre-commit tree gate, whose wrapper lets a
+git failure pass rather than abort). The fail-safe is the OUTER boundary in `main()`;
+internal readers already degrade to "absent input" rather than raising, so a single
+bad input never blanks the rest.
 
 Modes:
     python scripts/claugentic-advisor.py    # the hook command AND the manual smoke run

@@ -92,7 +92,7 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 
 ## scripts/ — tooling
 
-- `scripts/claugentic-check_architecture_tree.py` — open to change the tree gate: deterministic, checks presence + staleness + the `MAX_ENTRY_CHARS`=450 FORM budget (`_form_violations`) + glob drift; `--hook`/`--hook-write`/`--staged` modes; `INCLUDE_GLOBS` the one per-repo knob.
+- `scripts/claugentic-check_architecture_tree.py` — open to change the tree gate: deterministic, checks presence + staleness + the `MAX_ENTRY_CHARS`=450 FORM budget (`_form_violations`) + glob drift; `--staged` (pre-commit scope) + default (manual/CI) modes; `INCLUDE_GLOBS` the one per-repo knob.
 - `scripts/check_versions_synced.py` — open to change the version-sync gate: `plugin.json` version is SoT; fails loud (exit 1) if `marketplace.json` disagrees or on broken input. DoD run-gate, not hook-wired; the two files parsed independently.
 - `scripts/build_release.py` — open to change the release builder: `classify()` splits tracked files ship-vs-strip (default-include); `--apply` rebuilds a local `release` branch (refuses a stale base via `_dropped_merges`), `--dry-run` prints the split.
 - `scripts/check_doc_budgets.py` — open to change the ledger byte-budget gate: flags a managed ledger over its `DOC_BUDGETS` cap (CLAUDE 6K · DECISIONS 60K · ROADMAP 12K · INVARIANTS 20K) + a WARN at ≥90% (`WARN_RATIO`); independent fail-loud reads; exit 1 on breach. Not hook-wired.
@@ -100,7 +100,7 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 
 ## tests/ — gate test suite
 
-- `tests/test_check_architecture_tree.py` — tests for the tree-check gate (presence, staleness incl. the `.ts/.tsx` regression, mode dispatch + exit codes, `--hook-write` stdin); hermetic via mocked `_git`. *(Out of `INCLUDE_GLOBS`.)*
+- `tests/test_check_architecture_tree.py` — tests for the tree-check gate (presence, staleness incl. the `.ts/.tsx` regression, `--staged` scope, mode dispatch + exit codes, CWD-independence); hermetic via mocked `_git`. *(Out of `INCLUDE_GLOBS`.)*
 - `tests/test_check_versions_synced.py` — tests for the version-sync gate (synced/drift/missing/garbled/missing-version/independent-read + main() exit codes); hermetic via tmp_path manifests. *(Out of `INCLUDE_GLOBS`.)*
 - `tests/test_check_doc_budgets.py` — tests for the ledger byte-budget gate (under/at/over budget, missing/unreadable, independent reads, main() exit codes); hermetic via tmp_path + monkeypatched `DOC_BUDGETS`. *(Out of `INCLUDE_GLOBS`.)*
 - `tests/test_build_release.py` — tests for the release builder: `TestClassify` pins the ship-vs-strip split, `TestBaseAncestryGuard` pins `_dropped_merges` (empty/two-SHAs/missing-ref); hermetic via monkeypatched `_git`. *(Out of `INCLUDE_GLOBS`.)*

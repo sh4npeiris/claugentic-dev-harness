@@ -349,15 +349,6 @@ class TestMainDispatch:
         assert rc == 0
         assert "OK:" in capsys.readouterr().out
 
-    def test_ok_hook_mode_exit_0_silent(self, repo, monkeypatch, capsys):
-        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], ["scripts/a.py"])
-        _touch(repo, "scripts/a.py")
-        _write_tree(repo, "# Tree\n- `scripts/a.py` — does a thing.\n")
-        rc = cat.main(["--hook"])
-        assert rc == 0
-        # Hook mode is silent on success (no nagging the agent on every Stop).
-        assert capsys.readouterr().out == ""
-
     def test_problem_default_mode_exit_1(self, repo, monkeypatch, capsys):
         _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], ["scripts/a.py"])
         _touch(repo, "scripts/a.py")
@@ -365,94 +356,6 @@ class TestMainDispatch:
         rc = cat.main([])
         assert rc == 1
         assert "MISSING an entry" in capsys.readouterr().out
-
-    def test_problem_hook_mode_exit_2_stderr(self, repo, monkeypatch, capsys):
-        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], ["scripts/a.py"])
-        _touch(repo, "scripts/a.py")
-        _write_tree(repo, "# Tree\n(undocumented)\n")
-        rc = cat.main(["--hook"])
-        assert rc == 2
-        captured = capsys.readouterr()
-        assert captured.out == ""
-        assert "MISSING an entry" in captured.err
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# main(--hook-write) — PostToolUse(Write) nudge via stdin
-# ─────────────────────────────────────────────────────────────────────────────
-class TestHookWrite:
-    def _feed_stdin(self, monkeypatch, payload: str) -> None:
-        import io
-
-        monkeypatch.setattr(cat.sys, "stdin", io.StringIO(payload))
-
-    def test_well_formed_new_undocumented_exit_2(self, repo, monkeypatch, capsys):
-        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], ["scripts/new.py"])
-        _write_tree(repo, "# Tree\n(empty)\n")
-        self._feed_stdin(
-            monkeypatch,
-            '{"tool_input": {"file_path": "/abs/repo/scripts/new.py"}}',
-        )
-        rc = cat.main(["--hook-write"])
-        assert rc == 2
-        assert "not in docs/claugentic-ARCHITECTURE_TREE.md" in capsys.readouterr().err
-
-    def test_malformed_stdin_returns_none_exit_0(self, repo, monkeypatch):
-        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], ["scripts/new.py"])
-        self._feed_stdin(monkeypatch, "{not valid json")
-        # Malformed payload → no path → silent no-op (never crash the agent's Write).
-        assert cat._written_path_from_stdin() is None
-        assert cat.main(["--hook-write"]) == 0
-
-    def test_already_indexed_exit_0(self, repo, monkeypatch):
-        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], ["scripts/seen.py"])
-        _write_tree(repo, "# Tree\n- `scripts/seen.py` — already documented.\n")
-        self._feed_stdin(
-            monkeypatch,
-            '{"tool_input": {"file_path": "/abs/repo/scripts/seen.py"}}',
-        )
-        assert cat.main(["--hook-write"]) == 0
-
-    def test_out_of_scope_file_exit_0(self, repo, monkeypatch):
-        # README.md is not in INCLUDE_GLOBS → not our concern → silent.
-        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], ["scripts/a.py"])
-        _write_tree(repo, "# Tree\n- `scripts/a.py` — x.\n")
-        self._feed_stdin(
-            monkeypatch,
-            '{"tool_input": {"file_path": "/abs/repo/README.md"}}',
-        )
-        assert cat.main(["--hook-write"]) == 0
-
-    def test_overwrite_of_indexed_file_exit_0(self, repo, monkeypatch):
-        # Overwriting an already-indexed in-scope file is fine — no nudge.
-        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], ["scripts/a.py"])
-        _write_tree(repo, "# Tree\n- `scripts/a.py` — already here.\n")
-        self._feed_stdin(
-            monkeypatch,
-            '{"tool_input": {"file_path": "scripts/a.py"}}',
-        )
-        assert cat.main(["--hook-write"]) == 0
-
-    def test_no_file_path_in_payload_exit_0(self, repo, monkeypatch):
-        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], ["scripts/a.py"])
-        self._feed_stdin(monkeypatch, '{"tool_input": {}}')
-        assert cat._written_path_from_stdin() is None
-        assert cat.main(["--hook-write"]) == 0
-
-    def test_root_file_nudged_despite_longer_path_in_tree(self, repo, monkeypatch, capsys):
-        """FAILS on pre-fix code (`rel in text` substring): writing an un-indexed root
-        `a.py` is wrongly read as already-documented because a longer `scripts/a.py`
-        entry contains the substring `a.py`. Whole backtick-token equality nudges it."""
-        _set_scope(monkeypatch, [":(glob)**/*.py"], ["a.py"])
-        # The tree documents scripts/a.py, NOT the freshly-written root a.py.
-        _write_tree(repo, "# Tree\n- `scripts/a.py` — a different, indexed file.\n")
-        self._feed_stdin(
-            monkeypatch,
-            '{"tool_input": {"file_path": "/abs/repo/a.py"}}',
-        )
-        rc = cat.main(["--hook-write"])
-        assert rc == 2
-        assert "not in docs/claugentic-ARCHITECTURE_TREE.md" in capsys.readouterr().err
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -532,34 +435,12 @@ class TestMainGitFailure:
         assert "ERROR:" in captured.out
         assert "OK:" not in captured.out
 
-    def test_hook_mode_git_failure_exit_2_error_on_stderr(self, repo, monkeypatch, capsys):
-        # Stop hook: blocking exit 2, error to stderr — the agent must know the gate
-        # could not run.
-        _stub_run(monkeypatch, returncode=128, stderr="fatal: not a git repository")
-        _write_tree(repo, "# Tree\n")
-        rc = cat.main(["--hook"])
-        assert rc == 2
-        captured = capsys.readouterr()
-        assert captured.out == ""
-        assert "ERROR:" in captured.err
-
-    def test_hook_mode_git_missing_exit_2(self, repo, monkeypatch, capsys):
+    def test_git_missing_exit_1(self, repo, monkeypatch, capsys):
+        # git not installed → loud ERROR + exit 1, never a false green.
         _stub_run(monkeypatch, raises=FileNotFoundError("git"))
         _write_tree(repo, "# Tree\n")
-        assert cat.main(["--hook"]) == 2
-        assert "git unavailable" in capsys.readouterr().err
-
-    def test_hook_write_git_failure_exit_0_not_blocked(self, repo, monkeypatch, capsys):
-        # PostToolUse(Write) nudge is advisory — a git failure must NOT block the write.
-        _stub_run(monkeypatch, returncode=128, stderr="fatal: not a git repository")
-        import io
-
-        monkeypatch.setattr(
-            cat.sys, "stdin", io.StringIO('{"tool_input": {"file_path": "scripts/new.py"}}')
-        )
-        assert cat.main(["--hook-write"]) == 0
-        # Silent: no nag on a gate it couldn't even run.
-        assert capsys.readouterr().err == ""
+        assert cat.main([]) == 1
+        assert "git unavailable" in capsys.readouterr().out
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -591,13 +472,6 @@ class TestGlobDrift:
         out = capsys.readouterr().out
         assert "src/app.ts" in out
         assert "INCLUDE_GLOBS" in out
-
-        # Hook: exit 2 (blocking) + message on stderr, silent stdout.
-        rc = cat.main(["--hook"])
-        assert rc == 2
-        captured = capsys.readouterr()
-        assert captured.out == ""
-        assert "watches no files" in captured.err
 
     def test_steady_state_in_scope_nonempty_no_drift_no_stamp_reads(
         self, repo, monkeypatch
@@ -741,58 +615,6 @@ class TestGlobDrift:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# main(--hook) — the `stop_hook_active` loop-breaker
-# ─────────────────────────────────────────────────────────────────────────────
-class TestStopHookLoopBreaker:
-    def _feed_stdin(self, monkeypatch, payload: str) -> None:
-        import io
-
-        monkeypatch.setattr(cat.sys, "stdin", io.StringIO(payload))
-
-    def test_stop_hook_active_exits_0_without_scanning(self, repo, monkeypatch, capsys):
-        """FAILS on pre-fix code (`--hook` ignored `stop_hook_active`): a re-entrant Stop
-        with a real, blocking problem (an undocumented in-scope file) used to re-block (exit
-        2) forever. The loop-breaker exits 0 on the re-entry — the first block already
-        reported — and never runs the scan (so the problem is NOT re-printed)."""
-        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], ["scripts/a.py"])
-        _touch(repo, "scripts/a.py")
-        _write_tree(repo, "# Tree\n(undocumented — would be a blocking problem)\n")
-        self._feed_stdin(monkeypatch, '{"stop_hook_active": true}')
-        rc = cat.main(["--hook"])
-        assert rc == 0
-        captured = capsys.readouterr()
-        assert captured.out == ""
-        assert captured.err == ""  # the re-block was broken; nothing re-printed
-
-    def test_stop_hook_inactive_still_blocks_on_problem(self, repo, monkeypatch, capsys):
-        """The flip side: a FIRST stop (stop_hook_active false/absent) with a real problem
-        still blocks (exit 2, stderr) — the loop-breaker must not swallow the first report."""
-        _set_scope(monkeypatch, [":(glob)scripts/**/*.py"], ["scripts/a.py"])
-        _touch(repo, "scripts/a.py")
-        _write_tree(repo, "# Tree\n(undocumented)\n")
-        self._feed_stdin(monkeypatch, '{"stop_hook_active": false}')
-        rc = cat.main(["--hook"])
-        assert rc == 2
-        assert "MISSING an entry" in capsys.readouterr().err
-
-    def test_empty_stdin_treated_as_not_active(self, repo, monkeypatch):
-        """Manual/CI run with no payload: empty stdin → not-active → the scan runs as before.
-        (Asserted directly on the helper; the full-scan path is covered above.)"""
-        self._feed_stdin(monkeypatch, "")
-        assert cat._stop_hook_active_from_stdin() is False
-
-    def test_non_json_stdin_treated_as_not_active(self, repo, monkeypatch):
-        """Malformed payload must NOT crash the hook — it degrades to not-active."""
-        self._feed_stdin(monkeypatch, "{not valid json")
-        assert cat._stop_hook_active_from_stdin() is False
-
-    def test_non_dict_json_treated_as_not_active(self, repo, monkeypatch):
-        """A well-formed but non-object JSON (e.g. a bare list) → not-active, no crash."""
-        self._feed_stdin(monkeypatch, "[1, 2, 3]")
-        assert cat._stop_hook_active_from_stdin() is False
-
-
-# ─────────────────────────────────────────────────────────────────────────────
 # _git — invocation flags (quotepath off + explicit UTF-8 decode)
 # ─────────────────────────────────────────────────────────────────────────────
 class TestGitInvocationFlags:
@@ -821,8 +643,8 @@ class TestGitInvocationFlags:
     def test_undecodable_git_output_raises_runtime_error(self, monkeypatch):
         """FAILS on pre-fix code: the strict UTF-8 decode raises UnicodeDecodeError — a
         ValueError, NOT FileNotFoundError — which escaped `_git`'s handlers and bypassed the
-        RuntimeError boundary every mode relies on (breaking the --hook-write "a git failure
-        must NOT block a file write" contract with a raw traceback). `_git` must convert it."""
+        RuntimeError boundary every caller relies on (surfacing a raw traceback instead of the
+        controlled exit-1 error). `_git` must convert it."""
 
         def fake_run(*_args, **_kwargs):
             raise UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte")
@@ -832,23 +654,6 @@ class TestGitInvocationFlags:
 
         with pytest.raises(RuntimeError, match="not valid UTF-8"):
             cat._git("ls-files")
-
-    def test_hook_write_undecodable_git_output_exit_0_not_blocked(self, monkeypatch, capsys, tmp_path):
-        """The --hook-write contract under the decode failure: a git failure (now including
-        undecodable output) must NOT block a file write — exit 0, no traceback."""
-        import io
-
-        def fake_run(*_args, **_kwargs):
-            raise UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte")
-
-        monkeypatch.chdir(tmp_path)
-        # Pin _repo_root so main()'s chdir doesn't call the (stubbed-to-raise) subprocess.run.
-        monkeypatch.setattr(cat, "_repo_root", lambda: tmp_path)
-        monkeypatch.setattr(cat, "_git", _REAL_GIT)
-        monkeypatch.setattr(cat.subprocess, "run", fake_run)
-        monkeypatch.setattr(cat.sys, "stdin", io.StringIO('{"tool_input": {"file_path": "scripts/a.py"}}'))
-
-        assert cat.main(["--hook-write"]) == 0
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -959,9 +764,7 @@ class TestCwdIndependence:
         the CWD. Build a valid scratch repo, point `_repo_root` at it, then chdir to a DIFFERENT
         directory — main() must still validate the scratch repo's tree (exit 0). Pre-fix (no
         `os.chdir`), the relative TREE_PATH resolved against the wrong CWD → `.exists()` False →
-        short-circuit to 'is missing' → exit 2."""
-        import io
-
+        short-circuit to 'is missing' → exit 1."""
         (tmp_path / "scripts").mkdir()
         (tmp_path / "scripts" / "a.py").write_text("x", encoding="utf-8")
         _write_tree(tmp_path, "# Tree\n- `scripts/a.py` — does a thing.\n")
@@ -972,9 +775,8 @@ class TestCwdIndependence:
         elsewhere = tmp_path.parent / f"{tmp_path.name}__elsewhere"
         elsewhere.mkdir()
         monkeypatch.chdir(elsewhere)  # CWD is NOT the (scratch) repo root
-        monkeypatch.setattr(cat.sys, "stdin", io.StringIO(""))
 
-        assert cat.main(["--hook"]) == 0
+        assert cat.main([]) == 0
 
     def test_no_absolute_path_leak_in_problem_message(self, repo, monkeypatch, capsys):
         """User-facing messages stay repo-relative — never leak an absolute root / drive letter.
@@ -1011,17 +813,15 @@ class TestCwdIndependence:
         assert (root / "scripts" / "claugentic-check_architecture_tree.py").exists()
 
     @pytest.mark.integration
-    def test_hook_cwd_independent_inside_unrelated_git_repo(self, tmp_path, monkeypatch):
+    def test_cwd_independent_inside_unrelated_git_repo(self, tmp_path, monkeypatch):
         """The silent-corruption case: CWD is inside a DIFFERENT git repo. Pre-fix, the gate's
         `git ls-files` scanned that wrong repo and reported nonsense with no error. Anchoring to
         `__file__` makes it scan ITS OWN (green) repo → exit 0."""
-        import io
         import subprocess as sp
 
         sp.run(["git", "init", "-q"], cwd=tmp_path, check=True)
         monkeypatch.chdir(tmp_path)
-        monkeypatch.setattr(cat.sys, "stdin", io.StringIO(""))
-        assert cat.main(["--hook"]) == 0
+        assert cat.main([]) == 0
 
     def test_repo_root_strips_hook_git_env_for_discovery(self, monkeypatch):
         """Regression (linked git worktree): a git hook runs with GIT_DIR/GIT_WORK_TREE/

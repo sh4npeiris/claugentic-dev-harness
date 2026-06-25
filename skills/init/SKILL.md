@@ -254,15 +254,15 @@ The three scenarios — **detect → tree action → `INCLUDE_GLOBS` → gate de
 - **Fresh** (no tree **and** *Application source present* = **false** — an empty / docs-only
   repo): run step 5a (→ `INCLUDE_GLOBS = []` per step 5a's "No application source yet" rule,
   or detected globs if any source exists) → create a **minimal** tree (a short intro + the
-  docs/ scaffolding lines it can see) → **gate ON** (step 5b wires `PostToolUse(Write)` nudge
-  **+** blocking `Stop`; the Write nudge fills the tree as files land). Report "created
+  docs/ scaffolding lines it can see) → **gate ON** (step 5b wires the **pre-commit hook**;
+  the commit gate enforces the tree as files land and get committed). Report "created
   (minimal — fills in as you add code)."
 
 - **Mature, no tree** (no tree **and** source present): run step 5a → derive the **real**
   globs → build the **cheap-complete skeleton** from those globs (below) → reconcile via the
-  step-4 gate loop (the gate is the oracle) → **gate ON** (step 5b wires nudge **+** blocking
-  `Stop` — the skeleton lists every path, so the gate reconciles green and the `Stop`
-  backstop never false-trips). `INCLUDE_GLOBS` = the detected real globs. Report "created
+  step-4 gate loop (the gate is the oracle) → **gate ON** (step 5b wires the **pre-commit
+  hook** — the skeleton lists every path, so the first commit's gate reconciles green and
+  never false-trips). `INCLUDE_GLOBS` = the detected real globs. Report "created
   (skeleton from `git ls-files` — every path listed, descriptions enrich over time)."
 
 - **Mature, with tree** (tree present, and no honored `keep-gate-off` record): **skip the
@@ -292,7 +292,8 @@ without per-file content reads** (the whole point: the *path list* is a millisec
      as 0% coverage. Never emit an ASCII directory diagram; emit backtick-prose lines.
   5. **Run the copied gate and reconcile to green** — the **gate is the oracle.** Missing
      entry → add it; stale entry → remove it; loop until green. The skeleton lists every
-     path, so it satisfies presence from day 1 → the blocking `Stop` never false-trips.
+     path, so it satisfies presence from day 1 → the first commit's pre-commit gate never
+     false-trips.
 
 **The mature-with-tree prompt (two options — non-destructive).** When `init` finds an
 existing `docs/claugentic-ARCHITECTURE_TREE.md` and there is no honored recorded choice, it **pauses and
@@ -301,7 +302,7 @@ prompts** (AskUserQuestion) with plain-English context — *"You have a
 mechanically enforce a fenced ASCII diagram. How do you want to proceed?"*:
   - **Replace with a harness skeleton** → behave as mature-no-tree (step 5a → real globs →
     build the skeleton → reconcile), **overwriting the existing tree** → **gate ON** (step 5b
-    wires nudge **+** blocking `Stop`). Record `harness-skeleton (gate on)`.
+    wires the **pre-commit hook**). Record `harness-skeleton (gate on)`.
     - **Replace = confirmed user-file overwrite (never-clobber guard).** The tree is a
       **user-owned** file (create-if-absent; step 4 has never overwritten one before).
       Replace proceeds **only** on the explicit AskUserQuestion confirmation — **never** on
@@ -310,7 +311,7 @@ mechanically enforce a fenced ASCII diagram. How do you want to proceed?"*:
       stop-if-ambiguous posture at `:27-28,156-158`). The Stage-9 report **honesty register**
       must name the overwrite explicitly (step 9).
   - **Keep mine, gate off** → leave the tree **untouched**; set `INCLUDE_GLOBS = []`; **gate
-    OFF** (step 5b wires **NEITHER** hook). Record `kept by adopter (gate off, your init
+    OFF** (step 5b wires **NO** pre-commit hook). Record `kept by adopter (gate off, your init
     choice)`. The `[]` is **adopter-owned**, protected by the existing INCLUDE_GLOBS
     carve-out (`:189-201`): a re-`init` on a `keep-gate-off` repo **MUST NOT re-derive
     globs** (or the gate silently turns back on — a regression against the locked choice).
@@ -395,47 +396,67 @@ gate silently turns back on against the locked choice). Set it (for the running 
   the real code.
 - Edit **only** the copied script (step 3 placed it). You only set this one constant.
 
-**(b) Wire the hook into `.claude/settings.json` — CONDITIONAL on step 4's gate decision
-(JSON-merge — the most dangerous write).**
+**(b) Wire the tree gate as a git `pre-commit` hook — CONDITIONAL on step 4's gate
+decision.**
 
-**The gate decision from step 4 governs the wiring — this is the rollout-unblocker fix:**
-the harness's two tree hooks are wired **only when the tree-gate is ON** (Fresh,
-Mature-no-tree, Replace). When the gate is **OFF** (Keep-mine-gate-off), **wire NEITHER
-hook** — the kept (non-backtick) tree must never be policed by a blocking gate that would
-false-flag it (the measured fenced-diagram 0%-coverage regression). Gate-off leaves `.claude/settings.json`
-free of both tree hooks; the tree stays model-upheld via the CLAUDE.md authority anchor.
+**The gate runs once per `git commit`, not per agent action.** The tree only has to be
+correct at the durable handoff (the commit → the next session/clone reads it), and the
+working agent is in-context at commit time to write a new file's description while it's
+fresh. So the gate is a **git pre-commit hook** — a *different* hook system from Claude
+Code's `.claude/settings.json` hooks: it is triggered **only by `git commit`** (by git,
+never by a tool use), so it adds **zero per-tool-use overhead**. (`init` writes **no**
+tree hooks into `.claude/settings.json` — the SessionStart advisor hook stays
+plugin-bundled in `plugin.json`, untouched by `init`.)
 
-- **Parse** `.claude/settings.json` as JSON. **Absent → treat as `{}`** (and create the
-  file). **Present but *malformed* (not valid JSON) → fail loudly: report it and skip the
-  merge — never overwrite or corrupt it.**
-- **Gate ON →** ensure the harness's **two hooks** exist, **appending into the existing
-  arrays** (create `hooks` / `PostToolUse` / `Stop` only if absent), **preserving every
-  existing user hook and key order**:
+**The gate decision from step 4 governs the wiring:** the pre-commit hook is wired
+**only when the tree-gate is ON** (Fresh, Mature-no-tree, Replace). When the gate is
+**OFF** (Keep-mine-gate-off), **wire NO pre-commit hook** and **do not set
+`core.hooksPath`** — the kept (non-backtick) tree must never be policed by a blocking gate
+that would false-flag it (the measured fenced-diagram 0%-coverage regression). The tree
+then stays model-upheld via the CLAUDE.md authority anchor.
 
-  | array | matcher | command |
-  |---|---|---|
-  | `hooks.PostToolUse` | `Write` | `python "${CLAUDE_PROJECT_DIR}/scripts/claugentic-check_architecture_tree.py" --hook-write` |
-  | `hooks.Stop` | *(none)* | `python "${CLAUDE_PROJECT_DIR}/scripts/claugentic-check_architecture_tree.py" --hook` |
-
-- **Gate OFF (Keep-mine-gate-off) →** wire **neither** hook. Do not add a `Stop` or
-  `PostToolUse(Write)` tree entry. (Any **pre-existing** harness tree hook from an earlier
-  `init` is **left in place** and flagged-and-recommended in the report — never silently
-  removed; settings churn is itself a never-clobber concern, and the recorded `gate off`
-  choice plus `INCLUDE_GLOBS = []` already neutralize a stale hook's false-flagging.)
-- Write the **`${CLAUDE_PROJECT_DIR}`-rooted** command (cwd-independent) — **never** a bare
-  relative path. **Write the literal string `${CLAUDE_PROJECT_DIR}` verbatim into the JSON — do
-  NOT resolve/substitute it to the adopter's absolute path; Claude Code expands it at
-  hook-invocation time, so a resolved absolute path would be non-portable and break on any
-  machine but this one.** Hook **cwd is not guaranteed** to be the repo root (a subdir launch, or the
-  home-dir cwd certain hook events run from, breaks a relative path), and Claude Code expands
-  `${CLAUDE_PROJECT_DIR}` to an absolute path itself before invoking the shell, so the rooted
-  form is Windows-safe regardless of shell. Use the **interpreter detected in step 1**
-  (`python` / `python3` / `py`) as the leading token.
-- **Idempotency key:** a hook whose `command` **contains `claugentic-check_architecture_tree.py`** is
-  "already present." When the gate is ON: if a `PostToolUse(Write)` entry and a `Stop` entry
-  both already match, **skip** (don't append a duplicate) and report "hook already present."
-  This makes a re-run a no-op on this file (skip-if-present, keyed on the substring —
-  dogfood-checked like the rest of idempotency, not a wired gate).
+- **Gate ON →** wire the pre-commit hook, init-managed (it then travels with the repo,
+  one config line per clone):
+  1. **Write `.githooks/pre-commit`** — the same wrapper logic this harness ships in its
+     own `.githooks/pre-commit`: it resolves the repo root via `git rev-parse
+     --show-toplevel` (worktree-safe), picks `python3 || python`, runs
+     `scripts/claugentic-check_architecture_tree.py --staged`, and **exit 1 aborts the
+     commit** (a git failure resolving the root lets the commit pass — a broken git must
+     never block a commit). Wrapper (run-logic identical to the shipped hook; the comment
+     header is adopter-appropriate — a fresh adopter has no per-action hooks to "replace"):
+     ```sh
+     #!/bin/sh
+     # claugentic-dev-harness — architecture-tree gate at COMMIT time. Checked once per
+     # `git commit`, locally, before the commit is written; a non-zero exit aborts it.
+     # `--staged` scopes it to what's being committed. A git failure must never block a
+     # commit, so resolve the root defensively and let a clean state pass.
+     root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
+     if command -v python3 >/dev/null 2>&1; then PY=python3; else PY=python; fi
+     out=$("$PY" "$root/scripts/claugentic-check_architecture_tree.py" --staged 2>&1)
+     [ $? -eq 0 ] && exit 0
+     printf '%s\n' "$out"
+     exit 1
+     ```
+     **Make it executable** — set the file's exec bit (`chmod +x .githooks/pre-commit`;
+     git tracks the bit so a clone inherits it). The wrapper itself prefers `python3` then
+     falls back to `python`, so the step-1 interpreter detection is not baked into the file.
+  2. **Run `git config core.hooksPath .githooks`** — points git at the tracked hook
+     directory so the hook fires on every commit in this clone.
+- **Gate OFF (Keep-mine-gate-off) →** wire **no** pre-commit hook: do **not** write
+  `.githooks/pre-commit` and do **not** set `core.hooksPath`. (Record the gate-off choice
+  via step 4's `Architecture tree:` line as before.)
+- **Idempotency — "already wired" = `.githooks/pre-commit` exists AND `core.hooksPath` is
+  `.githooks`.** When both hold, **skip** (write nothing, set nothing) and report
+  "pre-commit hook already wired" — a re-run is a no-op on this. Read `core.hooksPath` with
+  `git config --get core.hooksPath` before setting it.
+- **Never-clobber `core.hooksPath`.** If `core.hooksPath` is already set to **something
+  other than `.githooks`**, the adopter has their own hook directory — **do NOT overwrite
+  it.** Report the conflict (e.g. "core.hooksPath is set to `<value>`; the tree gate's
+  `.githooks/pre-commit` was written but not activated — point `core.hooksPath` at it or
+  chain it from your own hooks") and **continue** (write `.githooks/pre-commit` so the
+  wrapper is on disk, but leave their config untouched). This is the same fail-loud,
+  stop-if-ambiguous posture as the rest of `init` — never silently clobber the adopter's
+  hook config.
 
 **(c) Plugin self-reference — declare the harness for teammates (team distribution).**
 The harness is a **plugin**: its agents, skills, and engine live in the plugin install,
@@ -448,10 +469,13 @@ harness's publication identity is fixed: marketplace **`sh4npeiris`** = github
 **`sh4npeiris/claugentic-dev-harness`**, plugin **`claugentic-dev-harness`**.
 
 This action **runs regardless of the tree-gate decision** that step 4 set and step (b)
-acted on (gate ON → both hooks wired; gate OFF → neither) — it is independent of whether the
-architecture-tree hooks got wired (a Python-less, gate-off, or already-hooked repo still gets
-the plugin self-reference). It is **strictly never-clobber: merge, never replace** — every
-existing key, hook, permission, marketplace, and plugin entry is preserved.
+acted on (gate ON → pre-commit hook wired; gate OFF → none) — it is independent of whether
+the tree gate's pre-commit hook got wired (a Python-less, gate-off, or already-wired repo
+still gets the plugin self-reference). **Step (b) writes no tree hooks into
+`.claude/settings.json` at all** (the tree gate is now a git pre-commit hook), so this step
+is the **only** writer of `.claude/settings.json` — its single job here is the plugin
+self-reference. It is **strictly never-clobber: merge, never replace** — every existing
+key, hook, permission, marketplace, and plugin entry is preserved.
 
 1. **Make `.claude/settings.json` git-trackable.** Read the repo's `.gitignore`. If it
    ignores `.claude/` or `.claude/*` (so `settings.json` would not commit), **append a
@@ -462,8 +486,9 @@ existing key, hook, permission, marketplace, and plugin entry is preserved.
    or an existing `!.claude/settings.json` negation already present), **skip the gitignore
    edit** and report "settings.json already trackable." Append-if-line-absent, keyed on the
    `!.claude/settings.json` line — never duplicated.
-2. **Create-or-merge `.claude/settings.json`** (same parse-or-`{}` / fail-loud-on-malformed
-   rule as (b) — never overwrite or corrupt a present-but-malformed file). **Merge** these
+2. **Create-or-merge `.claude/settings.json`.** **Parse** it as JSON; **absent → treat as
+   `{}`** (and create the file); **present but *malformed* (not valid JSON) → fail loudly:
+   report it and skip the merge — never overwrite or corrupt it.** **Merge** these
    two entries, **preserving every existing key/hook/permission and every existing
    marketplace/plugin entry** (add, never overwrite a sibling entry):
    - into `extraKnownMarketplaces` (create the map only if absent):
@@ -474,9 +499,9 @@ existing key, hook, permission, marketplace, and plugin entry is preserved.
      marketplace key and the `claugentic-dev-harness@sh4npeiris` plugin key), **skip** and
      report "plugin self-reference already declared." A re-run is a no-op on this file.
 
-This is one logical write to `.claude/settings.json` shared with (b) — apply (b)'s hooks (if
-the tree gate wired them) and (c)'s plugin self-reference in the **same** create-or-merge so
-the file is parsed and written once, both merges never-clobber.
+This is the **only** write to `.claude/settings.json` — (b) no longer touches it (the tree
+gate is a git pre-commit hook). So `.claude/settings.json` is parsed and written once here,
+the plugin-self-reference merge never-clobber.
 
 ### 6. Write the CLAUDE.md harness section (create / append-at-EOF / refresh-inside-fence)
 
@@ -692,12 +717,12 @@ branched on step 4's outcome (each is honest about what was created/overwritten/
 
 Then tell the user the **setup is live** — honestly, so no restart is implied where none is
 needed (a skill **cannot** restart a session; don't pretend otherwise):
-- **When the tree-gate is ON:** the **architecture-tree hook is enforcing now** —
-  `.claude/settings.json` is hot-reloaded by Claude Code's file-watcher the moment `init`
-  writes it; the hook needs no restart. **When the tree-gate is OFF (Keep-mine-gate-off):**
-  say so plainly — *no* tree hook was wired; run `python scripts/claugentic-check_architecture_tree.py`
-  manually only if you ever want a one-off check (it would flag a non-backtick tree, which is
-  why the gate is off).
+- **When the tree-gate is ON:** the **tree gate runs at commit time** — a git **pre-commit
+  hook** (`core.hooksPath=.githooks`) checks the tree once per `git commit` (no restart, no
+  per-action overhead); a missing entry aborts that commit until you add it. **When the
+  tree-gate is OFF (Keep-mine-gate-off):** say so plainly — *no* tree hook was wired; run
+  `python scripts/claugentic-check_architecture_tree.py` manually only if you ever want a
+  one-off check (it would flag a non-backtick tree, which is why the gate is off).
 - **You (the agent) have adopted the harness workflow for the rest of this session** — you just
   scaffolded it and follow `docs/claugentic-WORKFLOW.md` from here, so work continues immediately.
 - **Suggest `/clear` or `/compact`** (quick — not a whole new chat) for the cleanest standing
@@ -730,8 +755,13 @@ Then emit the clear summary, grouped:
   source (left byte-untouched, even if the stamp semver was older).
 - **Skipped (user file / unrecognized stamp)** — present files that are not genuine managed
   copies; left untouched, reported so the user can reconcile.
-- **Merged** — the settings.json hook entries appended (gate ON), "already present", or
-  **"tree-gate OFF — no hooks wired"** (Keep-mine-gate-off); plus the plugin self-reference.
+- **Wired** — the tree-gate **pre-commit hook**: `.githooks/pre-commit` written +
+  `core.hooksPath=.githooks` set (gate ON), "pre-commit hook already wired" (idempotent
+  re-run), a `core.hooksPath` **conflict** flagged (gate ON but the adopter has their own
+  hooks path — see step 5b), or **"tree-gate OFF — no pre-commit hook wired"**
+  (Keep-mine-gate-off).
+- **Merged** — the `.claude/settings.json` plugin self-reference (`extraKnownMarketplaces` +
+  `enabledPlugins`), or "already declared" on a re-run.
 - **Detected** — the ecosystem, the interpreter, the existing tooling, the recorded
   architecture-tree choice (`Architecture tree:` line — gate on/off), and any **competing
   way-of-work doc** found: name it, state the harvest outcome (**harvested → lessons promoted
@@ -768,9 +798,12 @@ At a fixed installed version it holds because:
   already exists (create-if-absent → skipped). On-disk state wins (and the line is rewritten to
   match) only when it diverges (the user deleted the tree), which is not the byte-identical
   re-run case.
-- The **settings.json** merge is keyed on a `command` containing `claugentic-check_architecture_tree.py`
-  (present → skip; never a duplicate append). **Gate-off wires neither hook, so there is
-  nothing to append on a re-run** (the recorded `keep-gate-off` suppresses re-wiring).
+- The **pre-commit hook** is "already wired" when `.githooks/pre-commit` exists AND
+  `core.hooksPath` is `.githooks` → a re-run writes nothing and sets nothing. **Gate-off
+  wires no hook, so there is nothing to write on a re-run** (the recorded `keep-gate-off`
+  suppresses re-wiring). The **`.claude/settings.json` plugin self-reference** merge is keyed
+  on the `sh4npeiris` marketplace + `claugentic-dev-harness@sh4npeiris` plugin keys (both
+  present → skip; never a duplicate).
 - The **CLAUDE.md** fence is refreshed inside the markers from a template with **no volatile
   content**, so once it embeds the installed `{VERSION}` a re-run regenerates a
   byte-identical inner block → no-op (everything outside the markers is preserved
@@ -793,7 +826,7 @@ dirties the repo, an idempotency guard is missing — that is a bug, not expecte
   `claugentic-check_architecture_tree.py` `INCLUDE_GLOBS` knob, preserved per step 3); on a genuine
   drift the installed version wins (reported by path) and **git is the review/recovery
   net** for content you committed (an uncommitted edit isn't recoverable — see the roadmap).
-- It does **not** reconcile the `settings.json` hook **command string** if its format
-  changes between versions — the hook is keyed only on the `claugentic-check_architecture_tree.py`
-  substring (out of scope; tracked on the roadmap).
+- It does **not** reconcile the `.githooks/pre-commit` wrapper **contents** if the shipped
+  wrapper changes between versions — idempotency keys only on the file's presence +
+  `core.hooksPath=.githooks` (out of scope; tracked on the roadmap).
 - It does **not** audit your code or write a backlog — that is **`/claugentic-dev-harness:audit`**.
