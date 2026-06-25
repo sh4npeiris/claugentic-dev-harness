@@ -11,6 +11,8 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
+import pytest
+
 import build_release as br
 
 
@@ -158,3 +160,116 @@ class TestBaseAncestryGuard:
 
         monkeypatch.setattr(br, "_git", fake_git)
         assert br._dropped_merges(Path(".")) is None
+
+
+@pytest.mark.integration
+class TestApplyHookBypass:
+    """`_apply` commits the stripped release tree with `git commit --no-verify` (commit
+    dfd2fea) on purpose: the dogfooding pre-commit tree-gate fires on the release build
+    (it strips `docs/claugentic-ARCHITECTURE_TREE.md`, which the gate then reports
+    "missing"). This pins that bypass — `_apply` must SUCCEED through an always-failing
+    pre-commit hook — so a future edit that drops `--no-verify` can't silently re-break
+    `--apply` (it broke once at the v0.3.0 release; loud-only-at-release before this).
+
+    Hermetic: a throwaway repo under tmp_path, real git, real disk. The ambient git
+    environment is fully isolated (GIT_CONFIG_GLOBAL/SYSTEM → an empty file; gpgsign
+    pinned off) so pass/fail depends only on the code under test, never on this machine's
+    git config or user hooks. Does NOT re-test the base-ancestry refusal (already pinned
+    at `TestBaseAncestryGuard`) — it only SATISFIES that guard so `_apply` proceeds to the
+    commit.
+    """
+
+    # Tracked tree that `classify()` splits BOTH ways: the architecture tree is the
+    # stripped DEV_ONLY file the pre-commit gate reports "missing"; README.md ships.
+    STRIPPED_FILE = "docs/claugentic-ARCHITECTURE_TREE.md"
+    SHIPPED_FILE = "README.md"
+
+    @staticmethod
+    def _git(repo: Path, *args: str, hooks: bool = False) -> subprocess.CompletedProcess:
+        """A setup/inspection git call against `repo` with the ambient config pinned off.
+
+        `hooks=False` (default, for setup commits) disables hooks via an empty
+        `core.hooksPath` so the fixture's own commits never trip the armed hook. The
+        CONTROL commit passes `hooks=True` to let the repo's real hooksPath fire — that
+        is what proves the hook is genuinely armed (see `test_control_hook_is_armed`).
+        `_apply`'s own commits are NOT routed through here: they run via `build_release`'s
+        `_git` with the repo's real hooksPath, so only `--no-verify` can save them.
+        """
+        pin = ["-c", "commit.gpgsign=false"]
+        if not hooks:
+            pin += ["-c", "core.hooksPath="]
+        return subprocess.run(
+            ["git", *pin, "-C", str(repo), *args],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+
+    @pytest.fixture
+    def repo(self, tmp_path, monkeypatch):
+        """A real git repo with a HEAD, an always-fail pre-commit hook armed via
+        `core.hooksPath`, and `origin/main == HEAD` (satisfies the base-ancestry guard
+        with zero network). Points `build_release` at this repo (`_repo_root` + chdir)."""
+        empty_cfg = tmp_path / "empty-gitconfig"
+        empty_cfg.write_text("", encoding="utf-8")
+        monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(empty_cfg))
+        monkeypatch.setenv("GIT_CONFIG_SYSTEM", str(empty_cfg))
+
+        repo = tmp_path / "repo"
+        repo.mkdir()
+        self._git(repo, "init", "-q").check_returncode()
+        self._git(repo, "config", "user.email", "t@t.t").check_returncode()
+        self._git(repo, "config", "user.name", "t").check_returncode()
+
+        # A tree classify() splits both ways: a stripped DEV_ONLY file + a shipped file.
+        (repo / "docs").mkdir()
+        (repo / self.STRIPPED_FILE).write_text("# Tree\n- `README.md` — readme.\n", encoding="utf-8")
+        (repo / self.SHIPPED_FILE).write_text("# Project\n", encoding="utf-8")
+        self._git(repo, "add", "-A").check_returncode()
+        self._git(repo, "commit", "-qm", "initial").check_returncode()
+
+        # Always-fail pre-commit hook, armed via core.hooksPath. LF + explicit shebang for
+        # win32/Git-Bash portability (git runs hooks via bundled bash; no chmod needed).
+        hooksdir = tmp_path / "githooks"
+        hooksdir.mkdir()
+        hook = hooksdir / "pre-commit"
+        hook.write_bytes(b"#!/bin/sh\nexit 1\n")
+        self._git(repo, "config", "core.hooksPath", str(hooksdir)).check_returncode()
+
+        # Satisfy the base-ancestry guard (`_dropped_merges`) with zero network:
+        # origin/main == HEAD ⇒ rev-parse verifies and rev-list finds no dropped merges.
+        self._git(repo, "update-ref", "refs/remotes/origin/main", "HEAD").check_returncode()
+
+        # Point `_apply` entirely at this repo. `_repo_root` covers the `-C`-passing calls
+        # (status/rev-parse/worktree/commit); chdir covers `_tracked_files()`'s `ls-files`,
+        # the one git call `_apply` makes WITHOUT `-C` (cwd-dependent).
+        monkeypatch.setattr(br, "_repo_root", lambda: repo)
+        monkeypatch.chdir(repo)
+        return repo
+
+    def test_control_hook_is_armed(self, repo):
+        # Non-hollow guard: a PLAIN commit (hook ARMED, no --no-verify) MUST fail. If this
+        # ever passes, the hook is dead/misconfigured and the happy-path assertion below
+        # would be vacuous — _apply's success could no longer be attributed to --no-verify.
+        (repo / "control.txt").write_text("x\n", encoding="utf-8")
+        self._git(repo, "add", "-A", hooks=True).check_returncode()
+        result = self._git(repo, "commit", "-qm", "should be blocked", hooks=True)
+        assert result.returncode != 0, (
+            "pre-commit hook did not fire — the happy-path assertion would be hollow"
+        )
+
+    def test_apply_succeeds_through_failing_hook(self, repo):
+        # The release build commits the stripped tree with --no-verify, so the armed
+        # always-fail pre-commit hook does NOT block it.
+        assert br._apply() == 0
+
+        # The `release` branch was created.
+        rev = self._git(repo, "rev-parse", "--verify", "release")
+        assert rev.returncode == 0 and rev.stdout.strip(), "release branch was not created"
+
+        # The strip ran: the DEV_ONLY architecture tree is gone, the shipped file remains.
+        ls = self._git(repo, "ls-tree", "-r", "release", "--name-only")
+        ls.check_returncode()
+        tree = ls.stdout.splitlines()
+        assert self.STRIPPED_FILE not in tree, "stripped file leaked into the release tree"
+        assert self.SHIPPED_FILE in tree, "shipped file missing from the release tree"
