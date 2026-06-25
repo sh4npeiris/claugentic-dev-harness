@@ -90,6 +90,7 @@ const H = loadHelpersFrom(SCRIPT_PATH, [
   "applyCellBudget",
   "parseCellKey",
   "groupByModule",
+  "lensCoverage",
   "normalizeIssueClass",
   "findingKey",
   "dedupFindings",
@@ -135,6 +136,7 @@ const H = loadHelpersFrom(SCRIPT_PATH, [
   "renderItem",
   "renderTier",
   "renderRecommendation",
+  "renderLensCoverage",
   "renderRunReport",
   "renderBacklogFence",
 ]);
@@ -279,14 +281,27 @@ test("parseCellKey round-trips cellKey (split on first separator)", () => {
   assert.deepEqual(H.parseCellKey(H.cellKey("security", "src/api")), { module: "security", dir: "src/api" });
 });
 
-test("enumerateCells emits module×dir in (module, dir) order", () => {
+test("enumerateCells emits module×dir INTERLEAVED (round-robin across lenses, dirs inner)", () => {
+  // dir-major / module-inner: every lens's top dir BEFORE any lens's second dir (the anti-starvation
+  // fix) — m0×d0, m1×d0, m0×d1, m1×d1. A budget prefix now covers every lens broad-then-deep.
   const cells = H.enumerateCells(["security", "testing"], ["a", "b"], []);
-  assert.deepEqual(cells, ["security×a", "security×b", "testing×a", "testing×b"]);
+  assert.deepEqual(cells, ["security×a", "testing×a", "security×b", "testing×b"]);
 });
 
-test("enumerateCells excludes doneCells and never re-enumerates them", () => {
+test("enumerateCells: a sub-total budget prefix covers EVERY configured lens ≥1 cell (no starvation)", () => {
+  // The bug: a module-major order + slice(0,N) starved tail lenses to zero. Interleaved, the first
+  // `lenses` cells span every lens's top dir — so a prefix of length ≥ lens-count hears from all.
+  const modules = ["m0", "m1", "m2", "m3"];
+  const cells = H.enumerateCells(modules, ["d0", "d1", "d2"], [], "standard");
+  const { run } = H.applyCellBudget(cells, modules.length); // budget == lens count
+  const lensesHeard = new Set(run.map((c) => H.parseCellKey(c).module));
+  assert.deepEqual([...lensesHeard].sort(), modules.slice().sort());
+});
+
+test("enumerateCells excludes doneCells and never re-enumerates them (interleaved order)", () => {
   const cells = H.enumerateCells(["security", "testing"], ["a", "b"], ["security×a", "testing×b"]);
-  assert.deepEqual(cells, ["security×b", "testing×a"]);
+  // Remaining cells stay in the interleaved order: testing×a (dir a) before security×b (dir b).
+  assert.deepEqual(cells, ["testing×a", "security×b"]);
 });
 
 test("applyCellBudget splits run vs overflow at the cap", () => {
@@ -301,8 +316,10 @@ test("applyCellBudget with a cap >= cell count leaves no overflow", () => {
   assert.deepEqual(overflow, []);
 });
 
-test("groupByModule batches cells by module preserving order", () => {
-  const batches = H.groupByModule(["security×a", "security×b", "testing×a"]);
+test("groupByModule batches cells by module preserving first-seen order (interleaved input)", () => {
+  // An interleaved run-slice (dir-major) regroups into one batch per module — the FIND fan-out unit.
+  // First-seen module order (security, testing); each module's dirs collected in cell order.
+  const batches = H.groupByModule(["security×a", "testing×a", "security×b"]);
   assert.equal(batches.length, 2);
   assert.deepEqual(batches[0], { module: "security", dirs: ["a", "b"], cells: ["security×a", "security×b"] });
   assert.deepEqual(batches[1], { module: "testing", dirs: ["a"], cells: ["testing×a"] });
@@ -691,16 +708,16 @@ test("BLINDSPOT_CELL is the fixed whole-scope pseudo-cell token", () => {
   assert.equal(H.BLINDSPOT_CELL, "blindspot×(scope)");
 });
 
-test("enumerateCells appends BLINDSPOT_CELL only at thorough, last, after the module cells", () => {
+test("enumerateCells appends BLINDSPOT_CELL only at thorough, STRICTLY LAST after the interleaved cells", () => {
   const thorough = H.enumerateCells(["security", "testing"], ["a", "b"], [], "thorough");
   assert.deepEqual(thorough, [
     "security×a",
-    "security×b",
     "testing×a",
+    "security×b",
     "testing×b",
     "blindspot×(scope)",
   ]);
-  assert.equal(thorough[thorough.length - 1], H.BLINDSPOT_CELL); // strictly last
+  assert.equal(thorough[thorough.length - 1], H.BLINDSPOT_CELL); // strictly last — interleaving keeps the invariant
 });
 
 test("enumerateCells does NOT append BLINDSPOT_CELL at quick/standard or when dial is absent", () => {
@@ -720,6 +737,140 @@ test("applyCellBudget counts BLINDSPOT_CELL like any cell (a tight cap defers it
   const { run, overflow } = H.applyCellBudget(pending, 2);
   assert.deepEqual(run, ["security×a", "security×b"]);
   assert.deepEqual(overflow, [H.BLINDSPOT_CELL]);
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// RESUME-CONTRACT determinism — the load-bearing acceptance gate for the reorder.
+// doneCells is a SET the next run subtracts; the reorder is safe ONLY IF re-enumeration is
+// deterministic + stable. Enumerate the full list → take the first N as doneCells → re-enumerate
+// and subtract → the remainder must equal the original interleaved tail EXACTLY (same order), and
+// the blindspot pseudo-cell must still be strictly last.
+// ─────────────────────────────────────────────────────────────────────────────
+test("RESUME determinism: re-enumeration after N done cells equals the original interleaved tail EXACTLY", () => {
+  const modules = ["security", "testing", "performance", "reliability"];
+  const dirs = ["src/api", "src/web", "packages/core"];
+  const full = H.enumerateCells(modules, dirs, [], "thorough");
+  // The full list is interleaved (dir-major) with blindspot strictly last.
+  assert.equal(full[full.length - 1], H.BLINDSPOT_CELL);
+  for (let n = 0; n <= full.length; n += 1) {
+    const done = full.slice(0, n); // the first N cells "already ran"
+    const remainder = H.enumerateCells(modules, dirs, done, "thorough");
+    // Re-enumerating with the first N subtracted must reproduce the original tail, in order.
+    assert.deepEqual(
+      remainder,
+      full.slice(n),
+      `resume mismatch at N=${n}: remainder must be the original interleaved tail in order`,
+    );
+  }
+  // And the blindspot pseudo-cell stays strictly last on any non-empty remainder that still owes it.
+  const tail = H.enumerateCells(modules, dirs, full.slice(0, 2), "thorough");
+  assert.equal(tail[tail.length - 1], H.BLINDSPOT_CELL, "blindspot stays strictly last after resume");
+});
+
+test("RESUME determinism: enumeration is a pure function of input order (repeated calls are byte-identical)", () => {
+  const modules = ["a", "b", "c"];
+  const dirs = ["d0", "d1"];
+  const once = H.enumerateCells(modules, dirs, ["b×d0"], "standard");
+  const twice = H.enumerateCells(modules, dirs, ["b×d0"], "standard");
+  assert.deepEqual(once, twice); // no Set-iteration / sort nondeterminism
+  assert.deepEqual(once, ["a×d0", "c×d0", "a×d1", "b×d1", "c×d1"]); // pinned interleaved remainder
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// lensCoverage (prong #4) — "did every lens speak?": ran-found / ran-clean / pending,
+// distinguishing a lens that ran-and-found-nothing (explicit CLEAN) from one that NEVER RAN.
+// ─────────────────────────────────────────────────────────────────────────────
+test("lensCoverage: a lens with no pending cell and ≥1 finding is ran-found with its count", () => {
+  const cov = H.lensCoverage(
+    ["security"],
+    [],
+    [{ sourceModule: "docs/claugentic-standards/security.md" }, { sourceModule: "docs/claugentic-standards/security.md" }],
+  );
+  assert.deepEqual(cov, [{ module: "security", state: "ran-found", findings: 2 }]);
+});
+
+test("lensCoverage: a lens that ran with NO pending cell and zero findings is ran-clean (explicit CLEAN, not silence)", () => {
+  const cov = H.lensCoverage(["security", "testing"], [], [{ sourceModule: "docs/claugentic-standards/security.md" }]);
+  assert.deepEqual(cov, [
+    { module: "security", state: "ran-found", findings: 1 },
+    { module: "testing", state: "ran-clean", findings: 0 }, // ran, found nothing — NOT never-ran
+  ]);
+});
+
+test("lensCoverage: a lens with ANY pending cell is NEVER-RAN (pending), never reported clean", () => {
+  // testing×src is still pending (budget-deferred / failed batch) → testing did not fully run.
+  const cov = H.lensCoverage(["security", "testing"], ["testing×src"], [
+    { sourceModule: "docs/claugentic-standards/security.md" },
+  ]);
+  assert.deepEqual(cov, [
+    { module: "security", state: "ran-found", findings: 1 },
+    { module: "testing", state: "pending", findings: 0 }, // a pending cell ⇒ pending, never ran-clean
+  ]);
+});
+
+test("lensCoverage: a partially-run lens (one dir found, another dir pending) is pending WITH its count", () => {
+  const cov = H.lensCoverage(["security"], ["security×src/web"], [
+    { sourceModule: "docs/claugentic-standards/security.md" },
+  ]);
+  // It surfaced 1 finding from the dir that ran, but a dir is still pending — honestly "pending (1 so far)".
+  assert.deepEqual(cov, [{ module: "security", state: "pending", findings: 1 }]);
+});
+
+test("lensCoverage: ordering follows the configured-module order", () => {
+  const cov = H.lensCoverage(["reliability", "security", "testing"], [], []);
+  assert.deepEqual(cov.map((l) => l.module), ["reliability", "security", "testing"]);
+  assert.ok(cov.every((l) => l.state === "ran-clean")); // none pending, none found → all clean
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// renderLensCoverage — the fence's per-lens "did every lens speak?" report
+// ─────────────────────────────────────────────────────────────────────────────
+test("renderLensCoverage: ran-clean reads explicit CLEAN, never-ran reads 'did not run … re-run'", () => {
+  const out = H.renderLensCoverage([
+    { module: "security", state: "ran-found", findings: 3 },
+    { module: "testing", state: "ran-clean", findings: 0 },
+    { module: "performance", state: "pending", findings: 0 },
+  ]);
+  assert.ok(out.includes("did every lens speak?"));
+  assert.ok(out.includes("`security`: 3 findings"));
+  assert.ok(out.includes("`testing`: CLEAN (ran, found nothing)"));
+  assert.ok(out.includes("`performance`: did not run this pass — re-run to cover it"));
+});
+
+test("renderLensCoverage: a singular finding count is grammatical ('1 finding')", () => {
+  const out = H.renderLensCoverage([{ module: "security", state: "ran-found", findings: 1 }]);
+  assert.ok(out.includes("`security`: 1 finding"));
+  assert.ok(!out.includes("1 findings"));
+});
+
+test("renderLensCoverage: a partially-run lens surfaces its 'so far' count", () => {
+  const out = H.renderLensCoverage([{ module: "security", state: "pending", findings: 2 }]);
+  assert.ok(out.includes("did not finish this pass (2 so far) — re-run to cover it"));
+});
+
+test("renderLensCoverage: an absent/empty coverage renders NOTHING (no misleading empty header)", () => {
+  assert.equal(H.renderLensCoverage(undefined), "");
+  assert.equal(H.renderLensCoverage([]), "");
+});
+
+test("renderBacklogFence includes the lens-coverage report when lensCoverage is present, omits it when absent", () => {
+  const withCov = H.renderBacklogFence(
+    makeResult({
+      items: [makeItem()],
+      lensCoverage: [
+        { module: "security", state: "ran-found", findings: 1 },
+        { module: "testing", state: "ran-clean", findings: 0 },
+      ],
+    }),
+  );
+  assert.ok(withCov.includes("did every lens speak?"));
+  assert.ok(withCov.includes("`testing`: CLEAN (ran, found nothing)"));
+  // The report sits before the run-report and the go-button is still last.
+  assert.ok(withCov.indexOf("did every lens speak?") < withCov.indexOf("Re-checked every finding"));
+  assert.ok(withCov.trimEnd().endsWith(`*${EXPECTED_GO_BUTTON}*`));
+
+  const withoutCov = H.renderBacklogFence(makeResult({ items: [makeItem()] }));
+  assert.ok(!withoutCov.includes("did every lens speak?")); // gap mode / older results carry no lensCoverage
 });
 
 // ─────────────────────────────────────────────────────────────────────────────

@@ -309,15 +309,24 @@ function modulePath(moduleName) {
 // The exact cell-key token format the fence's done-cells / pending-cells lists carry — this is
 // the resume contract with the SKILL. `<module>x<dir>` (a literal multiplication sign).
 
-// Enumerate the pending cells: module x prioritized dir, in (module, dir) order, MINUS any cell
-// already in doneCells (never re-enumerated). At `thorough`, the whole-scope BLINDSPOT_CELL is
-// appended LAST (after the module cells) when not already done — so the sweep participates in the
-// cap, the done/pending lists, and resume exactly like any cell. Returns ordered cell keys.
+// Enumerate the pending cells INTERLEAVED — round-robin across lenses, priority dirs INNER
+// (dir-major): `m0×d0, m1×d0, …, mK×d0, m0×d1, m1×d1, …`. The loop nesting is dir OUTER, module
+// INNER — a pure function of input order (no Set-iteration / sort dependence), so re-enumeration is
+// deterministic and stable: the SAME (modules, scopeDirs, doneCells, dial) always yield the SAME
+// ordered remainder. That stability is the resume contract — doneCells is a SET the next run
+// subtracts, safe ONLY because the order is reproducible. The interleave is the lens-coverage fix:
+// a budget-limited prefix (applyCellBudget's slice(0,N)) now covers EVERY lens's TOP dir before any
+// lens's second dir (broad-then-deep), so when maxCellsPerRun ≥ lens count every configured lens
+// gets ≥1 cell — starvation is STRUCTURALLY impossible at a sane budget (no separate floor pass; the
+// ordering IS the floor). MINUS any cell already in doneCells (never re-enumerated). At `thorough`,
+// the whole-scope BLINDSPOT_CELL is appended STRICTLY LAST (after all real cells) when not already
+// done — so the sweep participates in the cap, the done/pending lists, and resume exactly like any
+// cell, and is the last cell deferred under a tight budget. Returns ordered cell keys.
 function enumerateCells(modules, scopeDirs, doneCells, dial) {
   const done = new Set(Array.isArray(doneCells) ? doneCells : []);
   const cells = [];
-  for (const moduleName of modules) {
-    for (const dir of scopeDirs) {
+  for (const dir of scopeDirs) {
+    for (const moduleName of modules) {
       const key = cellKey(moduleName, dir);
       if (!done.has(key)) {
         cells.push(key);
@@ -364,6 +373,39 @@ function groupByModule(runCells) {
     batch.cells.push(key);
   }
   return [...byModule.values()];
+}
+
+// Per-lens coverage — the structural answer to "did every configured lens speak?" (prong #4). For
+// each configured module (in config order) classify its state and finding count, distinguishing the
+// THREE honest outcomes a reader must tell apart before prioritizing:
+//   * ran-clean  — the lens RAN (none of its cells are pending) and found 0 findings (an explicit
+//                  CLEAN, not silence) → { state: "ran-clean", findings: 0 }
+//   * ran-found  — the lens ran and contributed N findings → { state: "ran-found", findings: N }
+//   * pending    — at least one of the lens's cells is still pending (budget-deferred or a failed
+//                  batch) so the lens NEVER fully ran → { state: "pending", findings: N } (N is
+//                  whatever its run cells did surface — never claimed clean while a cell is pending)
+// A lens is "pending" if ANY of its (module × dir) cells sits in pendingCells — the same ran-vs-unrun
+// honesty verify.js's coverageGaps enforces (never report a partial sweep as a clean lens). The
+// per-lens count is derived from the kept findings' sourceModule (the module doc path), so it counts
+// what actually reached the backlog after dedup/prune/verify — a CLEAN lens is one that ran and left
+// nothing, distinct from a never-run lens that left nothing because it never looked. Pure → unit-tested.
+function lensCoverage(modules, pendingCells, findings) {
+  const pending = new Set(Array.isArray(pendingCells) ? pendingCells : []);
+  const counts = new Map();
+  for (const finding of Array.isArray(findings) ? findings : []) {
+    const src = finding && finding.sourceModule != null ? finding.sourceModule : null;
+    if (src == null) {
+      continue;
+    }
+    counts.set(src, (counts.get(src) || 0) + 1);
+  }
+  return (Array.isArray(modules) ? modules : []).map((moduleName) => {
+    const path = modulePath(moduleName);
+    const findingCount = counts.get(path) || 0;
+    const hasPendingCell = [...pending].some((cell) => parseCellKey(cell).module === moduleName);
+    const state = hasPendingCell ? "pending" : findingCount > 0 ? "ran-found" : "ran-clean";
+    return { module: moduleName, state, findings: findingCount };
+  });
 }
 
 // Normalize an issue-class string: lowercase, trim, collapse internal whitespace to single
@@ -940,6 +982,32 @@ function renderRecommendation(tier1, tier2, status) {
   return `**Recommended starting point:** ${first.titlePlain}.`;
 }
 
+// The per-lens coverage line — the structural "did every lens speak?" report (prong #4). One line
+// per configured lens, in config order, stating its state + finding count: a lens that RAN and found
+// nothing reads "CLEAN" (an explicit 0, not silence); a lens that NEVER RAN (budget-deferred / failed
+// batch) reads "did not run this pass — re-run to cover it" so a reader can tell ran-clean from
+// never-ran before prioritizing. Renders nothing when no lensCoverage is present (gap mode / older
+// results) — never a misleading empty header. The verdict-phrase map is the single source of truth.
+const LENS_COVERAGE_PHRASE = {
+  "ran-found": (n) => `${n} finding${n === 1 ? "" : "s"}`,
+  "ran-clean": () => "CLEAN (ran, found nothing)",
+  pending: (n) =>
+    n > 0
+      ? `did not finish this pass (${n} so far) — re-run to cover it`
+      : "did not run this pass — re-run to cover it",
+};
+function renderLensCoverage(lensCoverage) {
+  const lenses = Array.isArray(lensCoverage) ? lensCoverage : [];
+  if (lenses.length === 0) {
+    return "";
+  }
+  const lines = lenses.map((l) => {
+    const phrase = (LENS_COVERAGE_PHRASE[l.state] || LENS_COVERAGE_PHRASE.pending)(l.findings || 0);
+    return `- \`${l.module}\`: ${phrase}`;
+  });
+  return `**Lens coverage** (did every lens speak?):\n${lines.join("\n")}`;
+}
+
 // The verification run-report line — driven by the result's verification block. Frames the dropped
 // findings as a trust signal (a COUNT, never a list). When crossModel is false the parenthetical
 // cross-model clause is REPLACED by the disclosure tag the summary computed — the THREE-state tag
@@ -964,13 +1032,15 @@ function renderRunReport(verification) {
 }
 
 // Build the COMPLETE inner fence body from the structured result. Order: status line, legend,
-// the three tiers (most-urgent-first), the recommended starting point, the run report, the
-// go-button. NO fence markers, NO heading (SKILL-owned). {{DATE}} stays a placeholder.
+// the three tiers (most-urgent-first), the recommended starting point, the per-lens coverage report
+// (did every lens speak? — omitted when absent), the run report, the go-button. NO fence markers,
+// NO heading (SKILL-owned). {{DATE}} stays a placeholder.
 function renderBacklogFence(result) {
   const items = Array.isArray(result.items) ? result.items : [];
   const tier1 = items.filter((it) => it.tier === 1);
   const tier2 = items.filter((it) => it.tier === 2);
   const tier3 = items.filter((it) => it.tier === 3);
+  const lensCoverageLine = renderLensCoverage(result.lensCoverage);
   const parts = [
     renderStatusLine(result),
     LEGEND,
@@ -978,6 +1048,7 @@ function renderBacklogFence(result) {
     renderTier("Tier 2 — important", tier2),
     renderTier("Tier 3 — polish", tier3),
     renderRecommendation(tier1, tier2, result.status),
+    ...(lensCoverageLine ? [lensCoverageLine] : []),
     renderRunReport(result.verification),
     `*${GO_BUTTON}*`,
   ];
@@ -1303,6 +1374,16 @@ const doneCells = [...doneCellsIn, ...sweptCells];
 const pendingCells = [...overflowCells, ...failedCells];
 const items = mergePriorItems(kept.map(toResultItem), input.priorItems);
 
+// Per-lens coverage (standard mode only — gap mode's "lenses" are criteria, not standards modules).
+// Counts each configured lens's deduped-finding contribution and flags any lens whose cells are still
+// pending (budget-deferred / failed batch) so the fence can confirm "did every lens speak?" — the
+// prong-4 anti-starvation report (distinguishes ran-clean from never-ran). Derived from the deduped
+// findings (the raw lens output after coded dedup, before synthesis prune) so it reflects what each
+// lens actually surfaced, not what survived prioritization.
+const lensCoverageReport = isGap
+  ? undefined
+  : lensCoverage(input.modules, pendingCells, dedupedFindings);
+
 const result = {
   status: runStatus(pendingCells),
   // A COMPLETE cell sweep can still carry unverified findings — say so mechanically.
@@ -1314,6 +1395,7 @@ const result = {
   items,
   refutedCount,
   verification: summary,
+  ...(lensCoverageReport ? { lensCoverage: lensCoverageReport } : {}),
 };
 
 // The complete fence body the skill writes between the harness-audit:backlog markers (Phase 3 is

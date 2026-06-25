@@ -38,4 +38,4 @@ Out-of-scope defects spotted mid-work, jotted here as **planless one-liners** so
 
 Longer-term tracks and ideas — hand-written, never fence-touched. Deferred harness-maintenance / `doctor` findings ride here with a **`harness`** tag (no separate section). The harness is **feature-complete — there is no open backlog;** new work, if it arises, is surfaced by an audit (the fences above) or added here by hand.
 
-- _(none open)_
+- **`harness`** — audit synthesis-ceiling: auto-size `maxCellsPerRun` + hierarchical per-lens roll-up for very large repos — only when a real repo exceeds the single-pass synthesis ceiling (deferred from the 0025 step-2 audit fix; interleaving already makes a sane-budget pass cover every lens, so this is YAGNI until measured).
