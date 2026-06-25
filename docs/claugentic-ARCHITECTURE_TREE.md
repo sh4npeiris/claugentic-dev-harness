@@ -82,6 +82,8 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 
 - `skills/product/SKILL.md` — open to change the product layer: two modes — Spec (product-designer draft → product-critic Excellence pass → frozen-schema validate → user-owned PRODUCT_SPEC.md) and Gap (`engine/audit.js` criteria mode → `harness-product:backlog` fence).
 
+- `skills/doctor/SKILL.md` — open for harness-OWN-health (NOT your code — that's audit): runs the existing gates read-only + plan-scan + init post-conditions + report-only Stage-9 signal → green/WARN/breach snapshot → SELECT → treat bounded-mechanical-set-on-approval / substantive → roadmap.
+
 ## engine/ — executable choreography (Workflow-tool scripts)
 
 - `engine/verify.js` — open to change the Stage-7 Verify panel: fans one lens-reviewer per in-scope module + yagni-sentinel + honesty-reviewer, dedups gaps, then architect-reviewer synthesis (`model: MODELS.judge`); three-state disclosure in code. `finalVerdict` forces CHANGES_REQUIRED on a NAMED-lens no-show (presence-check, not a diff-coverage gate); `validateArgs` fails loud if a test-diff omits `testing`. Helpers tested by `verify.test.mjs`.
