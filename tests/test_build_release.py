@@ -134,6 +134,16 @@ class TestReleaseInitContract:
         # their own plans into their own `.claude/plans/`.
         assert br.is_dev_only(".claude/plans/0027-release-init-consistency.md") is True
 
+    def test_seeds_ship_but_filled_ledgers_strip(self):
+        # 0028 S4 — the one-time-seed kind. The pristine `_DECISIONS.md`/`_ROADMAP.md` seeds
+        # SHIP so `init` can copy them (underscore stripped, create-if-absent); the harness's
+        # OWN filled `DECISIONS.md`/`ROADMAP.md` STRIP. The load-bearing pin: an adopter gets
+        # the pristine BLANK seed, never the harness's filled ledger.
+        assert br.is_dev_only("docs/claugentic-_DECISIONS.md") is False
+        assert br.is_dev_only("docs/claugentic-_ROADMAP.md") is False
+        assert br.is_dev_only("docs/claugentic-DECISIONS.md") is True
+        assert br.is_dev_only("docs/claugentic-ROADMAP.md") is True
+
 
 class TestBaseAncestryGuard:
     """`_dropped_merges` is the mechanical defense against rebuilding the release from a

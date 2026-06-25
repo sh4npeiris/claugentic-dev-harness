@@ -659,15 +659,37 @@ volatile content** so a re-write is byte-identical:
   step 8), which is **rewritten in place only on on-disk disagreement** (e.g. the tree was
   deleted between runs) and is otherwise left untouched (a settled re-run is byte-identical).
 
-### 7. Create `docs/claugentic-ROADMAP.md` + `docs/claugentic-DECISIONS.md` if absent
+### 7. Seed `docs/claugentic-ROADMAP.md` + `docs/claugentic-DECISIONS.md` if absent (the one-time-seed kind)
 
-- **`docs/claugentic-ROADMAP.md` absent →** create a seed (a one-line intro + an empty `## Later`
-  human-owned section; `/claugentic-dev-harness:audit` later adds its `harness-audit:overview` /
-  `harness-audit:backlog` fences, and `/claugentic-dev-harness:product` gap mode adds its own
-  `harness-product:backlog` fence — each self-creates on first run, so `init` seeds **none** of
-  them). Present → skip.
-- **`docs/claugentic-DECISIONS.md` absent →** create a seed (the "append newest at top; consult
-  before re-litigating" header). Present → skip.
+These two are the **one-time-seed** managed-file kind (the third kind in the WORKFLOW
+Adopter-note's three-kinds taxonomy). The seed bytes are **shipped pristine `_X.md` files** in
+the plugin — `init` **copies them, stripping the leading underscore**:
+
+- copy **`${SOURCE}/docs/claugentic-_DECISIONS.md` → `docs/claugentic-DECISIONS.md`**, and
+- copy **`${SOURCE}/docs/claugentic-_ROADMAP.md` → `docs/claugentic-ROADMAP.md`**
+
+(`${SOURCE}` is the managed-set source resolved in step 1 — `${CLAUDE_PLUGIN_ROOT}` installed, the
+repo root in dev — the same source the step-3 managed-copy uses.)
+
+- **CREATE-IF-ABSENT ONLY — never refresh, never clobber.** If the target already exists, **skip
+  it byte-untouched** (report `skipped (present)`); only write when absent (report `created`). A
+  filled `DECISIONS.md`/`ROADMAP.md` is an adopter's own ledger — re-`init` must never overwrite it.
+- **The underscore-prefix convention (`_X.md` → `X.md`):** a leading-underscore source file is a
+  **one-time seed** — copied once, renamed by stripping the underscore, and **never refreshed**.
+  This is **distinct from `*_TEMPLATE.md`** (the repeated-use templates — plan / product-spec /
+  standards-module skeletons — which an adopter keeps and copies one per use, and which the step-3
+  managed set DOES refresh). See WORKFLOW → Adopter note → the three managed-file kinds.
+- **Seeds stay OUT of the managed-set table (step 3) — deliberately.** They are NOT refreshed, so
+  they must never enter the four-verdict REFRESH upsert (a REFRESH would clobber a filled ledger).
+  Two guards keep that safe: this step is create-if-absent (a present file is skipped), AND a path
+  outside the managed set can never satisfy the genuine-managed predicate (step 3, leg 1). Do not
+  add a seed row to the managed-set table.
+- The seeds ship **unstamped** (like every managed/seed source) — `init` does **NOT** stamp a seed
+  (an unstamped target is exactly the create-if-absent signal). The harness's own filled
+  `DECISIONS.md`/`ROADMAP.md` are stripped from the release; the adopter receives the pristine seed.
+- The seeded `ROADMAP.md` carries **no** `harness-audit:*` / `harness-product:backlog` fences —
+  `/claugentic-dev-harness:audit` and `/claugentic-dev-harness:product` gap mode **self-create**
+  their own fences on first run, so the seed correctly omits them.
 
 ### 8. Detect + record existing tooling (never reconfigure)
 
@@ -922,8 +944,8 @@ At a fixed installed version it holds because:
   identical body **and a current-form stamp** → `CURRENT` (byte-untouched); a drifted body
   **or an old-format stamp** → `REFRESH` once to the installed version (the stamp is
   migrated to the current full form), after which a re-run reads `CURRENT`.
-- Every **generate/create** (tree, ROADMAP, DECISIONS) is create-if-absent (user-owned —
-  never refreshed).
+- Every **create-if-absent** target — the tree (generated), and the ROADMAP/DECISIONS seeds
+  (copied from `_X.md`, underscore stripped, step 7) — is **user-owned, never refreshed.**
 - The **architecture-tree scenario decision is recorded** (`Architecture tree:` line in the
   detected-tooling block — append-if-line-absent, then rewritten in place only on on-disk
   disagreement) and **read before any prompt**, so a re-`init` on a settled repo **honors the
