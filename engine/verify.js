@@ -1,17 +1,17 @@
-// engine/verify.js — the Stage-7 Verify panel as an executable Workflow script.
+// engine/verify.js -- the Stage-7 Verify panel as an executable Workflow script.
 //
 // Distribution: read-from-install-path. Adopters invoke this from the version-stamped
 // plugin install dir (`${CLAUDE_PLUGIN_ROOT}/engine/verify.js`); this repo dogfoods it
 // via the repo-local `./engine/verify.js` (the working tree IS the plugin source).
-// Never copied into an adopter repo (no managed-stamp/refresh surface) — see
-// docs/claugentic-DECISIONS.md → Plugin identity & distribution.
+// Never copied into an adopter repo (no managed-stamp/refresh surface) -- see
+// docs/claugentic-DECISIONS.md -> Plugin identity & distribution.
 //
 // Workflow-script constraints (the tool runs this inside its sandbox): NO imports, NO
 // filesystem APIs, NO wall-clock / randomness (the orchestrator stamps times after the
 // run). Only the tool primitives `agent()`/`parallel()`/`phase()`/`log()`/`args`. Call
-// count is structurally bounded by the roster — no loops. Pure decision logic lives in the
+// count is structurally bounded by the roster -- no loops. Pure decision logic lives in the
 // marked `// --- helpers ---` block and is unit-tested by tests/workflows/verify.test.mjs
-// (extract-and-eval), so the prose→script move tests the judgment, not just inspects it.
+// (extract-and-eval), so the prose->script move tests the judgment, not just inspects it.
 
 export const meta = {
   name: "verify",
@@ -20,7 +20,7 @@ export const meta = {
 };
 
 // --- helpers ---
-// Pure functions only — they reference solely their params and each other (no closure over
+// Pure functions only -- they reference solely their params and each other (no closure over
 // tool primitives), so the test harness can extract this block and evaluate it standalone.
 
 // The judge model family, defined ONCE (single source of truth). Later scripts copy this
@@ -30,29 +30,29 @@ const MODELS = { judge: "opus" };
 
 // Bundled agents resolve only as `claugentic-dev-harness:<agent>` for an installed adopter
 // (bare names resolve only when dogfooded with project-local .claude/agents/). Namespace every
-// custom-agent spawn; built-ins (general-purpose, …) stay bare. Pure → unit-tested.
+// custom-agent spawn; built-ins (general-purpose, ...) stay bare. Pure -> unit-tested.
 const nsAgent = (name) => `claugentic-dev-harness:${name}`;
 
 // The verbatim same-model disclosure tag. Defined once; never reconstructed by hand at a
 // call site, so the wording cannot drift (honesty trust surface).
 const SAME_MODEL_TAG =
-  "same-model review on this run — the judge and the builder are the same model family here.";
+  "same-model review on this run -- the judge and the builder are the same model family here.";
 
-// The verbatim UNRESOLVED disclosure tag — the THIRD state, distinct from SAME_MODEL_TAG. When a
+// The verbatim UNRESOLVED disclosure tag -- the THIRD state, distinct from SAME_MODEL_TAG. When a
 // judge's self-reported family can't be recognized, the run is reported as unresolved (the
-// conservative same-model trust floor still holds — no cross-model claim) rather than ASSERTED to
+// conservative same-model trust floor still holds -- no cross-model claim) rather than ASSERTED to
 // be same-model fact. Defined once so the wording cannot drift (honesty trust surface). Copied
 // byte-identical across the workflow scripts (cross-script drift pin).
 const UNRESOLVED_FAMILY_TAG =
-  "could not resolve the judge's model family on this run — no cross-model claim is made (treated as the same-model trust floor, not asserted as fact).";
+  "could not resolve the judge's model family on this run -- no cross-model claim is made (treated as the same-model trust floor, not asserted as fact).";
 
-// The recognized model families — the ONE named source the modelFamily regex derives from (single
+// The recognized model families -- the ONE named source the modelFamily regex derives from (single
 // source of truth: a new family is added HERE, never in a hand-built regex). Copied byte-identical
 // across the workflow scripts (cross-script drift pin).
 const KNOWN_FAMILIES = ["fable", "opus", "sonnet", "haiku"];
 
 // The 11 standards-catalog slugs. The script can't read the filesystem, so this literal is
-// the source of truth here — and tests/workflows/verify.test.mjs pins it set-equal to the
+// the source of truth here -- and tests/workflows/verify.test.mjs pins it set-equal to the
 // real docs/claugentic-standards/*.md basenames (read via node:fs), killing list drift mechanically.
 const KNOWN_MODULES = [
   "api-and-contracts",
@@ -69,11 +69,11 @@ const KNOWN_MODULES = [
 ];
 
 // Test-path patterns: a changed file that exercises behavior assertions. Reasonably broad
-// across ecosystems — name-substring (`test`/`spec`), dir-segment (`tests/`/`__tests__/`),
+// across ecosystems -- name-substring (`test`/`spec`), dir-segment (`tests/`/`__tests__/`),
 // dotted-suffix (`.test.`/`.spec.`), and python (`test_*.py`/`*_test.py`). The list is the
 // single source of the "diff touches tests" signal (piece #2). Match is case-insensitive and
 // works on a posix-or-windows path (separators normalized). Documented patterns:
-//   *test* · *spec* · tests/ · __tests__/ · *.test.* · *.spec.* · test_*.py · *_test.py
+//   *test* - *spec* - tests/ - __tests__/ - *.test.* - *.spec.* - test_*.py - *_test.py
 function isTestPath(path) {
   if (typeof path !== "string" || path.length === 0) {
     return false;
@@ -92,9 +92,9 @@ function isTestPath(path) {
 }
 
 // The "diff touches tests" signal, computed from verify.js's ACTUAL inputs (single rule).
-// Two inputs can carry it: `files` (a concrete changed-file list — matched mechanically here)
+// Two inputs can carry it: `files` (a concrete changed-file list -- matched mechanically here)
 // and `testDiff` (an explicit boolean the caller sets when it has only the opaque `diffRef`
-// and already knows the diff touched tests). Either positive ⇒ the testing lens is required.
+// and already knows the diff touched tests). Either positive => the testing lens is required.
 function diffTouchesTests(args) {
   if (Array.isArray(args.files) && args.files.some(isTestPath)) {
     return true;
@@ -102,7 +102,7 @@ function diffTouchesTests(args) {
   return args.testDiff === true;
 }
 
-// Validate the args contract at the boundary (fail loud — the caller throws on a non-empty
+// Validate the args contract at the boundary (fail loud -- the caller throws on a non-empty
 // list). Returns every shape error PLUS any dimension not in the catalog; empty array = valid.
 function validateArgs(args) {
   const errors = [];
@@ -122,26 +122,26 @@ function validateArgs(args) {
   } else {
     for (const dim of args.dimensions) {
       if (!KNOWN_MODULES.includes(dim)) {
-        errors.push(`unknown dimension '${dim}' — not a docs/claugentic-standards/ module slug`);
+        errors.push(`unknown dimension '${dim}' -- not a docs/claugentic-standards/ module slug`);
       }
     }
-    // Piece #2 — force-include the testing lens on a test-diff (mechanical where the signal
+    // Piece #2 -- force-include the testing lens on a test-diff (mechanical where the signal
     // exists; in-sandbox, no globs/fs). When the change touches tests, the testing lens MUST be
-    // in the panel — a green suite can hide a loosened assertion, and finding-verifier only
+    // in the panel -- a green suite can hide a loosened assertion, and finding-verifier only
     // refutes SURFACED findings. Fail loud (the caller adds it deliberately): a test-touching
     // diff with `testing` absent is a contract error, never silently allowed.
     if (diffTouchesTests(args) && !args.dimensions.includes("testing")) {
       errors.push(
-        "the change touches test files but 'testing' is not in dimensions — the testing lens is " +
+        "the change touches test files but 'testing' is not in dimensions -- the testing lens is " +
           "mandatory on a test-diff (add 'testing' to dimensions); never verify a test change without it",
       );
     }
   }
   if (typeof args.trustSurface !== "boolean") {
-    errors.push("trustSurface is required (boolean — explicit decision at the boundary, never defaulted)");
+    errors.push("trustSurface is required (boolean -- explicit decision at the boundary, never defaulted)");
   }
   if (typeof args.builderFamily !== "string" || args.builderFamily.length === 0) {
-    errors.push("builderFamily is required (non-empty string — the family that authored the diff)");
+    errors.push("builderFamily is required (non-empty string -- the family that authored the diff)");
   }
   return errors;
 }
@@ -152,8 +152,8 @@ function modulesFor(dimensions) {
 }
 
 // Normalize a self-reported model family to a canonical lowercase token. First KNOWN_FAMILIES
-// match wins (the regex derives from that one named source — no second hand-built family list);
-// empty / unknown → null (conservative — an unresolved family degrades to the trust floor, never
+// match wins (the regex derives from that one named source -- no second hand-built family list);
+// empty / unknown -> null (conservative -- an unresolved family degrades to the trust floor, never
 // to a false cross-model claim).
 function modelFamily(report) {
   if (typeof report !== "string") {
@@ -163,26 +163,26 @@ function modelFamily(report) {
   return match ? match[1].toLowerCase() : null;
 }
 
-// The disclosure decision — THREE states, one rule (detection included). The distinction is
+// The disclosure decision -- THREE states, one rule (detection included). The distinction is
 // between a MISSING self-report (the deliberate no-report / forced-respawn floor) and a PRESENT
 // self-report that FAILED to resolve (a genuine "could not resolve the family"):
-//   - judge self-report is absent (null/undefined/empty)   → SAME_MODEL_TAG  (the no-report floor —
+//   - judge self-report is absent (null/undefined/empty)   -> SAME_MODEL_TAG  (the no-report floor --
 //                                                             e.g. a forced same-model respawn)
-//   - a PRESENT family (either side) fails to resolve        → UNRESOLVED_FAMILY_TAG (reported
+//   - a PRESENT family (either side) fails to resolve        -> UNRESOLVED_FAMILY_TAG (reported
 //                                                             unresolved, NEVER asserted same-model)
-//   - both resolve and MATCH                                 → SAME_MODEL_TAG  (resolved-same fact)
-//   - both resolve and DIFFER                                → null            (sole cross-model case)
+//   - both resolve and MATCH                                 -> SAME_MODEL_TAG  (resolved-same fact)
+//   - both resolve and DIFFER                                -> null            (sole cross-model case)
 // The cross-model claim keys off `=== null` (unchanged: claimed ONLY on confirmed different-family);
 // only the non-null DISCLOSURE wording now distinguishes resolved-same from unresolved.
 function sameModelTag(builderFamily, judgeFamily) {
   const judgeReported = typeof judgeFamily === "string" && judgeFamily.trim().length > 0;
   if (!judgeReported) {
-    return SAME_MODEL_TAG; // no judge self-report at all → the conservative same-model floor
+    return SAME_MODEL_TAG; // no judge self-report at all -> the conservative same-model floor
   }
   const b = modelFamily(builderFamily);
   const j = modelFamily(judgeFamily);
   if (b === null || j === null) {
-    return UNRESOLVED_FAMILY_TAG; // a present report could not be resolved → reported as unresolved
+    return UNRESOLVED_FAMILY_TAG; // a present report could not be resolved -> reported as unresolved
   }
   return b === j ? SAME_MODEL_TAG : null;
 }
@@ -270,7 +270,7 @@ function panelRoster(args) {
 
 // Normalize the args boundary. A scriptPath invocation delivers `args` as a JSON STRING
 // (observed runtime behavior, 2026-06-11); an inline script may receive the object itself.
-// Accept both; an unparseable string fails loud — never a silent empty-args run.
+// Accept both; an unparseable string fails loud -- never a silent empty-args run.
 function parseArgs(raw) {
   if (typeof raw === "string") {
     try {
@@ -282,11 +282,11 @@ function parseArgs(raw) {
   return raw;
 }
 
-// Decide a judge spawn's outcome from its attempts — PURE so the retry contract is
+// Decide a judge spawn's outcome from its attempts -- PURE so the retry contract is
 // unit-testable. An attempt is { out } (out === null counts as failure: agent() returns null
-// on skip/terminal error) or { out: null, err }. First success → cross-model eligible;
-// retry success → forcedSameModel; first failure with no retry yet → { needRetry: true };
-// both failed → throw. Never a silent partial PASS.
+// on skip/terminal error) or { out: null, err }. First success -> cross-model eligible;
+// retry success -> forcedSameModel; first failure with no retry yet -> { needRetry: true };
+// both failed -> throw. Never a silent partial PASS.
 function judgeOutcome(role, agentType, first, second) {
   if (first && first.out != null) return { out: first.out, forcedSameModel: false };
   if (second === undefined) return { needRetry: true };
@@ -294,13 +294,13 @@ function judgeOutcome(role, agentType, first, second) {
   const firstErr = first && first.err ? first.err : "null return (skipped or terminal error)";
   const secondErr = second && second.err ? second.err : "null return (skipped or terminal error)";
   throw new Error(
-    `verify panel: judge '${role}' (${agentType}) failed twice — first: ${firstErr}; ` +
+    `verify panel: judge '${role}' (${agentType}) failed twice -- first: ${firstErr}; ` +
       `respawn (no model override): ${secondErr}. Never a silent partial PASS.`,
   );
 }
 
 // Panel-coverage honesty: a lens that returned null/unusable output (skipped or errored) must
-// surface as an explicit could-not-run GAP — an unrun review must never read as a clean
+// surface as an explicit could-not-run GAP -- an unrun review must never read as a clean
 // dimension. Returns one deterministic gap finding per unrun module; empty when all ran.
 function coverageGaps(lensReturns, modulePaths) {
   const gaps = [];
@@ -311,35 +311,35 @@ function coverageGaps(lensReturns, modulePaths) {
         dimension: modulePath,
         status: "gap",
         fix:
-          "lens did not run (no usable return) — this module was NOT audited; re-run the panel. " +
+          "lens did not run (no usable return) -- this module was NOT audited; re-run the panel. " +
           "An unrun lens is never treated as clean.",
         file_line: "(panel coverage)",
         confidence: "deterministic",
         plain_english:
           `The ${modulePath} reviewer never reported back, so that part of the review did not ` +
-          "happen — it must be re-run, not assumed fine.",
+          "happen -- it must be re-run, not assumed fine.",
       });
     }
   });
   return gaps;
 }
 
-// Piece #1 — mechanical presence-assertion on the panel's OWN outputs (honestly NOT a
+// Piece #1 -- mechanical presence-assertion on the panel's OWN outputs (honestly NOT a
 // completeness gate over the diff). The verdict is normally passed through from synthesis; but
 // a panel where a NAMED lens produced no usable result must NEVER report all-green, even if the
 // synthesis judge said PASS. So when there is at least one deterministic could-not-run gap (the
 // presence check on `lensReturns` that `coverageGaps` already computes), force CHANGES_REQUIRED.
-// This is a presence check on the panel's OWN results — no filesystem, no globs, no completeness
+// This is a presence check on the panel's OWN results -- no filesystem, no globs, no completeness
 // claim over the diff, no second-guessing which lenses were selected. PURE so it is unit-tested.
 function finalVerdict(synthesisVerdict, unrunLensCount) {
   if (unrunLensCount > 0) {
-    return "CHANGES_REQUIRED"; // a named lens silently no-showed — never report all-green
+    return "CHANGES_REQUIRED"; // a named lens silently no-showed -- never report all-green
   }
   return synthesisVerdict === "PASS" ? "PASS" : "CHANGES_REQUIRED";
 }
 
 // Split the ordered parallel() results back into panel roles. parallel() preserves INPUT
-// ORDER (each thunk's result lands at its input index) — this helper pins that arithmetic
+// ORDER (each thunk's result lands at its input index) -- this helper pins that arithmetic
 // behind a unit test instead of leaving it inline on an undocumented primitive contract.
 function splitPanelResults(panelResults, lensCount, hasHonesty) {
   return {
@@ -462,9 +462,9 @@ async function spawnJudge(role, agentType, prompt, schema) {
   return decision;
 }
 
-// ── Top-level control flow (Workflow scripts run in an async context; no module wrapper). ──
+// -- Top-level control flow (Workflow scripts run in an async context; no module wrapper). --
 
-// Validate at the boundary — fail loud with the full error list.
+// Validate at the boundary -- fail loud with the full error list.
 const input = parseArgs(args);
 {
   const errors = validateArgs(input);
@@ -503,7 +503,7 @@ const panelTasks = [
     ),
 ];
 
-// The honesty reviewer (trust-surface only) is a JUDGE — it fans out in the same panel,
+// The honesty reviewer (trust-surface only) is a JUDGE -- it fans out in the same panel,
 // but via spawnJudge so it carries the model: pin + the one-respawn-on-error contract.
 const hasHonesty = input.trustSurface === true;
 if (hasHonesty) {
@@ -547,14 +547,14 @@ for (const lensReturn of lensReturns) {
 const unrunGaps = coverageGaps(lensReturns, modulesAudited);
 const dedupedFindings = dedupFindings([...lensGaps, ...unrunGaps]);
 const panelDegraded = unrunGaps.length > 0 || yagni == null;
-// Piece #1 — observability: a named lens that produced no usable result is LOGGED loudly here
+// Piece #1 -- observability: a named lens that produced no usable result is LOGGED loudly here
 // (it also forces CHANGES_REQUIRED at the return via finalVerdict), so an unrun lens never reads
-// as a silently-clean dimension. Presence-check on the panel's own outputs — not a completeness
+// as a silently-clean dimension. Presence-check on the panel's own outputs -- not a completeness
 // claim over the diff.
 if (unrunGaps.length > 0) {
   log(
     `verify: ${unrunGaps.length} named lens(es) produced NO usable result ` +
-      `(${unrunGaps.map((g) => g.dimension).join(", ")}) — forcing CHANGES_REQUIRED; ` +
+      `(${unrunGaps.map((g) => g.dimension).join(", ")}) -- forcing CHANGES_REQUIRED; ` +
       `a named lens cannot silently no-show from the panel's own outputs.`,
   );
 }
@@ -586,7 +586,7 @@ judges.push({
   reportedFamily: synthesisResult.forcedSameModel ? null : synthesis ? synthesis.reported_model_family : null,
 });
 // Observability: a self-report that failed to resolve is LOGGED, never silently degraded. A
-// forced-respawn judge carries a null/empty reportedFamily by design (already same-model) — only a
+// forced-respawn judge carries a null/empty reportedFamily by design (already same-model) -- only a
 // PRESENT non-empty but unrecognized report is the noteworthy unresolved case (aligned with
 // sameModelTag's missing-vs-present-unresolved split).
 for (const judge of judges) {
@@ -594,7 +594,7 @@ for (const judge of judges) {
   if (typeof reported === "string" && reported.trim().length > 0 && modelFamily(reported) === null) {
     log(
       `verify: judge '${judge.role}' self-reported an UNRECOGNIZED model family ` +
-        `(${JSON.stringify(reported)}) — reported as unresolved, no cross-model claim made.`,
+        `(${JSON.stringify(reported)}) -- reported as unresolved, no cross-model claim made.`,
     );
   }
 }
@@ -604,7 +604,7 @@ const crossModel = crossModelOutcome(
 );
 
 return {
-  // The script never overrides JUDGMENT — synthesis owns the verdict. The ONE mechanical
+  // The script never overrides JUDGMENT -- synthesis owns the verdict. The ONE mechanical
   // override is the presence-assertion (finalVerdict): a named lens that produced no usable
   // result forces CHANGES_REQUIRED so the panel can never report all-green with one of its own
   // named lenses missing. This is a presence-check on the panel's outputs, not a diff-coverage gate.

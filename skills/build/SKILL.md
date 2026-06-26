@@ -464,7 +464,7 @@ set, and no-invented-scope all hold unchanged across the whole loop.
 ### 10. The scoped re-audit + re-triage *(flow 3 — after each landed item)*
 
 After an item lands, **re-run the audit scoped to the touched cells** — the
-`(module × dir)` cells (the `audit` skill's existing granularity) that cover the files the
+`(module | dir)` cells (the `audit` skill's existing granularity) that cover the files the
 item changed. Spawn the audit's existing machinery over **only those cells** (the
 `lens-reviewer`s for the relevant modules over the touched dirs, then the universal
 `finding-verifier` re-check) — not a full repo sweep.
@@ -622,7 +622,7 @@ adds none.** Derive, don't store:
   three triage sources (step 1); each fence's status block + tiered items, plus the planless Bug
   one-liners. **Each fence's `done-cells`/`pending-cells`
   resumes against its OWN generating skill — the cells are NEVER crossed:** the engineering
-  fence's `module×dir` cells resume against the audit script, the product fence's criterion-id
+  fence's `module|dir` cells resume against the audit script, the product fence's criterion-id
   cells against the gap script. Plan-files remain the state-of-record for in-flight work, so a
   **mid-build item never vanishes when a fence regenerates** — it lives in its plan file, not
   as a fence entry.

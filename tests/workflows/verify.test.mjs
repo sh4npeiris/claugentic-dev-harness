@@ -1,12 +1,12 @@
-// tests/workflows/verify.test.mjs — node --test unit tests for the pure helpers of
+// tests/workflows/verify.test.mjs -- node --test unit tests for the pure helpers of
 // workflows/verify.js.
 //
-// The script can't be imported wholesale: it is a Workflow-tool script — top-level control
-// flow ending in a returned result object (no module wrapper beyond `export const meta`) —
+// The script can't be imported wholesale: it is a Workflow-tool script -- top-level control
+// flow ending in a returned result object (no module wrapper beyond `export const meta`) --
 // and it calls the tool primitives agent()/parallel()/phase()/log(), which are undefined
-// under node. So we read the file, EXTRACT the marked `// --- helpers ---` … `// --- end helpers
+// under node. So we read the file, EXTRACT the marked `// --- helpers ---` ... `// --- end helpers
 // ---` block (pure functions + schema literals), evaluate it via `new Function`, and exercise the helpers
-// standalone. The block must NOT close over any tool primitive — these tests are the proof it
+// standalone. The block must NOT close over any tool primitive -- these tests are the proof it
 // doesn't. Run by `node --test tests/workflows/` (and the CI node-tests job).
 
 import { test } from "node:test";
@@ -22,14 +22,14 @@ const REPO_ROOT = join(HERE, "..", "..");
 const SCRIPT_PATH = join(REPO_ROOT, "engine", "verify.js");
 const STANDARDS_DIR = join(REPO_ROOT, "docs", "claugentic-standards");
 
-// The verbatim same-model tag — duplicated here on purpose as an independent fixture so a
+// The verbatim same-model tag -- duplicated here on purpose as an independent fixture so a
 // drift in the script's wording is caught by an exact string compare (the test is the pin).
 const EXPECTED_SAME_MODEL_TAG =
-  "same-model review on this run — the judge and the builder are the same model family here.";
+  "same-model review on this run -- the judge and the builder are the same model family here.";
 
-// The verbatim UNRESOLVED tag — the third disclosure state. Independent fixture (exact-compare pin).
+// The verbatim UNRESOLVED tag -- the third disclosure state. Independent fixture (exact-compare pin).
 const EXPECTED_UNRESOLVED_FAMILY_TAG =
-  "could not resolve the judge's model family on this run — no cross-model claim is made (treated as the same-model trust floor, not asserted as fact).";
+  "could not resolve the judge's model family on this run -- no cross-model claim is made (treated as the same-model trust floor, not asserted as fact).";
 
 const H = loadHelpersFrom(SCRIPT_PATH, [
   "MODELS",
@@ -70,9 +70,9 @@ function validArgs(overrides = {}) {
   };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // Extraction harness + contract pins
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 test("extraction harness finds the marked block and all helper names", () => {
   for (const name of [
     "MODELS",
@@ -100,9 +100,9 @@ test("MODELS.judge is pinned to 'opus' (cross-model contract)", () => {
   assert.equal(H.MODELS.judge, "opus");
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// KNOWN_MODULES — the mechanical pin against the real docs/claugentic-standards/*.md basenames
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// KNOWN_MODULES -- the mechanical pin against the real docs/claugentic-standards/*.md basenames
+// -----------------------------------------------------------------------------
 test("KNOWN_MODULES equals the real docs/claugentic-standards/*.md slugs (minus _TEMPLATE/README)", () => {
   const onDisk = readdirSync(STANDARDS_DIR)
     .filter((f) => f.endsWith(".md"))
@@ -113,9 +113,9 @@ test("KNOWN_MODULES equals the real docs/claugentic-standards/*.md slugs (minus 
   assert.equal(H.KNOWN_MODULES.length, new Set(H.KNOWN_MODULES).size);
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// validateArgs — boundary validation, fail loud
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// validateArgs -- boundary validation, fail loud
+// -----------------------------------------------------------------------------
 test("validateArgs accepts a well-formed args object", () => {
   assert.deepEqual(H.validateArgs(validArgs()), []);
 });
@@ -160,9 +160,9 @@ test("validateArgs rejects a non-object arg", () => {
   assert.deepEqual(H.validateArgs(null), ["args must be an object"]);
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Piece #2 — force-include the testing lens on a test-diff (mechanical, in-sandbox)
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// Piece #2 -- force-include the testing lens on a test-diff (mechanical, in-sandbox)
+// -----------------------------------------------------------------------------
 test("isTestPath matches the documented test-path patterns (broad, cross-ecosystem)", () => {
   for (const p of [
     "tests/workflows/verify.test.mjs",
@@ -184,9 +184,9 @@ test("isTestPath does NOT match ordinary source paths", () => {
     "engine/verify.js",
     "src/auth/token.ts",
     "docs/claugentic-WORKFLOW.md",
-    "lib/contest.js", // 'contest' contains 'test' as a substring → matches (documented broad)
+    "lib/contest.js", // 'contest' contains 'test' as a substring -> matches (documented broad)
   ]) {
-    // 'contest' is a known broad-match edge — assert the genuinely-source ones do not match.
+    // 'contest' is a known broad-match edge -- assert the genuinely-source ones do not match.
     if (p === "lib/contest.js") {
       assert.equal(H.isTestPath(p), true, "documented: name-substring 'test' matches broadly");
     } else {
@@ -203,7 +203,7 @@ test("diffTouchesTests is true when files include a test path", () => {
 });
 
 test("diffTouchesTests honors the explicit testDiff signal (opaque-diff path)", () => {
-  // Only a diffRef is available (no file list) — the caller carries the signal explicitly.
+  // Only a diffRef is available (no file list) -- the caller carries the signal explicitly.
   assert.equal(H.diffTouchesTests({ diffRef: "main...HEAD", testDiff: true }), true);
   assert.equal(H.diffTouchesTests({ diffRef: "main...HEAD", testDiff: false }), false);
   assert.equal(H.diffTouchesTests({ diffRef: "main...HEAD" }), false);
@@ -242,9 +242,9 @@ test("validateArgs does NOT force testing on a non-test diff", () => {
   );
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// modulesFor — slug → module path
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// modulesFor -- slug -> module path
+// -----------------------------------------------------------------------------
 test("modulesFor maps slugs to docs/claugentic-standards/<slug>.md paths", () => {
   assert.deepEqual(H.modulesFor(["security", "testing"]), [
     "docs/claugentic-standards/security.md",
@@ -252,9 +252,9 @@ test("modulesFor maps slugs to docs/claugentic-standards/<slug>.md paths", () =>
   ]);
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// modelFamily — normalization (incl. null on unknown)
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// modelFamily -- normalization (incl. null on unknown)
+// -----------------------------------------------------------------------------
 test("modelFamily normalizes a self-reported family to a canonical token", () => {
   assert.equal(H.modelFamily("Opus 4.8"), "opus");
   assert.equal(H.modelFamily("Fable 5"), "fable");
@@ -270,9 +270,9 @@ test("modelFamily returns null on garbage/empty/non-string", () => {
   assert.equal(H.modelFamily(42), null);
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// sameModelTag — the verbatim tag string + both-resolve-and-differ → null
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// sameModelTag -- the verbatim tag string + both-resolve-and-differ -> null
+// -----------------------------------------------------------------------------
 test("sameModelTag returns the verbatim tag when families match", () => {
   assert.equal(H.sameModelTag("Opus 4.8", "Opus 4.1"), EXPECTED_SAME_MODEL_TAG);
 });
@@ -309,13 +309,13 @@ test("KNOWN_FAMILIES is the one named source the modelFamily regex derives from"
   for (const fam of H.KNOWN_FAMILIES) {
     assert.equal(H.modelFamily(`RUNNING AS: ${fam}`), fam);
   }
-  // A family NOT in the list does not resolve — the list is the sole gate.
+  // A family NOT in the list does not resolve -- the list is the sole gate.
   assert.equal(H.modelFamily("RUNNING AS: gemini"), null);
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// crossModelOutcome — claimed-iff logic
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// crossModelOutcome -- claimed-iff logic
+// -----------------------------------------------------------------------------
 test("crossModelOutcome claims cross-model when every judge confirms a different family", () => {
   const out = H.crossModelOutcome("Fable 5", ["Opus 4.8", "Opus 4.1"]);
   assert.deepEqual(out, { claimed: true, tag: null });
@@ -327,7 +327,7 @@ test("crossModelOutcome does NOT claim when any judge is same-family", () => {
   assert.equal(out.tag, EXPECTED_SAME_MODEL_TAG);
 });
 
-test("crossModelOutcome does NOT claim when a judge report is missing (null) → same-model floor", () => {
+test("crossModelOutcome does NOT claim when a judge report is missing (null) -> same-model floor", () => {
   const out = H.crossModelOutcome("Fable 5", ["Opus 4.8", null]);
   assert.equal(out.claimed, false);
   // A MISSING (null) report is the no-self-report same-model floor, not the unresolved state.
@@ -353,9 +353,9 @@ test("crossModelOutcome does NOT claim on an empty report list", () => {
   assert.equal(out.tag, EXPECTED_SAME_MODEL_TAG);
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// dedupKey / dedupFindings — merge semantics
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// dedupKey / dedupFindings -- merge semantics
+// -----------------------------------------------------------------------------
 test("dedupKey normalizes file:line whitespace and lowercases dimension", () => {
   const a = H.dedupKey({ file_line: "src/a.js : 12", dimension: "Security" });
   const b = H.dedupKey({ file_line: "src/a.js:12", dimension: "security" });
@@ -391,9 +391,9 @@ test("dedupFindings prefers the first concrete fix when an earlier one is empty"
   assert.equal(merged[0].fix, "real fix");
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// panelRoster — derivation incl. trustSurface on/off
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// panelRoster -- derivation incl. trustSurface on/off
+// -----------------------------------------------------------------------------
 test("panelRoster derives one lens per module + yagni + synthesis (trustSurface off)", () => {
   const roster = H.panelRoster(validArgs({ trustSurface: false, dimensions: ["security", "testing"] }));
   const roles = roster.map((r) => r.role);
@@ -441,7 +441,7 @@ test("judgeOutcome: first failure with no second attempt asks for the retry", ()
     H.judgeOutcome("synthesis", "synthesizer-gate", { out: null, err: "boom" }),
     { needRetry: true },
   );
-  // A null return (skipped agent) is a failure too — never a usable judge verdict.
+  // A null return (skipped agent) is a failure too -- never a usable judge verdict.
   assert.deepEqual(H.judgeOutcome("synthesis", "synthesizer-gate", { out: null }), { needRetry: true });
 });
 
@@ -450,7 +450,7 @@ test("judgeOutcome: retry success is force-tagged same-model", () => {
   assert.equal(d.forcedSameModel, true);
 });
 
-test("judgeOutcome: two failures throw — never a silent partial PASS", () => {
+test("judgeOutcome: two failures throw -- never a silent partial PASS", () => {
   assert.throws(
     () => H.judgeOutcome("synthesis", "synthesizer-gate", { out: null, err: "a" }, { out: null, err: "b" }),
     /failed twice.*Never a silent partial PASS/s,
@@ -466,14 +466,14 @@ test("coverageGaps: a null lens return becomes an explicit deterministic could-n
   assert.equal(gaps[0].confidence, "deterministic");
 });
 
-test("coverageGaps: all lenses ran → no gaps", () => {
+test("coverageGaps: all lenses ran -> no gaps", () => {
   const ok = { verdict: "CLEAN", findings: [] };
   assert.deepEqual(H.coverageGaps([ok, ok], ["a", "b"]), []);
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Piece #1 — finalVerdict: the mechanical presence-assertion (a named lens cannot no-show)
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// Piece #1 -- finalVerdict: the mechanical presence-assertion (a named lens cannot no-show)
+// -----------------------------------------------------------------------------
 test("finalVerdict: a named lens with no usable result forces CHANGES_REQUIRED even on a PASS synthesis", () => {
   // The fail-open hole this closes: synthesis returns PASS while a named lens silently no-showed.
   assert.equal(H.finalVerdict("PASS", 1), "CHANGES_REQUIRED");
@@ -504,7 +504,7 @@ test("finalVerdict integrates with coverageGaps: a null lens return drives the o
 test("crossModelOutcome: an unresolvable BUILDER family reports UNRESOLVED, never a claim", () => {
   const r = H.crossModelOutcome("unknown-builder", ["Opus 4.8"]);
   assert.equal(r.claimed, false);
-  // Unresolved is reported AS unresolved — never asserted as same-model fact.
+  // Unresolved is reported AS unresolved -- never asserted as same-model fact.
   assert.equal(r.tag, EXPECTED_UNRESOLVED_FAMILY_TAG);
 });
 
@@ -513,7 +513,7 @@ test("splitPanelResults: input-order arithmetic, honesty on", () => {
   assert.deepEqual(r, { lensReturns: ["l1", "l2"], yagni: "y", honestyJudge: "h" });
 });
 
-test("splitPanelResults: honesty off → honestyJudge is null", () => {
+test("splitPanelResults: honesty off -> honestyJudge is null", () => {
   const r = H.splitPanelResults(["l1", "y"], 1, false);
   assert.deepEqual(r, { lensReturns: ["l1"], yagni: "y", honestyJudge: null });
 });

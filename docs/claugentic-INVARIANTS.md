@@ -96,3 +96,20 @@ the failure or near-miss that taught it).
   (A.b) is **WARN-heuristic**, not a hard gate. The contract is therefore pinned mechanically for the
   exact literals only — NOT *fully* content-enforced; the membership test + model-upheld review still
   complement it.
+
+---
+
+## The audit cell-key delimiter must be name-safe + changed atomically
+
+- **Invariant —** the audit cell-key (`engine/audit.js` `cellKey` builds `module|dir`) uses a
+  delimiter (`|`) that CANNOT appear in a module name (`[a-z-]+`) or a forward-slash scope path.
+  Changing it requires updating ALL sides together: producer (`cellKey`/`BLINDSPOT_CELL`), parser
+  (`parseCellKey`), serializer (`renderStatusLine` → the audit fence's done/pending-cells), the SKILL
+  resume re-parse (`skills/audit/SKILL.md`), and the pinned test fixtures.
+- **Why —** the delimiter is the cell-key's only field separator AND it round-trips through the audit
+  fence's persisted resume contract; a delimiter that can occur in a module name or path mis-splits
+  `parseCellKey`, and a one-sided change silently corrupts resume (cells re-run or drop). (ASCII-only
+  is a separate, mechanically-guarded requirement — `check_shipped_content.py` Pass C.)
+- **Provenance —** 2026-06-25 (plan 0029): the engine ASCII-hardening swapped the original U+00D7
+  delimiter to `|`; the plan-gate caught it was LOAD-BEARING (not display) and a blind swap to `x`
+  would have corrupted resume (module/dir names contain `x`).

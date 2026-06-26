@@ -1,12 +1,12 @@
-// tests/workflows/build-item.test.mjs — node --test unit tests for the pure helpers of
+// tests/workflows/build-item.test.mjs -- node --test unit tests for the pure helpers of
 // engine/build-item.js.
 //
 // Same extract-and-eval harness as verify.test.mjs / qa.test.mjs: build-item.js is a
 // Workflow-tool script (top-level control flow ending in a returned result; it calls the tool
 // primitives agent()/parallel()/phase()/log()/workflow(), undefined under node), so we read the
-// file, EXTRACT the marked `// --- helpers ---` … `// --- end helpers ---` block (pure functions
+// file, EXTRACT the marked `// --- helpers ---` ... `// --- end helpers ---` block (pure functions
 // + schema literals), evaluate it via `new Function`, and exercise the helpers standalone. The
-// block must close over NO tool primitive — these tests are the proof it doesn't. Run by
+// block must close over NO tool primitive -- these tests are the proof it doesn't. Run by
 // `node --test "tests/workflows/*.test.mjs"` (and the CI node-tests job).
 
 import { test } from "node:test";
@@ -20,14 +20,14 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(HERE, "..", "..");
 const SCRIPT_PATH = join(REPO_ROOT, "engine", "build-item.js");
 
-// The verbatim same-model tag — duplicated here on purpose as an independent fixture so a drift
+// The verbatim same-model tag -- duplicated here on purpose as an independent fixture so a drift
 // in the script's wording is caught by an exact string compare (the test is the pin).
 const EXPECTED_SAME_MODEL_TAG =
-  "same-model review on this run — the judge and the builder are the same model family here.";
+  "same-model review on this run -- the judge and the builder are the same model family here.";
 
-// The verbatim UNRESOLVED tag — the third disclosure state. Independent fixture (exact-compare pin).
+// The verbatim UNRESOLVED tag -- the third disclosure state. Independent fixture (exact-compare pin).
 const EXPECTED_UNRESOLVED_FAMILY_TAG =
-  "could not resolve the judge's model family on this run — no cross-model claim is made (treated as the same-model trust floor, not asserted as fact).";
+  "could not resolve the judge's model family on this run -- no cross-model claim is made (treated as the same-model trust floor, not asserted as fact).";
 
 const H = loadHelpersFrom(SCRIPT_PATH, [
   "SAME_MODEL_TAG",
@@ -84,9 +84,9 @@ function validArgs(overrides = {}) {
   };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // Extraction harness + the copied trust-surface pins
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 test("extraction harness finds the marked block and all helper names", () => {
   for (const name of [
     "SAME_MODEL_TAG",
@@ -121,10 +121,10 @@ test("modelFamily normalizes a self-reported family / null on garbage (copied fr
   assert.equal(H.modelFamily(42), null);
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// sameModelTag — verbatim tag on match / missing; null only on a confirmed different family
-// ─────────────────────────────────────────────────────────────────────────────
-test("sameModelTag: same family → the verbatim tag (string equality)", () => {
+// -----------------------------------------------------------------------------
+// sameModelTag -- verbatim tag on match / missing; null only on a confirmed different family
+// -----------------------------------------------------------------------------
+test("sameModelTag: same family -> the verbatim tag (string equality)", () => {
   assert.equal(H.sameModelTag("Opus 4.8", "Opus 4.1"), EXPECTED_SAME_MODEL_TAG);
 });
 
@@ -138,7 +138,7 @@ test("sameModelTag: a PRESENT but unrecognized family reports UNRESOLVED (never 
   assert.notEqual(H.sameModelTag("Fable 5", "unknown thing"), EXPECTED_SAME_MODEL_TAG);
 });
 
-test("sameModelTag: a confirmed different family → null (the sole cross-model case)", () => {
+test("sameModelTag: a confirmed different family -> null (the sole cross-model case)", () => {
   assert.equal(H.sameModelTag("Fable 5", "Opus 4.8"), null);
 });
 
@@ -155,9 +155,9 @@ test("KNOWN_FAMILIES is the one named source the modelFamily regex derives from"
   assert.equal(H.modelFamily("RUNNING AS: gemini"), null);
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// parseArgs — the JSON-string boundary
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// parseArgs -- the JSON-string boundary
+// -----------------------------------------------------------------------------
 test("parseArgs parses a JSON-string args delivery (the scriptPath boundary)", () => {
   assert.deepEqual(H.parseArgs('{"builderFamily":"Fable 5"}'), { builderFamily: "Fable 5" });
 });
@@ -171,9 +171,9 @@ test("parseArgs fails loud on an unparseable string", () => {
   assert.throws(() => H.parseArgs("{not json"), /not valid JSON/);
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// validateArgs — boundary validation, fail loud
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// validateArgs -- boundary validation, fail loud
+// -----------------------------------------------------------------------------
 test("validateArgs accepts a well-formed args object", () => {
   const { ok, errors } = H.validateArgs(validArgs());
   assert.deepEqual(errors, []);
@@ -214,7 +214,7 @@ test("validateArgs flags a missing builderFamily", () => {
 
 test("validateArgs flags a criterion with a renamed field (the frozen-schema guard)", () => {
   const args = validArgs();
-  // 'steps' instead of 'flow' — a frozen-schema drift.
+  // 'steps' instead of 'flow' -- a frozen-schema drift.
   args.item.acceptanceCriteria = [
     { id: "AC-1", feature: "f", steps: ["a"], expect: ["b"], states: [], check: "e2e" },
   ];
@@ -241,9 +241,9 @@ test("validateArgs flags acceptanceCriteria that is not an array", () => {
   assert.ok(errors.some((e) => e.includes("acceptanceCriteria")));
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// validateArgs — caps.stageTimeouts (per-stage duration bound; fail loud, never silent-clamp)
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// validateArgs -- caps.stageTimeouts (per-stage duration bound; fail loud, never silent-clamp)
+// -----------------------------------------------------------------------------
 test("validateArgs accepts a valid caps.stageTimeouts", () => {
   const args = validArgs();
   args.caps.stageTimeouts = { implement: 600, gates: 300, qaBoot: 120 };
@@ -270,7 +270,7 @@ test("validateArgs rejects a non-object stageTimeouts (named field)", () => {
 
 test("validateArgs rejects an ARRAY stageTimeouts (an array must not silently mean 'all defaults')", () => {
   const args = validArgs();
-  args.caps.stageTimeouts = []; // Array.isArray reject arm — without it, [] would slip through as an object
+  args.caps.stageTimeouts = []; // Array.isArray reject arm -- without it, [] would slip through as an object
   const { ok, errors } = H.validateArgs(args);
   assert.equal(ok, false);
   assert.ok(errors.some((e) => e.includes("caps.stageTimeouts") && e.includes("must be an object")));
@@ -292,7 +292,7 @@ test("validateArgs rejects a non-integer stageTimeouts value (named field)", () 
   assert.ok(errors.some((e) => e.includes("caps.stageTimeouts.gates")));
 });
 
-test("validateArgs rejects a ≤0 stageTimeouts value (named field)", () => {
+test("validateArgs rejects a <=0 stageTimeouts value (named field)", () => {
   const args = validArgs();
   args.caps.stageTimeouts = { implement: 0 };
   const { ok, errors } = H.validateArgs(args);
@@ -300,7 +300,7 @@ test("validateArgs rejects a ≤0 stageTimeouts value (named field)", () => {
   assert.ok(errors.some((e) => e.includes("caps.stageTimeouts.implement")));
 });
 
-test("validateArgs rejects a stageTimeouts value > 600 (the Bash-tool hard max — never silently clamped)", () => {
+test("validateArgs rejects a stageTimeouts value > 600 (the Bash-tool hard max -- never silently clamped)", () => {
   const args = validArgs();
   args.caps.stageTimeouts = { gates: 800 };
   const { ok, errors } = H.validateArgs(args);
@@ -308,9 +308,9 @@ test("validateArgs rejects a stageTimeouts value > 600 (the Bash-tool hard max �
   assert.ok(errors.some((e) => e.includes("caps.stageTimeouts.gates") && e.includes("600")));
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// resolveStageTimeouts — per-stage distinct defaults; qaBoot stays null when unset (no engine default)
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// resolveStageTimeouts -- per-stage distinct defaults; qaBoot stays null when unset (no engine default)
+// -----------------------------------------------------------------------------
 test("resolveStageTimeouts: defaults when caps/stageTimeouts absent (implement 600, gates 600, qaBoot null)", () => {
   assert.deepEqual(H.resolveStageTimeouts(undefined), { implement: 600, gates: 600, qaBoot: null });
   assert.deepEqual(H.resolveStageTimeouts({}), { implement: 600, gates: 600, qaBoot: null });
@@ -337,14 +337,14 @@ test("resolveStageTimeouts: qaBoot stays null when unset (qa.js owns the boot de
 });
 
 test("resolveStageTimeouts: an explicit-null stageTimeouts maps to all defaults (the top-level guard)", () => {
-  // null is a legal absent-form (validateArgs accepts it) — only the `typeof === 'object' && !== null`
+  // null is a legal absent-form (validateArgs accepts it) -- only the `typeof === 'object' && !== null`
   // guard keeps it from being read as a non-empty override; pin that it resolves to all defaults.
   assert.deepEqual(H.resolveStageTimeouts({ stageTimeouts: null }), { implement: 600, gates: 600, qaBoot: null });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// qaChildArgs — readinessTimeoutSec iff qaBoot != null; threads the rest unchanged
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// qaChildArgs -- readinessTimeoutSec iff qaBoot != null; threads the rest unchanged
+// -----------------------------------------------------------------------------
 test("qaChildArgs: omits readinessTimeoutSec when qaBoot is null (qa.js applies its own 60s default)", () => {
   const item = { id: "T1", appUrl: "" };
   const repo = { runApp: "uvicorn main:app", appUrl: "http://localhost:8000" };
@@ -366,9 +366,9 @@ test("qaChildArgs: includes readinessTimeoutSec when qaBoot is set (pass-through
   assert.equal(out.appUrl, "http://item-url"); // item.appUrl wins over repo.appUrl
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// maxIterationsFor — default + override
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// maxIterationsFor -- default + override
+// -----------------------------------------------------------------------------
 test("maxIterationsFor: default is 3, an override wins, a bad value falls back", () => {
   assert.equal(H.maxIterationsFor(undefined), 3);
   assert.equal(H.maxIterationsFor({}), 3);
@@ -378,10 +378,10 @@ test("maxIterationsFor: default is 3, an override wins, a bad value falls back",
   assert.equal(H.DEFAULT_MAX_ITERATIONS, 3);
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// criteriaBlockers — manual criteria escalate to blocked
-// ─────────────────────────────────────────────────────────────────────────────
-test("criteriaBlockers: e2e/api → empty; a manual criterion → its id", () => {
+// -----------------------------------------------------------------------------
+// criteriaBlockers -- manual criteria escalate to blocked
+// -----------------------------------------------------------------------------
+test("criteriaBlockers: e2e/api -> empty; a manual criterion -> its id", () => {
   assert.deepEqual(
     H.criteriaBlockers([
       { id: "AC-1", check: "e2e" },
@@ -400,9 +400,9 @@ test("criteriaBlockers: e2e/api → empty; a manual criterion → its id", () =>
   assert.deepEqual(H.criteriaBlockers(undefined), []);
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// childScriptPath — joins/normalizes; throws on empty root
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// childScriptPath -- joins/normalizes; throws on empty root
+// -----------------------------------------------------------------------------
 test("childScriptPath joins the plugin root and the script name", () => {
   assert.equal(H.childScriptPath("/plugins/x/0.1.23", "verify.js"), "/plugins/x/0.1.23/engine/verify.js");
 });
@@ -416,9 +416,9 @@ test("childScriptPath throws on an empty/whitespace root (fail loud)", () => {
   assert.throws(() => H.childScriptPath("   ", "verify.js"), /pluginRoot is empty/);
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// gatesGreen — exit codes decide; a malformed result fails loud
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// gatesGreen -- exit codes decide; a malformed result fails loud
+// -----------------------------------------------------------------------------
 test("gatesGreen: all-zero is green", () => {
   const r = H.gatesGreen([
     { command: "pytest", exitCode: 0 },
@@ -451,10 +451,10 @@ test("gatesGreen: a non-array results input fails loud, never reads as a pass", 
   assert.equal(H.gatesGreen(undefined).green, false);
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// qaGreen — anything != pass fails; could-not-run is a failure
-// ─────────────────────────────────────────────────────────────────────────────
-test("qaGreen: all-pass verdicts → green", () => {
+// -----------------------------------------------------------------------------
+// qaGreen -- anything != pass fails; could-not-run is a failure
+// -----------------------------------------------------------------------------
+test("qaGreen: all-pass verdicts -> green", () => {
   const r = H.qaGreen({ verdicts: [{ id: "AC-1", verdict: "pass" }, { id: "AC-2", verdict: "pass" }], findings: [] });
   assert.equal(r.green, true);
 });
@@ -480,9 +480,9 @@ test("qaGreen: a non-object qa result fails loud, never green", () => {
   assert.equal(H.qaGreen(null).green, false);
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// outOfScopeTier12 — tiers 1/2 escalate, 3 ignored, unclassified escalates
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// outOfScopeTier12 -- tiers 1/2 escalate, 3 ignored, unclassified escalates
+// -----------------------------------------------------------------------------
 test("outOfScopeTier12: tiers 1 and 2 are caught, tier 3 is ignored", () => {
   const out = H.outOfScopeTier12([
     { tier: 1, claim: "a" },
@@ -498,14 +498,14 @@ test("outOfScopeTier12: an unclassified tier escalates (conservative, never sile
   assert.equal(out.length, 2);
 });
 
-test("outOfScopeTier12: empty/non-array input → empty", () => {
+test("outOfScopeTier12: empty/non-array input -> empty", () => {
   assert.deepEqual(H.outOfScopeTier12([]), []);
   assert.deepEqual(H.outOfScopeTier12(undefined), []);
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// nextAction — the priority-ordered decision
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// nextAction -- the priority-ordered decision
+// -----------------------------------------------------------------------------
 function state(overrides = {}) {
   return {
     iteration: 1,
@@ -519,7 +519,7 @@ function state(overrides = {}) {
   };
 }
 
-test("nextAction: all green → 'green'", () => {
+test("nextAction: all green -> 'green'", () => {
   assert.equal(H.nextAction(state()), "green");
 });
 
@@ -536,17 +536,17 @@ test("nextAction: a new Tier-1/2 finding wins over green (but not over irreversi
   );
 });
 
-test("nextAction: not green, under the cap → 'fix'", () => {
+test("nextAction: not green, under the cap -> 'fix'", () => {
   assert.equal(H.nextAction(state({ gatesGreen: false, iteration: 1, maxIterations: 3 })), "fix");
 });
 
-test("nextAction: not green, at the cap (red gates) → 'cap-stop'", () => {
+test("nextAction: not green, at the cap (red gates) -> 'cap-stop'", () => {
   assert.equal(H.nextAction(state({ gatesGreen: false, iteration: 3, maxIterations: 3 })), "cap-stop");
   assert.equal(H.nextAction(state({ verifyPass: false, iteration: 3, maxIterations: 3 })), "cap-stop");
   assert.equal(H.nextAction(state({ qaGreenOrNA: false, iteration: 3, maxIterations: 3 })), "cap-stop");
 });
 
-test("nextAction: green even at the cap → 'green' (the cap only stops a RED run)", () => {
+test("nextAction: green even at the cap -> 'green' (the cap only stops a RED run)", () => {
   assert.equal(H.nextAction(state({ iteration: 3, maxIterations: 3 })), "green");
 });
 
@@ -563,9 +563,9 @@ test("nextAction: a malformed state throws (never a default)", () => {
   assert.throws(() => H.nextAction(state({ qaGreenOrNA: 1 })), /qaGreenOrNA must be a boolean/);
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// residualReport — shape
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// residualReport -- shape
+// -----------------------------------------------------------------------------
 test("residualReport: assembles the four residual fields", () => {
   const r = H.residualReport({
     iteration: 3,
@@ -587,9 +587,9 @@ test("residualReport: missing fields default to empty arrays / 0", () => {
   assert.equal(r.iterationsUsed, 0);
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// foldResidual — the next-iteration fix brief
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// foldResidual -- the next-iteration fix brief
+// -----------------------------------------------------------------------------
 test("foldResidual: collects failing gates + open (non-met) verify findings + failing criteria", () => {
   const brief = H.foldResidual(
     { failures: [{ command: "pytest", exitCode: 1 }] },
@@ -610,25 +610,25 @@ test("foldResidual: null stages fold to empty arrays, never a crash", () => {
   assert.deepEqual(brief.failingCriteria, []);
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// crossModelClaim — confirmed only on all-confirming-different-family
-// ─────────────────────────────────────────────────────────────────────────────
-test("crossModelClaim: every child confirms a different family → 'confirmed'", () => {
+// -----------------------------------------------------------------------------
+// crossModelClaim -- confirmed only on all-confirming-different-family
+// -----------------------------------------------------------------------------
+test("crossModelClaim: every child confirms a different family -> 'confirmed'", () => {
   assert.equal(H.crossModelClaim("Fable 5", ["Opus 4.8", "Opus 4.1"]), "confirmed");
 });
 
-test("crossModelClaim: any same-family child → the verbatim same-model tag", () => {
+test("crossModelClaim: any same-family child -> the verbatim same-model tag", () => {
   assert.equal(H.crossModelClaim("Fable 5", ["Opus 4.8", "Fable 5"]), EXPECTED_SAME_MODEL_TAG);
 });
 
-test("crossModelClaim: no judge report at all → the same-model tag (never claim on silence)", () => {
+test("crossModelClaim: no judge report at all -> the same-model tag (never claim on silence)", () => {
   assert.equal(H.crossModelClaim("Fable 5", []), EXPECTED_SAME_MODEL_TAG);
   assert.equal(H.crossModelClaim("Fable 5", [null, ""]), EXPECTED_SAME_MODEL_TAG);
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Schema field-set pins — the consumed contract (drift guard)
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// Schema field-set pins -- the consumed contract (drift guard)
+// -----------------------------------------------------------------------------
 test("schema field-set pins: IMPLEMENT_SCHEMA / GATES_SCHEMA required arrays", () => {
   assert.deepEqual(H.IMPLEMENT_SCHEMA.required, ["summary", "branch", "touchedFiles", "modelFamily"]);
   assert.deepEqual(H.GATES_SCHEMA.required, ["results"]);
@@ -661,8 +661,8 @@ test("foldResidual: a could-not-run QA stage is an explicit entry", () => {
 });
 
 test("residualReport: carries stageCouldNotRun through to the terminal report", () => {
-  const rep = H.residualReport({ failingGates: [], openFindings: [], failingCriteria: [], stageCouldNotRun: ["verify could not run — x"], iteration: 2 });
-  assert.deepEqual(rep.stageCouldNotRun, ["verify could not run — x"]);
+  const rep = H.residualReport({ failingGates: [], openFindings: [], failingCriteria: [], stageCouldNotRun: ["verify could not run -- x"], iteration: 2 });
+  assert.deepEqual(rep.stageCouldNotRun, ["verify could not run -- x"]);
 });
 
 test("qaGreen: couldNotRun is true only when the stage produced no usable result", () => {
@@ -670,9 +670,9 @@ test("qaGreen: couldNotRun is true only when the stage produced no usable result
   assert.equal(H.qaGreen({ verdicts: [], findings: [] }).couldNotRun, false);
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// gatesPrompt / implementPrompt — the resolved bound + the Bash-tool `timeout` mandate
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// gatesPrompt / implementPrompt -- the resolved bound + the Bash-tool `timeout` mandate
+// -----------------------------------------------------------------------------
 const PROMPT_ITEM = { id: "T1", title: "An item", tag: "feat", specText: "Build the thing." };
 const PROMPT_REPO = { root: "/repo", baseBranch: "main", gateCommands: ["pytest", "node --test"], runApp: "npm start" };
 
@@ -691,7 +691,7 @@ test("gatesPrompt: carries the 124 timeout convention (the fail-closed leg) + pe
   const p = H.gatesPrompt(PROMPT_REPO, "feat/x", null, 217);
   // per-command instruction site carries the resolved value
   assert.match(p, /timeout` PARAMETER set to 217s/);
-  // the "hits the …s timeout" 124 sentence carries the SAME value (not a hardcoded 600s)
+  // the "hits the ...s timeout" 124 sentence carries the SAME value (not a hardcoded 600s)
   assert.match(p, /hits the 217s\s*\n?\s*timeout/);
   assert.equal(p.includes("600s"), false); // no stray hardcoded default leaked into either site
   assert.match(p, /exitCode 124/);
@@ -713,7 +713,7 @@ test("implementPrompt: carries the resolved bound + the Bash-tool `timeout` + tr
 test("implementPrompt: the fix-iteration path also carries the anti-hang bound", () => {
   const residual = { failingGates: [{ command: "pytest", exitCode: 1 }], verifyFindings: [], failingCriteria: [] };
   const p = H.implementPrompt(PROMPT_ITEM, PROMPT_REPO, residual, "feat/x", 200);
-  assert.match(p, /Build-to-green — FIX/);
+  assert.match(p, /Build-to-green -- FIX/);
   assert.match(p, /200s/);
   assert.match(p, /Bash tool's `timeout` PARAMETER/);
 });
