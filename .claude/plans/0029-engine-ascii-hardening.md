@@ -68,7 +68,7 @@ Real-world adopter validation (DistrictSync, a 0.2.4→0.3.0 adopter) surfaced t
 
 ## Decomposition (slices)
 - [x] **S1 — ASCII-clean `engine/*.js`.** ✅ LANDED 2026-06-25 (synthesizer-gate PASS — 3 round-trips verified end-to-end: cell-key `|`, status-line ` - `, verification-phrase glossary; 0 non-ASCII in all 4 engine files; 372 node + 189 pytest green; round-trips genuine not tautological). Delimiter `×`→`|` (name-safe, 1-char); `·`→` - `; display chars `--`/`->`/`=>`/`...`/`!`/`>=`/`<=`/`+`/`and`. Lockstep: audit/qa/build-item/verify test fixtures + `skills/audit/SKILL.md` resume docs. **Carry into S2:** `skills/build/SKILL.md:467,625` still say `module × dir`/`module×dir` (SHIPPED, now stale — fold the `×`→`|` fix into S2).
-- [ ] **S2 — Scanner ASCII guard + 0.3.1 bump.** HARD ASCII-only pass over shipped `*.js` in `check_shipped_content.py` + hermetic test; bump both manifests to 0.3.1. Gate green on the cleaned tree. Lands complete.
+- [x] **S2 — Scanner ASCII guard + 0.3.1 bump.** ✅ LANDED 2026-06-25 (synthesizer-gate PASS — mutation test conclusive: em-dash in engine/verify.js → gate exit 1 w/ located msg → revert → exit 0; `.js`-filter can't self-flag; 26 scanner tests + 194 pytest + 372 node green; version pair 0.3.1). NEW Pass C (HARD, exact codepoint > 0x7F over shipped `*.js`) in `check_shipped_content.py` + tests; both manifests → 0.3.1; `build/SKILL.md:467,625` `×`→`|` (shipped-tree consistency); ARCHITECTURE_TREE entry refreshed. Lands complete.
 
 ## Land (after S2)
 ONE `DECISIONS.md` line (engine-ASCII rule + DistrictSync provenance; condense-on-WARN) · delete this plan · rebuild `release` from the new main tip · **PR + merge + force-push release** (0.3.1) · `/plugin update`.
