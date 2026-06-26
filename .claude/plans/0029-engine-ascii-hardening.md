@@ -67,7 +67,7 @@ Real-world adopter validation (DistrictSync, a 0.2.4→0.3.0 adopter) surfaced t
 - **S2:** hermetic test for the ASCII pass (non-ASCII `*.js` flagged; ASCII clean; the pass is exit-1 hard). Full suite + all gates (tree, version-sync at 0.3.1, doc-budgets, the scanner itself) green.
 
 ## Decomposition (slices)
-- [ ] **S1 — ASCII-clean `engine/*.js`.** Apply the substitution map across the 4 engine scripts; confirm comment/log/display-only (no broken parsed delimiter); `node --check` + the full 372-test node suite green (zero behavior change). Lands complete.
+- [x] **S1 — ASCII-clean `engine/*.js`.** ✅ LANDED 2026-06-25 (synthesizer-gate PASS — 3 round-trips verified end-to-end: cell-key `|`, status-line ` - `, verification-phrase glossary; 0 non-ASCII in all 4 engine files; 372 node + 189 pytest green; round-trips genuine not tautological). Delimiter `×`→`|` (name-safe, 1-char); `·`→` - `; display chars `--`/`->`/`=>`/`...`/`!`/`>=`/`<=`/`+`/`and`. Lockstep: audit/qa/build-item/verify test fixtures + `skills/audit/SKILL.md` resume docs. **Carry into S2:** `skills/build/SKILL.md:467,625` still say `module × dir`/`module×dir` (SHIPPED, now stale — fold the `×`→`|` fix into S2).
 - [ ] **S2 — Scanner ASCII guard + 0.3.1 bump.** HARD ASCII-only pass over shipped `*.js` in `check_shipped_content.py` + hermetic test; bump both manifests to 0.3.1. Gate green on the cleaned tree. Lands complete.
 
 ## Land (after S2)

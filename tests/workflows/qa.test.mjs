@@ -1,11 +1,11 @@
-// tests/workflows/qa.test.mjs — node --test unit tests for the pure helpers of workflows/qa.js.
+// tests/workflows/qa.test.mjs -- node --test unit tests for the pure helpers of workflows/qa.js.
 //
 // Same extraction harness as verify.test.mjs / audit.test.mjs: the script is a Workflow-tool
 // script (top-level control flow ending in a returned result; tool primitives agent()/parallel()/
 // phase()/log() are undefined under node), so we read the file, EXTRACT the marked
-// `// --- helpers ---` … `// --- end helpers ---` block (pure functions + schema/const literals),
+// `// --- helpers ---` ... `// --- end helpers ---` block (pure functions + schema/const literals),
 // evaluate it via `new Function`, and exercise the helpers standalone. The block must NOT close
-// over any tool primitive — these tests are the proof it doesn't. Run by
+// over any tool primitive -- these tests are the proof it doesn't. Run by
 // `node --test tests/workflows/*.test.mjs` (and the CI node-tests job).
 
 import { test } from "node:test";
@@ -19,20 +19,20 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(HERE, "..", "..");
 const SCRIPT_PATH = join(REPO_ROOT, "engine", "qa.js");
 
-// The verbatim same-model tag — duplicated here on purpose as an independent fixture so a drift in
+// The verbatim same-model tag -- duplicated here on purpose as an independent fixture so a drift in
 // the script's wording is caught by an exact string compare (the test is the pin).
 const EXPECTED_SAME_MODEL_TAG =
-  "same-model review on this run — the judge and the builder are the same model family here.";
+  "same-model review on this run -- the judge and the builder are the same model family here.";
 
-// The verbatim UNRESOLVED tag — the third disclosure state. Independent fixture (exact-compare pin).
+// The verbatim UNRESOLVED tag -- the third disclosure state. Independent fixture (exact-compare pin).
 const EXPECTED_UNRESOLVED_FAMILY_TAG =
-  "could not resolve the judge's model family on this run — no cross-model claim is made (treated as the same-model trust floor, not asserted as fact).";
+  "could not resolve the judge's model family on this run -- no cross-model claim is made (treated as the same-model trust floor, not asserted as fact).";
 
 // Independent verbatim fixtures for the could-not-run finding's load-bearing copy.
 const EXPECTED_COULD_NOT_RUN_CLASS = "qa-could-not-run-app";
-const EXPECTED_OBSERVED_TAG = "(observed this run — boot log attached)";
+const EXPECTED_OBSERVED_TAG = "(observed this run -- boot log attached)";
 const EXPECTED_NO_RUN_REASON =
-  'no run command recorded — add a "Run the app:" line to CLAUDE.md\'s detected-tooling block (or pass runCommand)';
+  'no run command recorded -- add a "Run the app:" line to CLAUDE.md\'s detected-tooling block (or pass runCommand)';
 
 const H = loadHelpersFrom(SCRIPT_PATH, [
   "MODELS",
@@ -85,9 +85,9 @@ function validArgs(overrides = {}) {
   };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // Extraction harness + contract pins
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 test("extraction harness finds the marked block and all helper names", () => {
   for (const name of [
     "MODELS",
@@ -132,9 +132,9 @@ test("COULD_NOT_RUN_CLASS / OBSERVED_THIS_RUN_TAG / NO_RUN_COMMAND_REASON are ve
   assert.equal(H.NO_RUN_COMMAND_REASON, EXPECTED_NO_RUN_REASON);
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// parseArgs (copied verbatim — JSON-string boundary)
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// parseArgs (copied verbatim -- JSON-string boundary)
+// -----------------------------------------------------------------------------
 test("parseArgs parses a JSON string and passes an object through", () => {
   assert.deepEqual(H.parseArgs('{"runCommand":"x","appUrl":"y"}'), { runCommand: "x", appUrl: "y" });
   const obj = { runCommand: "x", appUrl: "y" };
@@ -145,9 +145,9 @@ test("parseArgs throws loud on unparseable JSON (never a silent empty-args run)"
   assert.throws(() => H.parseArgs("{not json"), /qa args: not valid JSON/);
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// parseRunArgs — defaults, cap, and the no-run-command finding path
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// parseRunArgs -- defaults, cap, and the no-run-command finding path
+// -----------------------------------------------------------------------------
 test("parseRunArgs applies the readiness default and trims/normalizes", () => {
   const { runConfig, errors } = H.parseRunArgs(validArgs({ runCommand: "  uvicorn x  ", appUrl: "  http://h  " }));
   assert.deepEqual(errors, []);
@@ -155,7 +155,7 @@ test("parseRunArgs applies the readiness default and trims/normalizes", () => {
   assert.equal(runConfig.appUrl, "http://h");
   assert.equal(runConfig.readinessTimeoutSec, H.READINESS_TIMEOUT_DEFAULT_SEC);
   assert.equal(runConfig.teardownCommand, null);
-  assert.deepEqual(runConfig.criteria, []); // 4b seam: absent ⇒ boot-only
+  assert.deepEqual(runConfig.criteria, []); // 4b seam: absent => boot-only
 });
 
 test("parseRunArgs clamps readinessTimeoutSec at the 300s cap", () => {
@@ -213,9 +213,9 @@ test("parseRunArgs rejects a non-array criteria (4b seam type-guard)", () => {
   assert.ok(errors.some((e) => e.includes("criteria")));
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // isComposeCommand
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 test("isComposeCommand: docker compose / docker-compose => true", () => {
   assert.equal(H.isComposeCommand("docker compose up -d"), true);
   assert.equal(H.isComposeCommand("docker-compose up"), true);
@@ -233,9 +233,9 @@ test("isComposeCommand: non-string => false", () => {
   assert.equal(H.isComposeCommand(undefined), false);
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// readinessPlan — bounded attempts, never zero, never unbounded
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// readinessPlan -- bounded attempts, never zero, never unbounded
+// -----------------------------------------------------------------------------
 test("readinessPlan derives bounded attempts from the timeout", () => {
   const plan = H.readinessPlan({ readinessTimeoutSec: 60 });
   assert.equal(plan.intervalSec, H.READINESS_PROBE_INTERVAL_SEC);
@@ -259,9 +259,9 @@ test("readinessPlan clamps an over-cap timeout (defense in depth)", () => {
   assert.equal(plan.timeoutSec, H.READINESS_TIMEOUT_CAP_SEC);
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// bootOutcome — fail loud on a missing/malformed report
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// bootOutcome -- fail loud on a missing/malformed report
+// -----------------------------------------------------------------------------
 test("bootOutcome: ready strictly-true => ready", () => {
   assert.equal(H.bootOutcome({ started: true, ready: true, attempts: 3 }), "ready");
 });
@@ -281,9 +281,9 @@ test("bootOutcome: a malformed report (ready not a strict bool) => failed", () =
   assert.equal(H.bootOutcome("nope"), "failed");
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// teardownPlan — precedence + the always-reap-the-PID rule
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// teardownPlan -- precedence + the always-reap-the-PID rule
+// -----------------------------------------------------------------------------
 test("teardownPlan: an explicit teardownCommand wins over everything", () => {
   const td = H.teardownPlan(
     { runCommand: "docker compose up -d", teardownCommand: "make stop" },
@@ -312,9 +312,9 @@ test("teardownPlan: no override, not compose, no PID => an honest no-op method",
   assert.deepEqual(td, { method: "none" });
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// couldNotRunFinding — exact shape, deterministic confidence, evidence present
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// couldNotRunFinding -- exact shape, deterministic confidence, evidence present
+// -----------------------------------------------------------------------------
 test("couldNotRunFinding: a boot-failure finding carries the exact class, confidence, tag, evidence", () => {
   const { runConfig } = H.parseRunArgs(validArgs());
   const f = H.couldNotRunFinding(runConfig, { attempts: 30, logTail: "ImportError: nonexistent" });
@@ -352,9 +352,9 @@ test("couldNotRunFinding: tolerates a malformed report (missing fields default s
   assert.equal(f.evidence.logTail, "");
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Schemas — required field sets pinned (the boot/teardown reports the agents must return)
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// Schemas -- required field sets pinned (the boot/teardown reports the agents must return)
+// -----------------------------------------------------------------------------
 test("BOOT_SCHEMA requires started/ready/attempts (the load-bearing boot fields)", () => {
   assert.deepEqual(H.BOOT_SCHEMA.required, ["started", "ready", "attempts"]);
   assert.equal(H.BOOT_SCHEMA.properties.ready.type, "boolean");
@@ -365,7 +365,7 @@ test("TEARDOWN_SCHEMA requires toreDown (the teardown contract)", () => {
 });
 
 test("isRunInputError: matches exactly the producer's missing-run-input prefixes", () => {
-  // The producer/consumer string contract — parseRunArgs emits these prefixes; the partition
+  // The producer/consumer string contract -- parseRunArgs emits these prefixes; the partition
   // must route them to the honest could-not-run finding, never the throw path.
   assert.equal(H.isRunInputError("runCommand is required (record a Run-the-app line)"), true);
   assert.equal(H.isRunInputError("appUrl is required"), true);
@@ -383,9 +383,9 @@ test("isRunInputError: every parseRunArgs missing-input message is matched (prod
   }
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Slice 4b — frozen-schema constants + cross-model helpers
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// Slice 4b -- frozen-schema constants + cross-model helpers
+// -----------------------------------------------------------------------------
 test("CHECK_KINDS / STATE_KINDS are the frozen enums", () => {
   assert.deepEqual(H.CHECK_KINDS, ["e2e", "api", "manual"]);
   assert.deepEqual(H.STATE_KINDS, ["empty", "loading", "error"]);
@@ -418,9 +418,9 @@ test("modelFamily normalizes a self-report; garbage/empty => null", () => {
   assert.equal(H.modelFamily(""), null);
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// validateCriteria — frozen field names, check enum, states enum, unique ids
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// validateCriteria -- frozen field names, check enum, states enum, unique ids
+// -----------------------------------------------------------------------------
 function validCriterion(overrides = {}) {
   return {
     id: "AC-1",
@@ -480,9 +480,9 @@ test("validateCriteria: a missing id is named by index, never silently dropped",
   assert.ok(errs.some((e) => e.includes("criteria[0]") && e.includes("id is required")));
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// criterionPlan — the drivable / manual partition (manual NEVER driven)
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// criterionPlan -- the drivable / manual partition (manual NEVER driven)
+// -----------------------------------------------------------------------------
 test("criterionPlan: e2e/api are drivable; manual is partitioned out (never driven)", () => {
   const e2e = validCriterion({ id: "A", check: "e2e" });
   const api = validCriterion({ id: "B", check: "api" });
@@ -492,9 +492,9 @@ test("criterionPlan: e2e/api are drivable; manual is partitioned out (never driv
   assert.deepEqual(manual.map((c) => c.id), ["C"]);
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// verdictFor — the precedence table (fail-loud; never default to pass)
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// verdictFor -- the precedence table (fail-loud; never default to pass)
+// -----------------------------------------------------------------------------
 test("verdictFor: all steps/expects ok and no state-fail => pass", () => {
   const r = { steps: [{ action: "x", ok: true }], expects: [{ expect: "y", ok: true }], states: [], screenshots: [] };
   assert.equal(H.verdictFor(r).verdict, "pass");
@@ -534,9 +534,9 @@ test("verdictFor: a missing/malformed report => not-checkable (loudly), never pa
   assert.equal(H.verdictFor(undefined).verdict, "not-checkable");
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// findingsFrom — each issueClass from its failure kind; confidence; evidence; no file:line
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// findingsFrom -- each issueClass from its failure kind; confidence; evidence; no file:line
+// -----------------------------------------------------------------------------
 test("findingsFrom: a flow failure with an observed 404 => ux-broken-flow, deterministic", () => {
   const verdicts = [
     {
@@ -585,9 +585,9 @@ test("findingsFrom: pass / not-checkable verdicts yield no findings", () => {
   assert.deepEqual(findings, []);
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// dedupFindings — same class+route merges; different route/class stays separate
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// dedupFindings -- same class+route merges; different route/class stays separate
+// -----------------------------------------------------------------------------
 test("dedupFindings: same class + route merges (union of criterionIds + screenshots)", () => {
   const merged = H.dedupFindings([
     { issueClass: "ux-broken-flow", route: "/a", criterionId: "AC-1", confidence: "deterministic", evidence: { screenshots: ["1.png"] } },
@@ -615,9 +615,9 @@ test("dedupFindings: same route, different class stays separate", () => {
   assert.equal(out.length, 2);
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// screenshotPath — sanitization + stable shape under the artifact dir
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// screenshotPath -- sanitization + stable shape under the artifact dir
+// -----------------------------------------------------------------------------
 test("screenshotPath: stable shape under <artifactDir>/<runLabel>/", () => {
   assert.equal(H.screenshotPath(".qa-artifacts", "qa-2026", "AC-1", "end"), ".qa-artifacts/qa-2026/ac-1-end.png");
 });
@@ -634,9 +634,9 @@ test("screenshotPath: trims a trailing slash on the artifact dir and defaults a 
   assert.equal(H.screenshotPath(".qa-artifacts/", "", "AC-1", "x"), ".qa-artifacts/run/ac-1-x.png");
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// applyVerifierVerdicts — refuted dropped+counted; tags applied; could-not-run exempt
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// applyVerifierVerdicts -- refuted dropped+counted; tags applied; could-not-run exempt
+// -----------------------------------------------------------------------------
 test("applyVerifierVerdicts: Refuted is dropped and counted", () => {
   const findings = [{ issueClass: "ux-broken-flow", criterionId: "AC-1" }];
   const { kept, refutedCount } = H.applyVerifierVerdicts(findings, [{ verdict: "Refuted", runningAs: "Opus 4.8" }]);
@@ -658,9 +658,9 @@ test("applyVerifierVerdicts: Verified / Unconfirmed / deferred tags applied", ()
   assert.equal(kept[0].verificationState, "verified");
   assert.equal(kept[0].verificationTag, "(checked against the code)");
   assert.equal(kept[1].verificationState, "unconfirmed");
-  assert.equal(kept[1].verificationTag, "(could not confirm independently — model's assertion)");
+  assert.equal(kept[1].verificationTag, "(could not confirm independently -- model's assertion)");
   assert.equal(kept[2].verificationState, "deferred");
-  assert.equal(kept[2].verificationTag, "(⚠ not yet verified — re-run to confirm)");
+  assert.equal(kept[2].verificationTag, "(! not yet verified -- re-run to confirm)");
 });
 
 test("applyVerifierVerdicts: the could-not-run finding passes through untouched (exempt)", () => {
@@ -675,9 +675,9 @@ test("applyVerifierVerdicts: the could-not-run finding passes through untouched 
   assert.equal(cnr.verificationState, undefined, "no code-checked verification state is applied");
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Slice 4b schemas — required field-sets pinned
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// Slice 4b schemas -- required field-sets pinned
+// -----------------------------------------------------------------------------
 test("DRIVER_SCHEMA requires the load-bearing report arrays", () => {
   assert.deepEqual(H.DRIVER_SCHEMA.required, ["steps", "expects", "states", "screenshots"]);
 });
@@ -725,7 +725,7 @@ test("verdictFor: unrequested state checks never bear on the verdict (the AC-3 r
       { state: "error", verdict: "fail" },
     ],
   };
-  // states: [] requested — the extra driver observations are informational only.
+  // states: [] requested -- the extra driver observations are informational only.
   const v = H.verdictFor(report, []);
   assert.equal(v.verdict, "pass");
 });
