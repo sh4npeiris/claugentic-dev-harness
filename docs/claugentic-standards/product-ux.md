@@ -2,19 +2,19 @@
 # ── Module contract (copied from _TEMPLATE.md) ──
 module: product-ux
 title: Product & UX
-version: 0.1.0
+version: 0.2.0
 status: draft
 iso_25010: [interaction-capability]
 load_scope:
   keywords: [ui, ux, component, page, screen, design, frontend, button, form, layout, accessibility, a11y, responsive]
   globs: ["**/components/**", "**/pages/**", "**/*.tsx", "**/*.jsx", "**/*.vue", "**/*.css"]
-last_reviewed: 2026-06-04
+last_reviewed: 2026-06-29
 ---
 
 # Product & UX — is this a complete, humane, accessible product surface (not just working code)?
 
 > **Loads when:** a change touches a user-facing surface — a component, page, screen, form, layout, styling, or any interactive frontend.
-> **ISO/IEC 25010:** Interaction Capability · **Status:** draft · **v0.1.0**
+> **ISO/IEC 25010:** Interaction Capability · **Status:** draft · **v0.2.0**
 
 Each entry below is one **auditable dimension**. Per change, the reviewer applies the
 *relevant* ones **fully** (select-don't-skip), right-sized to the change — never
@@ -72,6 +72,15 @@ judgment is backed by numbers wherever possible.
 - **Confidence —** `mixed`
 - **Tradeoff (plain English) —** Strong hierarchy lets users grasp a screen in a glance and act correctly; a flat, inconsistent layout makes everything compete for attention and the product feel cheap. The cost is design care and saying no to "just one more button up top."
 - **Sources —** NNG, Heuristic #4 (consistency & standards) & #8 (aesthetic & minimalist design) (nngroup.com/articles/ten-usability-heuristics/); NNG, *The Principle of Closure in Visual Design* — Gestalt principles of grouping (proximity, similarity, common regions, closure) (nngroup.com/articles/principle-closure/).
+
+## Aesthetic & motion craft (is it beautiful and does it feel alive — not just usable?)
+
+- **Good looks like —** the surface is **crafted, not merely correct**: visual refinement and a **distinctive voice** (intentional typographic rhythm, deliberate spacing/density, considered color and depth) rather than a consistent-but-generic template look; interactions **feel alive** — state changes, entrances, and transitions use crafted easing and purposeful **choreography** (related elements move together, lists stagger, the eye is led) so the product feels responsive and physical; there is at least one **signature moment** a user would notice and enjoy. Craft sits **on top of** — never instead of — the functional bars: this is the *ceiling* (delight) above the floors set by *Visual hierarchy* (clarity), *Perceived performance & micro-interactions* (feedback), and *Accessibility* (reach). **Motion craft is subordinate to the a11y/perf floor:** expressive motion may never override `prefers-reduced-motion` and must stay inside the Core-Web-Vitals budget — the floors win every time.
+- **Auditor checks —** `[J]` does this surface read as **refined and distinctive**, with viewing-pleasure, or merely consistent-and-WCAG-clean? (a reviewer's taste critique — the honest verdict is *"refined / generic / cheap-feeling,"* a reviewed bet, **never** a claim it "is beautiful") `[J]` do state-changes and transitions feel **crafted and alive** (intentional easing/choreography), or abrupt/dead? `[J]` is there a **signature moment** worth noticing, or is every surface flat-neutral? `[D]` the *floor* craft must not break: `prefers-reduced-motion` honored (grep/lint — see *Perceived performance*), **CLS < 0.1 / INP < 200ms** not regressed by added motion (Lighthouse/CWV — see *Objective UX signals*), design values from tokens not literals (`no-hardcoded-design-values` — see *Design system & tokens*) — these prove motion is **safe, consistent, performant**, never that it is **beautiful**.
+- **Confidence —** `mixed` *(satisfaction is irreducibly `[J]` — a reviewed bet, never proven; the `[D]` checks prove only the floor it must not break).*
+- **Tradeoff (plain English) —** Craft is the difference between software people *tolerate* and software people *love* and recommend — and the aesthetic-usability effect means a refined surface is even *perceived* as more usable. But it is the easiest place to over-reach: gratuitous animation slows users, harms accessibility, and reads as try-hard — so craft is bounded by `YAGNI` and always yields to the a11y/perf floor. It cannot be mechanically guaranteed: the harness can force the question, check the floor, and route the verdict to a human — it can **never certify "beautiful."**
+- **Sources —** Thomas & Johnston, *The Illusion of Life* (Disney's 12 principles of animation — easing, anticipation, follow-through, staggering); Material Design 3 *Motion* (m3.material.io/styles/motion) & Apple *Human Interface Guidelines — Motion* (developer.apple.com/design/human-interface-guidelines/motion); Wathan & Schoger, *Refactoring UI* (hierarchy, depth, spacing, personality); Laws of UX — *Aesthetic-Usability Effect* (lawsofux.com/aesthetic-usability-effect/). *(Draft module — citations model-asserted pending a promotion-time verification round, per `README.md`.)*
+- **Motivating incident —** A slice can pass **every** existing gate — tests green, accessibility AA, all loading/empty/error states present, Core Web Vitals in budget — and still ship a surface that is **flat, generic, and forgettable**, because nothing in the bar ever asks *"is this crafted / does it feel alive."* Until this dimension, `product-ux.md` scoped itself to *"complete, humane, accessible,"* framed motion only as a **risk to minimize** ("not gratuitous"), and named visual polish only as the **negative** ("feel cheap") — so *beauty fell in the seam* between the `product-designer` agent (which routed all look-and-feel here) and this standard (which only checked functional conformance). Surfaced by the 2026-06-29 experience-craft review; this dimension is the positive bar that closes the seam.
 
 ## Ethical engagement (habit-forming without dark patterns)
 
