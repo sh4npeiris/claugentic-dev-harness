@@ -59,6 +59,8 @@ Each module's status lives in its own frontmatter — **all are currently `draft
 |---|---|---|
 | `architecture-styles` *(reserved)* | Flexibility | reserved — no file yet (authored when a change pulls it in) |
 | `capabilities/` *(reserved)* — Redis, queues, object-storage, third-party-apis, sidecars, ml, search | (various) | reserved — no files yet (authored just-in-time when an audit pulls one in) |
+| `charters/` *(reserved)* — per-project methodology / ways-of-working records | n/a (methodology, not a quality dimension) | reserved — no files yet; a documented seam only (the engineering-charter / multi-charter work in `docs/claugentic-ROADMAP.md` → Later/Ideas + `docs/claugentic-DECISIONS.md`) |
+| `domain-packs/` *(reserved)* — alternate whole standards-sets for non-software work | n/a (a swappable catalog, not one dimension) | reserved — no files yet; a documented seam only (the multi-charter / domain-pack work in `docs/claugentic-ROADMAP.md` → Later/Ideas + `docs/claugentic-DECISIONS.md`) |
 
 > **Status legend** (per `_TEMPLATE.md`): `stub` = listed, unwritten · `draft` = written, citations model-asserted, not yet battle-tested · `stable` = dogfooded. (`reserved` rows above are named but have no file yet.)
 >
