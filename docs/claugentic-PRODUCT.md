@@ -28,6 +28,45 @@ lost the thread, and never claim more than was actually checked. Full driver fra
 - **Right-sized.** A small change gets a light touch; a big one gets the full pipeline
   (KISS/YAGNI). Tangents → ROADMAP, never silently into the work.
 
+## Per-project design language (the anti-sameness record)
+
+Where THIS project pins its own visual/motion voice, so the universal craft floor lifts
+quality **without making every project look the same** — the anti-sameness answer.
+
+**DRY note:** the `## The design language (every surface inherits these)` list above is the
+**harness's OWN instance** of exactly this per-project pattern — it pins the whole-harness
+voice; this block is where *each project* pins ITS voice. One points at the other; **neither
+restates conformance** (the universal floor lives in `docs/claugentic-standards/product-ux.md`).
+
+The record (a nearly-empty template — fill a field, or leave it and it defaults to the floor):
+
+- **Brand lane** — the family this product feels like · the closest kin it admires AND the one
+  axis it deliberately diverges from even that kin · AND explicitly what it is NOT (a positive
+  north-star, not only a list of dislikes — distinctiveness is a claim you make, not just a thing
+  you avoid).
+- **Voice / tone** — how copy and interactions should feel.
+- **Anti-references** — specific products/looks to move AWAY from (the active push away from
+  generic defaults — the anti-sameness lever).
+- **Type / color / motion intent** — the per-project taste the universal standard can't hold
+  (e.g. "restrained, editorial" vs "playful, high-motion").
+- **Where the system comes from (mechanism-agnostic)** — the design system can come from any
+  of: a code component-library reference, a synced design-system record (e.g. one kept in sync
+  via a Claude Code `/design-sync` flow — **one option, never required**), or a hand-written
+  brand-lane record. The craft floor (anti-slop + motion baseline in `product-ux.md`) applies
+  ON TOP either way.
+
+For the universal conformance floor (accessibility, states, tokens, motion safety) see
+`docs/claugentic-standards/product-ux.md` — this block holds only per-project taste the
+standard can't. It is **project-owned, model-upheld, never a gate**; its whole purpose is to
+make each project establish its OWN voice so the craft floor is never a uniform template.
+
+**An unfilled record is a choice, not a free default:** a product-bearing project that leaves
+it blank accepts the shared floor as its whole voice and will read as competent-but-generic —
+a deliberate call for an internal tool, a flag for a product meant to be distinctive.
+
+*(The harness itself has no product UI — it's a plugin/docs repo — so its own per-project
+record is minimal/N-A; this section is the pattern each adopter project fills.)*
+
 ---
 
 # The product layer (`/claugentic-dev-harness:product`)
