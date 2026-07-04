@@ -74,6 +74,24 @@ the failure or near-miss that taught it).
 
 ---
 
+## The independent test-author's failing tests must not be edited by the implementer
+
+- **Invariant —** when the per-work choice selects **test-first**, the independent clean-context
+  test-author writes the failing tests and the `implementer` **greens them WITHOUT editing the test
+  files.** The implementer changes production code to pass the tests, never the tests themselves.
+- **Why —** the test-first proof-of-meaningfulness collapses if the implementer can edit the failing
+  tests — a green end-state can't prove the test captured anything if the same agent that greened it
+  could rewrite what "green" means. Structural test integrity is worth more for an agent than a human
+  (a human self-enforces; an agent needs the seam). The named observable audit artifact (the
+  implementer's report names the test-author spawn + the untouched test files; the diff shows them
+  added in a distinct authored-first step) is what makes the claim falsifiable.
+- **Provenance —** 2026-07-03 (plan 0030 Slice 3): the red-first-when-test-first-is-chosen wiring.
+  **Model-upheld + Verify-gate-audited** (`synthesizer-gate` keys on the named observable artifact),
+  **NOT mechanically enforced** — the red-first/characterization `PreToolUse` hook that would enforce
+  it is unbuilt (never claim enforcement before it lands).
+
+---
+
 ## The release strips ⇒ init recreates ⇒ nothing shipped dangles
 
 - **Invariant —** whatever `scripts/build_release.py` strips that the workflow needs in ANY repo
