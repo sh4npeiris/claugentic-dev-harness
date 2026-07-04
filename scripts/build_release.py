@@ -37,29 +37,50 @@ from pathlib import Path
 # ─────────────────────────────────────────────────────────────────────────────
 # Exact paths that never reach an installing user (build history, harness-self tooling,
 # repo config). Everything NOT matched here ships.
-DEV_ONLY_FILES = frozenset(
-    {
-        # Build-history / dev-process docs — rationale for HOW the harness is built,
-        # never "how to use it on your codebase" (that lives in the shipped managed docs).
-        "docs/claugentic-DECISIONS.md",
-        "docs/claugentic-ROADMAP.md",
-        "docs/claugentic-PRODUCT.md",          # the harness's OWN product-discovery notes
-        "docs/claugentic-PRODUCT_SPEC.md",     # the harness's OWN filled spec (the TEMPLATE ships)
-        "docs/claugentic-ARCHITECTURE_TREE.md",  # the harness's own file map (init generates the adopter's)
-        "docs/claugentic-INVARIANTS.md",       # the harness's OWN invariants (adopters record their own, lazily)
-        "docs/RELEASE_CHECKLIST.md",
-        # Harness-self tooling + config (an install doesn't need them).
-        "scripts/check_versions_synced.py",    # checks the plugin's two manifests — irrelevant to adopters
-        "scripts/check_doc_budgets.py",        # budgets the harness's OWN ledgers (harness-tuned caps; fail-louds on the harness-only INVARIANTS.md) — irrelevant to adopters
-        "scripts/check_shipped_content.py",     # scans the SHIPPED tree's text for stranded namespace tokens / dangling stripped-path refs — harness-self, reasons about the release, never ships
-        "scripts/build_release.py",            # this script
-        ".claude/settings.json",               # the dev repo's OWN dogfooding hooks
-        "CLAUDE.md",                           # "this repo builds the harness…" — dev context
-        "pyproject.toml",                      # pytest config
-        ".gitignore",
-        ".gitattributes",
-    }
-)
+#
+# SINGLE AUTHORED SEMANTICS: `path -> recreate-class`. The class annotates HOW (if at all)
+# an adopter gets the stripped file back — the referential-closure gate (plan 0034 Slice 3)
+# and the derived hand-lists in `check_shipped_content.py` (Slice 2) reason over these
+# classes, so the partition here is the ONE place the ship/strip semantics are declared.
+# The class set is SIX; every entry maps to EXACTLY ONE (an exhaustive partition — adding a
+# dev-only file means adding one line here with its class, nothing else):
+#
+#   `init-seed`           — init copies a `_X.md` seed -> the adopter file (create-if-absent).
+#   `init-gen`            — init GENERATES it in the adopter repo.
+#   `recreate-on-demand`  — stripped, NOT init-produced, legitimately non-dangling because a
+#                           NON-init mechanism creates it on demand (workflow lazy-create /
+#                           agent-authored / user-authored-from-template). The class IS its
+#                           own recreatability attestation — it does NOT claim init makes it.
+#   `self-gate`           — a stripped harness-self script (run-gate / release builder).
+#   `config`              — repo machinery no shipped doc points an adopter at.
+#   `dangle`              — stripped AND never recreated (no adopter ever has it).
+DEV_ONLY_PATH_CLASSES = {
+    # Build-history / dev-process docs — rationale for HOW the harness is built, never "how to
+    # use it on your codebase" (that lives in the shipped managed docs).
+    "docs/claugentic-DECISIONS.md": "init-seed",       # init copies the `_DECISIONS.md` seed
+    "docs/claugentic-ROADMAP.md": "init-seed",         # init copies the `_ROADMAP.md` seed
+    "docs/claugentic-PRODUCT.md": "recreate-on-demand",       # agent-authored per project by product-designer
+    "docs/claugentic-PRODUCT_SPEC.md": "recreate-on-demand",  # user-authored from the shipped PRODUCT_SPEC_TEMPLATE
+    "docs/claugentic-ARCHITECTURE_TREE.md": "init-gen",       # init generates the adopter's own file map
+    "docs/claugentic-INVARIANTS.md": "recreate-on-demand",    # the workflow lazily creates it (DoD step (f))
+    "docs/RELEASE_CHECKLIST.md": "dangle",             # harness-self release ritual; no adopter ever has it
+    # Harness-self tooling (an install doesn't need them).
+    "scripts/check_versions_synced.py": "self-gate",   # checks the plugin's two manifests — irrelevant to adopters
+    "scripts/check_doc_budgets.py": "self-gate",       # budgets the harness's OWN ledgers (harness-tuned caps) — irrelevant to adopters
+    "scripts/check_shipped_content.py": "self-gate",   # scans the SHIPPED tree's text — harness-self, reasons about the release, never ships
+    "scripts/build_release.py": "self-gate",           # this script
+    # Repo config / dev-infra (machinery no shipped doc points an adopter at).
+    ".claude/settings.json": "config",                 # the dev repo's OWN dogfooding hooks
+    "CLAUDE.md": "config",                             # "this repo builds the harness…" — dev context
+    "pyproject.toml": "config",                        # pytest config
+    ".gitignore": "config",
+    ".gitattributes": "config",
+}
+
+# Membership-preserving view of the manifest KEYS — the ship/strip classifier reasons over
+# membership only, so `is_dev_only`/`classify` derive from these keys (identical to the prior
+# `DEV_ONLY_FILES` frozenset). The class VALUES drive the closure gate + derived hand-lists.
+DEV_ONLY_FILES = frozenset(DEV_ONLY_PATH_CLASSES)
 
 # Directory prefixes whose entire subtree is dev-only.
 DEV_ONLY_DIRS = (
@@ -79,7 +100,18 @@ UPSTREAM_REF = "origin/main"
 
 def is_dev_only(path: str) -> bool:
     """True if `path` (a repo-relative, forward-slash path) is stripped from the release."""
-    return path in DEV_ONLY_FILES or any(path.startswith(d) for d in DEV_ONLY_DIRS)
+    return path in DEV_ONLY_PATH_CLASSES or any(path.startswith(d) for d in DEV_ONLY_DIRS)
+
+
+def recreate_class(path: str) -> str | None:
+    """The recreate-class for a file-level dev-only `path`, or `None` if it isn't one.
+
+    Reads the single authored manifest (`DEV_ONLY_PATH_CLASSES`). Returns `None` for a
+    shipped path AND for a dir-swept path (`DEV_ONLY_DIRS`) — dirs stay OUT of the classes
+    by design (the closure gate reasons over file-level classes only), so a caller that
+    needs a class for a dir-stripped file is asking the wrong question and gets `None`.
+    """
+    return DEV_ONLY_PATH_CLASSES.get(path)
 
 
 def classify(files: list[str]) -> tuple[list[str], list[str]]:

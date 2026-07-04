@@ -98,6 +98,113 @@ class TestClassify:
         assert ship == sorted(ship)
 
 
+class TestManifestMigration:
+    """The LOAD-BEARING no-op net for plan 0034 Slice 1: converting `DEV_ONLY_FILES`
+    (a frozenset) into `DEV_ONLY_PATH_CLASSES` (a `path -> recreate-class` dict) is a
+    MEMBERSHIP-PRESERVING refactor — it changes the *representation* + adds the class
+    annotation, and MUST NOT change what ships. These pins fail loud the instant the
+    migration alters the shipped set or the exhaustive-partition property.
+    """
+
+    # The exact dev-only FILE membership as authored BEFORE the migration (the frozenset
+    # literal from `build_release.py` at commit bb330c4). Frozen here so the dict->keys
+    # derivation is provably byte-identical to the prior hand-list — if a class annotation
+    # ever silently drops/adds a path, this snapshot catches it.
+    PRE_MIGRATION_DEV_ONLY_FILES = frozenset(
+        {
+            "docs/claugentic-DECISIONS.md",
+            "docs/claugentic-ROADMAP.md",
+            "docs/claugentic-PRODUCT.md",
+            "docs/claugentic-PRODUCT_SPEC.md",
+            "docs/claugentic-ARCHITECTURE_TREE.md",
+            "docs/claugentic-INVARIANTS.md",
+            "docs/RELEASE_CHECKLIST.md",
+            "scripts/check_versions_synced.py",
+            "scripts/check_doc_budgets.py",
+            "scripts/check_shipped_content.py",
+            "scripts/build_release.py",
+            ".claude/settings.json",
+            "CLAUDE.md",
+            "pyproject.toml",
+            ".gitignore",
+            ".gitattributes",
+        }
+    )
+
+    # The SIX classes — every dev-only FILE maps to exactly one (dirs stay out of the classes).
+    SIX_CLASSES = frozenset(
+        {"init-seed", "init-gen", "recreate-on-demand", "self-gate", "config", "dangle"}
+    )
+
+    def test_dict_keys_match_pre_migration_membership(self):
+        # frozenset -> dict-keys is membership-preserving: the manifest keys are byte-identical
+        # to the prior hand-authored `DEV_ONLY_FILES` frozenset.
+        assert set(br.DEV_ONLY_PATH_CLASSES) == self.PRE_MIGRATION_DEV_ONLY_FILES
+        # The back-compat alias is derived from the dict keys — same membership.
+        assert br.DEV_ONLY_FILES == self.PRE_MIGRATION_DEV_ONLY_FILES
+
+    def test_shipped_set_is_byte_identical_across_the_migration(self):
+        # THE load-bearing check: for the pre-migration membership fed through the (unchanged)
+        # dir-sweep + `is_dev_only` logic, the ship/strip split is identical to what the current
+        # `classify()` produces. `classify` is pure over a path list, so this reconstructs the
+        # exact pre-change classifier and asserts equality — no shipped file moved.
+        tracked = sorted(self.PRE_MIGRATION_DEV_ONLY_FILES | {
+            "README.md",
+            "LICENSE",
+            "docs/claugentic-WORKFLOW.md",
+            "docs/claugentic-_DECISIONS.md",
+            "docs/claugentic-_ROADMAP.md",
+            "docs/claugentic-_CHARTER.md",
+            "docs/claugentic-PRODUCT_SPEC_TEMPLATE.md",
+            "skills/init/SKILL.md",
+            "scripts/claugentic-check_architecture_tree.py",
+            ".claude/agents/honesty-reviewer.md",
+            "eval/BASELINE.md",
+            "tests/conftest.py",
+            ".claude/plans/0034-release-consolidation.md",
+        })
+
+        def pre_migration_is_dev_only(path: str) -> bool:
+            return path in self.PRE_MIGRATION_DEV_ONLY_FILES or any(
+                path.startswith(d) for d in br.DEV_ONLY_DIRS
+            )
+
+        before_strip = sorted(f for f in tracked if pre_migration_is_dev_only(f))
+        before_ship = sorted(f for f in tracked if not pre_migration_is_dev_only(f))
+
+        after_ship, after_strip = br.classify(tracked)
+
+        assert after_ship == before_ship
+        assert after_strip == before_strip
+
+    def test_every_entry_maps_to_exactly_one_of_the_six_classes(self):
+        # Exhaustive-partition property: the annotation is a total map into the six-class set;
+        # each file has one class, and no class outside the declared six is used.
+        assert set(br.DEV_ONLY_PATH_CLASSES.values()) <= self.SIX_CLASSES
+
+    def test_recreate_class_reads_the_manifest(self):
+        assert br.recreate_class("docs/claugentic-DECISIONS.md") == "init-seed"
+        assert br.recreate_class("docs/claugentic-ROADMAP.md") == "init-seed"
+        assert br.recreate_class("docs/claugentic-ARCHITECTURE_TREE.md") == "init-gen"
+        assert br.recreate_class("docs/claugentic-INVARIANTS.md") == "recreate-on-demand"
+        assert br.recreate_class("docs/claugentic-PRODUCT.md") == "recreate-on-demand"
+        assert br.recreate_class("docs/claugentic-PRODUCT_SPEC.md") == "recreate-on-demand"
+        assert br.recreate_class("scripts/build_release.py") == "self-gate"
+        assert br.recreate_class("scripts/check_versions_synced.py") == "self-gate"
+        assert br.recreate_class("CLAUDE.md") == "config"
+        assert br.recreate_class(".gitignore") == "config"
+        assert br.recreate_class("docs/RELEASE_CHECKLIST.md") == "dangle"
+
+    def test_recreate_class_is_none_for_shipped_and_dir_swept_paths(self):
+        # A shipped path has no class.
+        assert br.recreate_class("README.md") is None
+        # Dirs stay OUT of the classes: a file stripped only via DEV_ONLY_DIRS is NOT in the
+        # per-file manifest, so it has no class (the closure gate reasons over file-level
+        # classes only — this is the intended `None`).
+        assert br.is_dev_only(".claude/plans/0034-release-consolidation.md") is True
+        assert br.recreate_class(".claude/plans/0034-release-consolidation.md") is None
+
+
 class TestReleaseInitContract:
     """Pins the release/init contract (INVARIANT, plan 0027): whatever the release STRIPS
     that's adopter-relevant, `init` must (re)create — and nothing shipped may reference a
