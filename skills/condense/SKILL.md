@@ -103,6 +103,13 @@ deeper** (go back up the lever order: more STEP 2 absorption before more STEP 5 
 properly. If STEP 5 trimming is the only thing left and it still can't reach the band, you are likely at
 the genuinely-all-live wall — see the escape valve below, do not over-cut live constraints to fake the band.
 
+**The accept test (when to stop):** clearing the **WARN with real headroom** is the **pass floor**; the
+~80% band is the **aspiration**. Reach the band when absorbable settled bulk still exists (unabsorbed
+landed-records, un-merged siblings, un-trimmed locators). But once you have absorbed **every**
+landed-record and the remainder is genuinely all-live constraint prose, **clearing the WARN with headroom
+IS the pass** — do NOT cut into live force to chase ~80%. (A well-maintained forward-looking ledger often
+floors out in the low-80s%, not at ~80% — that is a correct accept, not a shortfall.)
+
 ## Propose the diff → surface it → apply via `/doctor`'s existing treat-path
 
 Produce the condensation as a **diff** and surface it for approval. **The apply path is `/doctor`'s
