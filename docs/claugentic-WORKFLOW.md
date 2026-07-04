@@ -66,6 +66,25 @@ Starter library (`.claude/agents/`):
 
 Also available without new files: built-in **`Explore`** (fan-out search), **`Plan`** (drafting), and `/code-review` · `/simplify` for diff cleanup. **Add new role files as needs emerge** — the library grows (Stage 9).
 
+### Why the multi-agent shape — the dynamic-workflow grounding
+
+This harness is a **dynamic-workflow multi-agent harness**: its `engine/*.js` + the Workflow tool *are* the "Claude writing its own multi-agent harness on the fly" the Claude Code team's **dynamic-workflows blog** describes (it pairs with the `/loop`-`/goal` scheduling/goal primitives — see the edge-skills note below, don't restate). That blog also names **three failure modes** a single-context agent is prone to, and they are the honest **rationale** for *why* this multi-agent shape — clean-context independent reviewers + adversarial verify — beats one long context. This is **grounding, NOT proof**: the blog explains why the shape helps; it does **not** certify this harness is correct, so each mode is **structurally mitigated**, never "solved"/"prevented":
+
+- **Agentic laziness** (stopping / declaring done early) → mitigated by build-to-green (iterates until the deterministic gates are green or the cap), the DoD gate list, the audit's loop-until-dry, and the "not-green at cap → here's the residual, nothing partial lands" honesty. The **independent Verify gate** catches a premature "done."
+- **Self-preferential bias** (trusting one's own output over an independent check) → mitigated by **clean-context independent reviewers**: `finding-verifier` gets only the claim + `file:line`, never the finder's rationale (Roles §); the Verify panel is spawned clean-context (never handed the builder's rationale); a lone reviewer can't bless what the panel rejects.
+- **Goal drift** (losing the objective over a long run) → mitigated by the plan file + spec as durable memory (*Context & handoff* — "a fresh session resuming from the plan checklist beats a deeply-compacted context"), the machine-readable acceptance criteria, and the re-confirmed worklist order.
+
+**The pattern-name map** (the blog's named orchestration patterns → what the harness genuinely embodies — accurate, not aspirational):
+
+| Blog pattern | Embodied? | Where |
+|---|---|---|
+| **fan-out-and-synthesize** | ✓ | the audit's lens fan-out + the Verify panel, synthesized by `synthesizer-gate` (verify-verdict altitude) |
+| **adversarial verification** | ✓ | `finding-verifier` (refutes a handed claim without the finder's rationale) + `honesty-reviewer` (refutes copy) |
+| **loop-until-done** | ✓ | build-to-green (goal-based) + the audit's loop-until-dry |
+| **generate-and-filter** | ✓ | the audit generates candidate findings → `finding-verifier`/prune filters → backlog |
+| **classify-and-act** | ~ | partial — the audit-backlog tag→discipline routing (a classification that selects the execution discipline) |
+| **tournament** | ✗ | **not embodied** — the pipeline runs no N-solution pairwise-judged tournament; it's available via the Workflow tool's judge-panel pattern if a maintainer wants it, but the pipeline itself does not tournament solutions |
+
 ---
 
 ## The pipeline
