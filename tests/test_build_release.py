@@ -258,23 +258,44 @@ class TestReleaseInitContract:
 
 
 class TestBaseAncestryGuard:
-    """`_dropped_merges` is the mechanical defense against rebuilding the release from a
-    stale base (the v0.1.40 distillation drop). These are pure/offline — `_git` is
-    monkeypatched so no real `git`/network is touched."""
+    """`_missing_upstream_commits` is the mechanical defense against rebuilding the release
+    from a stale base (the v0.1.40 distillation drop). Plan 0034 Slice 6 BROADENED it from a
+    merge-only (`rev-list --merges`) form — which a direct NON-merge push to `main` slipped
+    past (admin-bypass allows that push) — to catch ANY commit reachable from `origin/main`
+    but not from HEAD. These are pure/offline — `_git` is monkeypatched so no real
+    `git`/network is touched."""
 
     def test_current_base_drops_nothing(self, monkeypatch):
         # rev-parse (verify) succeeds; rev-list returns nothing → base is current.
         monkeypatch.setattr(br, "_git", lambda *args: "")
-        assert br._dropped_merges(Path(".")) == []
+        assert br._missing_upstream_commits(Path(".")) == []
 
-    def test_stale_base_returns_dropped_shas(self, monkeypatch):
+    def test_stale_base_returns_missing_shas(self, monkeypatch):
         def fake_git(*args):
             if "rev-parse" in args:
                 return ""
             return "a7d2151\ndf20ed1\n"
 
         monkeypatch.setattr(br, "_git", fake_git)
-        assert br._dropped_merges(Path(".")) == ["a7d2151", "df20ed1"]
+        assert br._missing_upstream_commits(Path(".")) == ["a7d2151", "df20ed1"]
+
+    def test_direct_non_merge_commit_is_now_caught(self, monkeypatch):
+        # THE broadening (Slice 6): the rev-list call must NOT filter to merges, so a direct
+        # non-merge push to origin/main-not-HEAD is now visible. Assert the flag is gone AND
+        # the returned SHA is reported (the pre-broadening `--merges` form would have missed
+        # this non-merge commit and returned []).
+        seen_args: list[tuple[str, ...]] = []
+
+        def fake_git(*args):
+            seen_args.append(args)
+            if "rev-parse" in args:
+                return ""
+            return "beef123\n"  # a direct non-merge commit only on origin/main
+
+        monkeypatch.setattr(br, "_git", fake_git)
+        assert br._missing_upstream_commits(Path(".")) == ["beef123"]
+        rev_list = next(a for a in seen_args if "rev-list" in a)
+        assert "--merges" not in rev_list, "rev-list must not filter to merge commits"
 
     def test_missing_upstream_ref_returns_none(self, monkeypatch):
         def fake_git(*args):
@@ -283,7 +304,171 @@ class TestBaseAncestryGuard:
             return ""
 
         monkeypatch.setattr(br, "_git", fake_git)
-        assert br._dropped_merges(Path(".")) is None
+        assert br._missing_upstream_commits(Path(".")) is None
+
+
+class TestSemverParse:
+    """`_parse_semver` must compare ORDINALLY (int triples), never lexically — the classic
+    string-compare bug ranks `0.10.0 < 0.9.0`. It fails loud on a non-`X.Y.Z` version."""
+
+    def test_parses_the_triple(self):
+        assert br._parse_semver("0.3.1") == (0, 3, 1)
+        assert br._parse_semver("1.20.300") == (1, 20, 300)
+
+    def test_ordinal_not_lexical(self):
+        # The load-bearing property: 0.10.0 sorts ABOVE 0.9.0 (a string compare gets this wrong).
+        assert br._parse_semver("0.10.0") > br._parse_semver("0.9.0")
+
+    def test_tolerates_surrounding_whitespace(self):
+        assert br._parse_semver("  0.3.1\n") == (0, 3, 1)
+
+    @pytest.mark.parametrize("bad", ["v0.3.1", "0.3", "0.3.1-rc1", "1.2.3.4", "", "abc"])
+    def test_malformed_version_fails_loud(self, bad):
+        with pytest.raises(ValueError):
+            br._parse_semver(bad)
+
+
+class TestVersionIncreaseGuard:
+    """Plan 0034 Slice 4 / P0-1 — the version-must-INCREASE precondition, TAG-ANCHORED.
+    `_version_increase_error` returns an actionable string to REFUSE, or `None` to ALLOW.
+    Offline: `_read_manifest_version` + `_latest_release_tag` are monkeypatched so no real
+    manifest/git/network is touched. The tag is the last thing actually PUBLISHED, so it is
+    the correct anchor (`origin/release` is never fetched by the build)."""
+
+    @staticmethod
+    def _patch(monkeypatch, *, version: str, latest_tag: str | None):
+        monkeypatch.setattr(br, "_read_manifest_version", lambda root: version)
+        monkeypatch.setattr(br, "_latest_release_tag", lambda root: latest_tag)
+
+    def test_no_tag_first_release_allows(self, monkeypatch):
+        # Bootstrap: no vX.Y.Z tag exists yet → first release → ALLOW (nothing to compare).
+        self._patch(monkeypatch, version="0.1.0", latest_tag=None)
+        assert br._version_increase_error(Path(".")) is None
+
+    def test_greater_than_latest_tag_allows(self, monkeypatch):
+        self._patch(monkeypatch, version="0.4.0", latest_tag="v0.3.1")
+        assert br._version_increase_error(Path(".")) is None
+
+    def test_equal_to_latest_tag_refuses(self, monkeypatch):
+        # A version already published as a tag can't be re-shipped as "new".
+        self._patch(monkeypatch, version="0.3.1", latest_tag="v0.3.1")
+        err = br._version_increase_error(Path("."))
+        assert err is not None and "0.3.1" in err and "v0.3.1" in err
+
+    def test_less_than_latest_tag_refuses(self, monkeypatch):
+        # A downgrade must be refused loudly.
+        self._patch(monkeypatch, version="0.3.0", latest_tag="v0.3.1")
+        assert br._version_increase_error(Path(".")) is not None
+
+    def test_same_untagged_version_rebuild_allows(self, monkeypatch):
+        # In-progress version 0.4.0 has NOT been tagged yet (the tag is created only at
+        # publish). The latest PUBLISHED tag is still v0.3.1, so 0.4.0 > v0.3.1 → ALLOW —
+        # a same-version rebuild of an untagged version is permitted.
+        self._patch(monkeypatch, version="0.4.0", latest_tag="v0.3.1")
+        assert br._version_increase_error(Path(".")) is None
+
+    def test_ordinal_compare_not_lexical(self, monkeypatch):
+        # 0.10.0 > v0.9.0 ordinally, though a string compare would refuse it.
+        self._patch(monkeypatch, version="0.10.0", latest_tag="v0.9.0")
+        assert br._version_increase_error(Path(".")) is None
+
+    def test_malformed_manifest_version_fails_loud(self, monkeypatch):
+        self._patch(monkeypatch, version="not-a-version", latest_tag="v0.3.1")
+        with pytest.raises(ValueError):
+            br._version_increase_error(Path("."))
+
+
+class TestLatestReleaseTag:
+    """`_latest_release_tag` returns the highest `vX.Y.Z` tag (git's own `-v:refname` sort),
+    or `None` when the repo has no version tag (the first-release bootstrap case). Offline —
+    `_git` is monkeypatched."""
+
+    def test_returns_first_semver_line(self, monkeypatch):
+        monkeypatch.setattr(br, "_git", lambda *args: "v0.3.1\nv0.3.0\nv0.2.0\n")
+        assert br._latest_release_tag(Path(".")) == "v0.3.1"
+
+    def test_no_tags_returns_none(self, monkeypatch):
+        monkeypatch.setattr(br, "_git", lambda *args: "")
+        assert br._latest_release_tag(Path(".")) is None
+
+    def test_skips_non_semver_tags(self, monkeypatch):
+        # A stray non-vX.Y.Z tag (e.g. a nightly/build tag) is not a release anchor.
+        monkeypatch.setattr(br, "_git", lambda *args: "vnightly\nv0.2.0\n")
+        assert br._latest_release_tag(Path(".")) == "v0.2.0"
+
+
+class TestReadManifestVersion:
+    """`_read_manifest_version` reads `plugin.json`'s `version` and FAILS LOUD on a missing
+    file, garbled JSON, or an absent `version` — never silently proceeds on an unknown
+    version. Uses a real tmp file (no git/network)."""
+
+    def _write(self, tmp_path: Path, text: str) -> Path:
+        (tmp_path / ".claude-plugin").mkdir(parents=True, exist_ok=True)
+        (tmp_path / br.PLUGIN_MANIFEST).write_text(text, encoding="utf-8")
+        return tmp_path
+
+    def test_reads_version(self, tmp_path):
+        root = self._write(tmp_path, '{"version": "0.4.0"}')
+        assert br._read_manifest_version(root) == "0.4.0"
+
+    def test_missing_file_fails_loud(self, tmp_path):
+        with pytest.raises(ValueError, match="is missing"):
+            br._read_manifest_version(tmp_path)
+
+    def test_garbled_json_fails_loud(self, tmp_path):
+        root = self._write(tmp_path, "{not json")
+        with pytest.raises(ValueError, match="not valid JSON"):
+            br._read_manifest_version(root)
+
+    def test_absent_version_fails_loud(self, tmp_path):
+        root = self._write(tmp_path, '{"name": "x"}')
+        with pytest.raises(ValueError, match="no top-level"):
+            br._read_manifest_version(root)
+
+
+class TestMechanizedDropCheck:
+    """Plan 0034 Slice 7 / P1-3 — the mechanized drop-check as a SUBSET assertion:
+    `origin/main`-not-HEAD ⊆ strip-set. `_dropped_shipped_paths` returns the SHIPPED paths in
+    that diff (empty = clean), reusing the manifest's `classify()`-derived strip set. Offline —
+    `_git` (the `diff --name-only`) is monkeypatched."""
+
+    def test_strip_only_diff_passes(self, monkeypatch):
+        # Every path origin/main carries that HEAD lacks is a dev-only (stripped) path → clean.
+        monkeypatch.setattr(
+            br, "_git", lambda *args: "docs/claugentic-DECISIONS.md\n.claude/plans/0034-x.md\n"
+        )
+        _, strip = br.classify(
+            ["docs/claugentic-DECISIONS.md", ".claude/plans/0034-x.md", "README.md"]
+        )
+        assert br._dropped_shipped_paths(Path("."), strip) == []
+
+    def test_shipped_file_missing_refuses(self, monkeypatch):
+        # A SHIPPED file (README.md) present on origin/main-not-HEAD is merged work the build
+        # would drop → it is returned (fail-loud signal).
+        monkeypatch.setattr(
+            br, "_git", lambda *args: "docs/claugentic-DECISIONS.md\nREADME.md\n"
+        )
+        _, strip = br.classify(["docs/claugentic-DECISIONS.md", "README.md"])
+        assert br._dropped_shipped_paths(Path("."), strip) == ["README.md"]
+
+    def test_reuses_classify_strip_coupling(self, monkeypatch):
+        # The assertion is driven by classify()'s strip set, not a hardcoded list: a path is
+        # "dropped" iff classify() ships it. Feed classify() a strip set that ALSO covers the
+        # shipped-looking path and it's no longer flagged — proving the coupling.
+        monkeypatch.setattr(br, "_git", lambda *args: "scripts/build_release.py\n")
+        _, strip = br.classify(["scripts/build_release.py"])  # self-gate → stripped
+        assert br._dropped_shipped_paths(Path("."), strip) == []
+
+    def test_empty_diff_passes(self, monkeypatch):
+        monkeypatch.setattr(br, "_git", lambda *args: "")
+        assert br._dropped_shipped_paths(Path("."), []) == []
+
+    def test_windows_backslash_paths_normalized(self, monkeypatch):
+        # git may emit backslash paths on Windows; they must normalize to forward-slash before
+        # the strip-set membership test (which uses forward-slash keys).
+        monkeypatch.setattr(br, "_git", lambda *args: "docs\\claugentic-DECISIONS.md\n")
+        _, strip = br.classify(["docs/claugentic-DECISIONS.md"])
+        assert br._dropped_shipped_paths(Path("."), strip) == []
 
 
 @pytest.mark.integration
@@ -349,6 +534,11 @@ class TestApplyHookBypass:
         (repo / "docs").mkdir()
         (repo / self.STRIPPED_FILE).write_text("# Tree\n- `README.md` — readme.\n", encoding="utf-8")
         (repo / self.SHIPPED_FILE).write_text("# Project\n", encoding="utf-8")
+        # A minimal source-of-truth manifest so the version-increase precondition (P0-1) can
+        # read a version. This fixture creates NO `vX.Y.Z` tag → first-release bootstrap →
+        # the guard ALLOWS regardless of the version value.
+        (repo / ".claude-plugin").mkdir()
+        (repo / br.PLUGIN_MANIFEST).write_text('{"version": "0.4.0"}\n', encoding="utf-8")
         self._git(repo, "add", "-A").check_returncode()
         self._git(repo, "commit", "-qm", "initial").check_returncode()
 
@@ -360,7 +550,7 @@ class TestApplyHookBypass:
         hook.write_bytes(b"#!/bin/sh\nexit 1\n")
         self._git(repo, "config", "core.hooksPath", str(hooksdir)).check_returncode()
 
-        # Satisfy the base-ancestry guard (`_dropped_merges`) with zero network:
+        # Satisfy the base-ancestry guard (`_missing_upstream_commits`) with zero network:
         # origin/main == HEAD ⇒ rev-parse verifies and rev-list finds no dropped merges.
         self._git(repo, "update-ref", "refs/remotes/origin/main", "HEAD").check_returncode()
 

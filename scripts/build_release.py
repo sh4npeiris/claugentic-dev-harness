@@ -16,17 +16,29 @@ release; the list is short and reviewed at release.)
 
 Usage (run from anywhere — the script anchors to its own repo root):
     python scripts/build_release.py            # dry-run: print ship vs strip, exit 0
-    python scripts/build_release.py --apply     # (re)build the LOCAL `release` branch (no push); refuses a stale base
+    python scripts/build_release.py --apply     # (re)build the LOCAL `release` branch (no push); fail-loud preconditions below
 
 `--apply` force-resets a `release` branch to current `HEAD` in a throwaway worktree,
 removes the dev-only files there, and commits — the dev working tree is never touched.
 It does NOT push; publishing the branch + pointing the marketplace at it stays a manual,
 reviewed step.
+
+Before building, `--apply` runs fail-loud MECHANICAL preconditions (each refuses with an
+actionable message; none makes the release "fully" correct/enforced — the force-push +
+eval-drift stay model-upheld, see docs/RELEASE_CHECKLIST.md):
+  * stale-base   — HEAD must be ancestor-inclusive of `origin/main` (any missing commit,
+                   not just merge commits, is a dropped-work refusal).
+  * version-up   — `plugin.json`'s version must be strictly greater than the latest
+                   published `vX.Y.Z` tag (no tag yet = first release, allowed).
+  * drop-check   — every path on `origin/main`-not-HEAD must be a stripped dev-only path
+                   (a SHIPPED file in that diff = merged work missing from the build).
 """
 
 from __future__ import annotations
 
+import json
 import os
+import re
 import subprocess
 import sys
 import tempfile
@@ -93,9 +105,14 @@ DEV_ONLY_DIRS = (
 RELEASE_BRANCH = "release"
 
 # The live upstream tip the release MUST be anchored on. A build from a base that
-# excludes merge commits reachable from here silently drops merged work (this is how
+# excludes ANY commit reachable from here silently drops merged work (this is how
 # the v0.1.40 distillation was lost — see docs/RELEASE_CHECKLIST.md).
 UPSTREAM_REF = "origin/main"
+
+# The source-of-truth plugin manifest — its `version` is what a release publishes. The
+# version-increase guard (plan 0034 Slice 4 / P0-1) reads this and refuses a build whose
+# version is not strictly greater than the latest published `vX.Y.Z` tag.
+PLUGIN_MANIFEST = ".claude-plugin/plugin.json"
 
 
 def is_dev_only(path: str) -> bool:
@@ -178,18 +195,120 @@ def _dry_run() -> int:
     return 0
 
 
-def _dropped_merges(root: Path) -> list[str] | None:
-    """Merge commits reachable from `UPSTREAM_REF` but NOT from HEAD (the build base).
+_SEMVER_RE = re.compile(r"^(\d+)\.(\d+)\.(\d+)$")
 
-    Returns the dropped-merge SHAs (empty list = base is current — safe to build), or
-    `None` if `UPSTREAM_REF` is absent (the operator hasn't fetched — fail loud, never
-    silently build on an unknown base)."""
+
+def _parse_semver(version: str) -> tuple[int, int, int]:
+    """Parse a bare `X.Y.Z` version into an int triple for correct ordinal comparison.
+
+    Fails loud on a non-well-formed version (never string-compares — `"0.10.0"` must sort
+    ABOVE `"0.9.0"`, which a lexical compare gets wrong). Rejects pre-release/build suffixes:
+    the harness ships plain `X.Y.Z` releases, so anything else is a mistake to surface, not
+    silently coerce."""
+    m = _SEMVER_RE.match(version.strip())
+    if not m:
+        raise ValueError(
+            f"version {version!r} is not a well-formed X.Y.Z semver — fix the manifest."
+        )
+    return int(m.group(1)), int(m.group(2)), int(m.group(3))
+
+
+def _latest_release_tag(root: Path) -> str | None:
+    """The highest `vX.Y.Z` git tag by semver order, or `None` if there is no such tag.
+
+    Reads `git tag --list 'v*' --sort=-v:refname` and returns the first line (git's own
+    version sort). `None` means the repo has no `vX.Y.Z` tag yet — the FIRST-release
+    bootstrap case, which the version-increase guard ALLOWS."""
+    out = _git("-C", str(root), "tag", "--list", "v*", "--sort=-v:refname")
+    for line in out.splitlines():
+        tag = line.strip()
+        if _SEMVER_RE.match(tag.removeprefix("v")):
+            return tag
+    return None
+
+
+def _read_manifest_version(root: Path) -> str:
+    """The `version` field from `plugin.json` (the source-of-truth manifest).
+
+    Fails loud on a missing file, garbled JSON, or an absent/non-string `version` — the
+    version-increase guard must never silently proceed on an unreadable version."""
+    path = root / PLUGIN_MANIFEST
+    if not path.exists():
+        raise ValueError(f"{PLUGIN_MANIFEST} is missing — cannot read the release version.")
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except ValueError as exc:
+        raise ValueError(f"{PLUGIN_MANIFEST} is not valid JSON ({exc}) — fix the manifest.") from exc
+    version = data.get("version") if isinstance(data, dict) else None
+    if not isinstance(version, str):
+        raise ValueError(f"{PLUGIN_MANIFEST} has no top-level `version` field — add one.")
+    return version
+
+
+def _version_increase_error(root: Path) -> str | None:
+    """Refuse a release whose `plugin.json` version is NOT strictly greater than the latest
+    published `vX.Y.Z` tag (plan 0034 Slice 4 / P0-1). Returns an actionable error string, or
+    `None` when the build is allowed.
+
+    Semantics (tag-anchored — the tag is the last thing actually PUBLISHED):
+      * NO `vX.Y.Z` tag at all       -> first release, ALLOW (bootstrap).
+      * new version > latest tag     -> ALLOW.
+      * new version == latest tag    -> REFUSE (re-publishing a shipped version).
+      * new version <  latest tag    -> REFUSE (downgrade).
+    A same-version REBUILD of an untagged in-progress version is inherently allowed: the tag
+    is created only at PUBLISH (never in-build), so a not-yet-published version is > every tag
+    and passes. This is the highest-probability silent bad release (a forgotten bump)."""
+    version = _read_manifest_version(root)
+    new = _parse_semver(version)  # fails loud on a malformed manifest version
+    latest_tag = _latest_release_tag(root)
+    if latest_tag is None:
+        return None  # first release — no anchor to compare against
+    latest = _parse_semver(latest_tag.removeprefix("v"))
+    if new > latest:
+        return None
+    return (
+        f"refusing to build — {PLUGIN_MANIFEST} version {version} is not greater than the "
+        f"latest released tag {latest_tag}. Bump the version (a forgotten bump ships a 'new' "
+        f"release adopters see as no update; a lower version is a downgrade)."
+    )
+
+
+def _missing_upstream_commits(root: Path) -> list[str] | None:
+    """ANY commit reachable from `UPSTREAM_REF` but NOT from HEAD (the build base).
+
+    Broadened from the merge-only form (plan 0034 Slice 6 / P2-2): a DIRECT non-merge push
+    to `main` (which admin-bypass allows — see MEMORY: main branch-protection bypass) is a
+    stale-base drop the `--merges` filter missed. Dropping `--merges` catches it too — a merge
+    commit is still caught (it's a commit), so the prior merge-drop behavior is preserved.
+
+    Returns the missing-commit SHAs (empty list = base is ancestor-inclusive of upstream —
+    safe to build), or `None` if `UPSTREAM_REF` is absent (the operator hasn't fetched — fail
+    loud, never silently build on an unknown base)."""
     try:
         _git("-C", str(root), "rev-parse", "--verify", "--quiet", f"{UPSTREAM_REF}^{{commit}}")
     except subprocess.CalledProcessError:
         return None
-    out = _git("-C", str(root), "rev-list", "--merges", UPSTREAM_REF, "--not", "HEAD")
+    out = _git("-C", str(root), "rev-list", UPSTREAM_REF, "--not", "HEAD")
     return [line.strip() for line in out.splitlines() if line.strip()]
+
+
+def _dropped_shipped_paths(root: Path, strip: list[str]) -> list[str]:
+    """Mechanized drop-check (plan 0034 Slice 7 / P1-3): the paths on `UPSTREAM_REF`-not-HEAD
+    that are NOT in the strip set — i.e. SHIPPED files the release would silently drop.
+
+    The honest computable form is a SUBSET assertion: every path that `origin/main` carries but
+    `HEAD` (the build base) lacks must be a DEV-ONLY (stripped) path. A shipped path in that
+    diff means merged, adopter-facing work is missing from the build — fail loud. Reuses the
+    manifest's `classify()` via the passed-in `strip` set (DIP: this guard depends on the
+    manifest, not vice-versa). Returns the offending shipped paths (empty = clean).
+
+    Scope, honestly: this is a path-SET subset guard, NOT a total drop guarantee — it cannot
+    see a dropped COMMIT whose file also legitimately changed elsewhere. The manual
+    `git range-diff` drop-check stays as defense-in-depth (docs/RELEASE_CHECKLIST.md)."""
+    out = _git("-C", str(root), "diff", "--name-only", "HEAD", UPSTREAM_REF)
+    diff_paths = [line.replace("\\", "/").strip() for line in out.splitlines() if line.strip()]
+    strip_set = set(strip)
+    return sorted(p for p in diff_paths if p not in strip_set)
 
 
 def _apply() -> int:
@@ -197,26 +316,42 @@ def _apply() -> int:
     stale base; no push."""
     root = _repo_root()
     # base == HEAD because _apply builds from HEAD; keep in sync if that changes.
-    dropped = _dropped_merges(root)
-    if dropped is None:
+    missing = _missing_upstream_commits(root)
+    if missing is None:
         print(
             f"ERROR: '{UPSTREAM_REF}' not found — run `git fetch origin` before --apply.",
             file=sys.stderr,
         )
         return 1
-    if dropped:
+    if missing:
         print(
-            f"ERROR: refusing to build — HEAD excludes {len(dropped)} merge commit(s) "
+            f"ERROR: refusing to build — HEAD excludes {len(missing)} commit(s) "
             f"reachable from {UPSTREAM_REF}; building here would DROP merged work "
-            f"(see docs/RELEASE_CHECKLIST.md). Dropped: {', '.join(dropped)}",
+            f"(see docs/RELEASE_CHECKLIST.md). Missing: {', '.join(missing)}",
             file=sys.stderr,
         )
+        return 1
+    # P0-1 (Slice 4): the version must strictly increase off the latest published tag.
+    version_err = _version_increase_error(root)
+    if version_err is not None:
+        print(f"ERROR: {version_err}", file=sys.stderr)
         return 1
     if _git("-C", str(root), "status", "--porcelain").strip():
         print("ERROR: working tree not clean — commit or stash before --apply.", file=sys.stderr)
         return 1
     head = _git("-C", str(root), "rev-parse", "--short", "HEAD").strip()
     _, strip = classify(_tracked_files())
+    # P1-3 (Slice 7): no SHIPPED file on origin/main-not-HEAD may be silently dropped.
+    dropped_shipped = _dropped_shipped_paths(root, strip)
+    if dropped_shipped:
+        print(
+            f"ERROR: refusing to build — {len(dropped_shipped)} SHIPPED file(s) on "
+            f"{UPSTREAM_REF} are missing from the build base (HEAD) and would be dropped "
+            f"from the release (see docs/RELEASE_CHECKLIST.md drop-check). "
+            f"Dropped: {', '.join(dropped_shipped)}",
+            file=sys.stderr,
+        )
+        return 1
     tmp = tempfile.mkdtemp(prefix="claugentic-release-")
     try:
         # --force -B resets/creates `release` at HEAD in a throwaway worktree; the dev tree is untouched.
