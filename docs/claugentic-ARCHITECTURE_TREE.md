@@ -19,7 +19,7 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 
 ## docs/ — process, standards, and project memory
 
-- `docs/claugentic-WORKFLOW.md` — open for the process + canonical Definition of Done: the 10-stage workflow (`FRAME → APPROVE → BUILD → CLOSE`), gate-list source of truth, the tag→discipline table + methodology toolbox (per-work approach-choice, model-upheld), + the plan-disposition / in-flight-scope-split lifecycle.
+- `docs/claugentic-WORKFLOW.md` — open for the process + canonical Definition of Done: the 10-stage workflow (`FRAME → APPROVE → BUILD → CLOSE`), gate-list source of truth, the tag→discipline table + methodology toolbox (per-work approach-choice, model-upheld), bundled edge-skill pointers + skills-taxonomy note (model-upheld, not wired), + the plan-disposition / in-flight-scope-split lifecycle.
 - `docs/claugentic-ENGINEERING_STANDARDS.md` — thin entry point to the `docs/claugentic-standards/` catalog (the quality bar); per-repo Current-scope added by `init`.
 - `docs/claugentic-ARCHITECTURE_TREE.md` — this file: the one-line-per-file index.
 - `docs/claugentic-DECISIONS.md` — open before re-litigating a past choice: the forward-looking maintainer guide of standing decisions by area (honesty, gates, judges, audit, build, workflow, plugin) + Readiness footer. Condensed (not append-only).
