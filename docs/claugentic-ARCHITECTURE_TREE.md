@@ -88,6 +88,8 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 
 - `skills/doctor/SKILL.md` — open for harness-OWN-health (NOT your code — that's audit): runs the existing gates read-only + plan-scan + init post-conditions + report-only Stage-9 signal → green/WARN/breach snapshot → SELECT → treat bounded-mechanical-set-on-approval / substantive → roadmap.
 
+- `skills/condense/SKILL.md` — open to change the condensation operator: encodes the WORKFLOW condensation pass as an ordered, guarded procedure (STEP 1 classify-first / never-preserve-landed → absorb → promote → merge → trim; ~80% band, reject re-landing ≥WARN; keep cross-ref'd 00NN anchors). Prose-orchestrated, no agent, no cut-decider — proposes a diff, human approves, applies via `/doctor`'s existing treat. OFFERed on a WARN/"condense soon".
+
 ## engine/ — executable choreography (Workflow-tool scripts)
 
 - `engine/verify.js` — open to change the Stage-7 Verify panel: fans one lens-reviewer per in-scope module + yagni-sentinel + honesty-reviewer, dedups gaps, then synthesizer-gate synthesis (`model: MODELS.judge`); three-state disclosure in code. `finalVerdict` forces CHANGES_REQUIRED on a NAMED-lens no-show (presence-check, not a diff-coverage gate); `validateArgs` fails loud if a test-diff omits `testing`. Helpers tested by `verify.test.mjs`.

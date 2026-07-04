@@ -106,6 +106,14 @@ runs no script, sets no exit code, and blocks nothing.
   no gate here, only a config-driven advisory. A "condense soon" advisory surfaces as a
   finder-pipeline finding (SELECT below), routed like any other — the condensation itself is
   the existing user-approved-diff treat (`docs/claugentic-WORKFLOW.md` → the condensation pass).
+- **OFFER `/condense` as the next step (the ramp, not a dead-end).** When this read surfaces a
+  "condense soon" advisory — and equally when the harness-self **doc-budgets gate returns a
+  `WARN:` line** (a ledger ≥90% of its budget) — **OFFER `/claugentic-dev-harness:condense`** as
+  the operator that does the work: it runs the ordered condensation procedure (classify-first →
+  absorb-landed → promote-must-holds → merge-siblings → trim-locators), proposes a diff, and
+  applies it via the **same** user-approved-diff treat below. A WARN/breach here is a **ramp to
+  `/condense`, never a dead-end.** (The OFFER is model-surfaced — `/condense` still proposes a diff
+  and you approve it; the advisory does not condense anything itself.)
 
 ### 3. Plan-scan `.claude/plans/`  *(`[J]` — model-upheld classification)*
 
@@ -195,7 +203,9 @@ in `docs/claugentic-DECISIONS.md`; point at it, don't re-litigate it):
 - **Delete a landed / cold plan** — bounded, reversible (git history), no decision.
 - **Re-wire the pre-commit hook** — re-establish `.githooks/pre-commit` + `core.hooksPath`
   (shared) or `.git/hooks/pre-commit` (solo); bounded, reversible.
-- **Apply a user-approved doc-condensation diff** for an over-budget / WARN ledger.
+- **Apply a user-approved doc-condensation diff** for an over-budget / WARN ledger — the diff is
+  the one `/claugentic-dev-harness:condense` proposes (the operator that runs the ordered
+  condensation procedure); this treat is its **apply path** (reused by `/condense`, not duplicated).
 - **Tree hygiene** — add a missing `ARCHITECTURE_TREE.md` entry, drop a stale one, or condense an
   oversized one; bounded, reversible.
 
