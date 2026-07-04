@@ -72,6 +72,26 @@ Distilled-with-attribution, **versionless links** (they back the craft floor): `
 
 ---
 
+## VERIFIED against the real docs (2026-07-03 — honesty pass; supersedes "opportunities spotted" where they conflict)
+
+A 6-cluster research fan-out WebFetched the real Claude Code docs/blog + checked the repo. Verdicts:
+
+**Confirmed & worth building:** the model-tier menu (`best`/`fable`/`opus`/`sonnet`/`opusplan`/`[1m]` — Fable 5 = most-capable for *long multi-sitting* work, **NOT default**, access conditional → `best` auto-falls-back to Opus) · `opusplan` (opus-plan→sonnet-execute) · the **platform advisor** (`/advisor`, `advisorModel`, `--advisor`; escalates to a stronger model at decision points; **Anthropic-API-only, experimental v2.1.98+, beta header, subagents inherit**) · **no-PostToolUse VALIDATED** (docs: per-tool hooks are high-frequency, keep-fast) · **context-economy aligned** (official CLAUDE.md ~200-line cap, skills-on-demand, subagent isolation) + prompt-cache dynamics (fresh 5-min subagent caches) · the **9-category skills taxonomy** (blog) · the **edge-skill adoptions** (`/debug` `/architecture` `/skill-creator` `/incident-response` `/deploy-checklist` are real bundled skills) · the **PreToolUse red-first hook is now precisely spec-able** (matcher `Edit|Write`, `permissionDecision:"deny"` + `permissionDecisionReason`) · the **release "7-hand-lists-for-1-fact"** consolidation.
+
+**Honesty corrections — do NOT build these as the dossier stated:**
+- **`/loop`+`/goal` are NOT "multi-agent orchestration."** Real: three loop modes (fixed-interval · self-paced/dynamic · built-in maintenance); `/goal` = condition-based persistence. Drop the "turn/goal/time/proactive" + "spins up its own harness" framing. Position only as *post-automation* pointers, never orchestration.
+- **Track-B: keep `check_versions_synced.py` a SEPARATE gate — do NOT fold it into `release_gate.py`** (folding adds dual-manifest JSON parsing = scope creep/risk). Honor the `INCLUDE_GLOBS` never-clobber carve-out in the closure check. Content-scan is already wired via dangle derivation.
+- **Version "third drift axis" — REFUTED.** `main` + `origin/release` are BOTH `0.3.1`, in sync; `check_versions_synced.py` works as designed. No detector to build. *(Note: this worktree branch is based on `main@0.3.0` — older than current `main@0.3.1`; that is a rebase concern for landing, not a gate gap.)*
+- **`plugin.json` agents array — KEEP the explicit list.** It IS optional/auto-discovered per docs, BUT the field *replaces* (not augments) the default `.claude/agents/` scan → dropping/mis-editing it can silently exclude a new agent. Keep it (safer footgun-avoidance).
+- **doc-budget ledger caps are HARNESS-PROPRIETARY** (the *spirit* — load-sparingly/prune-aggressively — is official; the explicit-cap mechanism is not). Label it as such, never "official guidance."
+
+**Per-concern plan map (produced this session as `0031`–`0035`, ordered leverage×low-risk):**
+- **`0031`** — Model-tier + advisor awareness (docs + settings + the SessionStart-advisor rename to clear the naming collision). M · Low.
+- **`0032`** — Skills taxonomy + edge-skill pointers (+ corrected `/loop`/`/goal`). S · Low (docs only).
+- **`0033`** — Context-economy + cache-dynamics grounding. S · Low (docs only).
+- **`0034`** — Track-B release consolidation (provable no-op: one class-annotated manifest; version-sync stays separate). M · Low-if-scoped.
+- **`0035`** — Deferred red-first PreToolUse test-gate (behavior-changing, flag-gated). M-L · Medium — **LAST, planned-not-built by default.**
+
 ## The task for the fine-tuning session (after 0029 + 0030 land)
 1. Read Track A docs + blogs; verify the "opportunities spotted" against the real docs (don't take them on faith — honesty rule).
 2. Produce a **fine-tuning plan** (or a small set) covering: the platform-grounding improvements (advisor, model-tier/Fable, plugins agents-list auto-derivation, context/memory alignment, the edge-skill adoptions: `debug`/`architecture`/`skill-creator`/point-at-ops) and the **release consolidation (Track B)** as its own slice/plan (the provable-no-op migration).
