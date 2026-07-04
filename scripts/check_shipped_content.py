@@ -108,6 +108,7 @@ _INIT_CREATES = frozenset(
         "docs/claugentic-INVARIANTS.md",
         "docs/claugentic-PRODUCT.md",
         "docs/claugentic-PRODUCT_SPEC.md",
+        "docs/claugentic-CHARTER.md",  # init copies the `_CHARTER.md` seed (create-if-absent)
     }
 )
 

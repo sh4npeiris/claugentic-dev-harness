@@ -273,7 +273,8 @@ Rules:
 > `.gitignore` for *this* clone only, so a teammate's clone never sees these paths. **NEVER edit the
 > committed `.gitignore` in solo mode** (it is a tracked file — an edit disturbs teammates and
 > breaks the solo invariant). Append the patterns that cover what `init` actually wrote:
-> `docs/claugentic-*` (the managed docs + tree + DECISIONS/ROADMAP seeds), `docs/claugentic-standards/`,
+> `docs/claugentic-*` (the managed docs + tree + DECISIONS/ROADMAP/CHARTER seeds — the `docs/claugentic-*`
+> glob auto-routes the copied `CHARTER.md` local in solo, no new divergence needed), `docs/claugentic-standards/`,
 > `scripts/claugentic-check_architecture_tree.py`, and `CLAUDE.local.md` (step 6). **Append-if-absent**
 > (keyed on each pattern line — never duplicate a line on a re-run) so a re-`init` is a no-op on
 > `.git/info/exclude`. In **shared mode** none of this runs — managed paths commit normally and the
@@ -622,7 +623,9 @@ existing one is never rewritten — see below):
 volatile content** so a re-write is byte-identical:
 - **Pointers to the local managed files** the agents read (the *same paths*, now local):
   `docs/claugentic-standards/README.md`, `docs/claugentic-WORKFLOW.md`, `docs/claugentic-ENGINEERING_STANDARDS.md`,
-  `docs/claugentic-ARCHITECTURE_TREE.md`, `docs/claugentic-DECISIONS.md`, `docs/claugentic-ROADMAP.md`, `docs/claugentic-PLAYBOOK.md`.
+  `docs/claugentic-ARCHITECTURE_TREE.md`, `docs/claugentic-DECISIONS.md`, `docs/claugentic-ROADMAP.md`, `docs/claugentic-PLAYBOOK.md`,
+  and the optional engineering charter → `docs/claugentic-CHARTER.md` (the living per-work-type
+  methodology record — empty ≡ the harness's default behavior). A stable pointer line, byte-identical every run.
 - The **engineering principles** (SOLID > DRY > KISS > YAGNI; validate at boundaries;
   fail loudly; configurable over hardcoded; single source of truth).
 - A **workflow pointer** ("substantial work follows `docs/claugentic-WORKFLOW.md`").
@@ -659,21 +662,26 @@ volatile content** so a re-write is byte-identical:
   step 8), which is **rewritten in place only on on-disk disagreement** (e.g. the tree was
   deleted between runs) and is otherwise left untouched (a settled re-run is byte-identical).
 
-### 7. Seed `docs/claugentic-ROADMAP.md` + `docs/claugentic-DECISIONS.md` if absent (the one-time-seed kind)
+### 7. Seed `docs/claugentic-ROADMAP.md` + `docs/claugentic-DECISIONS.md` + `docs/claugentic-CHARTER.md` if absent (the one-time-seed kind)
 
-These two are the **one-time-seed** managed-file kind (the third kind in the WORKFLOW
+These three are the **one-time-seed** managed-file kind (the third kind in the WORKFLOW
 Adopter-note's three-kinds taxonomy). The seed bytes are **shipped pristine `_X.md` files** in
 the plugin — `init` **copies them, stripping the leading underscore**:
 
-- copy **`${SOURCE}/docs/claugentic-_DECISIONS.md` → `docs/claugentic-DECISIONS.md`**, and
-- copy **`${SOURCE}/docs/claugentic-_ROADMAP.md` → `docs/claugentic-ROADMAP.md`**
+- copy **`${SOURCE}/docs/claugentic-_DECISIONS.md` → `docs/claugentic-DECISIONS.md`**,
+- copy **`${SOURCE}/docs/claugentic-_ROADMAP.md` → `docs/claugentic-ROADMAP.md`**, and
+- copy **`${SOURCE}/docs/claugentic-_CHARTER.md` → `docs/claugentic-CHARTER.md`** (the
+  OPTIONAL engineering charter — the living per-work-type methodology record; **no forced
+  "pick your methodology" question**, `init` just copies the seed and points at it in the
+  fence below — an empty/absent charter ≡ the harness's default behavior).
 
 (`${SOURCE}` is the managed-set source resolved in step 1 — `${CLAUDE_PLUGIN_ROOT}` installed, the
 repo root in dev — the same source the step-3 managed-copy uses.)
 
 - **CREATE-IF-ABSENT ONLY — never refresh, never clobber.** If the target already exists, **skip
   it byte-untouched** (report `skipped (present)`); only write when absent (report `created`). A
-  filled `DECISIONS.md`/`ROADMAP.md` is an adopter's own ledger — re-`init` must never overwrite it.
+  filled `DECISIONS.md`/`ROADMAP.md`/`CHARTER.md` is an adopter's own file — re-`init` must never
+  overwrite it.
 - **The underscore-prefix convention (`_X.md` → `X.md`):** a leading-underscore source file is a
   **one-time seed** — copied once, renamed by stripping the underscore, and **never refreshed**.
   This is **distinct from `*_TEMPLATE.md`** (the repeated-use templates — plan / product-spec /
@@ -687,6 +695,8 @@ repo root in dev — the same source the step-3 managed-copy uses.)
 - The seeds ship **unstamped** (like every managed/seed source) — `init` does **NOT** stamp a seed
   (an unstamped target is exactly the create-if-absent signal). The harness's own filled
   `DECISIONS.md`/`ROADMAP.md` are stripped from the release; the adopter receives the pristine seed.
+  (The harness keeps **no** live `CHARTER.md` — it legitimately follows its own default grain, so
+  the file is absent here; the pristine `_CHARTER.md` seed still ships for adopters.)
 - The seeded `ROADMAP.md` carries **no** `harness-audit:*` / `harness-product:backlog` fences —
   `/claugentic-dev-harness:audit` and `/claugentic-dev-harness:product` gap mode **self-create**
   their own fences on first run, so the seed correctly omits them.

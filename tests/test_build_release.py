@@ -143,6 +143,11 @@ class TestReleaseInitContract:
         assert br.is_dev_only("docs/claugentic-_ROADMAP.md") is False
         assert br.is_dev_only("docs/claugentic-DECISIONS.md") is True
         assert br.is_dev_only("docs/claugentic-ROADMAP.md") is True
+        # 0030 S2 — the OPTIONAL engineering charter is the same one-time-seed kind: the
+        # pristine `_CHARTER.md` seed SHIPS by DEFAULT-INCLUDE (absent from DEV_ONLY_FILES),
+        # so `init` can copy it → `CHARTER.md` (create-if-absent). The harness keeps no live
+        # `CHARTER.md` of its own (it follows its default grain — absent ≡ current behavior).
+        assert br.is_dev_only("docs/claugentic-_CHARTER.md") is False
 
 
 class TestBaseAncestryGuard:

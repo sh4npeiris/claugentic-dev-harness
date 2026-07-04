@@ -5,6 +5,10 @@
 > an index, not a spec.** The pipeline and skills are the source of truth for *how*; this is
 > the source of truth for *who it's for and what "good" feels like* on the user-facing
 > surfaces. Authored at Discuss (Stage 1) by `product-designer`; deepened per feature.
+>
+> **Sibling:** the *engineering-methodology* record is `docs/claugentic-CHARTER.md` (the optional
+> living per-work-type methodology record — different concern, different reader:
+> `implementer`/`synthesizer-gate`, not `product-designer`).
 
 ## The user (across the whole harness)
 
