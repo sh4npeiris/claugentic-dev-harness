@@ -71,6 +71,40 @@ Migrate in **safety-netted steps, each green before the next** (the whole point 
 ---
 
 ## Review  _(synthesizer-gate plan-gate, Stage 3)_
-_(to be filled)_
+
+RUNNING AS: Opus 4.x (same-model as the planner — this is a separate clean-context pass, a reduction of rubber-stamping risk, not a de-correlated oracle).
+
+**Verdict: CHANGES REQUIRED** — the spine is sound (provable-no-op migration, correct non-goals, honest framing), but the **closure-gate taxonomy has a load-bearing hole** that will either hard-fail Slice 3 or force an unsound class annotation. Resolve it in the plan/Slice-3 spec before implementing, not mid-slice.
+
+### What's right (do not re-litigate)
+- **No-op safety property is genuinely assertable.** `is_dev_only`/`classify` are pure over `DEV_ONLY_FILES ∪ DEV_ONLY_DIRS` (`build_release.py:80-90`); a `frozenset`→`dict` conversion read via `.keys()` yields the identical membership set, so a before/after equality test over `classify(_tracked_files())` is a direct, load-bearing guard. Step-order (annotate→derive-alongside-and-assert-equal→delete→closure→collapse) is correctly safety-netted — each net is real.
+- **The three hand-lists are accurately characterized.** `_INIT_CREATES` (`check_shipped_content.py:103-113`), `HARNESS_SELF_SCRIPTS` (`:119-126`), `_DANGLE_EXCLUDED` (`:131-139`) are exactly the three parallel partitions of `DEV_ONLY_FILES`, consumed only to *subtract* in `dangling_paths()` (`:166-176`). Deriving them from one class annotation is a true DRY win.
+- **Non-goals are correct.** Version-sync stays separate (folding would add dual-manifest JSON parsing — real scope creep; corrects the dossier). Third-drift-axis refuted. INCLUDE_GLOBS carve-out is real and must be honored — verified at `skills/init/SKILL.md:210-231` (the tree-script's `INCLUDE_GLOBS` assignment is the one adopter-owned region; init's body-compare excludes it). Closure must exclude it exactly as init does.
+- **Honesty framing holds.** Closure pins `NEEDS ⊆ HAS` mechanically; force-push/eval-drift stay `[J]`. `check_shipped_content.py:59-63` already carries the correct "does NOT make the contract fully content-enforced" caveat — the RELEASE_CHECKLIST/INVARIANTS copy must keep that wording. No over-claim in the plan.
+- **Does not touch 0029/0030.** Confirmed additive; only `build_release.py` + `check_shipped_content.py` + their tests + the doc rows.
+
+### Required changes (numbered, actionable)
+
+1. **[BLOCKER — taxonomy soundness] The 5 classes + the "producible by init" predicate do NOT cover `INVARIANTS.md`, `PRODUCT.md`, `PRODUCT_SPEC.md`.** All three are in `_INIT_CREATES` today (so Pass A.a correctly treats them as non-dangling), but **`init` does not produce any of them**:
+   - `INVARIANTS.md` — created **lazily by the WORKFLOW Definition-of-Done step (f)** (`docs/claugentic-WORKFLOW.md:259` — "Create the file lazily … do not seed it empty"), never by init. It is not in init's managed-set table (`skills/init/SKILL.md:137-145`) and there is **no `_INVARIANTS.md` seed** (only `_CHARTER`/`_DECISIONS`/`_ROADMAP` seeds exist).
+   - `PRODUCT.md` / `PRODUCT_SPEC.md` — **user-authored, never managed**; only the `PRODUCT_SPEC_TEMPLATE` ships and is init-managed (`skills/init/SKILL.md:143`). No `_PRODUCT.md`/`_PRODUCT_SPEC.md` seed exists.
+
+   The plan's closure predicate as written (Goal §17 / Slice 3) — "producible by init: `_X.md` seed ships **OR** managed-set table **OR** known generator output" — is satisfiable for `init-seed` (DECISIONS/ROADMAP/CHARTER) and `init-gen` (ARCHITECTURE_TREE), but **fails for these three**. So either (a) they get shoved into `init-seed`/`init-gen` and the closure gate **hard-fails on legitimately-non-dangling files** (this is NOT the "good latent-gap find" the plan anticipates — it's a taxonomy hole, and the only way to green it would be to weaken the check, which the plan rightly forbids), or (b) the taxonomy needs a **distinct class** (e.g. `workflow-lazy` / `user-authored`) whose closure obligation is "producible by a non-init mechanism the workflow owns" — i.e. a **fourth HAS source** the closure predicate must name. **Decide (b) in the plan now** and enumerate all HAS sources; do not leave it to be discovered in Slice 3.
+
+2. **[Correctness] Enumerate the full DEV_ONLY partition in the plan so the classes are provably exhaustive.** Map every current `DEV_ONLY_FILES` entry to its class in the Slice-1 spec (DECISIONS/ROADMAP/CHARTER→init-seed · ARCHITECTURE_TREE→init-gen · INVARIANTS/PRODUCT/PRODUCT_SPEC→the new class from change 1 · 4 scripts→self-gate · RELEASE_CHECKLIST→dangle · settings.json/CLAUDE.md/pyproject.toml/.gitignore/.gitattributes→config). This is the check that the taxonomy is a *partition*, not a lossy re-encoding. `DEV_ONLY_DIRS` stays out of the classes (the plan keeps it — correct; the closure gate reasons about the file-level classes only).
+
+3. **[Slice completeness] Slice 2 must keep `test_dangling_set_is_derived_and_excludes_gate_scripts` green.** `tests/test_check_shipped_content.py:91-100` pins that the derived dangle set excludes the gate scripts. Rewriting `dangling_paths()` to derive from `recreate_class` must preserve (or explicitly migrate) that assertion — name it in the Slice-2 spec so the slice lands complete, not with a silently-broken pin. (The Affected-files list already includes this test file — good; just make the pin migration explicit.)
+
+4. **[Honesty copy — minor] Reclassifying `_INIT_CREATES` changes what the name asserts.** Once change 1 introduces a `workflow-lazy` class, the derived "init-creates" set is narrower than today's `_INIT_CREATES` (which conflates init-created with user/workflow-authored). Ensure the INVARIANTS.md update (Slice 3) describes the closure gate as "every stripped-adopter-relevant path is producible by init **or the workflow's lazy/templated authoring**" — not "producible by init" flatly, which would be a subtle over-claim about init's scope.
+
+### Sizing / completeness check (per slice)
+- **Slice 1 (annotate + no-op proof)** — OK. Session-sized, lands complete (pure refactor + equality test, zero behavior change). The equality net is load-bearing and correctly gates the slice.
+- **Slice 2 (derive-alongside + delete)** — OK, conditional on change 3. The derive-alongside-then-assert-equal-then-delete sequence is a proper within-slice safety net; keep both lists until the equality test is green in the same slice, then delete — do not split the delete into a later slice (that would leave a dead duplicate = debt).
+- **Slice 3 (closure gate + docs)** — **BLOCKED on changes 1, 2, 4.** As written it risks a mid-slice hard-fail on the three workflow-lazy files with no planned resolution. With the taxonomy fixed it is session-sized and lands complete. Trust surface (INVARIANTS/RELEASE_CHECKLIST honesty copy) correctly routes to `honesty-reviewer`.
+
+### Harness impact
+- **No new STANDARD/agent/doc-module.** This mechanizes an existing INVARIANT; the INVARIANTS.md + RELEASE_CHECKLIST edits are updates, not new surface. DECISIONS line is warranted (7→1 consolidation + closure gate + version-sync-kept-separate).
+- The rename to `release_gate.py` staying **deferred/optional** is the right YAGNI call — the value is the manifest + closure, both of which live fine in `check_shipped_content.py`. Do not let it creep back in.
+- **ROADMAP:** the plan partially delivers the *Release/init-contract completeness gate* item; note at Land whether it's fully closed or the ROADMAP line survives (the build→init→diff round-trip is explicitly out of scope here — keep it a ROADMAP pointer, do not build it).
 
 ## Spec  _(per slice, Stage 4)_

@@ -56,13 +56,42 @@ Three thin, low-risk edits. **The rename is the only one touching executable wir
 
 ## Decomposition (slices)
 
-- [ ] **Slice 1 — Model-tier menu update (WORKFLOW docs).** Rewrite the *Model tiers* note to the verified menu + graceful-fallback positioning + never-hardcode-Fable; note `opusplan`. DECISIONS line; tree if scope changes. **In-scope:** `docs-traceability`, `product-ux`; trust surface → `honesty-reviewer` (Fable-conditional).
-- [ ] **Slice 2 — Advisor-awareness note (docs).** Document the platform advisor as an optional, flagged, experimental/API-only gate/verify lever; model-upheld; honestly framed (reduction-not-independent-verification). DECISIONS line. **In-scope:** `docs-traceability`; trust surface → `honesty-reviewer`.
-- [ ] **Slice 3 — Rename the SessionStart advisor script (clarity refactor).** Rename `claugentic-advisor.py`→`claugentic-session-advisor.py` + test + `plugin.json` hook + `CLAUDE.md` + DECISIONS + tree refs. Verify the hook still fires (portable launcher/rooting intact). **In-scope:** `maintainability-structure`, `docs-traceability`.
+- [x] **Slice 1 — Model-tier menu update (WORKFLOW docs).** LANDED — WORKFLOW *Model tiers* widened to the verified menu (`best`/`fable`/`opus`/`sonnet`/`haiku`/`opusplan`), graceful Opus fallback, never-hardcode-Fable; DECISIONS entry + condensation. Verify: synthesizer-gate PASS + honesty-reviewer CLEAN.
+- [x] **Slice 2 — Advisor-awareness note (docs).** LANDED — platform-advisor note (optional/experimental/API-only/opt-in/model-upheld; reduction-of-risk NOT independent verification; distinct from the SessionStart advisor). Verify: synthesizer-gate PASS + honesty-reviewer CLEAN.
+- [ ] **Slice 3 — Rename the SessionStart advisor script (clarity refactor). DEFERRED (ready-to-build).** Rename `claugentic-advisor.py`→`claugentic-session-advisor.py` + test + `plugin.json` hook + `CLAUDE.md` + DECISIONS + tree refs. **Plan-gate REQUIRED FIX (see Review):** must ALSO update `tests/conftest.py:46` (`_load_hyphenated("advisor", "claugentic-advisor.py")` — a fail-loud loader that breaks the WHOLE test suite if the path is stale); specify the internal `"advisor"` module name; update the script's own usage-text path (`scripts/claugentic-advisor.py:58`); drop the empty `.claude/settings.json` from scope. Verify the hook still fires (portable launcher/rooting intact). **In-scope:** `maintainability-structure`, `docs-traceability`.
 
 ---
 
 ## Review  _(synthesizer-gate plan-gate, Stage 3)_
-_(to be filled)_
+
+RUNNING AS: Opus 4.x (same-model as builder/planner — a clean-context, separate-role pass; a reduction of rubber-stamping risk, not model-independent review).
+
+**Verdict: CHANGES REQUIRED** — one load-bearing omission in the Slice-3 rename enumeration (would break the whole test suite, not just `test_advisor.py`), plus two small honesty/scoping tightenings. The plan is otherwise sound: correctness matches the VERIFIED findings (not the dossier over-claims), honesty framing is right, slices are session-sized and land-complete, and it does not touch 0029/0030.
+
+### Required changes (numbered, actionable)
+
+1. **[BLOCKER — Slice 3] The rename enumeration misses `tests/conftest.py:46` — the single most dangerous ref.** `conftest.py` hardcodes BOTH the logical module name and the filename: `_load_hyphenated("advisor", "claugentic-advisor.py")` (`:46`), and the loader **fails loud (`ImportError`) if the file path is stale** (`:36-37`) — so a missed rename here breaks *every* test in the suite via collection error, not just `test_advisor.py`. Its docstring/comment at `:44` ("the SessionStart advisor (`import advisor`)") also names it. Add `tests/conftest.py` to *Affected files* (S3) and to the S3 checklist. This is the one ref that turns "fail-safe advisor" into "hard test-suite breakage," so it must be explicit, not left to the grep.
+
+2. **[Slice 3] Decide + state the logical module-name policy.** The rename covers the *filename* (`claugentic-advisor.py` → `claugentic-session-advisor.py`), but the internal Python module identifier registered in `conftest.py` is the bare string `"advisor"` and `test_advisor.py` does `import advisor`. Say explicitly whether the logical name stays `"advisor"` (minimal churn — only the *filename* arg changes) or also becomes `"session_advisor"` (rename the test's import too). Either is fine; leaving it unspecified invites a half-done rename. Recommend: keep the logical name churn minimal but rename `tests/test_advisor.py` → `tests/test_session_advisor.py` for clarity-parity with the goal.
+
+3. **[Slice 3] Add the in-file self-reference.** `scripts/claugentic-advisor.py:58` contains its own path in the help/usage text (`python scripts/claugentic-advisor.py …`). List "update the script's own usage/docstring self-reference" in S3 so the renamed file doesn't print its old name.
+
+4. **[Minor — References/Affected] `.claude/settings.json` is empty (`{}`) and carries no advisor reference.** The plan lists it in *References* and *Affected files*. Since the advisor-awareness note (Slice 2) is doc-only + model-upheld (nothing is wired into settings), drop `.claude/settings.json` from Affected (or explicitly note "no settings edit — documented-behind-a-flag only, not wired"). Keeping it listed implies a settings change the Non-goals correctly forbid.
+
+### Sizing / completeness check (per slice)
+
+- **Slice 1 (model-tier menu, WORKFLOW `:38`) — OK.** Single doc edit + DECISIONS line. Lands complete. Note: the current `:38` note only lists `opus`/`sonnet`/`haiku` and says "most capable = opus" — the rewrite is a genuine correction, correctly Fable-*conditional* (`best`→Opus fallback, never hardcode Fable), matching the VERIFIED cluster. Ensure the rewrite stays consistent with the adjacent honesty line at `:37` (no cross-model-independence claim) — the two notes sit back-to-back.
+- **Slice 2 (advisor-awareness note) — OK.** Doc-only, model-upheld, flag-gated, experimental/API-only, framed as a *reduction* of single-model risk (not independent verification). Honesty framing matches `:37` and the DECISIONS ban on de-correlation claims. Correctly does NOT wire anything on. Lands complete.
+- **Slice 3 (rename) — OK on size, but under-enumerated (see #1–#3).** Once `conftest.py` + the module-name policy + the in-file self-ref are added, it lands complete with no dangle. The tree-check + `pytest` + a post-rename `grep -r claugentic-advisor` returning only the new name is the right closure check; keep it. Confirm the `plugin.json` portable `python3 … || python …` launcher + `${CLAUDE_PLUGIN_ROOT}` rooting stay byte-intact (DECISIONS `:107`) — the note already says this. The advisor's fail-safe exit-0 means a *runtime* lapse is non-blocking, but the `conftest` `ImportError` is NOT fail-safe — so #1 is a true blocker, not a nicety.
+
+### Honesty check — PASS
+
+Fable is Fable-*conditional* (never assumed available); `best` auto-falls-back to Opus; the advisor is optional/experimental/API-only/model-upheld and a *reduction* of single-model risk, not independent verification; doc-tier *policy* is unchanged (menu widened, accuracy-first kept). The plan correctly avoids the refuted/nuanced dossier items (no `/loop`-`/goal`-orchestration framing, no version-third-axis detector, no settings-wiring). Good.
+
+### Harness impact
+
+**No new hook, no new agent, no new STANDARD.** Slice 3 renames an *existing* SessionStart hook script (a clarity refactor); the hook must keep firing after rename — guarded by the `plugin.json`-together-edit + `pytest` + hook-path-resolves checks (adequate once #1 lands). Slices 1–2 are doc-tier updates to existing WORKFLOW/DECISIONS surfaces. No Stage-9 harness-mechanism change implied. Confirmed: does **not** modify 0029/0030's landed work (additive docs + an internal rename).
+
+_Re-gate after the four changes land in the plan; expected → PASS._
 
 ## Spec  _(per slice, Stage 4)_
