@@ -32,6 +32,13 @@ eval-drift stay model-upheld, see docs/RELEASE_CHECKLIST.md):
                    published `vX.Y.Z` tag (no tag yet = first release, allowed).
   * drop-check   — every path on `origin/main`-not-HEAD must be a stripped dev-only path
                    (a SHIPPED file in that diff = merged work missing from the build).
+
+After the strip (before the commit) it also validates the BUILT tree:
+  * built-tree   — the dev checkout's `check_shipped_content.py --root <built-worktree>` scans the
+                   stripped tree for shipped-content breaches (stranded tokens / dangling refs /
+                   non-ASCII engine `*.js` / referential closure). A failure refuses the build with
+                   NO commit — a break the strip introduced fails loud pre-push (the release branch
+                   runs zero CI). Validates the shipped STRUCTURE, NOT that the release "passes CI".
 """
 
 from __future__ import annotations
@@ -311,6 +318,36 @@ def _dropped_shipped_paths(root: Path, strip: list[str]) -> list[str]:
     return sorted(p for p in diff_paths if p not in strip_set)
 
 
+def _validate_built_tree(root: Path, built: str) -> int:
+    """P0-2 (plan 0034 Slice 5): scan the BUILT (stripped) release worktree for shipped-content
+    breaches BEFORE the release is committed. Returns 0 (clean) or a non-zero exit code.
+
+    Runs the DEV CHECKOUT's `check_shipped_content.py --root <built>` as a subprocess — the strip
+    removes `check_shipped_content.py` + `build_release.py` (which it imports) + `tests/` +
+    `pyproject.toml` from `built`, so the gate/tests can't run FROM inside the built tree (they'd
+    fail to import or vacuously collect zero). Pointing the dev copy AT the built tree is the
+    only sound mechanism. A subprocess (not an in-process call) keeps the scanner's own `chdir` /
+    stdout-reconfigure out of THIS process's state, and its exit code is the pass/fail signal.
+
+    Honest scope: this validates the SHIPPED STRUCTURE of the built tree (no stranded namespace
+    tokens / dangling stripped-path refs / non-ASCII engine `*.js` / referential-closure holds) —
+    NOT that "the release passes CI" or is correct. The dev-tree `pytest` already ran pre-build in
+    the Definition of Done; running `pytest` against the stripped tree would vacuously green (no
+    `tests/`), so it is deliberately NOT run here."""
+    scanner = root / "scripts" / "check_shipped_content.py"
+    result = subprocess.run(
+        [sys.executable, str(scanner), "--root", built],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    if result.stdout:
+        print(result.stdout, end="")
+    if result.stderr:
+        print(result.stderr, end="", file=sys.stderr)
+    return result.returncode
+
+
 def _apply() -> int:
     """(Re)build the LOCAL `release` branch = HEAD minus the dev-only files. Refuses on a
     stale base; no push."""
@@ -358,6 +395,17 @@ def _apply() -> int:
         _git("-C", str(root), "worktree", "add", "--force", "-B", RELEASE_BRANCH, tmp, "HEAD")
         for f in strip:
             _git("-C", tmp, "rm", "-q", "-r", "--ignore-unmatch", "--", f)
+        # P0-2 (Slice 5): validate the BUILT (stripped) tree BEFORE committing — a break the strip
+        # introduced (or survived) must fail loud PRE-commit, not reach an adopter (the release
+        # branch runs zero CI). Runs the dev checkout's scanner pointed at the built worktree.
+        rc = _validate_built_tree(root, tmp)
+        if rc != 0:
+            print(
+                "ERROR: refusing to build — the built (stripped) release tree failed the "
+                "shipped-content scan (see above); the release is NOT committed.",
+                file=sys.stderr,
+            )
+            return rc
         # --no-verify: the release build is a mechanical clean-tree transform that INTENTIONALLY
         # strips the dev-only architecture tree (DEV_ONLY_FILES). The dogfooding pre-commit
         # tree-gate (init step 5b, plan 0024) would otherwise fire on this commit and fail with

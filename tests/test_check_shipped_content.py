@@ -10,6 +10,12 @@ exit-code tests, including the fail-loud-on-git-error case.
 
 from __future__ import annotations
 
+import subprocess
+import sys
+from pathlib import Path
+
+import pytest
+
 import build_release as br
 import check_shipped_content as csc
 
@@ -59,7 +65,7 @@ class TestNonAsciiJsPassC:
             "engine/x.js": "const x = 1; // em-dash —\n",
             "docs/x.md": "prose em-dash — fine\n",
         }
-        monkeypatch.setattr(csc, "_shipped_files", lambda: ship)
+        monkeypatch.setattr(csc, "_shipped_files", lambda root: ship)
         monkeypatch.setattr(csc, "_read_shipped_texts", lambda root, s: texts)
         monkeypatch.setattr(csc, "_fs_agent_basenames", lambda root: set())
         monkeypatch.setattr(csc, "_fs_skill_basenames", lambda root: set())
@@ -315,7 +321,7 @@ class TestClosurePassD:
         ship = sorted(
             (frozenset(br.classify(br._tracked_files())[0]) - {"docs/claugentic-_DECISIONS.md"})
         )
-        monkeypatch.setattr(csc, "_shipped_files", lambda: ship)
+        monkeypatch.setattr(csc, "_shipped_files", lambda root: ship)
         monkeypatch.setattr(csc, "_read_shipped_texts", lambda root, s: {p: "" for p in ship})
         monkeypatch.setattr(csc, "_fs_agent_basenames", lambda root: set())
         monkeypatch.setattr(csc, "_fs_skill_basenames", lambda root: set())
@@ -411,3 +417,109 @@ class TestMainExitCodes:
         monkeypatch.chdir(csc.Path("."))
         assert csc.main([]) == 1
         assert "ERROR" in capsys.readouterr().err
+
+
+class TestParseRoot:
+    """`_parse_root` — the boundary parser for the `--root <path>` argument (0034 Slice 5).
+    Absent flag → `None` (the byte-identical default); a garbled value fails LOUD (never a
+    silent scan of the wrong tree)."""
+
+    def test_absent_flag_is_none(self):
+        assert csc._parse_root([]) is None
+
+    def test_valid_dir_is_returned(self, tmp_path):
+        assert csc._parse_root(["--root", str(tmp_path)]) == Path(str(tmp_path))
+
+    def test_missing_value_fails_loud(self):
+        with pytest.raises(ValueError, match="requires a <path>"):
+            csc._parse_root(["--root"])
+
+    def test_non_directory_fails_loud(self, tmp_path):
+        missing = tmp_path / "not-there"
+        with pytest.raises(ValueError, match="not a directory"):
+            csc._parse_root(["--root", str(missing)])
+
+
+class TestRootScansGivenTree:
+    """`--root <tree>` scans the shipped content of a GIVEN (already-stripped) tree — the P0-2
+    built-tree validation (0034 Slice 5). NON-VACUOUS by construction: the SAME scan must PASS on
+    a clean built tree AND FAIL on one with a stranded namespace token injected, so the test can't
+    go vacuously green if `--root` silently scanned the wrong tree (or scanned nothing).
+
+    The fixture builds a minimal HERMETIC git tree that mimics a stripped release: the two
+    `init-seed` seeds ship (so Pass D's closure holds), plus an agent + a skill (so Pass B's roster
+    is FS-derived) and a couple of shipped markdown/js files. Ambient git config is pinned off so
+    pass/fail depends only on the code under test."""
+
+    @staticmethod
+    def _git(repo: Path, *args: str) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            ["git", "-c", "commit.gpgsign=false", "-c", "core.hooksPath=", "-C", str(repo), *args],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+
+    @pytest.fixture
+    def built_tree(self, tmp_path, monkeypatch):
+        """A committed git tree that looks like a stripped release: only shipped files are tracked,
+        the init-seed seeds are present (closure holds), and the FS-derived roster is well-formed."""
+        empty_cfg = tmp_path / "empty-gitconfig"
+        empty_cfg.write_text("", encoding="utf-8")
+        monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(empty_cfg))
+        monkeypatch.setenv("GIT_CONFIG_SYSTEM", str(empty_cfg))
+
+        repo = tmp_path / "built"
+        repo.mkdir()
+        self._git(repo, "init", "-q").check_returncode()
+        self._git(repo, "config", "user.email", "t@t.t").check_returncode()
+        self._git(repo, "config", "user.name", "t").check_returncode()
+
+        # The two `init-seed` seeds must ship so Pass D (NEEDS ⊆ HAS) closes over the real manifest.
+        (repo / "docs").mkdir()
+        (repo / "docs" / "claugentic-_DECISIONS.md").write_text("# seed\n", encoding="utf-8")
+        (repo / "docs" / "claugentic-_ROADMAP.md").write_text("# seed\n", encoding="utf-8")
+        # A shipped doc that uses a VALID namespace token (an agent basename present below) — clean.
+        (repo / "docs" / "claugentic-WORKFLOW.md").write_text(
+            "Spawn `claugentic-dev-harness:honesty-reviewer` at Verify.\n", encoding="utf-8"
+        )
+        # An ASCII-only shipped engine script — Pass C clean.
+        (repo / "engine").mkdir()
+        (repo / "engine" / "audit.js").write_text("const x = 1; // plain ASCII\n", encoding="utf-8")
+        # FS-derived roster sources: one agent, one skill dir.
+        (repo / ".claude" / "agents").mkdir(parents=True)
+        (repo / ".claude" / "agents" / "honesty-reviewer.md").write_text("# agent\n", encoding="utf-8")
+        (repo / "skills" / "audit").mkdir(parents=True)
+        (repo / "skills" / "audit" / "SKILL.md").write_text("# skill\n", encoding="utf-8")
+
+        self._git(repo, "add", "-A").check_returncode()
+        self._git(repo, "commit", "-qm", "built tree").check_returncode()
+        return repo
+
+    def _scan(self, root: Path) -> subprocess.CompletedProcess:
+        scanner = Path(csc.__file__)
+        return subprocess.run(
+            [sys.executable, str(scanner), "--root", str(root)],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+
+    def test_clean_built_tree_passes(self, built_tree):
+        # The clean built tree scans OK (exit 0), and the summary proves the scan targeted THIS
+        # tree — only its shipped files, not the dev checkout's.
+        result = self._scan(built_tree)
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "OK: scanned" in result.stdout
+
+    def test_broken_built_tree_fails(self, built_tree):
+        # NON-VACUOUS: inject a stranded namespace token into a shipped doc of the SAME tree; the
+        # SAME scan now FAILS (exit 1) — proving `--root` actually read the given tree's files.
+        (built_tree / "docs" / "claugentic-WORKFLOW.md").write_text(
+            "Spawn `claugentic-dev-harness:ghost-role` (renamed away).\n", encoding="utf-8"
+        )
+        self._git(built_tree, "add", "-A").check_returncode()
+        self._git(built_tree, "commit", "-qm", "strand a token").check_returncode()
+        result = self._scan(built_tree)
+        assert result.returncode == 1, result.stdout + result.stderr
+        assert "ghost-role" in result.stdout

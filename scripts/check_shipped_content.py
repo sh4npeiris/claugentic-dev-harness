@@ -111,7 +111,20 @@ Fails LOUD: any git/read error produces a plain message + exit 1 — never a fal
 (a gate that silently passed because git broke would defeat its own purpose).
 
 Modes:
-    python scripts/check_shipped_content.py    # human/CI: stdout, exit 0 OK / exit 1 on any hard problem
+    python scripts/check_shipped_content.py                 # scan the current dev checkout
+    python scripts/check_shipped_content.py --root <tree>   # scan an explicitly-given tree
+
+`--root <tree>` scans the shipped content of a GIVEN tree instead of the current checkout — used
+by `build_release.py --apply` to validate the BUILT (already-stripped) release worktree BEFORE it
+commits (plan 0034 Slice 5 / P0-2). The scanner still runs FROM the dev checkout (its `import
+build_release` + its own code are stripped from the built tree), pointing only its FS/git reads at
+`<tree>`. The ship set is then the files present under `<tree>` — since the built tree is already
+stripped, those ARE the shipped files, so the dangling-ref (A.a), stranded-token (B), engine
+ASCII-only (C), and closure (D) passes run against exactly the release's shipped structure. Honest
+scope: this validates the SHIPPED STRUCTURE of the built tree — NOT that the release "passes CI" or
+"is correct." No `--root` ⇒ exactly the prior scan of the dev checkout (byte-identical behavior).
+
+Exit 0 OK / exit 1 on any hard problem (or a git/FS boundary failure — never a false green).
 """
 
 from __future__ import annotations
@@ -425,13 +438,33 @@ def scan_gate_caveats(texts: dict[str, str], scripts: frozenset[str]) -> list[st
 # ─────────────────────────────────────────────────────────────────────────────
 # Git/FS boundary (fail-loud) + orchestration
 # ─────────────────────────────────────────────────────────────────────────────
-def _shipped_files() -> list[str]:
-    """The SHIP half of the classified tracked-file set — the single ship source-of-truth.
+def _tracked_files(root: Path) -> list[str]:
+    """Every tracked file under `root`, repo-relative + forward-slash normalized.
 
-    Fails LOUD (raises) if git is unavailable or `ls-files` errors: a gate that silently
-    passed on a broken git boundary would be a false-green.
-    """
-    return list(br.classify(br._tracked_files())[0])
+    Runs `git -C <root> ls-files` so the listing is anchored to the GIVEN tree, not the
+    process cwd. For the dev checkout this is the full ship+strip tree; for a BUILT (already
+    stripped) release worktree (the `--root <tmp>` case) it is only the shipped files that
+    survive the strip — so `classify()` over it splits cleanly with an empty strip half.
+    Fails LOUD (raises) if git is unavailable or `ls-files` errors — a gate that silently
+    passed on a broken git boundary would be a false-green."""
+    out = subprocess.run(
+        ["git", "-C", str(root), "ls-files"],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        check=True,
+    ).stdout
+    return [line.replace("\\", "/").strip() for line in out.splitlines() if line.strip()]
+
+
+def _shipped_files(root: Path) -> list[str]:
+    """The SHIP half of `root`'s classified tracked-file set — the single ship source-of-truth.
+
+    Anchored to `root` (via `_tracked_files(root)`), so `--root <built-tree>` scans exactly the
+    files present under that tree. For the default dev checkout `root` is the repo the scanner
+    already `chdir`s into, so this is byte-identical to listing the current tree. Fails LOUD
+    (raises) if git is unavailable or `ls-files` errors."""
+    return list(br.classify(_tracked_files(root))[0])
 
 
 def _read_shipped_texts(root: Path, ship: list[str]) -> dict[str, str]:
@@ -461,9 +494,10 @@ def evaluate(root: Path) -> tuple[list[str], list[str], str]:
     to `*.md`; the JS-only pass (C) filters to `*.js`; the path passes (A.a/A.b) scan every
     shipped text; the closure pass (D) is pure over the strip manifest + the shipped SET.
     warning_lines (A.b) never change the exit code. Fails loud on the git/FS boundary (the
-    caller surfaces the raise).
+    caller surfaces the raise). `root` is the tree scanned — the dev checkout by default, or an
+    explicitly-given built (stripped) release worktree via `--root` (see `main`).
     """
-    ship = _shipped_files()
+    ship = _shipped_files(root)
     texts = _read_shipped_texts(root, ship)
     md_texts = {p: t for p, t in texts.items() if p.endswith(".md")}
     js_texts = {p: t for p, t in texts.items() if p.endswith(".js")}
@@ -516,13 +550,45 @@ def _force_utf8_output() -> None:
             pass
 
 
+def _parse_root(argv: list[str]) -> Path | None:
+    """The `--root <path>` value from `argv`, or `None` when the flag is absent (the default).
+
+    Boundary-validated: `--root` with no following value, or a value that isn't a directory,
+    fails LOUD (raises) — a garbled root would silently scan the wrong tree. `None` (flag
+    absent) drives the byte-identical default: derive the root from `__file__` and `chdir` into
+    it (the current dev checkout)."""
+    if "--root" not in argv:
+        return None
+    i = argv.index("--root")
+    if i + 1 >= len(argv):
+        raise ValueError("--root requires a <path> argument (the tree to scan).")
+    root = Path(argv[i + 1])
+    if not root.is_dir():
+        raise ValueError(f"--root {root} is not a directory — cannot scan a missing tree.")
+    return root
+
+
 def main(argv: list[str]) -> int:
-    # Boundary setup: UTF-8 output (Windows mojibake) + anchor to the repo root so the gate is
-    # CWD-independent. Fail LOUD on the git/FS boundary — print a plain message + exit 1, never
-    # a swallowed exception that reads as a false green.
+    # Boundary setup: UTF-8 output (Windows mojibake) + anchor to the tree to scan. Fail LOUD on
+    # the git/FS boundary — print a plain message + exit 1, never a swallowed exception that
+    # reads as a false green.
     _force_utf8_output()
-    root = _repo_root()
-    os.chdir(root)
+    try:
+        explicit_root = _parse_root(argv)
+    except ValueError as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+    if explicit_root is not None:
+        # `--root <built-tree>`: scan the given (already-stripped) release worktree, but keep
+        # running FROM the dev checkout — do NOT chdir into the built tree (its `build_release`
+        # + this script are stripped there, so `import build_release` and module resolution must
+        # stay resolved against the dev checkout). All FS/git reads take `root` explicitly.
+        root = explicit_root.resolve()
+    else:
+        # Default (byte-identical to before `--root`): anchor to the dev repo root from `__file__`
+        # and chdir into it so the gate is CWD-independent.
+        root = _repo_root()
+        os.chdir(root)
     try:
         problems, warnings, summary = evaluate(root)
     except Exception as exc:  # noqa: BLE001 — fail-loud boundary: surface, never false-green

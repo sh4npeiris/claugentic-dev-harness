@@ -480,6 +480,13 @@ class TestApplyHookBypass:
     pre-commit hook — so a future edit that drops `--no-verify` can't silently re-break
     `--apply` (it broke once at the v0.3.0 release; loud-only-at-release before this).
 
+    It ALSO exercises the P0-2 built-tree validation (0034 Slice 5): `_apply` runs the dev
+    checkout's `check_shipped_content.py --root <built-worktree>` after the strip + before the
+    commit, so the fixture repo ships a realistic minimal tree (init-seed seeds + a roster) plus
+    REAL copies of the two scripts the validation subprocess needs (`check_shipped_content.py`
+    imports `build_release.py`) — so the happy path proves the build proceeds THROUGH a passing
+    validation, and `TestApplyBuiltTreeValidation` proves a broken built tree REFUSES the build.
+
     Hermetic: a throwaway repo under tmp_path, real git, real disk. The ambient git
     environment is fully isolated (GIT_CONFIG_GLOBAL/SYSTEM → an empty file; gpgsign
     pinned off) so pass/fail depends only on the code under test, never on this machine's
@@ -514,11 +521,43 @@ class TestApplyHookBypass:
             encoding="utf-8",
         )
 
-    @pytest.fixture
-    def repo(self, tmp_path, monkeypatch):
-        """A real git repo with a HEAD, an always-fail pre-commit hook armed via
-        `core.hooksPath`, and `origin/main == HEAD` (satisfies the base-ancestry guard
-        with zero network). Points `build_release` at this repo (`_repo_root` + chdir)."""
+    @classmethod
+    def _seed_shippable_tree(cls, repo: Path) -> None:
+        """Write a realistic minimal SHIPPABLE tree that passes `check_shipped_content.py`.
+
+        The two `init-seed` seeds ship (closure Pass D holds), an agent + a skill dir give a
+        FS-derived roster (Pass B), and REAL copies of `scripts/check_shipped_content.py` +
+        `scripts/build_release.py` ship so `_apply`'s validation subprocess (which the fixture's
+        `_repo_root` points at THIS repo) can find + import the scanner. `build_release.py` +
+        `check_shipped_content.py` are `self-gate` (stripped from the built tree), so their
+        presence in the SOURCE tree does not affect the built tree the scan reads."""
+        src_scripts = Path(br.__file__).parent
+        (repo / "docs").mkdir(exist_ok=True)
+        (repo / cls.STRIPPED_FILE).write_text("# Tree\n- `README.md` — readme.\n", encoding="utf-8")
+        (repo / cls.SHIPPED_FILE).write_text("# Project\n", encoding="utf-8")
+        # init-seed seeds → Pass D closure holds over the real manifest.
+        (repo / "docs" / "claugentic-_DECISIONS.md").write_text("# seed\n", encoding="utf-8")
+        (repo / "docs" / "claugentic-_ROADMAP.md").write_text("# seed\n", encoding="utf-8")
+        # FS-derived roster sources: one agent, one skill dir.
+        (repo / ".claude" / "agents").mkdir(parents=True, exist_ok=True)
+        (repo / ".claude" / "agents" / "honesty-reviewer.md").write_text("# agent\n", encoding="utf-8")
+        (repo / "skills" / "audit").mkdir(parents=True, exist_ok=True)
+        (repo / "skills" / "audit" / "SKILL.md").write_text("# skill\n", encoding="utf-8")
+        # REAL scanner + release-builder so `_apply`'s validation subprocess runs against them.
+        (repo / "scripts").mkdir(exist_ok=True)
+        for name in ("check_shipped_content.py", "build_release.py"):
+            (repo / "scripts" / name).write_text(
+                (src_scripts / name).read_text(encoding="utf-8"), encoding="utf-8"
+            )
+        # A minimal source-of-truth manifest so the version-increase precondition (P0-1) can
+        # read a version. The fixture creates NO `vX.Y.Z` tag → first-release bootstrap → allow.
+        (repo / ".claude-plugin").mkdir(exist_ok=True)
+        (repo / br.PLUGIN_MANIFEST).write_text('{"version": "0.4.0"}\n', encoding="utf-8")
+
+    @classmethod
+    def _init_repo(cls, tmp_path: Path, monkeypatch) -> Path:
+        """A committed git repo (shippable tree + armed always-fail hook + origin/main == HEAD),
+        with `build_release` pointed at it. Shared by the happy-path + validation-refusal tests."""
         empty_cfg = tmp_path / "empty-gitconfig"
         empty_cfg.write_text("", encoding="utf-8")
         monkeypatch.setenv("GIT_CONFIG_GLOBAL", str(empty_cfg))
@@ -526,21 +565,13 @@ class TestApplyHookBypass:
 
         repo = tmp_path / "repo"
         repo.mkdir()
-        self._git(repo, "init", "-q").check_returncode()
-        self._git(repo, "config", "user.email", "t@t.t").check_returncode()
-        self._git(repo, "config", "user.name", "t").check_returncode()
+        cls._git(repo, "init", "-q").check_returncode()
+        cls._git(repo, "config", "user.email", "t@t.t").check_returncode()
+        cls._git(repo, "config", "user.name", "t").check_returncode()
 
-        # A tree classify() splits both ways: a stripped DEV_ONLY file + a shipped file.
-        (repo / "docs").mkdir()
-        (repo / self.STRIPPED_FILE).write_text("# Tree\n- `README.md` — readme.\n", encoding="utf-8")
-        (repo / self.SHIPPED_FILE).write_text("# Project\n", encoding="utf-8")
-        # A minimal source-of-truth manifest so the version-increase precondition (P0-1) can
-        # read a version. This fixture creates NO `vX.Y.Z` tag → first-release bootstrap →
-        # the guard ALLOWS regardless of the version value.
-        (repo / ".claude-plugin").mkdir()
-        (repo / br.PLUGIN_MANIFEST).write_text('{"version": "0.4.0"}\n', encoding="utf-8")
-        self._git(repo, "add", "-A").check_returncode()
-        self._git(repo, "commit", "-qm", "initial").check_returncode()
+        cls._seed_shippable_tree(repo)
+        cls._git(repo, "add", "-A").check_returncode()
+        cls._git(repo, "commit", "-qm", "initial").check_returncode()
 
         # Always-fail pre-commit hook, armed via core.hooksPath. LF + explicit shebang for
         # win32/Git-Bash portability (git runs hooks via bundled bash; no chmod needed).
@@ -548,18 +579,23 @@ class TestApplyHookBypass:
         hooksdir.mkdir()
         hook = hooksdir / "pre-commit"
         hook.write_bytes(b"#!/bin/sh\nexit 1\n")
-        self._git(repo, "config", "core.hooksPath", str(hooksdir)).check_returncode()
+        cls._git(repo, "config", "core.hooksPath", str(hooksdir)).check_returncode()
 
         # Satisfy the base-ancestry guard (`_missing_upstream_commits`) with zero network:
         # origin/main == HEAD ⇒ rev-parse verifies and rev-list finds no dropped merges.
-        self._git(repo, "update-ref", "refs/remotes/origin/main", "HEAD").check_returncode()
+        cls._git(repo, "update-ref", "refs/remotes/origin/main", "HEAD").check_returncode()
 
         # Point `_apply` entirely at this repo. `_repo_root` covers the `-C`-passing calls
-        # (status/rev-parse/worktree/commit); chdir covers `_tracked_files()`'s `ls-files`,
-        # the one git call `_apply` makes WITHOUT `-C` (cwd-dependent).
+        # (status/rev-parse/worktree/commit) AND the validation subprocess's scanner path;
+        # chdir covers `_tracked_files()`'s `ls-files`, the one git call `_apply` makes
+        # WITHOUT `-C` (cwd-dependent).
         monkeypatch.setattr(br, "_repo_root", lambda: repo)
         monkeypatch.chdir(repo)
         return repo
+
+    @pytest.fixture
+    def repo(self, tmp_path, monkeypatch):
+        return self._init_repo(tmp_path, monkeypatch)
 
     def test_control_hook_is_armed(self, repo):
         # Non-hollow guard: a PLAIN commit (hook ARMED, no --no-verify) MUST fail. If this
@@ -573,8 +609,8 @@ class TestApplyHookBypass:
         )
 
     def test_apply_succeeds_through_failing_hook(self, repo):
-        # The release build commits the stripped tree with --no-verify, so the armed
-        # always-fail pre-commit hook does NOT block it.
+        # The release build commits the stripped tree with --no-verify (so the armed always-fail
+        # pre-commit hook does NOT block it) AND passes the P0-2 built-tree validation.
         assert br._apply() == 0
 
         # The `release` branch was created.
@@ -587,3 +623,47 @@ class TestApplyHookBypass:
         tree = ls.stdout.splitlines()
         assert self.STRIPPED_FILE not in tree, "stripped file leaked into the release tree"
         assert self.SHIPPED_FILE in tree, "shipped file missing from the release tree"
+
+
+@pytest.mark.integration
+class TestApplyBuiltTreeValidation(TestApplyHookBypass):
+    """Plan 0034 Slice 5 / P0-2 — `_apply` validates the BUILT (stripped) tree via the dev
+    checkout's `check_shipped_content.py --root <built-worktree>` AFTER the strip + BEFORE the
+    commit, and REFUSES the build (non-zero, no commit) if it fails. Reuses the `TestApplyHookBypass`
+    hermetic repo setup (shippable tree + real scanner scripts + origin/main == HEAD).
+
+    NON-VACUOUS by construction: the happy-path test above proves `_apply` returns 0 when the
+    built tree is CLEAN; this proves it returns non-zero AND creates NO release commit when the
+    built tree carries a shipped-content breach — so the validation can't be silently no-opping
+    (a no-op would let the broken tree through and this test would fail)."""
+
+    def test_broken_built_tree_refuses_and_does_not_commit(self, tmp_path, monkeypatch, capsys):
+        repo = self._init_repo(tmp_path, monkeypatch)
+        # Inject a stranded namespace token into a SHIPPED doc — the built (stripped) tree will
+        # still carry it (WORKFLOW.md ships), so the `--root` scan's Pass B fails.
+        (repo / "docs" / "claugentic-WORKFLOW.md").write_text(
+            "Spawn `claugentic-dev-harness:ghost-role` (renamed away).\n", encoding="utf-8"
+        )
+        self._git(repo, "add", "-A").check_returncode()
+        self._git(repo, "commit", "-qm", "strand a token").check_returncode()
+        # origin/main must track the new HEAD or the base-ancestry guard would fire first.
+        self._git(repo, "update-ref", "refs/remotes/origin/main", "HEAD").check_returncode()
+
+        rc = br._apply()
+        assert rc != 0, "a broken built tree must refuse the build"
+        out = capsys.readouterr()
+        assert "ghost-role" in out.out
+        assert "NOT committed" in out.err
+
+        # NO release COMMIT was made — the build refused before `git commit`. `worktree add -B`
+        # resets the `release` branch to HEAD up front, so the branch REF may exist, but it must
+        # still point at HEAD (the un-stripped base), never at a new `release: clean build` commit.
+        head = self._git(repo, "rev-parse", "HEAD").stdout.strip()
+        rel = self._git(repo, "rev-parse", "release")
+        if rel.returncode == 0:
+            assert rel.stdout.strip() == head, "release advanced to a build commit despite refusal"
+        # The stripped file never reached a committed release tree (no commit ran).
+        ls = self._git(repo, "ls-tree", "-r", "release", "--name-only")
+        assert self.STRIPPED_FILE in ls.stdout.splitlines(), (
+            "a release build commit was made despite the validation refusal"
+        )
