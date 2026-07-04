@@ -24,10 +24,12 @@ new hook, no new always-loaded doc, and no new fence.** Its report is a **transi
 conversational snapshot** (it regenerates each run, it does not accumulate — like the audit
 overview), so there is **no doctor backlog and no doctor reject-memory**.
 
-**The honesty register (the #1 rule — say it plainly).** Diagnose is **mechanical only
-where it runs a gate**: a gate script's exit code is a deterministic fact (`[D]`). Everything
+**The honesty register (the #1 rule — say it plainly).** Diagnose is **mechanical only for a
+measured fact**: a gate script's exit code is a deterministic fact (`[D]`), and so is a raw
+byte measurement (the adopter doc-budget read's *"55200 / 60000 bytes"* is `[D]`). Everything
 else doctor reports is **model-upheld judgment (`[J]`)** — whether a plan is "cold," whether a
-land "likely skipped its harvest," and **every treat decision**. The report claims **only what
+land "likely skipped its harvest," the doc-budget read's *"condense soon"* advice, and **every
+treat decision**. The report claims **only what
 the scripts actually returned**; doctor **treats on approval, never silent.** Use the harness
 verb discipline throughout — *"the gate returned exit 1 (breach)"*, never *"doctor verified the
 tree is broken."*
@@ -72,7 +74,40 @@ A gate's classification is `[D]` — report the **exact** exit status, never you
 **N-A is a presence fact** (the script isn't there), not a pass — report it plainly; never
 imply a harness-self gate passed when it didn't run.
 
-### 2. Plan-scan `.claude/plans/`  *(`[J]` — model-upheld classification)*
+### 2. Adopter doc-budget advisory  *(config-driven · `[D]` byte / `[J]` "condense soon" · NOT a gate)*
+
+The **adopter-portable** companion to the harness-self doc-budgets gate above. Where that
+gate is stripped from the release (so an adopter's repo never produces its WARN), this read
+gives an adopter the **same "condense soon" signal** — sourced not from a gate but from a
+per-repo caps config the adopter owns. It is **read-only and advisory**, never a gate: it
+runs no script, sets no exit code, and blocks nothing.
+
+- **The caps source is ONE file:** `.claude/claugentic-doc-budgets.json` — a JSON map
+  `{ "<relpath>": <max_bytes>, ... }` (repo-relative path → integer byte cap). This is the
+  **single adopter-side cap list.** Never read `scripts/check_doc_budgets.py`'s `DOC_BUDGETS`
+  for this — those are the harness's OWN harness-tuned caps (a separate, **harness-self**
+  concern; that script is **stripped from the release** and fail-louds on adopter files, which
+  is exactly why this config-driven read exists instead).
+- **Skip-when-absent is the default (HARD rule).** If `.claude/claugentic-doc-budgets.json`
+  is **not present**, this read is **silently skipped — mark N-A, emit no output, no error,
+  no WARN, no breach.** An un-configured repo (the adopter default, and the harness's own repo)
+  produces *nothing* here. This is the exact safety property that let the harness gate be
+  stripped; the portable read inherits it — it must never fail-loud on a repo that hasn't
+  opted in. (An absent *key* for a present config = that file is un-capped → skipped too.)
+- **When the config is present:** for each capped file that exists, measure its byte size
+  (`len(read_bytes())` — bytes, never char count) and compare to its cap. At **≥90% of the
+  cap**, surface a `[J]` "condense soon" advisory carrying the `[D]` byte figure — e.g.
+  *"DECISIONS.md at 92% of your configured cap (55200 / 60000 bytes) — condense soon."* The
+  **byte count and the 90% comparison are the `[D]` mechanical part**; **"condense soon" is
+  `[J]` judgment** — an advisory, never a gate verdict. Below 90% report green for that file;
+  a capped file that doesn't exist is skipped (nothing to measure).
+- **Honesty (the line to hold):** this read **NEVER claims to be a gate.** Say *"the caps
+  config puts DECISIONS at 92% — condense soon"*, never *"the budget gate WARNs"* — there is
+  no gate here, only a config-driven advisory. A "condense soon" advisory surfaces as a
+  finder-pipeline finding (SELECT below), routed like any other — the condensation itself is
+  the existing user-approved-diff treat (`docs/claugentic-WORKFLOW.md` → the condensation pass).
+
+### 3. Plan-scan `.claude/plans/`  *(`[J]` — model-upheld classification)*
 
 Scan the plan files and classify each:
 
@@ -86,7 +121,7 @@ Scan the plan files and classify each:
 
 Whether a plan is "cold" is **your judgment (`[J]`)**, not a script output — label it so.
 
-### 3. Init post-conditions re-asserted  *(read-only checks)*
+### 4. Init post-conditions re-asserted  *(read-only checks)*
 
 Confirm the adoption wiring `init` established is still intact (the canonical contract is
 `skills/init/SKILL.md` + `docs/claugentic-DECISIONS.md` → *The deterministic gates*; check, don't restate):
@@ -101,7 +136,7 @@ Confirm the adoption wiring `init` established is still intact (the canonical co
   `extraKnownMarketplaces` + `enabledPlugins`. **Solo mode has no self-reference by design** — its
   absence in solo mode is **not** a finding (don't flag the intended divergence).
 
-### 4. The Stage-9 harvest signal  *(REPORT-ONLY · `[J]` · soft advisory)*
+### 5. The Stage-9 harvest signal  *(REPORT-ONLY · `[J]` · soft advisory)*
 
 Flag a **recent landed plan whose land window touched no learning surface** — no
 `docs/claugentic-standards/`, no `CLAUDE.md`, no `.claude/agents/`, no
@@ -127,6 +162,7 @@ doctor regenerates it from scratch.
 | version-sync gate | green / breach / **N-A** | `[D]` exit code (N-A if script absent — harness-self) |
 | doc-budgets gate | green / WARN / breach / **N-A** | `[D]` exit code (+ `WARN:` line); N-A if script absent — harness-self |
 | shipped-content gate | green / WARN / breach / **N-A** | `[D]` exit code (+ `WARN:` line); N-A if script absent — harness-self |
+| adopter doc-budget advisory | green / condense-soon / **N-A** | `[J] advisory (read-only — not a gate)` — `[D]` byte figure, `[J]` "condense soon"; N-A if no caps config |
 | landed plan present | flag | `[J]` classification |
 | cold / stale plan | flag | `[J]` classification |
 | init post-condition | green / flag | read-only check |
