@@ -20,7 +20,7 @@ touches its concern (see each module's `load_scope`), so the catalog can grow to
 
 ## Two-tier knowledge: global (synced) vs local (stays put)
 
-Standards are **copied into each adopting repo on init**, not read from the plugin at runtime (copy-on-init — see `claugentic-DECISIONS.md` → "Copy standards on init").
+Standards are **copied into each adopting repo on init**, not read from the plugin at runtime (copy-on-init — see `claugentic-DECISIONS.md` → "Managed docs are adopter-aware").
 
 - **Global modules — this directory.** Universal standards. They are **bundled in the plugin** (the source of truth) and **copied by the `init` skill** into the adopter's local `docs/claugentic-standards/`, version-stamped and headed **"managed — do not edit."** Agents read the **local copy**. They are **pristine**: a hand-edit inside an adopting repo is lost whenever a newer plugin version's copy replaces it — **never hand-edit a managed copy.** **Which one you're looking at depends on the repo:** in the **`claugentic-dev-harness` plugin repo** these modules ARE the editable source (no stamp — edit them here); in an **adopter repo** they are **managed copies** (version-stamped, overwritten on re-init) — to change a standard, edit the **plugin**, not the copy, and re-init to propagate.
 - **Local artifacts — the adopting repo (`${CLAUDE_PROJECT_DIR}`).** The **Current scope** snapshot (which dimensions are live in this repo), `CANDIDATES.md` (lessons awaiting promotion — a local buffer **created on first use**, not shipped empty), and repo lessons in `CLAUDE.md` / `claugentic-DECISIONS.md`. These **never propagate** to other repos.

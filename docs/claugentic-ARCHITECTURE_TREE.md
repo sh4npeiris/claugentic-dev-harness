@@ -6,10 +6,11 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 
 ## Root
 
-- `README.md` — open for the adopter-facing pitch: what the plugin is + its value, the "addractive" craft-mission headline (earned pull, honest), the four commands (init · product · audit · build), install/update, how the reviewed pipeline works, honest status.
+- `README.md` — open for the adopter-facing pitch: what the plugin is + its value, the "addractive" craft-mission headline (earned pull, honest), the six commands (4 core: init · product · audit · build; 2 utilities: doctor · condense), install/update, how the reviewed pipeline works, honest status.
 - `CLAUDE.md` — open for this repo's agent guidance: engineering principles, harness discipline, workflow pointer, DoD pointer to `docs/claugentic-WORKFLOW.md`.
 - `.gitignore` — open when changing what's tracked: ignores local junk + build artifacts; shares `.claude/{agents,plans,settings.json}`, ignores only `.claude/settings.local.json`.
 - `.gitattributes` — line-ending normalization (`* text=auto eol=lf`, scripts forced LF) for a cross-platform plugin.
+- `CHANGELOG.md` — open for the adopter-facing release history: the current release's user-facing changes + a condensed one-line-per-release prior-versions list (0.3.x craft/charter · 0.2.x hardening · 0.1.x foundations). Ships (not in `scripts/build_release.py`'s dev-only set); git history is the full archive.
 - `LICENSE` — Apache-2.0 (public repo; © 2026 Shan Peiris).
 - `pyproject.toml` — pytest config (`testpaths=["tests"]` + `integration` marker) + ruff config (`extend-exclude=["eval"]` keeps lint off the seeded-defect fixtures); open when changing test discovery or lint scope.
 

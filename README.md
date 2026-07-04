@@ -6,12 +6,19 @@ You steer with plain-English decisions; it does the engineering one reviewed sli
 
 The mission is **addractive** software — *attractive + addictive by merit*: earned pull through craft and delight, the honest opposite of dark-pattern "addiction" (no traps, no manipulation). The harness doesn't promise beautiful software — it **forces the craft question**, **checks the safety and accessibility floor** (mechanically where your tooling is wired, by reviewer judgment otherwise), and **routes the taste verdict to you.** It never certifies "beautiful"; it raises the bar and hands you the call.
 
-## The four commands
+## The commands
+
+Four core workflow commands:
 
 - **`/claugentic-dev-harness:init`** — set it up in your repo. Adds a codebase map, a quality-standards catalog, and the workflow docs. Never overwrites your content; re-run any time to update.
 - **`/claugentic-dev-harness:product`** — define what you're building (who it's for, the promise, each feature) — then it **proposes ways to make it better and more ambitious**, as questions *you* decide on. *(Optional, but recommended.)*
 - **`/claugentic-dev-harness:audit`** — explain your codebase in plain English and write a **prioritized to-do list**, independently double-checking every item before it reaches your list.
 - **`/claugentic-dev-harness:build`** — work that list through a reviewed pipeline — *plan → review → **your approval** → build → verify* — one slice at a time, pausing only for the decisions that are yours.
+
+Plus two utilities:
+
+- **`/claugentic-dev-harness:doctor`** — check the harness's *own* health (gates, plans, wiring) in your repo. Read-only: it reports a green/warn/breach snapshot and only ever acts on your explicit approval.
+- **`/claugentic-dev-harness:condense`** — the executable operator for the doc-budget condensation pass: it classifies every ledger entry first, then proposes a diff you approve before anything is written.
 
 ## Quickstart
 
@@ -23,7 +30,7 @@ Type these in the Claude Code chat (the same place you talk to Claude — not a 
 /claugentic-dev-harness:init
 ```
 
-You're set up right away — the enforcement hook activates the moment `init` writes it, and the agent follows the harness workflow from here. *(Tip: a quick `/clear` gives the cleanest slate — worth it before a big `:audit` run.)* From there:
+You're set up right away — on a fresh or harness-scaffolded repo the enforcement hook activates the moment `init` writes it (on an existing tree, `init` asks before adding it), and the agent follows the harness workflow from here. *(Tip: a quick `/clear` gives the cleanest slate — worth it before a big `:audit` run.)* From there:
 
 - **New / empty project?** Just tell the agent what you want to build — it asks questions, plans, and gets your approval before writing any code. *(Run `:product` first to pin down the vision.)*
 - **Existing codebase?** Run **`:audit`**, then **`:build`** to work the backlog.
