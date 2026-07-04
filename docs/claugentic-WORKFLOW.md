@@ -218,6 +218,32 @@ The harness has three **finders** that surface candidate work — `audit` (engin
 | **`bug`** | Reproduce-first — a **failing test that captures the bug**, then the fix that makes it pass. |
 | **`feature`** | The standard pipeline (no extra precondition). |
 
+### Choosing the approach for the work at hand — the methodology toolbox
+
+The harness fits the approach to the **nature of the work at hand**, per work-item — **never one golden hammer**. This **extends** the tag→discipline table above (which already picks per work-TYPE) with a written map of established practices, when each fits, and where the harness stands on each — so the per-work approach-choice is principled, reviewable, and consistent across agents/sessions instead of tacit. It is **MODEL-UPHELD guidance: no code reads this, and there is no mechanical selector** — the agent **consults** it to fit the approach to the work.
+
+*Stance key:* **embodied** = the harness already works this way · **accommodated** = the harness supports it (via a standard / role / pass) without imposing it · **opt-in-with-caveat** = pick-able, but honestly against the harness's grain (see the caveats below).
+
+| Practice | Fits when… | Harness stance |
+|----------|-----------|----------------|
+| **TDD** | logic-heavy work · well-understood requirements · a `bug` or `refactor` | **embodied** — red-first is already the `bug`/`refactor` discipline; for `feature` work it's an available *when-chosen* option — model-upheld, never a default (the per-work test-author mechanism to run it is planned, not yet wired), one tool among many. |
+| **ATDD / BDD** | user-facing behavior with acceptance criteria | **structurally embodied** — Stage-4 machine-readable acceptance criteria + Stage-7 runtime-QA-per-criterion + the DoD "acceptance criteria met" gate. |
+| **DDD** | complex / rich domain logic | **accommodated** — the `docs/claugentic-standards/` catalog + the architect pass support it; never imposed. |
+| **Trunk-based** | continuous integration · small batches | **embodied** — the harness's small-batch / land-slice-complete grain. |
+| **XP** | rapid iteration with test-first + refactoring + small releases | **accommodated** — many of its practices are embodied. |
+| **Contract-first** | API / integration boundaries | **accommodated** — the `api-and-contracts` standard. |
+| **CI/CD-gating** | deterministic checks must pass before land | **embodied** — the DoD deterministic gates. |
+| **Spec-by-example** | concrete examples clarify intent | **accommodated** — acceptance criteria + worked examples. |
+| **GitFlow** | long-lived release/develop branches are genuinely needed | **opt-in with a caveat** — see below. |
+| **Shape Up** | fixed appetite · variable scope · longer cycles | **opt-in with a caveat** — see below. |
+
+**Against-the-grain honesty caveats** (so the harness never silently "supports" a practice its pipeline half-fights):
+
+- **GitFlow** — long-lived branches fight the harness's small-batch / trunk-ish, land-slice-complete grain.
+- **Shape Up** — fixed-appetite / variable-scope fights the harness's small-batch / **fixed-quality-bar** grain (the harness fixes the quality bar and varies scope by slicing, not by trading quality for a deadline).
+
+TDD is **one entry among many**, applied **when it fits** — never the flagship, the default, or charter-enforced. The point of this toolbox is the *awareness* (fit the tool to the work), not a mandate for any single practice.
+
 ---
 
 ## 9. The learning loop (how the harness grows)
