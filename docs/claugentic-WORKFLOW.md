@@ -217,7 +217,7 @@ The harness has three **finders** that surface candidate work — `audit` (engin
 | **`capability-upgrade`** | Migration safety — feature-flag the new path · dual-write / shadow-read · keep a rollback. |
 | **`dependency-health`** | Update + verify — bump, run the full suite green, check the changelog for breaking changes. |
 | **`bug`** | Reproduce-first — a **failing test that captures the bug**, then the fix that makes it pass. |
-| **`feature`** | The standard pipeline (no extra precondition). |
+| **`feature`** | The standard pipeline; **test-first-when-chosen** adds an independent-test-author red-first step (**model-upheld; enforcement waits for the unbuilt hook**) — never a precondition that fires by default. |
 
 ### Choosing the approach for the work at hand — the methodology toolbox
 
@@ -227,7 +227,7 @@ The harness fits the approach to the **nature of the work at hand**, per work-it
 
 | Practice | Fits when… | Harness stance |
 |----------|-----------|----------------|
-| **TDD** | logic-heavy work · well-understood requirements · a `bug` or `refactor` | **embodied** — red-first is already the `bug`/`refactor` discipline; for `feature` work it's an available *when-chosen* option — model-upheld, never a default (the per-work test-author mechanism to run it is planned, not yet wired), one tool among many. |
+| **TDD** | logic-heavy work · well-understood requirements · a `bug` or `refactor` | **embodied** — red-first is already the `bug`/`refactor` discipline; for `feature` work it's an available *when-chosen* option — model-upheld, never a default (the per-work test-author mechanism is wired into the `implementer` — model-upheld via that prompt + the Verify gate; enforcement waits for the unbuilt hook), one tool among many. |
 | **ATDD / BDD** | user-facing behavior with acceptance criteria | **structurally embodied** — Stage-4 machine-readable acceptance criteria + Stage-7 runtime-QA-per-criterion + the DoD "acceptance criteria met" gate. |
 | **DDD** | complex / rich domain logic | **accommodated** — the `docs/claugentic-standards/` catalog + the architect pass support it; never imposed. |
 | **Trunk-based** | continuous integration · small batches | **embodied** — the harness's small-batch / land-slice-complete grain. |
