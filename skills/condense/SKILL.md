@@ -126,10 +126,11 @@ After the diff is applied, **re-measure** the ledger:
 - **Still at or over the WARN** → the diff was too shallow: return to the lever order (STEP 2 first) and
   propose a deeper cut, or — if the content is genuinely all-live and cannot reach the band without
   over-cutting live constraints — **the escape-valve ladder is the recourse** — promote durable
-  constraints to their home → a deliberate, recorded cap increase → sharding as the last resort. Its
-  promote + shard rungs live in `docs/claugentic-WORKFLOW.md` → the condensation pass; the recorded
-  cap-increase rung lands with the per-repo caps config (0038 Slice 3). This skill references the
-  ladder; it does not build it.
+  constraints to their home → a deliberate, recorded cap increase → sharding as the last resort. All
+  three rungs live in `docs/claugentic-WORKFLOW.md` → the condensation pass (*The escape-valve ladder*);
+  the recorded cap-increase rung raises this repo's cap in the per-repo caps config
+  (`.claude/claugentic-doc-budgets.json`) with a dated `docs/claugentic-DECISIONS.md` entry. This skill
+  references the ladder; it does not build it.
 
 ## What `/condense` is NOT
 
