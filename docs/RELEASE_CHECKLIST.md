@@ -1,32 +1,49 @@
 # Release Checklist
 
-Releases are gated by the **Definition of Done** in [`docs/claugentic-WORKFLOW.md`](claugentic-WORKFLOW.md#definition-of-done) — run the deterministic gates (tests · `claugentic-check_architecture_tree.py` · `check_versions_synced.py`) **and** the reviewer sign-offs there; this file does not restate them.
+Releasing is now **one command up to a single human-gated push** — NOT a fully-automated release. `python scripts/build_release.py --apply --bump <version>` runs every mechanizable step (preconditions → write the version into BOTH manifests → build the stripped `release` tree → validate it) and then **STOPS and PRINTS the one command you run to publish.** The tool never tags and never pushes: the force-push (irreversible) and the eval-drift/`BASELINE.md` check stay **model-upheld** — a script can't judge them. An aborted run leaves **zero side effects** (no tag, no push; only the local `release` branch + the two bumped manifests, both re-runnable).
 
-When bumping the version, bump **both** manifests together — `.claude-plugin/plugin.json` is the source of truth and `.claude-plugin/marketplace.json` must match. The version-sync gate (`python scripts/check_versions_synced.py`) enforces the pair.
+Releases are also gated by the **Definition of Done** in [`docs/claugentic-WORKFLOW.md`](claugentic-WORKFLOW.md#definition-of-done) — run the deterministic gates (tests · `claugentic-check_architecture_tree.py` · `check_versions_synced.py`) **and** the reviewer sign-offs there; this file does not restate them.
 
-**Referential-closure gate (mechanical).** `python scripts/check_shipped_content.py` now pins `NEEDS ⊆ HAS` (Pass D): every stripped, adopter-relevant path is **producible by `init` OR the workflow's lazy/templated/agent authoring** — an `init-seed` doc whose `_X.md` seed ships, an `init-gen` output `init` generates, a `recreate-on-demand` file the workflow/agent/user authors on demand (accepted **via its class — not claimed init-produced**), or a stripped `self-gate` script. A forgotten seed or unregistered generator now **fails the build**, mechanically, instead of dangling for an adopter. **Honest scope:** the gate pins the *referential closure* (nothing the release strips dangles), **NOT** that the release is *correct* or "fully" content-enforced — the eval drift-check and the force-push below stay model-upheld.
+## One-time bootstrap (do ONCE, before the version-increase guard is trustworthy)
 
-## Eval — the drift check (model-upheld)
+The version-increase guard anchors on the latest `vX.Y.Z` **git tag** — but the repo's tag history stops at `v0.2.0` while the shipped version is `0.3.1` (there is no `v0.3.x` tag). Until the anchor equals reality the guard is unsound (it would pass a downgrade to `0.3.0`, since `0.3.0 > v0.2.0`). Retroactively tag the current published release **once**:
 
-Before a release, run the measurement procedure in [`eval/BASELINE.md`](../eval/BASELINE.md) — a standard audit over the seeded-defect fixture — and compare the recall / precision-proxy / refute-rate to the latest baseline entry.
+```
+git tag v0.3.1 <the 0.3.1 release commit> && git push origin v0.3.1
+```
 
-- **A material regression blocks the release.** Defaults (judgment, overridable with a stated reason): recall down **≥2 seeds**, or precision-proxy or refute-rate moved **≥15 percentage points**.
-- An **intentional, understood** shift (a prompt / model / standards change you made on purpose) is recorded as a **new dated baseline entry**, not a permanent block.
-- **This step is model-upheld:** a person or agent follows this checklist and runs the eval — **nothing fires it mechanically.** It is a discipline, not a gate.
+From then on every release is tagged at publish (step 3 below), so the anchor stays current automatically.
 
-## Anchor the release on the live tip — never a stale base
+## The release — four steps
 
-Re-deriving the release from a **stale base** silently drops merged work: the v0.1.40 distillation (PRs merged into `main`) was lost when v0.1.41 was rebuilt from the pre-merge commit `03c404a` and force-pushed — the merge commits simply weren't reachable from the new base, so nobody saw them disappear. Always rebuild from the **current** `origin/main` tip:
+1. **Fetch + anchor on the live tip, then run the one command.** `git fetch origin && git checkout main && git pull --ff-only origin main` (the `--ff-only` refuses if your local `main` diverged — you're not on the live tip), then:
 
-1. `git fetch origin`
-2. `git checkout main && git pull --ff-only origin main` — the `--ff-only` refuses if your local `main` has diverged (you're not on the live tip).
-3. `python scripts/build_release.py --apply` — this now **refuses to build** if `HEAD` excludes any merge commit reachable from `origin/main` (and refuses if `origin/main` is absent — that's the signal you skipped step 1).
+   ```
+   python scripts/build_release.py --apply --bump <version>
+   ```
 
-## Drop-check before the force-push (`git range-diff`)
+   This writes `<version>` into `.claude-plugin/plugin.json` AND `.claude-plugin/marketplace.json` from the one value (a targeted `"version"`-field replace — a one-line diff per file, the two can't drift), refuses a stale base / a non-increasing version / a shipped-file dropped from the build base, builds the stripped `release` branch locally, and validates the built tree — all fail-loud, no commit if any stage refuses.
 
-`--apply` builds the **local** `release` branch and does **not** push. Before the manual `git push --force origin release`, prove you're not dropping anything:
+2. **Review its printed validation + drop-check summary, then run the model-upheld checks.** These are the genuinely-human `[J]` decisions the tool cannot make:
+   - **Eval — the drift check (model-upheld).** Run the measurement procedure in [`eval/BASELINE.md`](../eval/BASELINE.md) — a standard audit over the seeded-defect fixture — and compare recall / precision-proxy / refute-rate to the latest baseline. A material regression **blocks the release** (defaults, overridable with a stated reason: recall down ≥2 seeds, or precision-proxy / refute-rate moved ≥15 pp). An intentional, understood shift is recorded as a **new dated baseline entry**, not a permanent block. **Nothing fires this mechanically — it is a discipline, not a gate.**
+   - **`git range-diff` drop-check (model-upheld defense-in-depth).** The build's mechanized drop-check is a **subset guard, not a total drop guarantee** — it catches a missing shipped *file* on `origin/main`-not-`HEAD`, not a dropped *commit* whose file also legitimately changed. So still eyeball `git range-diff origin/release...release` and investigate any commit shown as dropped (a `<` line with no `>` counterpart) that you didn't intend to drop.
 
-- `git range-diff origin/release...release` — compare the old published release to the freshly built one. Investigate any commit shown as dropped (a `<` line with no `>` counterpart) that you didn't intend to drop.
-- `git log --oneline origin/main --not release -- $(git ls-files)` — anything `origin/main` carries that the release doesn't, scoped to tracked paths. This should list **only `DEV_ONLY` paths** (the dev-only files that are intentionally stripped); a shipped-path entry here means the release is missing merged work.
+3. **Run the one gated command the tool printed** (this is the single irreversible, human-gated step — approve it deliberately):
 
-**Honest scope:** the `build_release.py` refusal is the **one mechanical defense** — it guards the BUILD (you can't build the local `release` branch on a base that's missing merged merge-commits). The actual `git push --force origin release` stays **manual and checklist-gated** — the `git range-diff` drop-check above is model-upheld, not enforced. The guard **reduces, not eliminates,** the risk: it can't stop a force-push of a release that was built correctly but anchored on a base you fetched-then-let-go-stale, so still run the drop-check every time.
+   ```
+   git tag v<version> && git push --force-with-lease origin release && git push origin v<version>
+   ```
+
+   Tag-create + lease-safe branch-push + tag-push are ONE atomic step. The `vX.Y.Z` tag is created **here, at publish** (never in-build) — it is the immutable rollback anchor AND the next release's version-increase compare source. `--force-with-lease` refuses if `origin/release` moved out from under you since fetch (a silent-clobber becomes a loud rejection).
+
+4. **Update the marketplace only if needed.** The marketplace `source.ref` currently tracks the `release` **branch** (a mutable ref), so a normal release needs no marketplace edit. Repointing it at the `vX.Y.Z` tag is a deferred open question (a bigger call — see `docs/claugentic-DECISIONS.md` / plan 0034); do NOT repoint here.
+
+## Honest scope
+
+The mechanized stages **reduce, not eliminate,** release risk, and each has a bounded scope — do not read them as totality:
+- the **drop-check** is a subset guard (a missing shipped *file*), not a total drop guarantee (it can't see a dropped *commit* whose file also changed) — the `git range-diff` eyeball stays;
+- the **built-tree validation** checks the shipped *structure* (`check_shipped_content.py --root` — stranded tokens / dangling refs / non-ASCII engine `*.js` / referential closure), NOT "the release passes CI / the full suite";
+- the **version-increase guard** fires only vs the latest **tag** — a same-version overwrite of an *untagged* in-progress build is intentionally allowed (so a re-run after a declined push works);
+- the **force-push** and the **eval-drift/`BASELINE.md`** check stay model-upheld (`[J]`) — the flow STOPS and PRINTS the push command; it does not run it.
+
+The flow as a whole is **"one command up to a single human-gated push,"** never "fully automated" or "fully enforced."

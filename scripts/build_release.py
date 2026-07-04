@@ -15,19 +15,29 @@ deliberate choice: a forgotten new file ships rather than silently vanishing fro
 release; the list is short and reviewed at release.)
 
 Usage (run from anywhere — the script anchors to its own repo root):
-    python scripts/build_release.py            # dry-run: print ship vs strip, exit 0
-    python scripts/build_release.py --apply     # (re)build the LOCAL `release` branch (no push); fail-loud preconditions below
+    python scripts/build_release.py                        # dry-run: print ship vs strip, exit 0
+    python scripts/build_release.py --apply                # (re)build the LOCAL `release` branch (no push)
+    python scripts/build_release.py --apply --bump X.Y.Z    # ONE-command release up to the human-gated push
 
-`--apply` force-resets a `release` branch to current `HEAD` in a throwaway worktree,
-removes the dev-only files there, and commits — the dev working tree is never touched.
-It does NOT push; publishing the branch + pointing the marketplace at it stays a manual,
-reviewed step.
+`--apply --bump <version>` is the SINGLE release entry point (plan 0034 Slice 10): it runs every
+mechanizable step in ONE deterministic pass — preconditions -> write the version into BOTH
+manifests -> build the stripped `release` tree -> validate it -> STOP and PRINT the one gated
+command the human runs to publish. This is **one command up to a single human-gated push**, NOT
+"fully automated": the tool NEVER tags or pushes — it prints the exact command and stops, so an
+aborted/declined run leaves ZERO side effects (no tag, no push; only the local `release` branch +
+the bumped manifests on the current branch, both re-runnable). The force-push (irreversible) and
+the eval-drift/BASELINE check stay human-gated / model-upheld (see docs/RELEASE_CHECKLIST.md).
 
-Before building, `--apply` runs fail-loud MECHANICAL preconditions (each refuses with an
-actionable message; none makes the release "fully" correct/enforced — the force-push +
-eval-drift stay model-upheld, see docs/RELEASE_CHECKLIST.md):
+`--apply` (with or without `--bump`) force-resets a `release` branch to current `HEAD` in a
+throwaway worktree, removes the dev-only files there, and commits — the dev working tree is never
+touched (except the two manifests `--bump` writes). It does NOT push.
+
+Flow order (each stage fails loud with an actionable message; none makes the release "fully"
+correct/enforced — the force-push + eval-drift stay model-upheld):
   * stale-base   — HEAD must be ancestor-inclusive of `origin/main` (any missing commit,
                    not just merge commits, is a dropped-work refusal).
+  * bump         — (`--bump` only) write `<version>` into BOTH manifests via a targeted
+                   `"version"`-field replace (one-line diff per file), both-or-neither.
   * version-up   — `plugin.json`'s version must be strictly greater than the latest
                    published `vX.Y.Z` tag (no tag yet = first release, allowed).
   * drop-check   — every path on `origin/main`-not-HEAD must be a stripped dev-only path
@@ -39,6 +49,10 @@ After the strip (before the commit) it also validates the BUILT tree:
                    non-ASCII engine `*.js` / referential closure). A failure refuses the build with
                    NO commit — a break the strip introduced fails loud pre-push (the release branch
                    runs zero CI). Validates the shipped STRUCTURE, NOT that the release "passes CI".
+
+On success it PRINTS the one gated command (the `vX.Y.Z` tag is created THERE, at publish — never
+in-build, so an aborted run leaves no dangling tag that would corrupt the version anchor):
+    git tag vX.Y.Z && git push --force-with-lease origin release && git push origin vX.Y.Z
 """
 
 from __future__ import annotations
@@ -120,6 +134,14 @@ UPSTREAM_REF = "origin/main"
 # version-increase guard (plan 0034 Slice 4 / P0-1) reads this and refuses a build whose
 # version is not strictly greater than the latest published `vX.Y.Z` tag.
 PLUGIN_MANIFEST = ".claude-plugin/plugin.json"
+
+# The install-facing catalog manifest whose plugin entry `version` MUST match PLUGIN_MANIFEST
+# (the `check_versions_synced.py` gate enforces the pair). `--bump` (plan 0034 Slice 10 / C-1)
+# is the single writer of the version into BOTH manifests from one value, so they cannot drift.
+MARKETPLACE_MANIFEST = ".claude-plugin/marketplace.json"
+
+# The two manifests `--bump` writes the version into, from the ONE `--bump <version>` value.
+VERSIONED_MANIFESTS = (PLUGIN_MANIFEST, MARKETPLACE_MANIFEST)
 
 
 def is_dev_only(path: str) -> bool:
@@ -280,6 +302,87 @@ def _version_increase_error(root: Path) -> str | None:
     )
 
 
+# A targeted match of ONLY the `"version": "X.Y.Z"` field VALUE in a 2-space-indented manifest.
+# `--bump` replaces just this value (NOT a `json.load`->`json.dumps` round-trip, which would
+# reflow the whole file — e.g. marketplace.json's long description + nested source — into a
+# noisy diff), so each manifest's diff is exactly ONE line. The captured groups are the literal
+# prefix (`"version": "`) and suffix (`"`) so the replacement preserves surrounding formatting.
+_VERSION_FIELD_RE = re.compile(r'("version"\s*:\s*")(\d+\.\d+\.\d+)(")')
+
+
+def _bump_one_manifest_text(text: str, path: str, version: str) -> str:
+    """Return `text` with its single `"version": "X.Y.Z"` field set to `version` (a targeted
+    value replace — no whole-file reflow). Fails loud if the file has no version field or MORE
+    THAN ONE (an ambiguous manifest the targeted writer must not guess at).
+
+    Pure over the file text — the caller computes BOTH manifests' new text with this BEFORE
+    writing either (the both-or-neither guarantee), so a file with no matchable version field
+    aborts the bump before any write touches disk."""
+    matches = _VERSION_FIELD_RE.findall(text)
+    if len(matches) == 0:
+        raise ValueError(
+            f"{path} has no `\"version\": \"X.Y.Z\"` field to bump — cannot write the version."
+        )
+    if len(matches) > 1:
+        raise ValueError(
+            f"{path} has {len(matches)} `version` fields — the targeted writer refuses an "
+            f"ambiguous manifest (which one is the plugin version?)."
+        )
+    return _VERSION_FIELD_RE.sub(rf"\g<1>{version}\g<3>", text, count=1)
+
+
+def _bump_manifests(root: Path, version: str) -> None:
+    """Write `version` into BOTH versioned manifests from the ONE value — the single-source-of-
+    truth version write (plan 0034 Slice 10 / C-1). Both-or-neither / partial-write-safe.
+
+    Boundary-validated + fail-loud in strict order so a partial write can NEVER leave the two
+    manifests drifted on disk:
+      1. semver-validate `version` (well-formed X.Y.Z) — fails before any read.
+      2. read both files + compute BOTH new texts IN MEMORY (each targeted-field-replaced);
+         a missing/ambiguous version field in EITHER aborts here, before any write.
+      3. write both back-to-back (both new texts already proven computable).
+      4. re-run `check_versions_synced.evaluate()` in-process and FAIL LOUD if the pair
+         disagrees — a belt-and-suspenders post-write assertion the write actually synced them.
+
+    Idempotent: if both manifests are already at `version` the targeted replace is a no-op write
+    of identical bytes (the diff stays empty) — a retry after an aborted publish re-runs cleanly.
+    On a step-3 write error the message states the tree may be half-written (the operator can
+    `git checkout -- <manifests>`); steps 1-2 guarantee step 3 is the only place a write happens."""
+    _parse_semver(version)  # fail loud on a malformed version BEFORE touching any file.
+    planned: list[tuple[Path, str]] = []
+    for rel in VERSIONED_MANIFESTS:
+        path = root / rel
+        if not path.exists():
+            raise ValueError(f"{rel} is missing — cannot bump the version.")
+        new_text = _bump_one_manifest_text(path.read_text(encoding="utf-8"), rel, version)
+        planned.append((path, new_text))
+    written: list[str] = []
+    try:
+        for path, new_text in planned:
+            path.write_text(new_text, encoding="utf-8")
+            written.append(str(path))
+    except OSError as exc:
+        raise ValueError(
+            f"failed writing the version bump ({exc}); the tree may be HALF-WRITTEN "
+            f"(wrote: {', '.join(written) or 'nothing'}) — `git checkout -- "
+            f"{' '.join(VERSIONED_MANIFESTS)}` and retry."
+        ) from exc
+    # Belt-and-suspenders: the two manifests MUST now agree (the write's whole purpose).
+    import check_versions_synced
+
+    cwd = os.getcwd()
+    os.chdir(root)
+    try:
+        problems, _ = check_versions_synced.evaluate()
+    finally:
+        os.chdir(cwd)
+    if problems:
+        raise ValueError(
+            "the version bump left the two manifests disagreeing (post-write sync check "
+            "failed): " + " ".join(problems)
+        )
+
+
 def _missing_upstream_commits(root: Path) -> list[str] | None:
     """ANY commit reachable from `UPSTREAM_REF` but NOT from HEAD (the build base).
 
@@ -348,9 +451,58 @@ def _validate_built_tree(root: Path, built: str) -> int:
     return result.returncode
 
 
-def _apply() -> int:
-    """(Re)build the LOCAL `release` branch = HEAD minus the dev-only files. Refuses on a
-    stale base; no push."""
+def _bump_only_dirty(root: Path, bump: str | None) -> bool:
+    """True if the working tree is dirty in a way that must REFUSE the build.
+
+    With no `--bump`, ANY dirty file refuses (the original clean-tree precondition). With `--bump`,
+    the version write to the two manifests is the intended change, so a tree dirty ONLY in those
+    two manifests is allowed to proceed; ANY other dirty path still refuses — the build must not
+    silently carry unrelated uncommitted work into a release.
+
+    Read from `git status --porcelain` (path is columns 3+; handles quoted/renamed entries via the
+    porcelain format's ` -> ` split for renames — the manifests are never renamed here, so a plain
+    trailing-path parse suffices)."""
+    dirty = [
+        line[3:].strip() for line in _git("-C", str(root), "status", "--porcelain").splitlines()
+        if line.strip()
+    ]
+    if not dirty:
+        return False
+    if bump is None:
+        return True
+    allowed = set(VERSIONED_MANIFESTS)
+    return any(path.replace("\\", "/") not in allowed for path in dirty)
+
+
+def _gated_publish_command(version: str) -> str:
+    """The EXACT single command the human runs to publish (plan 0034 Slice 8/9/10). Tag-create +
+    lease-safe branch-push + tag-push are ONE atomic human-gated step. The `vX.Y.Z` tag is created
+    HERE, at publish — NOT in-build — so an aborted/declined run leaves no dangling tag. `--apply`
+    only PRINTS this string; it never runs it (the honesty guarantee — the push stays `[J]`)."""
+    return (
+        f"git tag v{version} && "
+        f"git push --force-with-lease origin {RELEASE_BRANCH} && "
+        f"git push origin v{version}"
+    )
+
+
+def _apply(bump: str | None = None) -> int:
+    """(Re)build the LOCAL `release` branch = HEAD minus the dev-only files, in ONE deterministic
+    pass up to the human-gated push (plan 0034 Slice 10). Refuses on a stale base; NO tag, NO push.
+
+    Stages, in flow order (each fails loud before any later mutation — an abort leaves no dangling
+    tag, no push, and the `--bump` manifest write is the only working-tree change, revertable with
+    `git checkout`):
+      1. preconditions — stale-base (broadened), then (if `--bump`) the version write, then
+         version-must-increase, then clean-tree + drop-check.
+      2. build the stripped `release` tree in a throwaway worktree.
+      3. validate the built tree (shipped-content scan) BEFORE the commit.
+      4. commit the release build, then STOP + PRINT the one gated publish command.
+
+    `bump` (the `--bump <version>` value, or `None`): when given, writes the version into BOTH
+    manifests from the one value BEFORE the version-increase check (so a fresh bump is what the
+    check then validates). The clean-tree precondition runs AFTER the bump so the intended version
+    write is not mistaken for a dirty tree; any OTHER pre-existing dirty state still refuses."""
     root = _repo_root()
     # base == HEAD because _apply builds from HEAD; keep in sync if that changes.
     missing = _missing_upstream_commits(root)
@@ -368,13 +520,29 @@ def _apply() -> int:
             file=sys.stderr,
         )
         return 1
+    # C-1 (Slice 10): --bump writes the version into BOTH manifests from the one value, BEFORE the
+    # version-increase check validates it. A malformed/unwritable version fails loud here (no tag,
+    # no push exist yet — zero side effects beyond the working-tree write it may leave for the
+    # operator to `git checkout`). Runs after stale-base (a stale base must refuse before any write).
+    if bump is not None:
+        try:
+            _bump_manifests(root, bump)
+        except ValueError as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 1
     # P0-1 (Slice 4): the version must strictly increase off the latest published tag.
     version_err = _version_increase_error(root)
     if version_err is not None:
         print(f"ERROR: {version_err}", file=sys.stderr)
         return 1
-    if _git("-C", str(root), "status", "--porcelain").strip():
-        print("ERROR: working tree not clean — commit or stash before --apply.", file=sys.stderr)
+    # Clean-tree runs AFTER the bump so the intended version write isn't read as a dirty tree; any
+    # OTHER pre-existing dirty state still refuses. With no --bump, this is the same guard as before.
+    if _bump_only_dirty(root, bump):
+        print(
+            "ERROR: working tree not clean (beyond the version bump) — commit or stash before "
+            "--apply.",
+            file=sys.stderr,
+        )
         return 1
     head = _git("-C", str(root), "rev-parse", "--short", "HEAD").strip()
     _, strip = classify(_tracked_files())
@@ -412,18 +580,52 @@ def _apply() -> int:
         # "ARCHITECTURE_TREE.md is missing" — the gate guards the DEV tree, never the release build.
         _git("-C", tmp, "commit", "--no-verify", "-qm", f"release: clean build from {head}")
         ship_count = len(_tracked_files()) - len(strip)
+        version = _read_manifest_version(root)
         print(f"OK: rebuilt local '{RELEASE_BRANCH}' branch from {head} ({ship_count} files). NOT pushed.")
         print(f"Review with:  git diff main {RELEASE_BRANCH} --stat")
+        # C-3 (Slice 10): STOP + PRINT the one human-gated publish command. The tool does NOT tag
+        # or push — it prints the exact command and stops (the honesty guarantee). Run it ONLY after
+        # the model-upheld checks (eval-drift/BASELINE + the manual `git range-diff` drop-check).
+        print(
+            "\nOne command up to a single human-gated push — the mechanized stages passed. Before "
+            "publishing, run the model-upheld checks (eval-drift vs eval/BASELINE.md + the manual "
+            "`git range-diff origin/release...release` drop-check), then publish with:\n"
+            f"    {_gated_publish_command(version)}\n"
+            "(creates the vX.Y.Z rollback-anchor tag + lease-safe force-push in ONE step; this tool "
+            "did NOT tag or push — nothing is published until you run the above.)"
+        )
         return 0
     finally:
         subprocess.run(["git", "-C", str(root), "worktree", "remove", "--force", tmp], check=False)
+
+
+def _parse_bump(argv: list[str]) -> str | None:
+    """The `--bump <version>` value from `argv`, or `None` when the flag is absent.
+
+    Boundary-validated + fail-loud: `--bump` with no following value raises. The version's semver
+    well-formedness is validated downstream by `_bump_manifests` (so a single validation site owns
+    that rule); here we only enforce that a value is PRESENT when the flag is given."""
+    if "--bump" not in argv:
+        return None
+    i = argv.index("--bump")
+    if i + 1 >= len(argv) or argv[i + 1].startswith("--"):
+        raise ValueError("--bump requires a <version> argument (the X.Y.Z version to release).")
+    return argv[i + 1]
 
 
 def main(argv: list[str]) -> int:
     _force_utf8_output()
     os.chdir(_repo_root())
     if "--apply" in argv:
-        return _apply()
+        try:
+            bump = _parse_bump(argv)
+        except ValueError as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 1
+        return _apply(bump)
+    if "--bump" in argv:
+        print("ERROR: --bump requires --apply (it writes the version as part of the build).", file=sys.stderr)
+        return 1
     return _dry_run()
 
 

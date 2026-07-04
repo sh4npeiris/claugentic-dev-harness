@@ -15,6 +15,48 @@ import pytest
 
 import build_release as br
 
+# Realistic 2-space-indented manifest fixtures whose ONLY version field the targeted `--bump`
+# replace must touch. `marketplace.json` deliberately carries a long description + a nested
+# `source` object so a whole-file `json.dumps` reflow would produce a many-line diff — the
+# targeted replace must leave everything but the one version line byte-identical.
+_PLUGIN_MANIFEST_TEXT = (
+    '{\n'
+    '  "name": "claugentic-dev-harness",\n'
+    '  "version": "0.3.1",\n'
+    '  "description": "A reusable, self-improving Claude Code development harness.",\n'
+    '  "license": "Apache-2.0"\n'
+    '}\n'
+)
+_MARKETPLACE_MANIFEST_TEXT = (
+    '{\n'
+    '  "name": "sh4npeiris",\n'
+    '  "plugins": [\n'
+    '    {\n'
+    '      "name": "claugentic-dev-harness",\n'
+    '      "source": {\n'
+    '        "source": "github",\n'
+    '        "repo": "sh4npeiris/claugentic-dev-harness",\n'
+    '        "ref": "release"\n'
+    '      },\n'
+    '      "description": "A long install-facing description that must NOT reflow on a bump.",\n'
+    '      "version": "0.3.1",\n'
+    '      "category": "development"\n'
+    '    }\n'
+    '  ]\n'
+    '}\n'
+)
+
+
+def _write_manifest_pair(root: Path, version: str = "0.3.1") -> None:
+    """Write a plugin.json + marketplace.json pair (both at `version`) under `root`."""
+    (root / ".claude-plugin").mkdir(parents=True, exist_ok=True)
+    (root / br.PLUGIN_MANIFEST).write_text(
+        _PLUGIN_MANIFEST_TEXT.replace("0.3.1", version), encoding="utf-8"
+    )
+    (root / br.MARKETPLACE_MANIFEST).write_text(
+        _MARKETPLACE_MANIFEST_TEXT.replace("0.3.1", version), encoding="utf-8"
+    )
+
 
 class TestClassify:
     def test_build_history_docs_are_stripped(self):
@@ -471,6 +513,173 @@ class TestMechanizedDropCheck:
         assert br._dropped_shipped_paths(Path("."), strip) == []
 
 
+class TestParseBump:
+    """`_parse_bump` reads the `--bump <version>` value from argv. Boundary-validated: present
+    value returned; missing flag → None; flag with no following value → fail loud (the semver
+    well-formedness is validated downstream in `_bump_manifests`, a single validation site)."""
+
+    def test_absent_flag_returns_none(self):
+        assert br._parse_bump(["--apply"]) is None
+
+    def test_returns_the_value(self):
+        assert br._parse_bump(["--apply", "--bump", "0.4.0"]) == "0.4.0"
+
+    def test_flag_at_end_with_no_value_fails_loud(self):
+        with pytest.raises(ValueError, match="requires a <version>"):
+            br._parse_bump(["--apply", "--bump"])
+
+    def test_flag_followed_by_another_flag_fails_loud(self):
+        # `--bump --apply` — the next token is a flag, not a version value.
+        with pytest.raises(ValueError, match="requires a <version>"):
+            br._parse_bump(["--bump", "--apply"])
+
+
+class TestBumpManifests:
+    """Plan 0034 Slice 10 / C-1 — `_bump_manifests` writes the version into BOTH manifests from
+    ONE value via a targeted `"version"`-field replace, both-or-neither / partial-write-safe.
+    Uses real tmp files (no git/network)."""
+
+    def _version_lines(self, text: str) -> list[str]:
+        return [ln for ln in text.splitlines() if '"version"' in ln]
+
+    def test_writes_both_manifests_to_the_given_version(self, tmp_path):
+        _write_manifest_pair(tmp_path, "0.3.1")
+        br._bump_manifests(tmp_path, "0.4.0")
+        plugin = (tmp_path / br.PLUGIN_MANIFEST).read_text(encoding="utf-8")
+        market = (tmp_path / br.MARKETPLACE_MANIFEST).read_text(encoding="utf-8")
+        assert '"version": "0.4.0"' in plugin
+        assert '"version": "0.4.0"' in market
+        assert "0.3.1" not in plugin and "0.3.1" not in market
+
+    def test_diff_is_version_only_no_reflow(self, tmp_path):
+        # THE clean-diff property: only the single version line changes; every other line is
+        # byte-identical (no whole-file json.dumps reflow of description/source/etc.).
+        _write_manifest_pair(tmp_path, "0.3.1")
+        before_plugin = (tmp_path / br.PLUGIN_MANIFEST).read_text(encoding="utf-8").splitlines()
+        before_market = (tmp_path / br.MARKETPLACE_MANIFEST).read_text(encoding="utf-8").splitlines()
+        br._bump_manifests(tmp_path, "0.4.0")
+        after_plugin = (tmp_path / br.PLUGIN_MANIFEST).read_text(encoding="utf-8").splitlines()
+        after_market = (tmp_path / br.MARKETPLACE_MANIFEST).read_text(encoding="utf-8").splitlines()
+        for before, after in ((before_plugin, after_plugin), (before_market, after_market)):
+            changed = [(b, a) for b, a in zip(before, after) if b != a]
+            assert len(before) == len(after), "line count changed — the file was reflowed"
+            assert len(changed) == 1, f"exactly one line must change, got {changed}"
+            assert '"version"' in changed[0][0]
+
+    def test_same_version_is_idempotent_noop(self, tmp_path):
+        # A retry after an aborted publish re-runs cleanly: bumping to the SAME version rewrites
+        # identical bytes (the diff stays empty).
+        _write_manifest_pair(tmp_path, "0.4.0")
+        before = (tmp_path / br.PLUGIN_MANIFEST).read_bytes()
+        br._bump_manifests(tmp_path, "0.4.0")
+        assert (tmp_path / br.PLUGIN_MANIFEST).read_bytes() == before
+
+    def test_malformed_version_fails_loud_before_any_write(self, tmp_path):
+        _write_manifest_pair(tmp_path, "0.3.1")
+        before_plugin = (tmp_path / br.PLUGIN_MANIFEST).read_bytes()
+        before_market = (tmp_path / br.MARKETPLACE_MANIFEST).read_bytes()
+        with pytest.raises(ValueError):
+            br._bump_manifests(tmp_path, "not-a-version")
+        # Neither file touched — the semver check runs before any read/write.
+        assert (tmp_path / br.PLUGIN_MANIFEST).read_bytes() == before_plugin
+        assert (tmp_path / br.MARKETPLACE_MANIFEST).read_bytes() == before_market
+
+    def test_missing_manifest_fails_loud_before_any_write(self, tmp_path):
+        # plugin.json present, marketplace.json absent → the compute-both-in-memory phase aborts
+        # BEFORE any write, so plugin.json is left untouched (both-or-neither).
+        (tmp_path / ".claude-plugin").mkdir(parents=True)
+        (tmp_path / br.PLUGIN_MANIFEST).write_text(_PLUGIN_MANIFEST_TEXT, encoding="utf-8")
+        before_plugin = (tmp_path / br.PLUGIN_MANIFEST).read_bytes()
+        with pytest.raises(ValueError, match="is missing"):
+            br._bump_manifests(tmp_path, "0.4.0")
+        assert (tmp_path / br.PLUGIN_MANIFEST).read_bytes() == before_plugin
+
+    def test_both_or_neither_on_second_file_write_failure(self, tmp_path, monkeypatch):
+        # Inject a write failure on the SECOND manifest AFTER the first was written: the writer
+        # must fail loud with a clear "half-written" message (the operator recovers with
+        # `git checkout`), never silently leave the pair drifted.
+        _write_manifest_pair(tmp_path, "0.3.1")
+        real_write = Path.write_text
+
+        def flaky_write(self, data, *args, **kwargs):
+            if self.name == "marketplace.json":
+                raise OSError("disk full (injected)")
+            return real_write(self, data, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "write_text", flaky_write)
+        with pytest.raises(ValueError, match="HALF-WRITTEN"):
+            br._bump_manifests(tmp_path, "0.4.0")
+        # plugin.json got the new version; marketplace.json did NOT — the message names this so
+        # the operator can `git checkout`. The failure is LOUD, never a silent drifted pair.
+        assert '"version": "0.4.0"' in (tmp_path / br.PLUGIN_MANIFEST).read_text(encoding="utf-8")
+        assert '"version": "0.3.1"' in (tmp_path / br.MARKETPLACE_MANIFEST).read_text(encoding="utf-8")
+
+    def test_ambiguous_multiple_version_fields_fails_loud(self, tmp_path):
+        # A manifest with two version fields is ambiguous — the targeted writer refuses rather
+        # than guess which is the plugin version.
+        (tmp_path / ".claude-plugin").mkdir(parents=True)
+        (tmp_path / br.PLUGIN_MANIFEST).write_text(
+            '{\n  "version": "0.3.1",\n  "dep": { "version": "1.0.0" }\n}\n', encoding="utf-8"
+        )
+        (tmp_path / br.MARKETPLACE_MANIFEST).write_text(_MARKETPLACE_MANIFEST_TEXT, encoding="utf-8")
+        with pytest.raises(ValueError, match="version.*fields|fields"):
+            br._bump_manifests(tmp_path, "0.4.0")
+
+
+class TestGatedPublishCommand:
+    """Plan 0034 Slice 8/9/10 / C-3 — `_gated_publish_command` is the EXACT single command the
+    human runs to publish: tag-at-publish + `--force-with-lease` + tag-push, ONE atomic step."""
+
+    def test_exact_command_string(self):
+        assert br._gated_publish_command("0.4.0") == (
+            "git tag v0.4.0 && "
+            "git push --force-with-lease origin release && "
+            "git push origin v0.4.0"
+        )
+
+    def test_tag_at_publish_not_in_build(self):
+        # The tag lives in the printed command (created at publish), never in-build.
+        assert "git tag v" in br._gated_publish_command("1.2.3")
+
+    def test_lease_safe_push(self):
+        # Slice 9: the branch push is lease-safe, not a bare --force.
+        cmd = br._gated_publish_command("1.2.3")
+        assert "--force-with-lease" in cmd
+        assert "push --force origin" not in cmd
+
+
+class TestBumpOnlyDirty:
+    """`_bump_only_dirty` decides whether a dirty working tree must refuse the build. With no
+    `--bump`, any dirty file refuses; with `--bump`, a tree dirty ONLY in the two manifests is
+    allowed (the intended version write), any other dirty path still refuses. Offline (`_git`
+    monkeypatched)."""
+
+    def test_clean_tree_never_refuses(self, monkeypatch):
+        monkeypatch.setattr(br, "_git", lambda *a: "")
+        assert br._bump_only_dirty(Path("."), None) is False
+        assert br._bump_only_dirty(Path("."), "0.4.0") is False
+
+    def test_no_bump_any_dirty_refuses(self, monkeypatch):
+        monkeypatch.setattr(br, "_git", lambda *a: " M README.md\n")
+        assert br._bump_only_dirty(Path("."), None) is True
+
+    def test_bump_manifest_only_dirty_allowed(self, monkeypatch):
+        monkeypatch.setattr(
+            br,
+            "_git",
+            lambda *a: " M .claude-plugin/plugin.json\n M .claude-plugin/marketplace.json\n",
+        )
+        assert br._bump_only_dirty(Path("."), "0.4.0") is False
+
+    def test_bump_but_other_file_dirty_refuses(self, monkeypatch):
+        monkeypatch.setattr(
+            br,
+            "_git",
+            lambda *a: " M .claude-plugin/plugin.json\n M src/leaked.py\n",
+        )
+        assert br._bump_only_dirty(Path("."), "0.4.0") is True
+
+
 @pytest.mark.integration
 class TestApplyHookBypass:
     """`_apply` commits the stripped release tree with `git commit --no-verify` (commit
@@ -549,10 +758,16 @@ class TestApplyHookBypass:
             (repo / "scripts" / name).write_text(
                 (src_scripts / name).read_text(encoding="utf-8"), encoding="utf-8"
             )
-        # A minimal source-of-truth manifest so the version-increase precondition (P0-1) can
-        # read a version. The fixture creates NO `vX.Y.Z` tag → first-release bootstrap → allow.
-        (repo / ".claude-plugin").mkdir(exist_ok=True)
-        (repo / br.PLUGIN_MANIFEST).write_text('{"version": "0.4.0"}\n', encoding="utf-8")
+        # Mirror the real repo's `.gitignore` for `__pycache__/` so running the validation
+        # subprocess (which imports the scanner + writes `scripts/__pycache__/`) does not leave the
+        # fixture's working tree "dirty" — the `.gitignore` is a `config` DEV_ONLY file, so it strips
+        # from the built tree and does not affect the `--root` scan. (Without it, the pyc byproduct
+        # would trip the clean-tree precondition on a --bump re-run.)
+        (repo / ".gitignore").write_text("__pycache__/\n", encoding="utf-8")
+        # A minimal source-of-truth manifest PAIR so the version-increase precondition (P0-1) can
+        # read a version AND `--bump` (C-1) can write + re-sync both. The fixture creates NO
+        # `vX.Y.Z` tag → first-release bootstrap → the version-increase guard allows.
+        _write_manifest_pair(repo, "0.4.0")
 
     @classmethod
     def _init_repo(cls, tmp_path: Path, monkeypatch) -> Path:
@@ -667,3 +882,116 @@ class TestApplyBuiltTreeValidation(TestApplyHookBypass):
         assert self.STRIPPED_FILE in ls.stdout.splitlines(), (
             "a release build commit was made despite the validation refusal"
         )
+
+
+@pytest.mark.integration
+class TestApplyBumpOrchestration(TestApplyHookBypass):
+    """Plan 0034 Slice 10 / C-1/C-2/C-3 — the ONE-command `--apply --bump <version>` flow.
+
+    Reuses the `TestApplyHookBypass` hermetic repo (shippable tree + real scanner scripts +
+    origin/main == HEAD + manifest pair at 0.4.0, NO vX.Y.Z tag → first-release bootstrap). Proves:
+      * the happy path writes BOTH manifests, builds, and PRINTS the exact gated command;
+      * the tool NEVER creates a tag or runs a push (the honesty guarantee — assert `git tag` empty);
+      * an abort at EACH side-effect-bearing stage leaves NO tag, NO release commit, NO push;
+      * a retry after an aborted publish (same version, no tag) succeeds (idempotent)."""
+
+    @staticmethod
+    def _tags(repo: Path) -> list[str]:
+        out = TestApplyHookBypass._git(repo, "tag", "--list").stdout
+        return [t.strip() for t in out.splitlines() if t.strip()]
+
+    def test_apply_bump_writes_both_manifests_and_prints_gated_command(self, repo, capsys):
+        # Bump to a NEW version (0.4.0 -> 0.5.0). First release has no tag, so the version-increase
+        # guard allows it; --bump writes both manifests; the build succeeds and prints the command.
+        rc = br._apply(bump="0.5.0")
+        assert rc == 0
+        plugin = (repo / br.PLUGIN_MANIFEST).read_text(encoding="utf-8")
+        market = (repo / br.MARKETPLACE_MANIFEST).read_text(encoding="utf-8")
+        assert '"version": "0.5.0"' in plugin and '"version": "0.5.0"' in market
+
+        out = capsys.readouterr().out
+        # C-3: the EXACT gated command is printed (tag-at-publish + lease-safe push).
+        assert "git tag v0.5.0 && git push --force-with-lease origin release && git push origin v0.5.0" in out
+        # Honesty framing: never "fully automated".
+        assert "one command up to a single human-gated push" in out.lower()
+
+        # THE honesty guarantee: the tool did NOT create the tag and did NOT push.
+        assert self._tags(repo) == [], "the build must NOT create a tag — it is created at publish"
+
+    def test_apply_bump_does_not_execute_a_push(self, repo):
+        # No remote is configured on the fixture repo; a real push would ERROR. The flow returning
+        # 0 while origin/release is unchanged proves no push ran.
+        before = self._git(repo, "rev-parse", "refs/remotes/origin/main").stdout.strip()
+        assert br._apply(bump="0.5.0") == 0
+        # origin refs are untouched (no push executed).
+        after = self._git(repo, "rev-parse", "refs/remotes/origin/main").stdout.strip()
+        assert before == after
+        assert self._tags(repo) == []
+
+    def test_abort_at_bump_stage_leaves_no_side_effects(self, repo):
+        # Stage: --bump write. A malformed version aborts in _bump_manifests BEFORE the version
+        # bump touches disk (semver-checked first) → no tag, no release commit, manifests unchanged.
+        before_plugin = (repo / br.PLUGIN_MANIFEST).read_bytes()
+        head_before = self._git(repo, "rev-parse", "HEAD").stdout.strip()
+        rc = br._apply(bump="not-a-version")
+        assert rc == 1
+        assert self._tags(repo) == []
+        assert (repo / br.PLUGIN_MANIFEST).read_bytes() == before_plugin
+        # No release commit: release ref, if it exists, still points at HEAD.
+        rel = self._git(repo, "rev-parse", "release")
+        if rel.returncode == 0:
+            assert rel.stdout.strip() == head_before
+
+    def test_abort_at_version_increase_stage_leaves_no_tag(self, repo):
+        # Stage: version-increase. Tag the repo at v0.5.0, then try to bump to 0.5.0 (== latest tag)
+        # → the version-increase guard REFUSES. The bump WROTE the manifests first (that's the
+        # operator-revertable working-tree change), but NO tag is created and NO release commit.
+        self._git(repo, "tag", "v0.5.0").check_returncode()
+        rc = br._apply(bump="0.5.0")
+        assert rc == 1
+        # No NEW tag beyond the one we set up.
+        assert self._tags(repo) == ["v0.5.0"]
+        # The working-tree bump is left for the operator to `git checkout` (defined behavior).
+        assert '"version": "0.5.0"' in (repo / br.PLUGIN_MANIFEST).read_text(encoding="utf-8")
+
+    def test_abort_at_built_tree_validation_leaves_no_tag(self, tmp_path, monkeypatch):
+        # Stage: built-tree validation. Strand a token in a SHIPPED doc so the built-tree scan
+        # fails AFTER the bump + build → refuse with no commit, and crucially NO tag.
+        repo = self._init_repo(tmp_path, monkeypatch)
+        (repo / "docs" / "claugentic-WORKFLOW.md").write_text(
+            "Spawn `claugentic-dev-harness:ghost-role` (renamed away).\n", encoding="utf-8"
+        )
+        self._git(repo, "add", "-A").check_returncode()
+        self._git(repo, "commit", "-qm", "strand a token").check_returncode()
+        self._git(repo, "update-ref", "refs/remotes/origin/main", "HEAD").check_returncode()
+        head = self._git(repo, "rev-parse", "HEAD").stdout.strip()
+
+        rc = br._apply(bump="0.5.0")
+        assert rc != 0
+        assert self._tags(repo) == [], "a validation abort must not leave a tag"
+        rel = self._git(repo, "rev-parse", "release")
+        if rel.returncode == 0:
+            assert rel.stdout.strip() == head, "no release build commit despite the abort"
+
+    def test_retry_after_aborted_publish_succeeds(self, repo, capsys):
+        # Retry-after-failed-push: the FIRST run bumps + builds + prints the command but the human
+        # never publishes (so NO tag is created). Re-running --apply --bump <same version> must
+        # SUCCEED — latest_tag is still the previous PUBLISHED version (none here → first release),
+        # so the version-increase guard still passes and the same-version bump is an idempotent noop.
+        assert br._apply(bump="0.5.0") == 0
+        assert self._tags(repo) == []  # publish declined → no tag
+        capsys.readouterr()  # drain
+        # Second run at the SAME version — must not refuse.
+        rc = br._apply(bump="0.5.0")
+        assert rc == 0
+        out = capsys.readouterr().out
+        assert "git tag v0.5.0" in out
+        assert self._tags(repo) == []
+
+    def test_apply_bump_refuses_non_increasing_version(self, repo):
+        # A published tag exists; a bump to an EQUAL/LOWER version is refused (the version-increase
+        # guard reuses the same compare as the no-bump path).
+        self._git(repo, "tag", "v0.6.0").check_returncode()
+        rc = br._apply(bump="0.5.0")  # 0.5.0 < v0.6.0 → downgrade
+        assert rc == 1
+        assert self._tags(repo) == ["v0.6.0"]
