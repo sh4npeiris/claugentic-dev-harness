@@ -43,4 +43,4 @@ def _load_hyphenated(module_name: str, filename: str) -> None:
 # The architecture-tree gate (`import check_architecture_tree as cat`) and the
 # SessionStart advisor (`import advisor`) both carry the `claugentic-` filename prefix.
 _load_hyphenated("check_architecture_tree", "claugentic-check_architecture_tree.py")
-_load_hyphenated("advisor", "claugentic-advisor.py")
+_load_hyphenated("advisor", "claugentic-session-advisor.py")

@@ -55,9 +55,9 @@ internal readers already degrade to "absent input" rather than raising, so a sin
 bad input never blanks the rest.
 
 Modes:
-    python scripts/claugentic-advisor.py    # the hook command AND the manual smoke run
-                                             # (its only consumers are the D2 smoke
-                                             # check + the tests — not a user feature)
+    python scripts/claugentic-session-advisor.py    # the hook command AND the manual smoke run
+                                                     # (its only consumers are the D2 smoke
+                                                     # check + the tests — not a user feature)
 """
 
 from __future__ import annotations

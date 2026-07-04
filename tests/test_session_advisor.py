@@ -1,4 +1,4 @@
-"""Hermetic tests for the SessionStart advisor (`scripts/claugentic-advisor.py`).
+"""Hermetic tests for the SessionStart advisor (`scripts/claugentic-session-advisor.py`).
 
 The advisor DERIVES one "where am I / what's next" line from the two backlog
 fences in `docs/claugentic-ROADMAP.md`, the in-flight `.claude/plans/*.md`, and an
