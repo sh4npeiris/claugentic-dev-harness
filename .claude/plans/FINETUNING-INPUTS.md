@@ -25,6 +25,7 @@ Blogs / guides:
 - **plugins-reference** — skills/commands/agents are **auto-discovered** from directories when a plugin is installed; but `plugin.json` still carries explicit component lists in this harness (the `agents` array). Verify whether the `agents` array is required or can be auto-derived — this bears directly on the Track-B agents-list footgun.
 - **skills taxonomy** (the "how we use skills" blog: nine skill types) — a lens for future skill-building and for the harness's own skills.
 - **`/design-sync`** — already folded into `0029` (Slice 7). Platform pass can widen it (Verify craft-bar checks design-system drift via design-sync).
+- **Honesty verb-lint pre-flag (harvest-derived, 0029 Stage-9; verify + YAGNI-gate on recurrence)** — the 0029 S5 land surfaced a bare mechanical verb (*"checks the floor **mechanically**"*) that read as an adopter-unconditional `[D]` guarantee; two reviewers caught it manually at Verify. Consider a **WARN-heuristic** grep over shipped/managed copy for the scrubbed verb set (`mechanically`/`enforced`/`guaranteed`/`verified`/`proven`/`de-correlated`) near a capability claim, pre-flagging the line for the honesty-reviewer's eye — **WARN only, never a hard gate** (correct uses like the tree-check stay legit; pre-flags, never *decides* honesty — the #1 rule stays model-upheld). Natural home = the Track-B release-gate / `check_shipped_content.py` Pass A.b evolution. **Build only if a bare-verb over-claim recurs past the panel** (one clean catch is weak evidence).
 
 ---
 
