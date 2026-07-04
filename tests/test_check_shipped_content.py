@@ -10,6 +10,7 @@ exit-code tests, including the fail-loud-on-git-error case.
 
 from __future__ import annotations
 
+import build_release as br
 import check_shipped_content as csc
 
 # A representative VALID set (agents ∪ skills ∪ {update}) for the namespace pass tests.
@@ -138,13 +139,113 @@ class TestDanglingPassAa:
         assert csc.scan_dangling(texts, csc.dangling_paths()) == []
 
     def test_dangling_set_is_derived_and_excludes_gate_scripts(self):
-        # Derivation contract: the dangle set is RELEASE_CHECKLIST only — init-created files,
-        # the harness-self gate scripts (A.b's concern), and repo-config are all subtracted.
+        # MIGRATED PIN (0034 Slice 2): the dangle set is now derived from the manifest's
+        # `dangle` class (via `recreate_class`), no longer from three hand-lists. The
+        # contract it pins is UNCHANGED — the derived dangle set is RELEASE_CHECKLIST only:
+        # the recreated files (init-seed/init-gen/recreate-on-demand), the harness-self gate
+        # scripts (A.b's concern), and repo-config are all subtracted.
         dangling = csc.dangling_paths()
         assert "docs/RELEASE_CHECKLIST.md" in dangling
-        assert "scripts/check_versions_synced.py" not in dangling  # A.b, not A.a
-        assert "docs/claugentic-DECISIONS.md" not in dangling      # init-created
-        assert "CLAUDE.md" not in dangling                          # repo-config
+        assert "scripts/check_versions_synced.py" not in dangling  # self-gate → A.b, not A.a
+        assert "docs/claugentic-DECISIONS.md" not in dangling      # init-seed → recreated
+        assert "docs/claugentic-INVARIANTS.md" not in dangling     # recreate-on-demand
+        assert "CLAUDE.md" not in dangling                          # config (repo machinery)
+        # And it equals exactly the manifest's `dangle`-class members — the single source.
+        dangle_class = frozenset(
+            p for p in br.DEV_ONLY_FILES if br.recreate_class(p) == "dangle"
+        )
+        assert dangling == dangle_class
+
+
+class TestDerivedHandListsEqualOld:
+    """The 0034 Slice-2 DERIVE-ALONGSIDE safety net (steps 1-3 of the plan's method).
+
+    The three sets `check_shipped_content` used to hand-maintain are now DERIVED from
+    `build_release.recreate_class` (the ONE authored manifest). These tests carry the OLD
+    hand-list values as frozen literal expectations and assert the derived module-level sets
+    reproduce the EXACT membership — proving the DRY migration is a provable no-op, not a
+    lossy re-encoding. (This is the "keep both until equality holds" net: the old values live
+    here, the derivation lives in the module; the two must agree.)
+    """
+
+    # Verbatim copies of the three PRE-migration hand-lists (frozen expectations).
+    _OLD_INIT_CREATES = frozenset(
+        {
+            "docs/claugentic-DECISIONS.md",
+            "docs/claugentic-ROADMAP.md",
+            "docs/claugentic-ARCHITECTURE_TREE.md",
+            "docs/claugentic-INVARIANTS.md",
+            "docs/claugentic-PRODUCT.md",
+            "docs/claugentic-PRODUCT_SPEC.md",
+            "docs/claugentic-CHARTER.md",  # phantom: never a tracked/stripped file
+        }
+    )
+    _OLD_HARNESS_SELF_SCRIPTS = frozenset(
+        {
+            "scripts/build_release.py",
+            "scripts/check_versions_synced.py",
+            "scripts/check_doc_budgets.py",
+            "scripts/check_shipped_content.py",
+        }
+    )
+    _OLD_DANGLE_EXCLUDED = frozenset(
+        {
+            ".claude/settings.json",
+            "CLAUDE.md",
+            "pyproject.toml",
+            ".gitignore",
+            ".gitattributes",
+        }
+    )
+
+    def test_harness_self_scripts_derived_equals_old(self):
+        # LITERALLY equal — every `self-gate` path is exactly the old hand-list. (This set is
+        # also A.b's scan target, so literal equality is load-bearing for that pass too.)
+        assert csc.HARNESS_SELF_SCRIPTS == self._OLD_HARNESS_SELF_SCRIPTS
+
+    def test_dangle_excluded_derived_equals_old(self):
+        # LITERALLY equal — every `config` path is exactly the old `_DANGLE_EXCLUDED`.
+        assert csc._DANGLE_EXCLUDED == self._OLD_DANGLE_EXCLUDED
+
+    def test_recreated_derived_equals_old_modulo_phantom_charter(self):
+        # The derived recreated set (init-seed ∪ init-gen ∪ recreate-on-demand) equals the old
+        # `_INIT_CREATES` EXCEPT the phantom `docs/claugentic-CHARTER.md`: the harness ships
+        # only the `_CHARTER.md` SEED, never a tracked `CHARTER.md`, so CHARTER was never in
+        # `DEV_ONLY_FILES` and its subtraction in `dangling_paths()` was always a no-op. The
+        # derivation correctly drops it; the delta is EXACTLY that one dead entry.
+        assert self._OLD_INIT_CREATES - csc._RECREATED == {"docs/claugentic-CHARTER.md"}
+        assert csc._RECREATED - self._OLD_INIT_CREATES == frozenset()
+        # The phantom was never a member of the strip set, so the derivation reproduces the
+        # exact EFFECTIVE membership (old ∩ strip == derived ∩ strip == derived).
+        assert self._OLD_INIT_CREATES & br.DEV_ONLY_FILES == csc._RECREATED
+
+    def test_dangling_paths_is_byte_identical_across_migration(self):
+        # THE load-bearing no-op property: `dangling_paths()` — the only consumer of these
+        # three sets — is byte-identical whether computed from the OLD hand-lists or the
+        # derived ones. (Behavior is unchanged even though `_RECREATED != _OLD_INIT_CREATES`
+        # literally, because the sole difference is the phantom CHARTER, not in the strip set.)
+        old_dangle = (
+            br.DEV_ONLY_FILES
+            - self._OLD_INIT_CREATES
+            - self._OLD_HARNESS_SELF_SCRIPTS
+            - self._OLD_DANGLE_EXCLUDED
+        )
+        assert csc.dangling_paths() == old_dangle
+
+    def test_derived_sets_partition_the_strip_manifest(self):
+        # Completeness: the four file-level classes (recreated ∪ self-gate ∪ config ∪ dangle)
+        # exactly re-cover `DEV_ONLY_FILES` with no overlap — the derivation is a partition of
+        # the whole manifest, so nothing is silently dropped or double-counted.
+        recreated = csc._RECREATED
+        gates = csc.HARNESS_SELF_SCRIPTS
+        config = csc._DANGLE_EXCLUDED
+        dangle = csc.dangling_paths()
+        assert recreated | gates | config | dangle == br.DEV_ONLY_FILES
+        # pairwise-disjoint
+        parts = [recreated, gates, config, dangle]
+        for i, a in enumerate(parts):
+            for b in parts[i + 1 :]:
+                assert a & b == frozenset()
 
 
 class TestGateCaveatPassAb:

@@ -48,14 +48,16 @@ map so they are hermetically testable without git):
     regex, preserved deliberately.
 
   Pass A.a — dangling-path literals (HARD, exit 1). Flag a shipped reference to a
-    stripped-AND-init-uncreated path: `RELEASE_CHECKLIST.md` and a SPECIFIC numbered
+    stripped-AND-never-recreated path: `RELEASE_CHECKLIST.md` and a SPECIFIC numbered
     harness plan-file (`.claude/plans/<NNNN>-*.md`). The dangle set is DERIVED from
-    `br.DEV_ONLY_FILES` minus the init-creates allow-set, minus the harness-self gate
-    scripts (those are Pass A.b's WARN concern, not a hard dangle — see below), minus the
-    repo-config files no shipped doc points an adopter at. The bare `.claude/plans/`
-    *directory* is allow-listed (init manages the adopter's own in-flight-plans dir); the
-    `NNNN`/placeholder plan-file form is allow-listed (it documents the naming convention,
-    not a real file).
+    `br.DEV_ONLY_FILES` minus the recreated set (init-seed ∪ init-gen ∪ recreate-on-demand),
+    minus the harness-self gate scripts (those are Pass A.b's WARN concern, not a hard
+    dangle — see below), minus the repo-config machinery no shipped doc points an adopter at
+    — i.e. exactly the manifest's `dangle` class. All three subtracted sets are themselves
+    derived from `build_release.recreate_class` (the ONE authored ship/strip manifest), so no
+    hand-list is maintained here. The bare `.claude/plans/` *directory* is allow-listed (init
+    manages the adopter's own in-flight-plans dir); the `NNNN`/placeholder plan-file form is
+    allow-listed (it documents the naming convention, not a real file).
 
   Pass A.b — uncaveated harness-self-gate mention (WARN-only, exit 0 + a `WARN:` line).
     For each shipped mention of a harness-self gate SCRIPT NAME, WARN if no adopter-caveat
@@ -109,47 +111,46 @@ PROSE_ONLY_TOKENS = frozenset({"update"})
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Pass A — dangling-path + harness-self-gate-script sources (DERIVED from build_release)
+# Pass A — dangling-path + harness-self-gate-script sources
+# (DERIVED from build_release's `recreate_class` — the ONE authored ship/strip manifest)
 # ─────────────────────────────────────────────────────────────────────────────
-# Files `init` (re)creates / manages in the adopter repo — a shipped mention of one of
-# these is NOT a dangle (the adopter HAS the file). Class-B of the release/init contract.
-_INIT_CREATES = frozenset(
-    {
-        "docs/claugentic-DECISIONS.md",
-        "docs/claugentic-ROADMAP.md",
-        "docs/claugentic-ARCHITECTURE_TREE.md",
-        "docs/claugentic-INVARIANTS.md",
-        "docs/claugentic-PRODUCT.md",
-        "docs/claugentic-PRODUCT_SPEC.md",
-        "docs/claugentic-CHARTER.md",  # init copies the `_CHARTER.md` seed (create-if-absent)
-    }
-)
+# These three partitions of the strip set used to be re-hand-maintained here (0034 Slice 2
+# DRY'd them off `build_release.DEV_ONLY_PATH_CLASSES`). Adding one dev-only doc that init
+# recreates is now ONE edit — the class annotation in the manifest — with these sets and the
+# dangle derivation following automatically. `_paths_in_classes` buckets the manifest by
+# `br.recreate_class`, so the manifest is the single source of the ship/strip semantics.
+
+
+def _paths_in_classes(*classes: str) -> frozenset[str]:
+    """The dev-only FILE paths whose `recreate_class` is any of `classes` (manifest-derived).
+
+    Reads `build_release.recreate_class` over `DEV_ONLY_FILES` — the single authored
+    `path -> class` manifest — so a strip-rule change re-derives these partitions with no
+    edit here. Dir-swept paths (`DEV_ONLY_DIRS`) have no class and never appear.
+    """
+    wanted = set(classes)
+    return frozenset(p for p in br.DEV_ONLY_FILES if br.recreate_class(p) in wanted)
+
+
+# Files an adopter gets back via a NON-dangling mechanism — a shipped mention of one is NOT a
+# dangle (the adopter HAS/recreates the file). The union of the three recreate-classes:
+# `init-seed` (init copies a `_X.md` seed) + `init-gen` (init generates it) +
+# `recreate-on-demand` (a non-init mechanism creates it: workflow lazy-create / agent-authored
+# / user-from-template). This REPLACES the old `_INIT_CREATES` hand-list, which conflated
+# init-produced with recreate-on-demand and carried a phantom `docs/claugentic-CHARTER.md`
+# entry (never a tracked/stripped file, so a no-op subtraction) — the derivation drops it.
+_RECREATED = _paths_in_classes("init-seed", "init-gen", "recreate-on-demand")
 
 # Harness-self gate scripts: stripped from the release, but their CAVEATED mentions are
-# Pass A.b's (WARN) concern, not Pass A.a's (hard dangle). Listed here so A.a can SUBTRACT
-# them from its dangle set and A.b can scan exactly them. `build_release.py` is the release
-# builder; the rest are run-gates. (Class-A of the release/init contract.)
-HARNESS_SELF_SCRIPTS = frozenset(
-    {
-        "scripts/build_release.py",
-        "scripts/check_versions_synced.py",
-        "scripts/check_doc_budgets.py",
-        "scripts/check_shipped_content.py",  # this gate (also stripped)
-    }
-)
+# Pass A.b's (WARN) concern, not Pass A.a's (hard dangle). A.a SUBTRACTS them from its dangle
+# set and A.b scans exactly them. `build_release.py` is the release builder; the rest are
+# run-gates. (Class `self-gate` in the manifest — DERIVED, was a hand-list.)
+HARNESS_SELF_SCRIPTS = _paths_in_classes("self-gate")
 
-# Repo-config / dev-infra files: stripped, but they are machinery — no shipped DOC points an
-# adopter AT them as a path-to-open, so they are not the dangle class A.a guards. Explicit,
-# commented allow-list seam (NOT the gate guessing): subtracted from the derived dangle set.
-_DANGLE_EXCLUDED = frozenset(
-    {
-        ".claude/settings.json",
-        "CLAUDE.md",
-        "pyproject.toml",
-        ".gitignore",
-        ".gitattributes",
-    }
-)
+# Repo-config / dev-infra files: stripped machinery — no shipped DOC points an adopter AT them
+# as a path-to-open, so they are not the A.a dangle class. Subtracted from the derived dangle
+# set. (Class `config` in the manifest — DERIVED, was the `_DANGLE_EXCLUDED` hand-list.)
+_DANGLE_EXCLUDED = _paths_in_classes("config")
 
 # A SPECIFIC numbered harness plan file (e.g. `.claude/plans/0027-foo.md`). The whole
 # `.claude/plans/` subtree is DEV_ONLY (stripped), so a shipped doc citing a numbered plan
@@ -179,13 +180,15 @@ CAVEAT_WINDOW = 3
 def dangling_paths() -> frozenset[str]:
     """The Pass A.a hard-forbidden path set, DERIVED from build_release's strip rules.
 
-    `DEV_ONLY_FILES` minus the init-creates set, minus the harness-self gate scripts (A.b's
-    concern), minus the repo-config machinery — leaving exactly the stripped-AND-init-
-    uncreated, adopter-facing dangle files (today: `docs/RELEASE_CHECKLIST.md`). Derived (not
-    hand-maintained) so a future strip-rule change keeps the gate correct without an edit.
+    `DEV_ONLY_FILES` minus the recreated set, minus the harness-self gate scripts (A.b's
+    concern), minus the repo-config machinery — leaving exactly the stripped-AND-never-
+    recreated, adopter-facing dangle files (today: `docs/RELEASE_CHECKLIST.md`; i.e. the
+    `dangle` class). Each subtracted set is itself manifest-derived (`recreate_class`), so a
+    future strip-rule change keeps the gate correct with no edit here — the manifest is the
+    single source. Equivalently: the `dangle`-class members.
     """
     return frozenset(
-        br.DEV_ONLY_FILES - _INIT_CREATES - HARNESS_SELF_SCRIPTS - _DANGLE_EXCLUDED
+        br.DEV_ONLY_FILES - _RECREATED - HARNESS_SELF_SCRIPTS - _DANGLE_EXCLUDED
     )
 
 
