@@ -248,6 +248,82 @@ class TestDerivedHandListsEqualOld:
                 assert a & b == frozenset()
 
 
+class TestClosurePassD:
+    """Pass D — the referential-closure run-gate (`NEEDS ⊆ HAS`), 0034 Slice 3.
+
+    Pure over `build_release`'s manifest classes + an injected shipped SET, so these run with
+    no git/FS. They mechanize the release/init-contract INVARIANT (docs/claugentic-INVARIANTS.md)
+    that was prose-only: every stripped adopter-relevant path is recreatable via its class's HAS
+    source. Non-vacuous by construction — the "gap injected → flagged" tests prove the check
+    actually catches a missing HAS, not just that the live manifest happens to pass.
+    """
+
+    def test_live_manifest_is_closed(self):
+        # The load-bearing pin: over the REAL shipped set, NEEDS ⊆ HAS holds — no gaps.
+        ship = frozenset(br.classify(br._tracked_files())[0])
+        assert csc.closure_gaps(ship) == []
+
+    def test_init_seed_maps_to_underscore_seed_after_managed_prefix(self):
+        # The seed-naming convention: `_` is inserted AFTER the `claugentic-` prefix, NOT before
+        # the whole basename (the bug the live run caught during build). DECISIONS/ROADMAP seeds.
+        assert csc._init_seed_of("docs/claugentic-DECISIONS.md") == "docs/claugentic-_DECISIONS.md"
+        assert csc._init_seed_of("docs/claugentic-ROADMAP.md") == "docs/claugentic-_ROADMAP.md"
+
+    def test_missing_init_seed_is_a_gap(self):
+        # NON-VACUOUS: drop the DECISIONS/ROADMAP seeds from the shipped set → the init-seed HAS
+        # source can't vouch for the stripped docs → a hard gap per stripped init-seed path.
+        ship = frozenset(br.classify(br._tracked_files())[0]) - {
+            "docs/claugentic-_DECISIONS.md",
+            "docs/claugentic-_ROADMAP.md",
+        }
+        gaps = csc.closure_gaps(ship)
+        assert any("claugentic-DECISIONS.md" in g and "seed" in g for g in gaps)
+        assert any("claugentic-ROADMAP.md" in g and "seed" in g for g in gaps)
+
+    def test_init_gen_output_must_be_registered(self):
+        # NON-VACUOUS: `init-gen` HAS = a known generator output. ARCHITECTURE_TREE is registered;
+        # an init-gen path NOT in INIT_GEN_OUTPUTS is a gap. Assert the live output is registered.
+        assert "docs/claugentic-ARCHITECTURE_TREE.md" in csc.INIT_GEN_OUTPUTS
+        for path in csc._paths_in_classes("init-gen"):
+            assert path in csc.INIT_GEN_OUTPUTS
+
+    def test_recreate_on_demand_is_accepted_by_the_class_not_init(self):
+        # The plan-gate's taxonomy fix: recreate-on-demand members (INVARIANTS/PRODUCT/
+        # PRODUCT_SPEC) are BY DESIGN not init-produced — the closure accepts them via the class
+        # (they are NOT in INIT_GEN_OUTPUTS and have no `_X.md` seed, yet close cleanly).
+        rod = csc._paths_in_classes("recreate-on-demand")
+        assert "docs/claugentic-INVARIANTS.md" in rod
+        assert not (rod & csc.INIT_GEN_OUTPUTS)  # never init-gen
+        ship = frozenset(br.classify(br._tracked_files())[0])
+        # No seed ships for them, yet the live closure holds — accepted VIA the class.
+        for path in rod:
+            assert csc._init_seed_of(path) not in ship
+        assert csc.closure_gaps(ship) == []
+
+    def test_config_and_dangle_are_not_needs(self):
+        # config (repo machinery) + dangle (RELEASE_CHECKLIST, stripped-and-never-recreated) are
+        # NOT adopter-relevant NEEDS — the closure never demands a HAS source for them, so a
+        # shipped set with no seed/generator for them still closes (proven by the live-closed pin).
+        assert "docs/RELEASE_CHECKLIST.md" in {
+            p for p in br.DEV_ONLY_FILES if br.recreate_class(p) == "dangle"
+        }
+        assert "CLAUDE.md" in csc._DANGLE_EXCLUDED  # config
+
+    def test_closure_drives_evaluate_exit_1_on_a_gap(self, monkeypatch, tmp_path):
+        # End-to-end through evaluate(): a shipped set missing the DECISIONS seed makes Pass D a
+        # HARD problem (drives main() to exit 1), even with all text passes clean.
+        ship = sorted(
+            (frozenset(br.classify(br._tracked_files())[0]) - {"docs/claugentic-_DECISIONS.md"})
+        )
+        monkeypatch.setattr(csc, "_shipped_files", lambda: ship)
+        monkeypatch.setattr(csc, "_read_shipped_texts", lambda root, s: {p: "" for p in ship})
+        monkeypatch.setattr(csc, "_fs_agent_basenames", lambda root: set())
+        monkeypatch.setattr(csc, "_fs_skill_basenames", lambda root: set())
+        problems, _warnings, summary = csc.evaluate(tmp_path)
+        assert summary == ""
+        assert any("claugentic-DECISIONS.md" in p and "seed" in p for p in problems)
+
+
 class TestGateCaveatPassAb:
     def test_uncaveated_gate_mention_warns(self):
         texts = {"docs/some-shipped.md": "Run `python scripts/check_versions_synced.py` at Verify."}

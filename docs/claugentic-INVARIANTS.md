@@ -109,12 +109,19 @@ the failure or near-miss that taught it).
   0.3.0, after plan 0024 added the `INVARIANTS.md` budget row — **fail-louded on the lazily-created
   `INVARIANTS.md`**, a hard error a fresh 0.3.0 adopter would hit. Live gate:
   `tests/test_build_release.py::TestReleaseInitContract` (membership) + `scripts/check_shipped_content.py`
-  (a **run-gate, NOT hook-enforced**; 0028 S3) — the latter now mechanically pins the **exact-literal**
-  cases: a dangling stripped-uncreated path reference (Pass A.a, hard) and a stranded
-  `claugentic-dev-harness:<token>` namespace literal (Pass B, hard). Its uncaveated-gate-mention pass
-  (A.b) is **WARN-heuristic**, not a hard gate. The contract is therefore pinned mechanically for the
-  exact literals only — NOT *fully* content-enforced; the membership test + model-upheld review still
-  complement it.
+  (a **run-gate, NOT hook-enforced**; 0028 S3, closure pass 0034 S3) — the latter now mechanically pins
+  the **exact-literal** cases: a dangling stripped-uncreated path reference (Pass A.a, hard), a stranded
+  `claugentic-dev-harness:<token>` namespace literal (Pass B, hard), and — 0034 Slice 3 — the
+  **referential closure `NEEDS ⊆ HAS`** (Pass D, hard): every stripped adopter-relevant path is
+  **producible by `init` OR the workflow's lazy/templated/agent authoring** — `init-seed` (its `_X.md`
+  seed ships) · `init-gen` (a known init generator output) · `recreate-on-demand` (workflow-lazy /
+  agent-authored / user-authored — accepted VIA the class, **NOT** claimed init-produced) · `self-gate`
+  (a stripped harness-self script, self-consistent). This **mechanizes the "strips ⇒ recreates ⇒ nothing
+  dangles" arrow** that was prose-only here — a missing seed / unregistered generator now fails the gate.
+  Its uncaveated-gate-mention pass (A.b) is **WARN-heuristic**, not a hard gate. The contract is
+  therefore pinned mechanically for the exact literals + the referential closure — but **NOT** *fully*
+  content-enforced: Pass D pins that nothing dangles (closure), **not** that the release is *correct*;
+  the membership test + model-upheld review still complement it.
 
 ---
 

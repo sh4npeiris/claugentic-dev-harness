@@ -4,6 +4,8 @@ Releases are gated by the **Definition of Done** in [`docs/claugentic-WORKFLOW.m
 
 When bumping the version, bump **both** manifests together — `.claude-plugin/plugin.json` is the source of truth and `.claude-plugin/marketplace.json` must match. The version-sync gate (`python scripts/check_versions_synced.py`) enforces the pair.
 
+**Referential-closure gate (mechanical).** `python scripts/check_shipped_content.py` now pins `NEEDS ⊆ HAS` (Pass D): every stripped, adopter-relevant path is **producible by `init` OR the workflow's lazy/templated/agent authoring** — an `init-seed` doc whose `_X.md` seed ships, an `init-gen` output `init` generates, a `recreate-on-demand` file the workflow/agent/user authors on demand (accepted **via its class — not claimed init-produced**), or a stripped `self-gate` script. A forgotten seed or unregistered generator now **fails the build**, mechanically, instead of dangling for an adopter. **Honest scope:** the gate pins the *referential closure* (nothing the release strips dangles), **NOT** that the release is *correct* or "fully" content-enforced — the eval drift-check and the force-push below stay model-upheld.
+
 ## Eval — the drift check (model-upheld)
 
 Before a release, run the measurement procedure in [`eval/BASELINE.md`](../eval/BASELINE.md) — a standard audit over the seeded-defect fixture — and compare the recall / precision-proxy / refute-rate to the latest baseline entry.

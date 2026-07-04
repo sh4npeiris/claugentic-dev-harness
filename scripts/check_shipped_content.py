@@ -20,8 +20,34 @@ release tooling" rule): this gate is HARNESS-SELF, it reasons ABOUT the shipped 
 and it is itself stripped from the release (DEV_ONLY_FILES) — it never runs in an
 adopter repo, so there is no copied-gate to strand.
 
-FOUR passes over the shipped-file texts (pure cores take an injected `{path: text}`
-map so they are hermetically testable without git):
+FIVE passes (four over the shipped-file texts + one over the strip manifest). The four
+text passes' pure cores take an injected `{path: text}` map so they are hermetically
+testable without git; the manifest pass (Pass D) is pure over `build_release`'s classes:
+
+  Pass D — referential closure (HARD, exit 1). Assert `NEEDS ⊆ HAS`: every STRIPPED,
+    adopter-relevant path is producible/recreatable via its recreate-class's HAS source, so
+    the release/init contract (docs/claugentic-INVARIANTS.md → "release strips ⇒ init
+    recreates ⇒ nothing dangles") is pinned MECHANICALLY, not by prose alone. NEEDS = the
+    stripped adopter-relevant classes (`init-seed` ∪ `init-gen` ∪ `recreate-on-demand` ∪
+    `self-gate`); `config`/`dangle` are NOT adopter-relevant NEEDS (config = machinery no
+    shipped doc points at; dangle = stripped AND never recreated, correctly — the
+    RELEASE_CHECKLIST class). FOUR HAS sources, one per NEEDS class:
+      * `init-seed`          → its `_X.md` seed is in the SHIPPED set (init copies it back).
+      * `init-gen`           → the path is a KNOWN init generator output (INIT_GEN_OUTPUTS).
+      * `recreate-on-demand` → THE CLASS IS ITS OWN HAS ATTESTATION — its members are BY
+                               DESIGN not init-produced (workflow-lazy / agent-authored /
+                               user-authored); the closure ACCEPTS them via the class, it does
+                               NOT hard-require init-producibility for them.
+      * `self-gate`          → the harness-self script is stripped AND self-consistent (no
+                               shipped file references it as a needed artifact — Pass A.a/A.b
+                               already guard shipped-text mentions; here we assert the ship/strip
+                               status is coherent: the script is genuinely stripped).
+    HONESTY: the pinned claim is "producible by init OR the workflow's lazy/templated/agent
+    authoring" — NEVER "producible by init" flatly (recreate-on-demand files are NOT
+    init-produced). The gate pins the INVARIANT (referential closure), NOT that the release is
+    correct — it does not make the release "fully" content-enforced. Honors the `INCLUDE_GLOBS`
+    never-clobber carve-out (the tree-script's adopter-owned glob region is excluded from NEEDS
+    exactly as init's body-compare excludes it).
 
   Pass C — engine ASCII-only (HARD, exit 1). For each shipped `*.js` (= the 4
     Workflow-orchestrated `engine/*.js` scripts), flag any character whose codepoint is
@@ -72,10 +98,14 @@ map so they are hermetically testable without git):
 
 HONESTY (the #1 rule): this gate mechanically pins the EXACT cases (A.a dangling paths +
 B stranded roster + C non-ASCII engine codepoints — C is an exact codepoint check, the
-strongest/most mechanical of the four). A.b is WARN-heuristic. The gate is a RUN-GATE (CI + the
-Definition-of-Done suite), NOT hook-wired — the one hook-enforced gate stays the
-architecture-tree check. It does NOT make the release/init contract "fully mechanically
-content-enforced": the membership test + model-upheld review still complement it.
+strongest/most mechanical of the passes — + D referential closure `NEEDS ⊆ HAS`, an exact
+set-containment check over the manifest classes). A.b is WARN-heuristic. The gate is a
+RUN-GATE (CI + the Definition-of-Done suite), NOT hook-wired — the one hook-enforced gate
+stays the architecture-tree check. It does NOT make the release/init contract "fully
+mechanically content-enforced": Pass D pins the referential-closure INVARIANT (every
+stripped adopter-relevant path is recreatable via its class's HAS source — "producible by
+init OR the workflow's lazy/templated/agent authoring", never "producible by init" flatly),
+NOT that the release is CORRECT; the membership test + model-upheld review still complement it.
 
 Fails LOUD: any git/read error produces a plain message + exit 1 — never a false-green
 (a gate that silently passed because git broke would defeat its own purpose).
@@ -190,6 +220,102 @@ def dangling_paths() -> frozenset[str]:
     return frozenset(
         br.DEV_ONLY_FILES - _RECREATED - HARNESS_SELF_SCRIPTS - _DANGLE_EXCLUDED
     )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Pass D — referential-closure HAS sources (DERIVED from the manifest classes)
+# ─────────────────────────────────────────────────────────────────────────────
+# The `init-seed` recreation convention: init copies a pristine `docs/claugentic-_X.md` seed
+# → `docs/claugentic-X.md` (the seed inserts `_` after the `claugentic-` managed-doc prefix,
+# create-if-absent — skills/init/SKILL.md step 7). So the HAS attestation for a stripped
+# `docs/claugentic-X.md` is: its `claugentic-_X.md` SEED is in the shipped set. This helper
+# encodes that ONE naming convention, so a new init-seed doc needs no edit here.
+MANAGED_DOC_PREFIX = "claugentic-"
+
+
+def _init_seed_of(path: str) -> str:
+    """The shipped seed path init copies to recreate a stripped `init-seed` `path`.
+
+    Encodes the seed-naming convention: `docs/claugentic-DECISIONS.md` →
+    `docs/claugentic-_DECISIONS.md` (a `_` inserted AFTER the `claugentic-` managed-doc prefix
+    in the basename). The seed being in the shipped set is the `init-seed` HAS attestation
+    (init copies it back, underscore-stripped, per skills/init/SKILL.md step 7).
+    """
+    p = Path(path)
+    name = p.name
+    if name.startswith(MANAGED_DOC_PREFIX):
+        name = MANAGED_DOC_PREFIX + "_" + name[len(MANAGED_DOC_PREFIX) :]
+    else:  # a non-managed-prefixed init-seed doc would prefix `_` to the whole basename
+        name = "_" + name
+    return str(p.with_name(name)).replace("\\", "/")
+
+
+# Known init GENERATOR outputs (the `init-gen` HAS source): paths init writes from scratch in
+# the adopter repo rather than copying from a seed (skills/init/SKILL.md step 4 generates the
+# architecture tree). An explicit, commented seam — the gate does not guess which stripped file
+# init can regenerate; a new init-gen output is registered here alongside its manifest class.
+INIT_GEN_OUTPUTS = frozenset({"docs/claugentic-ARCHITECTURE_TREE.md"})
+
+
+def closure_gaps(ship: frozenset[str]) -> list[str]:
+    """Pass D. Return problem lines for any stripped adopter-relevant path NOT in HAS.
+
+    Pure over the manifest classes (`build_release.recreate_class`) + the injected shipped
+    set `ship` — no git/FS, hermetically testable. Asserts `NEEDS ⊆ HAS`:
+
+      NEEDS = the stripped adopter-relevant classes: `init-seed` ∪ `init-gen` ∪
+              `recreate-on-demand` ∪ `self-gate`. `config`/`dangle` are excluded (not
+              adopter-relevant NEEDS — see the module docstring).
+      HAS   = per class: init-seed → the `_X.md` seed is in `ship`; init-gen → the path is a
+              known INIT_GEN_OUTPUTS generator output; recreate-on-demand → the class IS its
+              own attestation (accepted unconditionally — NOT init-producibility);
+              self-gate → the script is genuinely stripped (its ship/strip status is
+              self-consistent — `is_dev_only` is True, which every manifest key satisfies).
+
+    A gap = a stripped NEEDS path whose HAS source cannot vouch for it (e.g. an init-seed doc
+    whose `_X.md` seed was never shipped, or an init-gen output not registered as a generator
+    output). That is a REAL latent release/init-contract break — fix the wiring (ship the seed
+    / register the generator output / re-annotate the class), never weaken this check.
+
+    INCLUDE_GLOBS carve-out (honored by construction): the tree-script's adopter-owned
+    `INCLUDE_GLOBS = [ … ]` region is the ONE per-repo knob init writes/refreshes (init's
+    body-compare excludes it — skills/init/SKILL.md). It lives in a SHIPPED file, and NEEDS is
+    derived ONLY from stripped manifest classes, so the glob region is never a closure NEEDS —
+    the carve-out is honored exactly as init's body-compare honors it (the region is excluded).
+    """
+    problems: list[str] = []
+    for path in sorted(_paths_in_classes("init-seed")):
+        seed = _init_seed_of(path)
+        if seed not in ship:
+            problems.append(
+                f"{path}: `init-seed` class but its seed `{seed}` is NOT shipped — init cannot "
+                f"recreate it, so the stripped path dangles for an adopter (ship the seed, or "
+                f"re-annotate its recreate-class in build_release.DEV_ONLY_PATH_CLASSES)."
+            )
+    for path in sorted(_paths_in_classes("init-gen")):
+        if path not in INIT_GEN_OUTPUTS:
+            problems.append(
+                f"{path}: `init-gen` class but it is NOT a known init generator output "
+                f"(check_shipped_content.INIT_GEN_OUTPUTS) — init would not regenerate it, so the "
+                f"stripped path dangles for an adopter (register the generator output, or "
+                f"re-annotate its recreate-class in build_release.DEV_ONLY_PATH_CLASSES)."
+            )
+    # `recreate-on-demand`: the class IS its own HAS attestation — its members are BY DESIGN not
+    # init-produced (workflow-lazy / agent-authored / user-authored). Accepted via the class; the
+    # closure does NOT hard-require init-producibility for them (the plan-gate's taxonomy fix).
+    #
+    # `self-gate`: the script is stripped AND self-consistent. Every NEEDS path comes from the
+    # manifest (so `is_dev_only` is True — it IS stripped); a shipped file mentioning one as a
+    # needed artifact is Pass A.a/A.b's concern. Here the class is self-attesting: a stripped
+    # harness-self script needs no adopter recreation (it never runs in an adopter repo). Both
+    # classes are thus closed by construction — asserted below so the coverage is non-vacuous.
+    for path in _paths_in_classes("recreate-on-demand", "self-gate"):
+        if not br.is_dev_only(path):
+            problems.append(
+                f"{path}: classified `{br.recreate_class(path)}` but is NOT stripped — a NEEDS "
+                f"path must be a genuine strip-manifest member (its ship/strip status is incoherent)."
+            )
+    return problems
 
 
 def valid_roster(agent_basenames: set[str], skill_basenames: set[str]) -> frozenset[str]:
@@ -331,10 +457,11 @@ def _fs_skill_basenames(root: Path) -> set[str]:
 def evaluate(root: Path) -> tuple[list[str], list[str], str]:
     """Return (problem_lines, warning_lines, success_summary). Empty problems == no breach.
 
-    Reads the shipped tree ONCE, then runs the four passes. Markdown-only pass (B) filters
+    Reads the shipped tree ONCE, then runs the five passes. Markdown-only pass (B) filters
     to `*.md`; the JS-only pass (C) filters to `*.js`; the path passes (A.a/A.b) scan every
-    shipped text. warning_lines (A.b) never change the exit code. Fails loud on the git/FS
-    boundary (the caller surfaces the raise).
+    shipped text; the closure pass (D) is pure over the strip manifest + the shipped SET.
+    warning_lines (A.b) never change the exit code. Fails loud on the git/FS boundary (the
+    caller surfaces the raise).
     """
     ship = _shipped_files()
     texts = _read_shipped_texts(root, ship)
@@ -347,6 +474,7 @@ def evaluate(root: Path) -> tuple[list[str], list[str], str]:
     problems += scan_non_ascii_js(js_texts)              # Pass C (engine *.js only)
     problems += scan_namespace(md_texts, valid)          # Pass B (markdown only)
     problems += scan_dangling(texts, dangling_paths())    # Pass A.a (all shipped text)
+    problems += closure_gaps(frozenset(ship))            # Pass D (NEEDS ⊆ HAS, manifest)
     warnings = scan_gate_caveats(texts, HARNESS_SELF_SCRIPTS)  # Pass A.b (WARN)
 
     if problems:
@@ -354,7 +482,7 @@ def evaluate(root: Path) -> tuple[list[str], list[str], str]:
     summary = (
         f"OK: scanned {len(ship)} shipped files ({len(md_texts)} markdown, {len(js_texts)} js) "
         f"— no stranded namespace tokens, no dangling stripped-path references, "
-        f"no non-ASCII in engine *.js."
+        f"no non-ASCII in engine *.js, referential closure holds (NEEDS ⊆ HAS)."
     )
     return ([], warnings, summary)
 
