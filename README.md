@@ -4,6 +4,8 @@ A Claude Code plugin that turns AI coding into a **disciplined, reviewable proce
 
 You steer with plain-English decisions; it does the engineering one reviewed slice at a time — and it's **honest about the difference between what it checked mechanically and what's its own judgment.**
 
+The mission is **addractive** software — *attractive + addictive by merit*: earned pull through craft and delight, the honest opposite of dark-pattern "addiction" (no traps, no manipulation). The harness doesn't promise beautiful software — it **forces the craft question**, **checks the safety and accessibility floor** (mechanically where your tooling is wired, by reviewer judgment otherwise), and **routes the taste verdict to you.** It never certifies "beautiful"; it raises the bar and hands you the call.
+
 ## The four commands
 
 - **`/claugentic-dev-harness:init`** — set it up in your repo. Adds a codebase map, a quality-standards catalog, and the workflow docs. Never overwrites your content; re-run any time to update.
@@ -54,7 +56,7 @@ The harness's whole pitch is honesty, so here's the straight version:
 ## Under the hood *(optional)*
 
 - A **staged workflow** (`docs/claugentic-WORKFLOW.md`): Triage → Discuss → Plan → Review → Spec → **Approve** → Implement → Verify → Land. Small changes skip straight to Implement; only substantial work runs the full pipeline.
-- **10 specialist sub-agents** (`.claude/agents/`) — a plan critic, a builder, a verifier, a product designer, a **product critic** that pushes your spec to be more ambitious, per-standard reviewers, an anti-over-engineering skeptic, and an honesty reviewer — so the main agent stays focused on your decisions.
+- **9 specialist sub-agents** (`.claude/agents/`) — a plan critic, a builder, a **product designer** that also pushes your spec to be more ambitious, per-standard reviewers, an anti-over-engineering skeptic, a finding double-checker, a runtime QA agent, an honesty reviewer, and a retrospective harvester — so the main agent stays focused on your decisions.
 - A relevance-loaded **standards catalog** (`docs/claugentic-standards/`, ISO/IEC 25010-anchored), with each finding labeled by how confidently it was checked.
 
 `init` generates a file-by-file map of your repo at `docs/claugentic-ARCHITECTURE_TREE.md`, kept current by the codebase-map check. License: **Apache-2.0**.

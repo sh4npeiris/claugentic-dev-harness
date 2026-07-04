@@ -6,7 +6,7 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 
 ## Root
 
-- `README.md` — open for the adopter-facing pitch: what the plugin is + its value, the four commands (init · product · audit · build), install/update, how the reviewed pipeline works, honest status.
+- `README.md` — open for the adopter-facing pitch: what the plugin is + its value, the "addractive" craft-mission headline (earned pull, honest), the four commands (init · product · audit · build), install/update, how the reviewed pipeline works, honest status.
 - `CLAUDE.md` — open for this repo's agent guidance: engineering principles, harness discipline, workflow pointer, DoD pointer to `docs/claugentic-WORKFLOW.md`.
 - `.gitignore` — open when changing what's tracked: ignores local junk + build artifacts; shares `.claude/{agents,plans,settings.json}`, ignores only `.claude/settings.local.json`.
 - `.gitattributes` — line-ending normalization (`* text=auto eol=lf`, scripts forced LF) for a cross-platform plugin.

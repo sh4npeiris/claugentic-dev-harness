@@ -50,8 +50,10 @@ Acceptance criteria are how you check it's kept.*
   (every async surface has all three). Flow-completeness (no dead ends) is the same standard's
   *User-flow completeness* section. **Point at the standard; don't re-describe it here.** Name
   only which states *this* surface actually has.
-- **What good feels like** — the experience qualities that matter here (look-and-feel, perceived
-  performance, the feeling you're going for), in plain English.
+- **What good feels like** — the experience qualities that matter here (perceived performance, the
+  feeling you're going for), in plain English. Name the craft intent keyed off the project's design
+  language (`docs/claugentic-PRODUCT.md` → *Per-project design language*): **visual** (the look),
+  **motion** (how it moves / transitions), **voice** (the tone of the copy).
 
 *(Repeat the `### <Feature name>` block per feature. Each feature heading must appear verbatim in
 its criteria's `feature` field below.)*
