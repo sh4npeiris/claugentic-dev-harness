@@ -19,6 +19,55 @@ VALID = csc.valid_roster(
 )
 
 
+class TestNonAsciiJsPassC:
+    def test_non_ascii_js_is_flagged(self):
+        # An em-dash (U+2014) in a shipped engine *.js is a HARD problem.
+        texts = {"engine/audit.js": "const x = 1; // a comment — with an em-dash\n"}
+        problems = csc.scan_non_ascii_js(texts)
+        assert len(problems) == 1
+        assert "engine/audit.js:1" in problems[0]
+        assert "U+2014" in problems[0]
+
+    def test_ascii_only_js_is_clean(self):
+        texts = {"engine/qa.js": "const x = 1; // plain ASCII comment -- all good\n"}
+        assert csc.scan_non_ascii_js(texts) == []
+
+    def test_first_offender_reported_with_line_number(self):
+        # Two offending lines, but only the FIRST per file is reported (enough to locate).
+        texts = {"engine/verify.js": "line one ascii\nline two has → arrow\nline three —\n"}
+        problems = csc.scan_non_ascii_js(texts)
+        assert len(problems) == 1
+        assert "engine/verify.js:2" in problems[0]
+        assert "U+2192" in problems[0]
+
+    def test_multiple_js_each_flagged(self):
+        texts = {
+            "engine/audit.js": "ok\n—\n",
+            "engine/qa.js": "fine×\n",
+        }
+        problems = csc.scan_non_ascii_js(texts)
+        assert len(problems) == 2
+        assert any("engine/audit.js" in p for p in problems)
+        assert any("engine/qa.js" in p for p in problems)
+
+    def test_non_ascii_js_drives_evaluate_exit_1(self, monkeypatch, tmp_path):
+        # End-to-end through evaluate(): a shipped `engine/x.js` with a non-ASCII char produces
+        # a HARD problem (drives main() to exit 1); a `.md` em-dash does not.
+        ship = ["engine/x.js", "docs/x.md"]
+        texts = {
+            "engine/x.js": "const x = 1; // em-dash —\n",
+            "docs/x.md": "prose em-dash — fine\n",
+        }
+        monkeypatch.setattr(csc, "_shipped_files", lambda: ship)
+        monkeypatch.setattr(csc, "_read_shipped_texts", lambda root, s: texts)
+        monkeypatch.setattr(csc, "_fs_agent_basenames", lambda root: set())
+        monkeypatch.setattr(csc, "_fs_skill_basenames", lambda root: set())
+        problems, _warnings, summary = csc.evaluate(tmp_path)
+        assert summary == ""
+        assert any("engine/x.js" in p and "U+2014" in p for p in problems)
+        assert not any("docs/x.md" in p for p in problems)  # .md em-dash never flagged
+
+
 class TestNamespacePassB:
     def test_stranded_agent_token_is_flagged(self):
         texts = {

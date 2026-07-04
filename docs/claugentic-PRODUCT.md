@@ -147,7 +147,7 @@ load-bearing — and nowhere else (decision-fatigue is a failure mode, not a saf
    the whole list before anything builds; then the run has only the lighter per-item land
    confirms + the safety pauses left.
 3. **Re-audit → continue-or-re-triage** — after each item, a **scoped re-audit** over the
-   touched `(module × dir)` cells (honest scope — cross-file fallout beyond those cells is
+   touched `(module|dir)` cells (honest scope — cross-file fallout beyond those cells is
    owned by the closing full audit; the harness has no dependency graph and claims none). If
    nothing material surfaced, **auto-continue** the agreed list. If material new/obsoleted
    work surfaced, **pause to re-triage** — the user re-picks before more is built.

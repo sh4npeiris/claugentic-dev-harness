@@ -20,8 +20,20 @@ release tooling" rule): this gate is HARNESS-SELF, it reasons ABOUT the shipped 
 and it is itself stripped from the release (DEV_ONLY_FILES) — it never runs in an
 adopter repo, so there is no copied-gate to strand.
 
-THREE passes over the shipped-file texts (pure cores take an injected `{path: text}`
+FOUR passes over the shipped-file texts (pure cores take an injected `{path: text}`
 map so they are hermetically testable without git):
+
+  Pass C — engine ASCII-only (HARD, exit 1). For each shipped `*.js` (= the 4
+    Workflow-orchestrated `engine/*.js` scripts), flag any character whose codepoint is
+    > U+007F (non-ASCII). EXACT and MECHANICAL — a deterministic codepoint check, no
+    heuristic (distinct from Pass A.b's WARN heuristic). The engine scripts pass through
+    arbitrary adopter permission/approval layers via the Workflow tool; a layer strict
+    about non-ASCII silently demotes the engine to prose-fallback (the DistrictSync
+    2026-06-25 validation), so ASCII-only source is a durable robustness guarantee. The
+    existing cores operate on the UTF-8-DECODED `{path: text}` map, so this checks decoded
+    codepoints > 0x7F (equivalent to "any byte > 0x7F" for non-ASCII detection, and
+    consistent with the text-based cores). Reports the first offending line + codepoint so
+    a regression is locatable.
 
   Pass B — namespace (HARD, exit 1). Regex `claugentic-dev-harness:([a-z-]+)` over all
     shipped markdown; flag any captured token NOT in the VALID set. The
@@ -56,8 +68,9 @@ map so they are hermetically testable without git):
     caveated shipped uses (running the gate with a "skip in an adopter" note), unlike a true
     dangle which has no legitimate adopter use at all.
 
-HONESTY (the #1 rule): this gate mechanically pins the EXACT-LITERAL cases (A.a dangling
-paths + B stranded roster). A.b is WARN-heuristic. The gate is a RUN-GATE (CI + the
+HONESTY (the #1 rule): this gate mechanically pins the EXACT cases (A.a dangling paths +
+B stranded roster + C non-ASCII engine codepoints — C is an exact codepoint check, the
+strongest/most mechanical of the four). A.b is WARN-heuristic. The gate is a RUN-GATE (CI + the
 Definition-of-Done suite), NOT hook-wired — the one hook-enforced gate stays the
 architecture-tree check. It does NOT make the release/init contract "fully mechanically
 content-enforced": the membership test + model-upheld review still complement it.
@@ -189,6 +202,28 @@ def valid_roster(agent_basenames: set[str], skill_basenames: set[str]) -> frozen
 # ─────────────────────────────────────────────────────────────────────────────
 # Pure cores (over injected {path: text} maps — no git, hermetically testable)
 # ─────────────────────────────────────────────────────────────────────────────
+def scan_non_ascii_js(js_texts: dict[str, str]) -> list[str]:
+    """Pass C. Return problem lines for any non-ASCII (codepoint > U+007F) char in a `*.js`.
+
+    EXACT/mechanical — flags the first offending codepoint per file with its line number and
+    `U+XXXX` value so a regression is diagnosable. Operates on the UTF-8-decoded text (the
+    other cores' shape); for non-ASCII detection a decoded codepoint > 0x7F is equivalent to
+    any raw byte > 0x7F.
+    """
+    problems: list[str] = []
+    for path in sorted(js_texts):
+        for lineno, line in enumerate(js_texts[path].splitlines(), start=1):
+            offender = next((ch for ch in line if ord(ch) > 0x7F), None)
+            if offender is not None:
+                problems.append(
+                    f"{path}:{lineno}: non-ASCII char `{offender}` (U+{ord(offender):04X}) "
+                    f"— shipped engine `*.js` must be ASCII-only (>U+007F can be rejected by an "
+                    f"adopter's permission layer, silently demoting the engine to prose-fallback)."
+                )
+                break  # first offender per file is enough to locate + fail the regression
+    return problems
+
+
 def scan_namespace(md_texts: dict[str, str], valid: frozenset[str]) -> list[str]:
     """Pass B. Return problem lines for any `claugentic-dev-harness:<token>` not in `valid`."""
     problems: list[str] = []
@@ -293,17 +328,20 @@ def _fs_skill_basenames(root: Path) -> set[str]:
 def evaluate(root: Path) -> tuple[list[str], list[str], str]:
     """Return (problem_lines, warning_lines, success_summary). Empty problems == no breach.
 
-    Reads the shipped tree ONCE, then runs the three passes. Markdown-only passes (B) filter
-    to `*.md`; the path passes (A.a/A.b) scan every shipped text. warning_lines (A.b) never
-    change the exit code. Fails loud on the git/FS boundary (the caller surfaces the raise).
+    Reads the shipped tree ONCE, then runs the four passes. Markdown-only pass (B) filters
+    to `*.md`; the JS-only pass (C) filters to `*.js`; the path passes (A.a/A.b) scan every
+    shipped text. warning_lines (A.b) never change the exit code. Fails loud on the git/FS
+    boundary (the caller surfaces the raise).
     """
     ship = _shipped_files()
     texts = _read_shipped_texts(root, ship)
     md_texts = {p: t for p, t in texts.items() if p.endswith(".md")}
+    js_texts = {p: t for p, t in texts.items() if p.endswith(".js")}
 
     valid = valid_roster(_fs_agent_basenames(root), _fs_skill_basenames(root))
 
     problems: list[str] = []
+    problems += scan_non_ascii_js(js_texts)              # Pass C (engine *.js only)
     problems += scan_namespace(md_texts, valid)          # Pass B (markdown only)
     problems += scan_dangling(texts, dangling_paths())    # Pass A.a (all shipped text)
     warnings = scan_gate_caveats(texts, HARNESS_SELF_SCRIPTS)  # Pass A.b (WARN)
@@ -311,8 +349,9 @@ def evaluate(root: Path) -> tuple[list[str], list[str], str]:
     if problems:
         return (problems, warnings, "")
     summary = (
-        f"OK: scanned {len(ship)} shipped files ({len(md_texts)} markdown) — "
-        f"no stranded namespace tokens, no dangling stripped-path references."
+        f"OK: scanned {len(ship)} shipped files ({len(md_texts)} markdown, {len(js_texts)} js) "
+        f"— no stranded namespace tokens, no dangling stripped-path references, "
+        f"no non-ASCII in engine *.js."
     )
     return ([], warnings, summary)
 

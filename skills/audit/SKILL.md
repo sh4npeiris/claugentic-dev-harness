@@ -20,7 +20,7 @@ Three phases, cheap → expensive, run end-to-end in one pass:
    it stays a conversation.)*
 2. **Audit** *(LIVE)* — **the orchestrator invokes `engine/audit.js`** (the Workflow tool) with
    the audit-plan as args; the script runs the FIND → PRUNE → VERIFY pipeline mechanically: a
-   `lens-reviewer` fan-out per `(module × dir)` cell at the dial's **depth**, coded dedup, a
+   `lens-reviewer` fan-out per `(module | dir)` cell at the dial's **depth**, coded dedup, a
    synthesis self-review prune, and **exactly one `finding-verifier` per surviving finding**
    (clean-context judge), with a deterministic budget cap + resume.
 3. **Backlog** *(LIVE)* — the script's **structured return** is rendered into the
@@ -216,7 +216,7 @@ Call the Workflow tool with:
     resume, not any single subagent's context).
   - `doneCells` — **on a resume run**, parse the existing backlog fence's status block (Phase 3)
     and pass its `done-cells` list; `[]` on a fresh run. The script never re-sweeps a done cell.
-  - `deferredFindings` — prior-run findings carrying the `deferred` (`⚠ not yet verified`) tag, fed
+  - `deferredFindings` — prior-run findings carrying the `deferred` (`! not yet verified`) tag, fed
     straight to VERIFY for re-checking.
   - `priorItems` — **on a resume run**, the prior pass's *resolved* items (`verified` /
     `unconfirmed` tags) parsed from the fence; the script merges them into the regenerated
@@ -238,7 +238,7 @@ surviving finding — **including blindspot-originated ones** — clean-context 
 input — never the finder's rationale). A lens batch (or the blind-spot pseudo-cell) that errors
 after one retry sends its cells to `pending` (the run goes `PARTIAL` — never a silent skip); the cap
 forces `PARTIAL` with exact `done`/`pending` cell lists for a deterministic resume (the blind-spot
-pseudo-cell `blindspot×(scope)` is capped/resumed like any cell).
+pseudo-cell `blindspot|(scope)` is capped/resumed like any cell).
 
 ### The structured return (what Phase 3 renders)
 
@@ -273,7 +273,7 @@ file — read it there):
 1. **Set the dial** (above) — depth per lens; at `thorough`, also the blind-spot sweep + the
    adversarial prune.
 2. **Load the audit-plan** from Phase 1.
-3. **Enumerate `(module × dir-or-package)` cells** — the deterministic unit; on resume, read the
+3. **Enumerate `(module | dir-or-package)` cells** — the deterministic unit; on resume, read the
    status block and continue from `pending`, never redoing a `done` cell.
 4. **Fan out lenses — one look per cell.** One `claugentic-dev-harness:lens-reviewer` (audit-scope mode) per module batch,
    in parallel, passed its module + scoped dirs + exclude-set + the dial's `depth`
@@ -388,7 +388,7 @@ user can clear the line themselves; the harness never silently second-guesses a 
    `missing-test-baseline` item emits even on a `PARTIAL` run (the script protects its key from the
    prune). The `{{DATE}}` placeholder is the **only** thing you fill in.
 2. **Every item carries exactly one verification phrase** (`(checked against the code)` /
-   `(could not confirm independently — model's assertion)` / `(⚠ not yet verified — re-run to
+   `(could not confirm independently -- model's assertion)` / `(! not yet verified -- re-run to
    confirm)`) — a *reduction of false confidence*, never a guarantee; refuted findings are dropped
    (their only trace is the run-report count). When Tiers 1+2 are both empty, the recommended
    starting point is the **terminal "sound" signal** — the explicit stop. The renderer handles all of
