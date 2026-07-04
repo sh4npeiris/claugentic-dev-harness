@@ -84,7 +84,7 @@ run** — earned per-repo, by evidence, never assumed:
   reversible judgments are flagged-and-continued, the irreversible class (c) is a return, never
   absorbed.)*
 
-Build-to-green is **a reduction of unwatched-run risk, never a substitute for the unbuilt deterministic trust-gates** (the land-gate hook · the secret-scan · the characterization-first hook — `docs/claugentic-DECISIONS.md` → The deterministic gates).
+Build-to-green is **a reduction of unwatched-run risk, never a substitute for the unbuilt deterministic trust-gates** (the land-gate hook · the secret-scan — `docs/claugentic-DECISIONS.md` → The deterministic gates; the characterization-enforcement hook was considered and **declined** — that discipline stays model-upheld by design).
 
 **The unlock conditions — judgment with stated evidence.** These checks are the skill reading your repo and saying what it found — honestly labeled model judgment, never a mechanical gate:
 
@@ -98,7 +98,7 @@ Build-to-green is **a reduction of unwatched-run risk, never a substitute for th
 
 > Build-to-green isn't earned here yet — here's exactly what's missing:
 > [one line per unmet condition, from the fixed lines below]
-> Build-to-green is a reduction of unwatched-run risk, never a substitute for the unbuilt deterministic trust-gates (the land-gate hook · the secret-scan · the characterization-first hook — none of these exist yet), and these checks are my judgment against the evidence I named, not a mechanical gate. Here's a watched run instead — the same pipeline, decision-gated: I drive it with you present, stopping for a real decision and flagging the reversible judgment-calls for you to review at the close.
+> Build-to-green is a reduction of unwatched-run risk, never a substitute for the unbuilt deterministic trust-gates (the land-gate hook · the secret-scan — neither exists yet; the characterization-enforcement hook was declined by design), and these checks are my judgment against the evidence I named, not a mechanical gate. Here's a watched run instead — the same pipeline, decision-gated: I drive it with you present, stopping for a real decision and flagging the reversible judgment-calls for you to review at the close.
 
 The fixed per-condition lines (angle-bracket slots filled per run from the evidence actually checked):
 - *CI running the deterministic gates — I found <no CI config | `<file>`, but it doesn't run <the missing gate commands>>.*
@@ -277,8 +277,8 @@ WORKFLOW's pause narration:
 > prove I didn't change its behavior — so I'll establish that baseline first.
 
 Then offer to build the test-baseline item instead. (This precondition is upheld by the
-implementer + the Verify gate — the durable `PreToolUse` hook does not exist yet; don't
-imply it does.)
+implementer + the Verify gate — a mechanical `PreToolUse` enforcement hook was declined by design;
+never imply a mechanical gate exists or is coming.)
 
 ### 3. Auto-drive Plan → Review *(Stages 2–3 — no pause)*
 

@@ -87,8 +87,9 @@ the failure or near-miss that taught it).
   added in a distinct authored-first step) is what makes the claim falsifiable.
 - **Provenance —** 2026-07-03 (plan 0030 Slice 3): the red-first-when-test-first-is-chosen wiring.
   **Model-upheld + Verify-gate-audited** (`synthesizer-gate` keys on the named observable artifact),
-  **NOT mechanically enforced** — the red-first/characterization `PreToolUse` hook that would enforce
-  it is unbuilt (never claim enforcement before it lands).
+  **NOT mechanically enforced — by design** — the red-first/characterization `PreToolUse` hook that
+  would enforce it was considered and DECLINED (0035 rejected 2026-07-04; model-upheld is the chosen
+  posture — the harness does not force test-first; never claim mechanical enforcement).
 
 ---
 

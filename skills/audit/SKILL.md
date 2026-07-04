@@ -399,15 +399,15 @@ user can clear the line themselves; the harness never silently second-guesses a 
    clean-context-judge parenthetical (never both) — and **on a prose-orchestrated run, also state that** in
    your conversational report.
 
-### Tag → discipline  *(the mapping lives in `docs/claugentic-WORKFLOW.md` — enforcement is not yet automated)*
+### Tag → discipline  *(the mapping lives in `docs/claugentic-WORKFLOW.md` — enforcement is model-upheld by design, not automated)*
 
 When the user later runs a backlog item through the pipeline, its **tag selects the discipline** —
 the full mapping lives once in **`docs/claugentic-WORKFLOW.md`** (→ *Executing an audit backlog item — tag →
 discipline*). The one part to reflect when **authoring**: a **`refactor`** on untested
 behavior-bearing code is **characterization-tests-first — it cannot start until its Tier-1
 "establish a test baseline" item is done.** Today that precondition is upheld by **the implementer
-stopping and asking**; the durable `PreToolUse` hook **does not exist yet** — so be honest in the
-backlog and **do not imply the hook (or any automatic gate) already exists.**
+stopping and asking**; a mechanical `PreToolUse` enforcement hook was **declined by design** — so be honest in the
+backlog and **never imply the hook (or any automatic gate) exists or is coming.**
 
 ### After the write — report to the user
 

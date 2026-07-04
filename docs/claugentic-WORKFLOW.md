@@ -237,11 +237,11 @@ The harness has three **finders** that surface candidate work — `audit` (engin
 
 | Tag | Discipline |
 |-----|-----------|
-| **`refactor`** | **Characterization-tests-first — a HARD precondition.** A refactor item on untested behavior-bearing code **cannot start until its Tier-1 "establish a test baseline" item is done**; if that baseline is absent, the implementer **stops and asks** rather than touching code. Durable enforcement will be the Trust-track `PreToolUse` characterization hook (the first Phase-1 item); **until that hook lands, this is upheld by the implementer + the Verify gate** — not yet automatic. **Say this to the user when the pause fires:** *"Before I tidy this code I need to capture what it currently does as a test, or I can't prove I didn't change its behavior — so I'll establish that baseline first."* |
+| **`refactor`** | **Characterization-tests-first — a HARD precondition.** A refactor item on untested behavior-bearing code **cannot start until its Tier-1 "establish a test baseline" item is done**; if that baseline is absent, the implementer **stops and asks** rather than touching code. This is **model-upheld by design** — upheld by the implementer + the Verify gate; a mechanical characterization-enforcement `PreToolUse` hook was considered and **declined** (0035, 2026-07-04 — the harness does not force characterization-first), never a coming mechanical gate. **Say this to the user when the pause fires:** *"Before I tidy this code I need to capture what it currently does as a test, or I can't prove I didn't change its behavior — so I'll establish that baseline first."* |
 | **`capability-upgrade`** | Migration safety — feature-flag the new path · dual-write / shadow-read · keep a rollback. |
 | **`dependency-health`** | Update + verify — bump, run the full suite green, check the changelog for breaking changes. |
 | **`bug`** | Reproduce-first — a **failing test that captures the bug**, then the fix that makes it pass. *(Diagnosis front-end — model-upheld option: the harness governs *fixing* a known bug, but has no *investigation* procedure for an **unknown** failure. For a failure whose cause you don't yet know, **consider the bundled `/debug` skill** to reproduce+isolate it first; its output then **enters the pipeline as a `bug` item** and runs reproduce-first from there. `/debug` diagnoses; the harness fixes — it is an option the agent may reach for, never wired harness behavior.)* |
-| **`feature`** | The standard pipeline; **test-first-when-chosen** adds an independent-test-author red-first step (**model-upheld; enforcement waits for the unbuilt hook**) — never a precondition that fires by default. |
+| **`feature`** | The standard pipeline; **test-first-when-chosen** adds an independent-test-author red-first step (**model-upheld by design — mechanical enforcement declined**) — never a precondition that fires by default. |
 
 ### Choosing the approach for the work at hand — the methodology toolbox
 
@@ -251,7 +251,7 @@ The harness fits the approach to the **nature of the work at hand**, per work-it
 
 | Practice | Fits when… | Harness stance |
 |----------|-----------|----------------|
-| **TDD** | logic-heavy work · well-understood requirements · a `bug` or `refactor` | **embodied** — red-first is already the `bug`/`refactor` discipline; for `feature` work it's an available *when-chosen* option — model-upheld, never a default (the per-work test-author mechanism is wired into the `implementer` — model-upheld via that prompt + the Verify gate; enforcement waits for the unbuilt hook), one tool among many. |
+| **TDD** | logic-heavy work · well-understood requirements · a `bug` or `refactor` | **embodied** — red-first is already the `bug`/`refactor` discipline; for `feature` work it's an available *when-chosen* option — model-upheld, never a default (the per-work test-author mechanism is wired into the `implementer` — model-upheld via that prompt + the Verify gate; mechanical enforcement declined by design), one tool among many. |
 | **ATDD / BDD** | user-facing behavior with acceptance criteria | **structurally embodied** — Stage-4 machine-readable acceptance criteria + Stage-7 runtime-QA-per-criterion + the DoD "acceptance criteria met" gate. |
 | **DDD** | complex / rich domain logic | **accommodated** — the `docs/claugentic-standards/` catalog + the architect pass support it; never imposed. |
 | **Trunk-based** | continuous integration · small batches | **embodied** — the harness's small-batch / land-slice-complete grain. |
