@@ -900,6 +900,40 @@ class TestApplyBumpOrchestration(TestApplyHookBypass):
         out = TestApplyHookBypass._git(repo, "tag", "--list").stdout
         return [t.strip() for t in out.splitlines() if t.strip()]
 
+    @staticmethod
+    def _release_manifest_version(repo: Path, manifest: str) -> str:
+        """The plugin `version` of `manifest` as COMMITTED on the built `release` branch (read via
+        `git show release:<path>`, NOT the working tree) — the release ADVERTISED version.
+
+        Handles BOTH manifest shapes: plugin.json carries `version` at top level; marketplace.json
+        carries it under `plugins[0].version` (matching the source-of-truth pair the bump writes)."""
+        import json as _json
+
+        out = TestApplyHookBypass._git(repo, "show", f"release:{manifest}")
+        out.check_returncode()
+        data = _json.loads(out.stdout)
+        return data["version"] if "version" in data else data["plugins"][0]["version"]
+
+    def test_built_release_carries_the_bumped_version(self, repo):
+        # THE regression this whole fix exists for: the fixture's HEAD manifests are at 0.4.0, and we
+        # bump to 0.5.0. The bump lands in the dev WORKING TREE (uncommitted), while the build worktree
+        # is created from the COMMITTED HEAD — so without the copy-into-built-worktree fix the built
+        # `release` would ship 0.5.0 content advertised as HEAD's 0.4.0 (the forgotten-bump footgun).
+        # Assert the BUILT release branch's BOTH manifests carry 0.5.0 (the bump), not HEAD's 0.4.0.
+        assert br._apply(bump="0.5.0") == 0
+        assert self._release_manifest_version(repo, br.PLUGIN_MANIFEST) == "0.5.0"
+        assert self._release_manifest_version(repo, br.MARKETPLACE_MANIFEST) == "0.5.0"
+        # And HEAD stayed at 0.4.0 — the bump is UNCOMMITTED on the current branch (abort-safe).
+        head_plugin = self._git(repo, "show", "HEAD:.claude-plugin/plugin.json")
+        assert '"version": "0.4.0"' in head_plugin.stdout
+
+    def test_plain_apply_release_carries_head_version_unchanged(self, repo):
+        # The no-`--bump` path must stay byte-identical to the pre-fix behavior: build from HEAD, so
+        # the built release carries HEAD's version (0.4.0) exactly — the copy only fires on `--bump`.
+        assert br._apply() == 0
+        assert self._release_manifest_version(repo, br.PLUGIN_MANIFEST) == "0.4.0"
+        assert self._release_manifest_version(repo, br.MARKETPLACE_MANIFEST) == "0.4.0"
+
     def test_apply_bump_writes_both_manifests_and_prints_gated_command(self, repo, capsys):
         # Bump to a NEW version (0.4.0 -> 0.5.0). First release has no tag, so the version-increase
         # guard allows it; --bump writes both manifests; the build succeeds and prints the command.

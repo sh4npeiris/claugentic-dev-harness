@@ -561,6 +561,22 @@ def _apply(bump: str | None = None) -> int:
     try:
         # --force -B resets/creates `release` at HEAD in a throwaway worktree; the dev tree is untouched.
         _git("-C", str(root), "worktree", "add", "--force", "-B", RELEASE_BRANCH, tmp, "HEAD")
+        # The built worktree is HEAD (the COMMITTED tree) — but `--bump` writes the version into the
+        # dev working tree UNCOMMITTED (abort-safe by design: an aborted run is `git checkout`-able).
+        # So HEAD's manifests still carry the OLD version; copy the working-tree's bumped manifests
+        # into the built worktree so the committed release ADVERTISES the version it SHIPS (a release
+        # carrying content bumped to X.Y.Z but a manifest reading the old version is the exact
+        # forgotten-bump footgun the version guard exists to prevent, hiding inside the flow). Only on
+        # `--bump`: a plain `--apply` builds byte-identically from HEAD (the manifests are unchanged).
+        if bump is not None:
+            for rel in VERSIONED_MANIFESTS:
+                (Path(tmp) / rel).write_text(
+                    (root / rel).read_text(encoding="utf-8"), encoding="utf-8"
+                )
+                # Stage the overwrite: the release commit is `git commit` (no `-a`), so an unstaged
+                # working-tree edit would NOT be committed — the bumped manifests must be staged to
+                # reach the built release, exactly as the strip's `git rm` stages its removals.
+                _git("-C", tmp, "add", "--", rel)
         for f in strip:
             _git("-C", tmp, "rm", "-q", "-r", "--ignore-unmatch", "--", f)
         # P0-2 (Slice 5): validate the BUILT (stripped) tree BEFORE committing — a break the strip
