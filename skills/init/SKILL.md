@@ -626,6 +626,9 @@ volatile content** so a re-write is byte-identical:
   `docs/claugentic-ARCHITECTURE_TREE.md`, `docs/claugentic-DECISIONS.md`, `docs/claugentic-ROADMAP.md`, `docs/claugentic-PLAYBOOK.md`,
   and the optional engineering charter → `docs/claugentic-CHARTER.md` (the living per-work-type
   methodology record — empty ≡ the harness's default behavior). A stable pointer line, byte-identical every run.
+  - A **static adoption-notes pointer**: `docs/claugentic-PLAYBOOK.md` covers how to drive the
+    harness plus adoption notes — including that the architecture-tree check runs at commit time,
+    not while you edit. One fixed line, byte-identical every run (no volatile content).
 - The **engineering principles** (SOLID > DRY > KISS > YAGNI; validate at boundaries;
   fail loudly; configurable over hardcoded; single source of truth).
 - A **workflow pointer** ("substantial work follows `docs/claugentic-WORKFLOW.md`").
