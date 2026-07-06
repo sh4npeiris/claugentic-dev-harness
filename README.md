@@ -25,6 +25,10 @@ The skills, in the order you use them:
 
 **Then what?** New / empty project → just tell the agent what to build (run `:product` first for the vision). Existing codebase → `:audit`, then `:build`.
 
+Here's how those commands fit together — install once, discover work, build it through a reviewed pipeline, and keep it healthy:
+
+![The claugentic-dev-harness command map — install then /init scaffolds your repo; /audit (existing code) or /product (new project) feed a backlog you pick from; /build works each item through plan → your approval → build → verify → land into a landed change; /doctor and /condense keep the harness healthy. You can also skip the finders and just describe what you want.](docs/diagrams/harness-usage-flow.png)
+
 ---
 
 The mission is **addractive** software — *attractive + addictive by merit*: earned pull through craft and delight, the honest opposite of dark-pattern "addiction" (no traps, no manipulation). The harness doesn't promise beautiful software — it **forces the craft question**, **checks the safety and accessibility floor** (mechanically where your tooling is wired, by reviewer judgment otherwise), and **routes the taste verdict to you.** It never certifies "beautiful"; it raises the bar and hands you the call.
@@ -59,5 +63,9 @@ The harness's whole pitch is honesty, so here's the straight version:
 - A **staged workflow** (`docs/claugentic-WORKFLOW.md`): Triage → Discuss → Plan → Review → Spec → **Approve** → Implement → Verify → Land. Small changes skip straight to Implement; only substantial work runs the full pipeline.
 - **9 specialist sub-agents** (`.claude/agents/`) — a plan critic, a builder, a **product designer** that also pushes your spec to be more ambitious, per-standard reviewers, an anti-over-engineering skeptic, a finding double-checker, a runtime QA agent, an honesty reviewer, and a retrospective harvester — so the main agent stays focused on your decisions.
 - A relevance-loaded **standards catalog** (`docs/claugentic-standards/`, ISO/IEC 25010-anchored), with each finding labeled by how confidently it was checked.
+
+Here's the full lifecycle of a substantial change — what `:build` runs each item through, and how every landed change feeds back to improve the harness itself:
+
+![The claugentic-dev-harness pipeline — a change flows through four beats: FRAME (triage → discuss → plan → review → spec), APPROVE (your sign-off, with no code before it), BUILD (implement → verify against the Definition of Done: mechanical [D] gates plus reviewer [J] sign-offs), and CLOSE (land → retrospect). A methodology charter fits the approach to the work, and a Stage-9 learning loop promotes lessons back into the standards, agents, and workflow.](docs/diagrams/harness-journey.png)
 
 **Requires** `git` and **Python 3** (for the codebase-map check; without it the agent maintains the map by hand). Public + **Apache-2.0** — install at **user scope** to use it across all your repos. `init` generates a file-by-file map of your repo at `docs/claugentic-ARCHITECTURE_TREE.md`, kept current by the codebase-map check.
