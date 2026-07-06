@@ -28,6 +28,7 @@ import re
 from pathlib import Path
 
 import build_release as br  # the SINGLE ship classifier — see check_shipped_content.py
+import check_shipped_content as csc  # reuse its shipped-text reader (binary-asset skip)
 
 # The orphaned-trigger phrasing: an instruction to condense/act *when the WARN fires* — the
 # exact adopter-unreachable cue. Deliberately narrow: it keys on the imperative "…WARN fires"
@@ -61,10 +62,14 @@ def _repo_root() -> Path:
 
 
 def _shipped_texts() -> dict[str, str]:
-    """Every SHIPPED file's text, keyed by repo-relative path (reuses the one ship classifier)."""
+    """Every SHIPPED TEXT file's content, keyed by repo-relative path.
+
+    Reuses the ONE ship classifier (`br.classify`) AND the scanner's `_read_shipped_texts` — the
+    single source of the "skip known-binary shipped assets (e.g. `docs/diagrams/*.png`), fail-loud
+    on text corruption" contract — so this scan reads exactly the text files the gate scans."""
     root = _repo_root()
-    ship = br.classify(br._tracked_files())[0]
-    return {rel: (root / rel).read_text(encoding="utf-8") for rel in ship}
+    ship = list(br.classify(br._tracked_files())[0])
+    return csc._read_shipped_texts(root, ship)
 
 
 class TestOrphanedTriggerPattern:

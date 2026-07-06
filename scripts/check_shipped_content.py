@@ -138,6 +138,24 @@ from pathlib import Path
 import build_release as br  # the SINGLE ship classifier — see module docstring
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Binary shipped assets — SKIPPED from the text scan (see `_read_shipped_texts`)
+# ─────────────────────────────────────────────────────────────────────────────
+# A shipped file whose lowercased suffix is in this denylist is a legitimate BINARY asset
+# (an image / font / archive — e.g. the README's `docs/diagrams/*.png` flow diagrams). It has
+# no TEXT for any pass to scan (all four text passes operate on decoded `{path: text}`), so it
+# is skipped from the text map rather than UTF-8-decoded (a PNG's `0x89` magic byte is not valid
+# UTF-8 and would fail-loud). The skip is by KNOWN-BINARY EXTENSION ONLY — a non-binary-extension
+# file that fails to decode is genuine corruption and STILL fails loud (see `_read_shipped_texts`).
+BINARY_EXTENSIONS = frozenset(
+    {
+        ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".bmp",  # images
+        ".pdf", ".zip", ".gz", ".tar",                              # docs / archives
+        ".woff", ".woff2", ".ttf", ".otf", ".eot",                 # fonts
+        ".mp4", ".mov", ".mp3", ".wav",                            # media
+    }
+)
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Pass B — namespace VALID-set sources
 # ─────────────────────────────────────────────────────────────────────────────
 # The `claugentic-dev-harness:<token>` namespace. Capture only `[a-z-]+` so the full
@@ -468,10 +486,21 @@ def _shipped_files(root: Path) -> list[str]:
 
 
 def _read_shipped_texts(root: Path, ship: list[str]) -> dict[str, str]:
-    """Read each shipped file's text (UTF-8). Fails LOUD on a read/decode error — a file in
-    the ship set that cannot be read is a real problem, never silently skipped."""
+    """Read each shipped TEXT file's content (UTF-8) into the scan map.
+
+    Known-binary shipped ASSETS (suffix in `BINARY_EXTENSIONS` — e.g. the README's
+    `docs/diagrams/*.png` diagrams) are SKIPPED: they are legitimate shipped files with no text
+    for any pass to scan, and UTF-8-decoding one (a PNG's `0x89` magic byte) would fail-loud.
+
+    The fail-loud-on-read/decode-error contract holds for TEXT files (everything NOT in the
+    binary denylist): a file in the ship set that cannot be read, or a non-binary-extension file
+    whose bytes are not valid UTF-8 (genuine corruption), is a real problem — surfaced, never
+    silently skipped. The skip is by KNOWN-BINARY EXTENSION ONLY, so real text corruption is
+    never masked."""
     texts: dict[str, str] = {}
     for rel in ship:
+        if Path(rel).suffix.lower() in BINARY_EXTENSIONS:
+            continue  # binary asset — no text to scan (fail-loud stays for text files only)
         path = root / rel
         texts[rel] = path.read_text(encoding="utf-8")
     return texts

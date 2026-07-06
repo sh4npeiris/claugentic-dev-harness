@@ -419,6 +419,69 @@ class TestMainExitCodes:
         assert "ERROR" in capsys.readouterr().err
 
 
+class TestReadShippedTextsBinarySkip:
+    """`_read_shipped_texts` — binary shipped ASSETS are skipped; text corruption still fails LOUD.
+
+    The README ships binary PNG diagrams (`docs/diagrams/*.png`). Reading a PNG as UTF-8 raises
+    `UnicodeDecodeError` on its `0x89` magic byte, so a known-binary-extension file must be SKIPPED
+    from the text map (it has no text for any pass to scan). Crucially the skip is by KNOWN-BINARY
+    EXTENSION ONLY: a non-binary-extension file that fails to UTF-8-decode is genuine corruption and
+    STILL fails loud — that fail-loud-on-corruption contract must not be masked."""
+
+    # A minimal real PNG header — the exact bytes that broke the live scan (magic byte 0x89).
+    _PNG_BYTES = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+
+    def test_binary_png_is_skipped_and_does_not_raise(self, tmp_path):
+        # A shipped `.png` with non-UTF-8 bytes: the scan completes and the file is SKIPPED from
+        # the text map (NOT read as text, so NO UnicodeDecodeError). This is the bug-capture — with
+        # the binary-skip removed this call raises UnicodeDecodeError on the 0x89 magic byte.
+        (tmp_path / "docs").mkdir()
+        (tmp_path / "docs" / "diagram.png").write_bytes(self._PNG_BYTES)
+        (tmp_path / "docs" / "notes.md").write_text("plain text\n", encoding="utf-8")
+        ship = ["docs/diagram.png", "docs/notes.md"]
+        texts = csc._read_shipped_texts(tmp_path, ship)
+        assert "docs/diagram.png" not in texts  # binary asset skipped — no text to scan
+        assert texts == {"docs/notes.md": "plain text\n"}  # text file still read identically
+
+    def test_all_denylisted_extensions_are_skipped(self, tmp_path):
+        # Every extension in the denylist is skipped when its bytes are non-UTF-8 — the scan never
+        # raises on a legitimate binary asset regardless of which kind ships.
+        for i, ext in enumerate(sorted(csc.BINARY_EXTENSIONS)):
+            (tmp_path / f"asset{i}{ext}").write_bytes(b"\xff\xfe\x00\x89 not utf-8")
+        ship = [f"asset{i}{ext}" for i, ext in enumerate(sorted(csc.BINARY_EXTENSIONS))]
+        assert csc._read_shipped_texts(tmp_path, ship) == {}  # all skipped, no raise
+
+    def test_corrupt_text_file_still_fails_loud(self, tmp_path):
+        # THE preserved contract: a non-binary-extension file (`.md`) whose bytes are NOT valid
+        # UTF-8 is GENUINE corruption and STILL fails loud — the binary-skip must not blanket-catch
+        # UnicodeDecodeError and mask real text corruption.
+        (tmp_path / "docs").mkdir()
+        (tmp_path / "docs" / "corrupt.md").write_bytes(b"valid start \xff\xfe invalid utf-8")
+        with pytest.raises(UnicodeDecodeError):
+            csc._read_shipped_texts(tmp_path, ["docs/corrupt.md"])
+
+    def test_binary_asset_does_not_dangle_via_evaluate(self, monkeypatch, tmp_path):
+        # End-to-end: a shipped `.png` alongside a doc that REFERENCES it (README-style
+        # `![...](docs/diagram.png)`) drives evaluate() to a CLEAN result — the PNG is skipped from
+        # the text scan AND its reference is not a Pass A.a dangle (it points at a shipped file).
+        (tmp_path / "docs").mkdir()
+        (tmp_path / "docs" / "diagram.png").write_bytes(self._PNG_BYTES)
+        (tmp_path / "README.md").write_text(
+            "See the flow: ![flow](docs/diagram.png)\n", encoding="utf-8"
+        )
+        ship = ["docs/diagram.png", "README.md"]
+        monkeypatch.setattr(csc, "_shipped_files", lambda root: ship)
+        monkeypatch.setattr(csc, "_fs_agent_basenames", lambda root: set())
+        monkeypatch.setattr(csc, "_fs_skill_basenames", lambda root: set())
+        # Pass D (closure over the REAL manifest) is orthogonal to this test — stub it out so the
+        # assertion pins ONLY the text passes (A.a/A.b/B/C) over this minimal ship set. The value
+        # under test is: `_read_shipped_texts` (NOT stubbed) skips the PNG without raising, and the
+        # README's `![...](docs/diagram.png)` reference is not a Pass A.a dangle.
+        monkeypatch.setattr(csc, "closure_gaps", lambda ship_set: [])
+        problems, _warnings, _summary = csc.evaluate(tmp_path)
+        assert problems == []  # no UnicodeDecodeError, no dangling-ref false-positive
+
+
 class TestParseRoot:
     """`_parse_root` — the boundary parser for the `--root <path>` argument (0034 Slice 5).
     Absent flag → `None` (the byte-identical default); a garbled value fails LOUD (never a
