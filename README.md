@@ -14,16 +14,16 @@ Type these in the Claude Code chat (the same place you talk to Claude — not a 
 
 ## Commands
 
-The skills, in the order you use them:
+The skills, in the order you use them. Type the **full** name (`/claugentic-dev-harness:…`) so they're never confused with Claude Code's built-ins like `/init`:
 
-- **`:init`** — scaffold the harness into your repo (codebase map + standards + workflow docs; never overwrites your content).
-- **`:product`** — *(optional)* define what you're building; it proposes ways to make the spec more ambitious.
-- **`:audit`** — get a prioritized, plain-English backlog of what's worth doing, each item independently double-checked.
-- **`:build`** — work that backlog through the reviewed pipeline (plan → review → your approval → build → verify), one slice at a time.
-- **`:doctor`** — check the harness's own health in your repo (read-only snapshot; acts only on your approval).
-- **`:condense`** — condense an over-budget managed doc (DECISIONS / ROADMAP / etc.): it classifies entries, then proposes a diff you approve.
+- **init** · `/claugentic-dev-harness:init` — scaffold the harness into your repo (codebase map + standards + workflow docs; never overwrites your content).
+- **product** · `/claugentic-dev-harness:product` — *(optional)* define what you're building; it proposes ways to make the spec more ambitious.
+- **audit** · `/claugentic-dev-harness:audit` — get a prioritized, plain-English backlog of what's worth doing, each item independently double-checked.
+- **build** · `/claugentic-dev-harness:build` — work that backlog through the reviewed pipeline (plan → review → your approval → build → verify), one slice at a time.
+- **doctor** · `/claugentic-dev-harness:doctor` — check the harness's own health in your repo (read-only snapshot; acts only on your approval).
+- **condense** · `/claugentic-dev-harness:condense` — condense an over-budget managed doc (DECISIONS / ROADMAP / etc.): it classifies entries, then proposes a diff you approve.
 
-**Then what?** New / empty project → just tell the agent what to build (run `:product` first for the vision). Existing codebase → `:audit`, then `:build`.
+**Then what?** New / empty project → just tell the agent what to build (run `/claugentic-dev-harness:product` first for the vision). Existing codebase → `/claugentic-dev-harness:audit`, then `/claugentic-dev-harness:build`.
 
 Here's how those commands fit together — install once, discover work, build it through a reviewed pipeline, and keep it healthy:
 
