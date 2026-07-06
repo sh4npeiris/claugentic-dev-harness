@@ -1,8 +1,9 @@
 # PRODUCT_SPEC — what this product is supposed to be
 
 > The filled product spec for **claugentic-dev-harness** itself — the dogfood worked example,
-> refreshed by `product` spec mode (2026-06-17, full Product Excellence pass) to the
-> four-command product (init · product · audit · build). User-owned; never stamped, never
+> refreshed by `product` spec mode (2026-06-17, full Product Excellence pass; extended to six
+> 2026-07-04) to the six-command product — four core (init · product · audit · build) plus two
+> utilities (doctor · condense). User-owned; never stamped, never
 > auto-refreshed by `init`. Gap mode reads the *code* against the criteria (static — it does not
 > run anything); this repo ships no bootable app, so every criterion is `check: "manual"` — gap
 > mode still sweeps each one against the implementation.
@@ -26,11 +27,12 @@ every line."
 ## The promise
 
 An installable harness that makes AI-assisted coding **disciplined and reviewable** across its
-four commands (init · product · audit · build): it scaffolds without touching your content
-unsaid, captures what your product is *supposed* to be, audits your code against a written
-quality bar with every finding independently re-checked, drives approved work through a reviewed
-pipeline that pauses only at the decisions that are yours, greets you each session with where you
-left off — and **never claims more certainty than it has.**
+six commands — four core (init · product · audit · build) plus two utilities (doctor · condense):
+it scaffolds without touching your content unsaid, captures what your product is *supposed* to be,
+audits your code against a written quality bar with every finding independently re-checked, drives
+approved work through a reviewed pipeline that pauses only at the decisions that are yours, greets
+you each session with where you left off, **checks its own health** on demand, and **keeps its own
+managed docs lean** — and **never claims more certainty than it has.**
 
 ## The invariant — Honest disclosure (the trust register)
 
@@ -97,6 +99,34 @@ under-claims rather than over-claims, every time."
   pushes anything itself.
 - **What good feels like** — "autonomy I can actually trust, because it tells me when it hasn't
   earned it."
+
+### Self health-check (doctor)
+
+- **Flow** — run `doctor` → it runs the existing deterministic gates **read-only** (the codebase-map
+  check always; version-sync / doc-budgets / shipped-content where their scripts are present, else
+  N-A), scans for landed/cold plans and a likely-skipped retrospect, re-asserts `init`'s
+  post-conditions → reports a **green / WARN / breach** snapshot. It treats only a bounded-mechanical
+  set (delete a landed/cold plan · re-wire the pre-commit hook · apply a user-approved condensation
+  diff · tree hygiene), and **only on your explicit approval**; anything substantive routes to the
+  roadmap.
+- **States** — the diagnose is strictly read-only (nothing is mutated before you select and approve a
+  fix); a harness-self gate absent in your repo is reported **N-A**, never a false green; nothing is
+  auto-fixed silently.
+- **What good feels like** — "I can check the harness's own health any time, and it changes nothing
+  until I say so."
+
+### Doc-lifecycle upkeep (condense)
+
+- **Flow** — a doc-budget WARN (or `doctor`'s "condense soon" advisory) flags an over-budget managed
+  ledger → run `condense` → it **classifies every entry first** (landed-record / superseded /
+  live-constraint / must-hold), absorbs landed narratives to git history, promotes hardened
+  constraints to their home, then merges + trims → proposes a **diff you approve** (via the same
+  approve-the-diff path `doctor` uses) → re-checks it landed under budget.
+- **States** — nothing is written before you approve the diff; a shallow diff that would re-fire the
+  WARN on the next append is rejected (cut deeper); when content is genuinely all-live it stops
+  rather than over-cut, and names the escape-valve ladder.
+- **What good feels like** — "my managed docs stay lean over months of use, and nothing is dropped
+  without my say-so — git history keeps the full record."
 
 ## Acceptance criteria
 
@@ -165,6 +195,30 @@ every criterion is `check: "manual"`; gap mode sweeps each against the code stat
       "a same-family run carries the verbatim same-model tag",
       "an unresolvable judge family is reported as unresolved, never asserted as same-model fact",
       "the advisor and other model-upheld surfaces are never reported as gates"
+    ],
+    "states": [],
+    "check": "manual"
+  },
+  {
+    "id": "PS-6",
+    "feature": "Self health-check (doctor)",
+    "flow": ["Run doctor in a repo", "Select a flagged bounded-mechanical fix"],
+    "expect": [
+      "the diagnose is strictly read-only — nothing is mutated before the user selects and approves a fix",
+      "a harness-self gate whose script is absent is reported N-A, never a false green",
+      "only the bounded-mechanical set is treated, and only on explicit approval; substantive findings route to the roadmap"
+    ],
+    "states": [],
+    "check": "manual"
+  },
+  {
+    "id": "PS-7",
+    "feature": "Doc-lifecycle upkeep (condense)",
+    "flow": ["Run condense on an over-budget managed ledger"],
+    "expect": [
+      "it classifies every entry before proposing any edit, and proposes a diff the user approves — nothing is written unapproved",
+      "a diff that re-lands at or above the WARN is rejected (it cuts deeper) rather than accepted",
+      "no live constraint is dropped — absorbed content is recoverable from git history (the archive)"
     ],
     "states": [],
     "check": "manual"
