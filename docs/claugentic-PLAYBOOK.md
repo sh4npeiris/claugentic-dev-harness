@@ -47,6 +47,13 @@ Run it as a **periodic snapshot**, not a treadmill: the **engineering backlog re
 
 Once the engineering backlog is written, starting an item is the same go-button as everything else: **tell the agent "let's do Tier-1 item 1"** (or whichever) in plain English, and it runs the workflow from Discuss. To work **more than one** item, the go-button is **`/claugentic-dev-harness:build`**: name several items or a whole tier ("build all of Tier-1"), confirm the order, and it works them one by one to the honest "sound on the audited dimensions" stop-signal. **`build` reads both backlogs** — engineering and product — and presents one worklist interleaved by tier, each item tagged with which lens raised it (run `/claugentic-dev-harness:product` to populate the product backlog first if you want it folded in) — re-checking the code it just touched between items and pausing for you only when new important work surfaces (and never for anything irreversible without asking). You can approve each spec as its turn comes, or say **"spec everything first"** to plan the whole list and approve it in **one sitting** before any building begins.
 
+## Two utilities: health and tidy-up (`:doctor`, `:condense`)
+
+Two skills keep the harness *itself* healthy in your repo — reach for them when you want them, not on a schedule:
+
+- **`/claugentic-dev-harness:doctor`** — a read-only health snapshot: it reports a green / warn / breach picture of the harness's own gates, plans, and wiring in your repo, and only ever acts on your explicit approval. Run it when you want to know "is my harness set up right?"
+- **`/claugentic-dev-harness:condense`** — the harness keeps a few managed ledgers (DECISIONS, ROADMAP, and friends) lean by a byte budget; when one grows past its budget you'll get a nudge. `:condense` does that tidy-up *for* you: it classifies every entry first, then proposes a diff you approve before anything is written — nothing is deleted without your say-so, and git history keeps the full record.
+
 ## How the pipelines run (the short version)
 
 The choreography you read about above is now **executable scripts** the skills run, not just prose the agent must remember:

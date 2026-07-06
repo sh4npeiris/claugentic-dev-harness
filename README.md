@@ -1,26 +1,8 @@
 # claugentic-dev-harness
 
-A Claude Code plugin that turns AI coding into a **disciplined, reviewable process**: it plans before it builds, reviews its own work against a written standards catalog, keeps an always-current map of your codebase, and **never changes your code without your sign-off.**
+A Claude Code plugin that turns AI coding into a disciplined, reviewable process — it plans, reviews its own work, and **never changes your code without your sign-off.**
 
-You steer with plain-English decisions; it does the engineering one reviewed slice at a time — and it's **honest about the difference between what it checked mechanically and what's its own judgment.**
-
-The mission is **addractive** software — *attractive + addictive by merit*: earned pull through craft and delight, the honest opposite of dark-pattern "addiction" (no traps, no manipulation). The harness doesn't promise beautiful software — it **forces the craft question**, **checks the safety and accessibility floor** (mechanically where your tooling is wired, by reviewer judgment otherwise), and **routes the taste verdict to you.** It never certifies "beautiful"; it raises the bar and hands you the call.
-
-## The commands
-
-Four core workflow commands:
-
-- **`/claugentic-dev-harness:init`** — set it up in your repo. Adds a codebase map, a quality-standards catalog, and the workflow docs. Never overwrites your content; re-run any time to update.
-- **`/claugentic-dev-harness:product`** — define what you're building (who it's for, the promise, each feature) — then it **proposes ways to make it better and more ambitious**, as questions *you* decide on. *(Optional, but recommended.)*
-- **`/claugentic-dev-harness:audit`** — explain your codebase in plain English and write a **prioritized to-do list**, independently double-checking every item before it reaches your list.
-- **`/claugentic-dev-harness:build`** — work that list through a reviewed pipeline — *plan → review → **your approval** → build → verify* — one slice at a time, pausing only for the decisions that are yours.
-
-Plus two utilities:
-
-- **`/claugentic-dev-harness:doctor`** — check the harness's *own* health (gates, plans, wiring) in your repo. Read-only: it reports a green/warn/breach snapshot and only ever acts on your explicit approval.
-- **`/claugentic-dev-harness:condense`** — the executable operator for the doc-budget condensation pass: it classifies every ledger entry first, then proposes a diff you approve before anything is written.
-
-## Quickstart
+## Install
 
 Type these in the Claude Code chat (the same place you talk to Claude — not a separate terminal):
 
@@ -30,16 +12,26 @@ Type these in the Claude Code chat (the same place you talk to Claude — not a 
 /claugentic-dev-harness:init
 ```
 
-You're set up right away — on a fresh or harness-scaffolded repo the enforcement hook activates the moment `init` writes it (on an existing tree, `init` asks before adding it), and the agent follows the harness workflow from here. *(Tip: a quick `/clear` gives the cleanest slate — worth it before a big `:audit` run.)* From there:
+## Commands
 
-- **New / empty project?** Just tell the agent what you want to build — it asks questions, plans, and gets your approval before writing any code. *(Run `:product` first to pin down the vision.)*
-- **Existing codebase?** Run **`:audit`**, then **`:build`** to work the backlog.
+The skills, in the order you use them:
 
-> **Commands not showing up** after install? Quit Claude Code fully, delete `plugin-catalog-cache.json` from your config folder (`~/.claude/` — `%USERPROFILE%\.claude\` on Windows; it's just a cache, safe to delete), reopen, and re-run the two install commands.
+- **`:init`** — scaffold the harness into your repo (codebase map + standards + workflow docs; never overwrites your content).
+- **`:product`** — *(optional)* define what you're building; it proposes ways to make the spec more ambitious.
+- **`:audit`** — get a prioritized, plain-English backlog of what's worth doing, each item independently double-checked.
+- **`:build`** — work that backlog through the reviewed pipeline (plan → review → your approval → build → verify), one slice at a time.
+- **`:doctor`** — check the harness's own health in your repo (read-only snapshot; acts only on your approval).
+- **`:condense`** — condense an over-budget managed doc (DECISIONS / ROADMAP / etc.): it classifies entries, then proposes a diff you approve.
 
-**Requires** `git` and **Python 3** (for the codebase-map check; without it the agent maintains the map by hand). Public + **Apache-2.0** — install at **user scope** to use it across all your repos.
+**Then what?** New / empty project → just tell the agent what to build (run `:product` first for the vision). Existing codebase → `:audit`, then `:build`.
 
-New to this? Start with **[`docs/claugentic-PLAYBOOK.md`](docs/claugentic-PLAYBOOK.md)** — a plain-English guide for non-engineers.
+---
+
+The mission is **addractive** software — *attractive + addictive by merit*: earned pull through craft and delight, the honest opposite of dark-pattern "addiction" (no traps, no manipulation). The harness doesn't promise beautiful software — it **forces the craft question**, **checks the safety and accessibility floor** (mechanically where your tooling is wired, by reviewer judgment otherwise), and **routes the taste verdict to you.** It never certifies "beautiful"; it raises the bar and hands you the call.
+
+You steer with plain-English decisions; it does the engineering one reviewed slice at a time — and it's **honest about the difference between what it checked mechanically and what's its own judgment.**
+
+New to this? Start with **[`docs/claugentic-PLAYBOOK.md`](docs/claugentic-PLAYBOOK.md)** — a plain-English guide for non-engineers. *(Tip: a quick `/clear` gives the cleanest slate — worth it before a big `:audit` run.)*
 
 ## Updating
 
@@ -50,7 +42,9 @@ The plugin installs once (globally); each repo gets the docs via `init`. To move
 /plugin update claugentic-dev-harness@sh4npeiris
 ```
 
-Then re-run **`/claugentic-dev-harness:init`** in each repo — it's version-aware: it refreshes the managed docs to the new version and **never touches your own content** (your spec, roadmap, and edits are left alone). *(Commands not refreshing? See the troubleshooting note above.)*
+Then re-run **`/claugentic-dev-harness:init`** in each repo — it's version-aware: it refreshes the managed docs to the new version and **never touches your own content** (your spec, roadmap, and edits are left alone).
+
+> **Commands not showing up** after install or update? Quit Claude Code fully, delete `plugin-catalog-cache.json` from your config folder (`~/.claude/` — `%USERPROFILE%\.claude\` on Windows; it's just a cache, safe to delete), reopen, and re-run the two install commands.
 
 ## Honest about what's real
 
@@ -66,4 +60,4 @@ The harness's whole pitch is honesty, so here's the straight version:
 - **9 specialist sub-agents** (`.claude/agents/`) — a plan critic, a builder, a **product designer** that also pushes your spec to be more ambitious, per-standard reviewers, an anti-over-engineering skeptic, a finding double-checker, a runtime QA agent, an honesty reviewer, and a retrospective harvester — so the main agent stays focused on your decisions.
 - A relevance-loaded **standards catalog** (`docs/claugentic-standards/`, ISO/IEC 25010-anchored), with each finding labeled by how confidently it was checked.
 
-`init` generates a file-by-file map of your repo at `docs/claugentic-ARCHITECTURE_TREE.md`, kept current by the codebase-map check. License: **Apache-2.0**.
+**Requires** `git` and **Python 3** (for the codebase-map check; without it the agent maintains the map by hand). Public + **Apache-2.0** — install at **user scope** to use it across all your repos. `init` generates a file-by-file map of your repo at `docs/claugentic-ARCHITECTURE_TREE.md`, kept current by the codebase-map check.
