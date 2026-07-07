@@ -789,11 +789,15 @@ class TestApplyHookBypass:
         cls._git(repo, "commit", "-qm", "initial").check_returncode()
 
         # Always-fail pre-commit hook, armed via core.hooksPath. LF + explicit shebang for
-        # win32/Git-Bash portability (git runs hooks via bundled bash; no chmod needed).
+        # win32/Git-Bash portability; chmod +x so git RUNS it on POSIX — git IGNORES a
+        # non-executable hook on Linux/macOS (it prints "not set as executable" and skips
+        # it, so the control commit would wrongly succeed). Windows ignores the mode bit,
+        # so the chmod is a harmless no-op there.
         hooksdir = tmp_path / "githooks"
         hooksdir.mkdir()
         hook = hooksdir / "pre-commit"
         hook.write_bytes(b"#!/bin/sh\nexit 1\n")
+        hook.chmod(0o755)
         cls._git(repo, "config", "core.hooksPath", str(hooksdir)).check_returncode()
 
         # Satisfy the base-ancestry guard (`_missing_upstream_commits`) with zero network:
