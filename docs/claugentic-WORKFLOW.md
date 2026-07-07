@@ -24,6 +24,8 @@ How agents **and** human devs take *substantial* work from idea → landed chang
 
 When unsure, default to full; the `synthesizer-gate` (Stage 3, plan-gate) confirms the path was right.
 
+**Carry-forward gate (before a new arc).** When a request crosses the *substantial* bar above, before opening its plan, confirm the **prior** arc left nothing un-homed — every finding it deferred or left open now sits in its proper place (the dispositions themselves are defined once in *Plan file lifecycle* below; point there, don't restate them). This is the **proactive** complement to the close-time disposition rule and doctor's retroactive plan-scan: it catches a prior plan that closed imperfectly *before* new work builds on top. **Model-upheld** — findings are prose, so there is no mechanical gate (doctor is the retroactive net). Lightweight-path changes skip it.
+
 ---
 
 ## Principles (apply at every stage)
