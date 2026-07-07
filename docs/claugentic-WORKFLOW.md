@@ -311,6 +311,8 @@ A **finite harvest checklist run at Land** (model-upheld discipline, not automat
 - **(e)** Every non-trivial choice → **one dated line in `claugentic-DECISIONS.md`**.
 - **(f)** A **load-bearing invariant** this slice established or relied on (a "must stay true or X breaks" constraint whose rationale isn't obvious from the code) → **record it in `docs/claugentic-INVARIANTS.md`** with its why + dated provenance. **Create the file lazily** — only when you have the first genuine invariant to record (do not seed it empty); most slices have none, so the honest emit is usually *"no new invariant this slice."*
 
+**The six categories name the COMMON lessons and their homes — not a closed destination list.** A lesson whose canonical home is elsewhere (the PLAYBOOK · a skill's SKILL.md · a template) routes there — judgment picks the home. **One canonical home per lesson (pointers where needed, never copies)** — scattered duplicates drift into exactly the conflicting-entries the consult-DECISIONS-before-writing guard exists to prevent.
+
 **Promotion is two-tier (manual, user-approved):** a *universal* lesson → stage in `docs/claugentic-standards/CANDIDATES.md`, then promote upstream so every repo gets it on update; a *codebase-specific* lesson stays **local** (`CLAUDE.md` / `claugentic-DECISIONS.md`), never propagated.
 
 ---

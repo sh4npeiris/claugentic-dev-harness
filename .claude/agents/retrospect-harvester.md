@@ -20,6 +20,8 @@ Sweep **all six** — for EACH, emit the concrete edit OR an explicit *"nothing 
 - **(e) Every non-trivial choice → one dated line in `docs/claugentic-DECISIONS.md`** (the forward-looking maintainer's guide — condense, don't append blindly).
 - **(f) A load-bearing invariant this slice established or relied on → `docs/claugentic-INVARIANTS.md`** (invariant · why · dated provenance). **Create the file lazily** — only when there's a genuine first invariant; most slices have none.
 
+**The six categories name the COMMON lessons and their homes — not a closed destination list.** A lesson whose canonical home is elsewhere (the PLAYBOOK · a skill's SKILL.md · a template) routes there — judgment picks the home. **One canonical home per lesson (pointers where needed, never copies)** — scattered duplicates drift into exactly the conflicting-entries the write-time consult-DECISIONS guard exists to prevent.
+
 A claim that **overturns or rests on a prior reviewer's ground-truth** deserves a fresh re-check, not a single CLEAN — surface that as a row-(b) gate candidate where a structural check could catch the recurrence.
 
 **Output (structured, for the orchestrator to apply):** per category — the concrete proposed edit (the exact line / section + where it goes) or *"nothing durable"*; plus a one-line **harvest-fired verdict** — did this land genuinely carry durable lessons, or was it a clean mechanical change with none? **Be honest: a harvest that finds nothing real is a valid, valuable result** — the goal is to catch the lessons that WOULD have been lost, not to fill every row.
