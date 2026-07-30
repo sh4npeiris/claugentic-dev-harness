@@ -118,7 +118,11 @@ the failure or near-miss that taught it).
   agent-authored / user-authored — accepted VIA the class, **NOT** claimed init-produced) · `self-gate`
   (a stripped harness-self script, self-consistent). This **mechanizes the "strips ⇒ recreates ⇒ nothing
   dangles" arrow** that was prose-only here — a missing seed / unregistered generator now fails the gate.
-  Its uncaveated-gate-mention pass (A.b) is **WARN-heuristic**, not a hard gate. The contract is
+  Its uncaveated-gate-mention pass (A.b) is **WARN-heuristic**, not a hard gate. **Dir-swept blind
+  spot (2026-07-30, plan 0040):** a `DEV_ONLY_DIRS` subtree carries **no recreate-class**, so Pass
+  A.a/D structurally cannot see it — for a dir-swept path (e.g. `docs/claugentic-decisions/`) the
+  no-shipped-reference leg is **model-upheld only** (the rule + its ungatedness are recorded in
+  CLAUDE.md). The contract is
   therefore pinned mechanically for the exact literals + the referential closure — but **NOT** *fully*
   content-enforced: Pass D pins that nothing dangles (closure), **not** that the release is *correct*;
   the membership test + model-upheld review still complement it.

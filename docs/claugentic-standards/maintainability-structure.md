@@ -113,6 +113,16 @@ can prove it · `[J]` needs a reviewer's eye.
 
 ---
 
+## Knowledge-store shape (bound what a reader READS, not what the system KNOWS)
+
+- **Good looks like —** Long-lived knowledge stores (ledgers, decision records, catalogs, registries) are shaped for **bounded per-consultation reads**: a lean index (locate, don't ingest) routes to small per-topic units, each under its own size cap; accretion grows **horizontally** (new units), never one monolith. Distinguish a **log** (entries supersede — condense periodically; a recorded cap-bump is a fine escape) from a **rule-book** (entries persist by design — a fixed total cap eventually collides with the store's floor; shard it instead). External references point at the index/entry point, never at unit internals, so a future unit split stays cheap.
+- **Auditor checks —** `[D]` Per-unit size caps exist and are gate-checked where a budget gate is wired. `[J]` Is the store a log or a rule-book, and does its growth mechanism match (condense-and-cap vs index+shards)? `[J]` Do external references bypass the index into unit internals? `[J]` Does one consultation require ingesting the whole store?
+- **Confidence —** `mixed`
+- **Tradeoff (plain English) —** An index-plus-units store lets a reader pull only the topic they need instead of the whole archive; the cost is one routing hop and the discipline of filing entries in the right unit. Worked example: this harness's own decisions ledger — a 54 KB single-file rule-book at its condensed floor became an index + ten per-topic shards under per-shard caps (2026-07, plan 0040).
+- **Sources —** Parnas (information hiding — the boundary as what the reader need not know); the architecture-tree "LOCATE, don't ingest" discipline this catalog's own repo records.
+
+---
+
 ## Authoring rules (the catalog meta-rules — do not delete)
 
 - **Additive floor:** add dimensions as you discover them; **never delete** one. This catalog is meant to become "every standard we can think of."
