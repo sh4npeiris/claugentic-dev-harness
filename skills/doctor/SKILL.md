@@ -88,6 +88,12 @@ runs no script, sets no exit code, and blocks nothing.
   for this — those are the harness's OWN harness-tuned caps (a separate, **harness-self**
   concern; that script is **stripped from the release** and fail-louds on adopter files, which
   is exactly why this config-driven read exists instead).
+- **A SPLIT ledger needs one caps key per part.** If a repo has climbed the escape-valve
+  ladder's last rung (`docs/claugentic-WORKFLOW.md` → *The escape-valve ladder*) and split a
+  ledger into a routing index plus per-topic parts, add **one key per file** — the index at
+  its own (deliberately tight) cap, and each part at the shared per-part cap. The map is flat
+  and has **no glob support**, so an unlisted part is simply un-capped and skipped here; that
+  is the honest cost of the flat shape, not a silent pass on a file this read claims to watch.
 - **Skip-when-absent is the default (HARD rule).** If `.claude/claugentic-doc-budgets.json`
   is **not present**, this read is **silently skipped — mark N-A, emit no output, no error,
   no WARN, no breach.** An un-configured repo (the adopter default, and the harness's own repo)

@@ -299,6 +299,51 @@ class TestReleaseInitContract:
         assert br.is_dev_only("docs/claugentic-_CHARTER.md") is False
 
 
+class TestDecisionsShardDirStrips:
+    """Plan 0040 — the sharded decisions ledger. The index (`docs/claugentic-DECISIONS.md`)
+    keeps its `init-seed` class above; the SHARDS behind it are dir-swept dev-only.
+
+    Why a test and not just the tuple entry: `is_dev_only` prefix-matches CASE-SENSITIVELY
+    while the dev filesystem is case-INSENSITIVE, so a tracked path written
+    `docs/claugentic-Decisions/…` would open fine locally, miss the sweep, and SHIP the
+    harness's private build history. This asserts over the REAL tracked set (not a literal
+    list) so that mis-cased path fails loud here instead of at a release.
+    """
+
+    SHARD_DIR = "docs/claugentic-decisions/"
+
+    @pytest.fixture
+    def at_repo_root(self, monkeypatch):
+        """`br._tracked_files()` shells `git ls-files`, which is scoped to the CWD — run
+        it from the git-authoritative repo root so this test holds from any directory."""
+        monkeypatch.chdir(br._repo_root())
+
+    def _tracked_under_shard_dir(self) -> list[str]:
+        # Case-INSENSITIVE candidate match, so a mis-cased tracked path is still a candidate…
+        return [f for f in br._tracked_files() if f.lower().startswith(self.SHARD_DIR)]
+
+    def test_the_shard_dir_is_a_dev_only_prefix(self):
+        assert self.SHARD_DIR in br.DEV_ONLY_DIRS
+
+    def test_every_tracked_shard_file_classifies_dev_only(self, at_repo_root):
+        tracked = self._tracked_under_shard_dir()
+        assert tracked, "no tracked files under the shard dir — the sharded ledger must exist"
+        # …and a case-SENSITIVE classification verdict, so any mismatch surfaces as a shipper.
+        shipped = [f for f in tracked if not br.is_dev_only(f)]
+        assert shipped == [], (
+            "these decisions-shard files would SHIP — `is_dev_only` prefix-matches "
+            f"case-sensitively against {self.SHARD_DIR!r}, so a mis-cased tracked path "
+            f"escapes the sweep: {shipped}"
+        )
+
+    def test_the_index_still_ships_its_seed_and_strips_itself(self):
+        # Path stability: sharding did NOT change the index's own ship/strip class.
+        assert br.is_dev_only("docs/claugentic-DECISIONS.md") is True
+        assert br.recreate_class("docs/claugentic-DECISIONS.md") == "init-seed"
+        # A dir-swept shard carries no recreate-class — dirs stay OUT of the classes.
+        assert br.recreate_class("docs/claugentic-decisions/honesty.md") is None
+
+
 class TestBaseAncestryGuard:
     """`_missing_upstream_commits` is the mechanical defense against rebuilding the release
     from a stale base (the v0.1.40 distillation drop). Plan 0034 Slice 6 BROADENED it from a

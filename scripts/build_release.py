@@ -119,6 +119,11 @@ DEV_ONLY_FILES = frozenset(DEV_ONLY_PATH_CLASSES)
 DEV_ONLY_DIRS = (
     ".claude/plans/",   # the harness's own plan files (adopters don't receive plans/ via init)
     ".github/",         # CI config
+    # The harness's OWN sharded decisions ledger. Its index (docs/claugentic-DECISIONS.md)
+    # is an `init-seed` file above; the shards behind it are pure build-history, and an
+    # adopter's seeded ledger is a single file — so the whole subtree strips and is never
+    # recreated. Dir-swept, so it carries no recreate-class (see `recreate_class`).
+    "docs/claugentic-decisions/",
     "eval/",            # the seeded-defect drift fixtures + baseline
     "tests/",           # the harness's own test suite
 )
