@@ -63,7 +63,9 @@ def test_decisions_seed_carries_the_header_phrase() -> None:
 def test_decisions_seed_is_a_blank_ledger() -> None:
     # The seed must NOT carry the harness's own decision content (it's a blank adopter
     # ledger, not a copy of docs/claugentic-DECISIONS.md). A cheap sentinel: the harness's
-    # own ledger leads with "Honesty positioning (the #1 rule)" — the seed must not.
+    # own ledger carries "Honesty positioning (the #1 rule)" — since plan 0040 as the first
+    # routing line of its index, and in full in the shard that line points at — and the seed
+    # must carry it in neither shape. The assertion is unchanged; only its location moved.
     text = DECISIONS_SEED.read_text(encoding="utf-8")
     assert "Honesty positioning" not in text, (
         f"{DECISIONS_SEED.name}: contains harness-specific content — it must be a BLANK "
