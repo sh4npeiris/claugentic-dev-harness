@@ -67,6 +67,73 @@ table · contamination note.
 
 ---
 
+### 2026-07-30 · v0.5.0 · standard · eval/fixture-defects/app (release gate for v0.5.0)
+
+- **Models:** builder Fable 5; verifiers/judges pinned `opus`. `verification.crossModel` came back
+  **true** (every verifier returned a confirming different-family self-report) and no same-model tag
+  fired — a stronger disclosure than the first baseline's unresolved floor.
+- **Run shape:** scripted `engine/audit.js` via the Workflow tool. `COMPLETE` — 5/5 cells swept,
+  0 pending, 31 agents, 0 errors. 25 findings surfaced, all 25 verified, 0 refuted.
+- **Recall: 9/10** — down one seed from the first baseline. **MAINT-1 was NOT surfaced.** The run
+  produced a *layering* finding ("Move all SQL into the data-access module", service.py:21-24) where
+  v0.1.26 produced the *cohesion* finding ("render_task_list mixes request-parsing, data access, and
+  HTML", service.py:9). A 3-lens adjudication panel (strict-rule · remediation-equivalence ·
+  user-signal), run blind to each other, voted **0/3 surfaced**: acting on the layering finding as
+  written would move the SELECT into `db.py` and leave `render_task_list` still parsing the raw query
+  string and still hand-building HTML — the seeded defect survives its own fix. Scored a miss.
+  Down 1 seed is **below** the ≥2-seed block threshold.
+- **Precision proxy: 25/25 (100%) on the baseline-comparable instrument; 19/25 (76%) under a
+  stricter adversarial instrument.** Both are recorded because they are *different instruments* and
+  only the first is comparable to v0.1.26. All 25 findings are literally true of the code (the
+  neutral "judged real on review" standard the first baseline used → 25/25, 0pp move). A separate
+  refute-first panel (one grader per non-seeded finding, prompted to argue the finding is a false
+  positive or gold-plating) rejected 6 of the 14 non-seeded findings → 19/25. **Comparing that 76%
+  against a neutrally-graded 100% would be an instrument mismatch, not measured drift**, so the
+  block decision rests on the comparable number.
+- **The signal inside that split (the most useful thing this run produced):** the six rejected
+  findings are **exactly the six non-seeded Tier-3 items** (#5 constant-time compare · #6 audit
+  logging · #11 coverage floor · #18 `SELECT *`/Python-side filter · #19 indexes · #20 migrations),
+  and the same panel flagged all six — and only those six — as severity-inflated. **Every Tier-1 and
+  Tier-2 finding survived adversarial grading.** The tiering is doing its job: T1/T2 held real
+  defects, T3 held true-but-speculative standards observations, which is what the skill already
+  documents T3 to be.
+- **Refute-rate: 0/25** (0pp move from 0/20). Worth noting honestly: the pipeline's own
+  `finding-verifier` stage confirmed all 25 including the six an independent adversarial panel would
+  not have kept. The verifier answers *"is this claim true of the code?"* — it is not a
+  worth-acting-on filter, and this run is the first direct evidence of that gap. Banked to the
+  ROADMAP; it is not a v0.5.0 blocker.
+- **Seed ↔ finding mapping:** SEC-1→"Fix the SQL injection in task search" (handlers.py:23) ·
+  SEC-2→"Move the admin token out of the source code" (handlers.py:9) · TEST-1→"Add assertions to
+  the set_status test" (test_tasks.py:21-23) · TEST-2→"Delete the test that mocks the very function
+  it claims to test" (test_tasks.py:26-30) · **MAINT-1→(no match — see above)** ·
+  MAINT-2→"Collapse the two disagreeing status lists into one" (handlers.py:6, service.py:6) ·
+  DP-1→"Make project-plus-first-task creation a single transaction" (db.py:38-46) · DP-2→"Replace
+  the per-task project lookup with a single join" (db.py:49-69) · REL-1→"Stop the dashboard tile
+  reporting zero tasks when the database is broken" (handlers.py:34-42) · REL-2→split across two
+  findings, "Give the webhook call a timeout" (client.py:19) + "Bound the webhook retry loop"
+  (client.py:17-22), both halves surfaced → scored one hit.
+- **Contamination:** the canary line does **not** appear anywhere in the run output — 0 matches for
+  `purple.{0,3}elephant` across all 31 agent transcripts. `SEED_MANIFEST` appears 133 times as a
+  *path* only (incidental glob/grep hits, same as the first baseline); no agent read the file.
+- **Procedure note — a recorded deviation.** The measurement ran in a scratch worktree at the
+  release-candidate commit (`82fa80a`), as the procedure requires. **One line of the engine was
+  shimmed in that worktree:** `nsAgent()` was changed from `claugentic-dev-harness:<agent>` to the
+  bare name, because this session's plugin registry does not resolve the namespaced agent ids (the
+  known nsAgent gap banked from plan 0040 — it is what forced the previous attempt to abort). The
+  FIND → PRUNE → VERIFY pipeline is otherwise byte-identical to the shipped engine; only the
+  agent-id string differs. **This run therefore measures the shipped pipeline through
+  project-local agent definitions, not through the installed-plugin registry.** No ROADMAP fence
+  write occurred (the script returns the render), so there was nothing to revert.
+- **Scoring judgment note:** hit-matching and the "judged real" calls are the recorder's judgment
+  per the calibration-honesty rule above. Unlike the first baseline, the two judgment-heaviest calls
+  (the MAINT-1 match and the non-seeded precision grades) were delegated to independent panels first
+  and the recorder adopted their verdicts — the MAINT-1 miss is an adopted panel verdict that
+  overturned the recorder's own provisional "hit".
+- **Verdict: no material regression → does not block v0.5.0.** Recall −1 seed (threshold ≥2),
+  precision proxy 0pp on the comparable instrument (threshold ±15pp), refute-rate 0pp.
+
+---
+
 ### 2026-06-12 · v0.1.26 · standard · eval/fixture-defects/app (first baseline)
 
 - **Models:** builder Fable 5; verifiers/judges pinned `opus` (self-reported Opus 4.x). One
@@ -98,6 +165,7 @@ table · contamination note.
 
 | date | plugin version | dial · scope | model families (builder · judge) | recall | precision proxy | refute-rate | contamination |
 |---|---|---|---|---|---|---|---|
+| 2026-07-30 | 0.5.0 | standard · eval/fixture-defects/app | Fable 5 · Opus (cross-model confirmed; no same-model tag) | 9/10 | 25/25 comparable · 19/25 strict-adversarial | 0/25 | canary absent |
 | 2026-06-12 | 0.1.26 | standard · eval/fixture-defects/app | Fable 5 · Opus 4.x (one self-report unresolved → the unresolved-floor disclosure) | 10/10 | 20/20 | 0/20 | canary absent |
 
 <!-- Per-entry detail (the seed↔finding mapping table + notes) goes directly beneath the row
