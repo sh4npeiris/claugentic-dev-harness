@@ -9,7 +9,51 @@ plugin is versioned with [SemVer](https://semver.org/). The authoritative
 version is `plugin.json`; each release is published on the `release` branch and
 tagged `vX.Y.Z`.
 
-## 0.4.0 (unreleased)
+## 0.5.0
+
+A ledger-scaling and intake release, published alongside the first eval baseline
+since 0.1.26.
+
+### Added
+
+- **The decisions ledger is sharded.** `docs/claugentic-DECISIONS.md` is now a
+  routing INDEX over per-topic shards in `docs/claugentic-decisions/` (honesty,
+  gates, verify-roles, audit, build-mode, workflow-process, roles-review,
+  doc-lifecycle, plugin-distribution, release-contract), each with its own byte
+  budget. Growth is horizontal -- a topic that outgrows a shard gets a new shard
+  rather than bloating one file. External references still point only at the
+  index, never at a shard path, so a future re-split stays cheap.
+- **A mirror-back intake rule.** Stage 0 of the workflow now has a
+  shape-triggered rule to mirror the request back before building, on either the
+  staged or the lightweight path -- the cheapest possible guard against
+  confidently building the wrong thing.
+
+### Changed
+
+- The marketplace description now names all **six** live skills; it had been
+  claiming five and omitting `/condense` since that skill shipped.
+
+### Measured
+
+- **The seeded-defect eval was re-run as the release gate** (`eval/BASELINE.md`,
+  2026-07-30) -- the first recorded baseline since 0.1.26. Recall **9/10**
+  (down one seed, below the block threshold), precision proxy **25/25** on the
+  instrument the prior baseline used, refute-rate **0/25**, canary absent. Two
+  findings were banked rather than fixed: `finding-verifier` checks whether a
+  claim is *true*, not whether it is *worth acting on* (an independent
+  refute-first panel would have cut six findings the pipeline kept -- exactly the
+  six non-seeded Tier-3 items, with every Tier-1/Tier-2 finding surviving both),
+  and the run needed a bare-name agent shim because the engine's namespaced
+  agent ids did not resolve in the measuring session. Both are honest, recorded
+  limitations, not claims of a clean bill of health.
+
+## 0.4.1
+
+- Carry-forward gate, a DECISIONS condensation pass, an architecture-tree entry
+  trim, a six-lens leanness audit (20 of 21 proposals refuted and recorded as
+  do-not-re-propose), and a cross-platform CI fix for the pre-commit hook.
+
+## 0.4.0
 
 A doc-lifecycle-and-release hardening release. The headline is a portable
 doc-budget story for adopters and a single-command release flow for maintainers.
