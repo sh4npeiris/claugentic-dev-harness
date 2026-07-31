@@ -10,8 +10,8 @@
         "repo": "sh4npeiris/claugentic-dev-harness",
         "ref": "release"
       },
-      "description": "Reusable, self-improving Claude Code development harness: a staged workflow, specialist agent roles, an ISO/IEC 25010 standards catalog, and deterministic architecture enforcement — with five live skills: /claugentic-dev-harness:init (scaffold), /claugentic-dev-harness:product (spec + intent-vs-code gap audit), /claugentic-dev-harness:audit (audit → backlog), /claugentic-dev-harness:build (drive your backlog — one item, several, or a whole tier — through the reviewed pipeline to the honest stop-signal, re-checking touched code between items), and /claugentic-dev-harness:doctor (check the harness's own health — gates, plans, init wiring — read-only, treating only the bounded-mechanical set on your approval).",
-      "version": "0.4.1",
+      "description": "Reusable, self-improving Claude Code development harness: a staged workflow, specialist agent roles, an ISO/IEC 25010 standards catalog, and deterministic architecture enforcement — with six live skills: /claugentic-dev-harness:init (scaffold), /claugentic-dev-harness:product (spec + intent-vs-code gap audit), /claugentic-dev-harness:audit (audit → backlog), /claugentic-dev-harness:build (drive your backlog — one item, several, or a whole tier — through the reviewed pipeline to the honest stop-signal, re-checking touched code between items), /claugentic-dev-harness:condense (compact a budgeted ledger back under its cap — a content-preserving judgment pass; superseded entries merge to git history), and /claugentic-dev-harness:doctor (check the harness's own health — gates, plans, init wiring — read-only, treating only the bounded-mechanical set on your approval).",
+      "version": "0.5.0",
       "category": "development",
       "homepage": "https://github.com/sh4npeiris/claugentic-dev-harness"
     }
