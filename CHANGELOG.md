@@ -9,6 +9,42 @@ plugin is versioned with [SemVer](https://semver.org/). The authoritative
 version is `plugin.json`; each release is published on the `release` branch and
 tagged `vX.Y.Z`.
 
+## 0.5.1
+
+A single-defect patch release. **Adopters on 0.4.0, 0.4.1 or 0.5.0 should take
+this one** -- it repairs two skills that were silently loading without their
+descriptions.
+
+### Fixed
+
+- **`/build` and `/condense` had unparseable YAML frontmatter.** Both
+  `description:` values were plain (unquoted) scalars containing `: `
+  (colon-space) -- e.g. `Decision-gated: it proceeds...` -- which YAML reads as a
+  nested mapping key, so the whole block failed to parse. The runtime does not
+  fail loud on this: the skill loads with **empty metadata and every frontmatter
+  field silently dropped**, so the description telling Claude when to reach for
+  the skill was simply absent. Both are now folded block scalars (`>-`), with the
+  description text preserved byte-for-byte. **This had shipped in 0.4.0, 0.4.1
+  and 0.5.0** -- three consecutive releases -- and was found by
+  `claude plugin validate --strict`.
+
+### Added
+
+- **A frontmatter gate.** Every `skills/*/SKILL.md` and `.claude/agents/*.md` is
+  now parsed by the test suite and required to carry a usable description (plus
+  `name` for agents). Nothing had ever parsed frontmatter, which is why the
+  defect above shipped three times. The gate was verified to FAIL on the pre-fix
+  bytes, not merely to pass afterwards.
+
+### Not re-measured (and why)
+
+- The seeded-defect eval was **not** re-run for this release. Its baseline was
+  recorded at the 0.5.0 commit, and the entire delta since is this changelog, two
+  YAML scalar reformats whose text is unchanged, and one new test file -- nothing
+  on the audit path (no engine, standards module, agent, audit skill, or
+  fixture). Re-running it would measure the same inputs; the 2026-07-30 baseline
+  stands.
+
 ## 0.5.0
 
 A ledger-scaling and intake release, published alongside the first eval baseline
