@@ -809,18 +809,59 @@ class TestUncommittedManifests:
         assert br._uncommitted_manifests(Path(".")) == [br.PLUGIN_MANIFEST]
 
 
-class TestCiStatusAdvisory:
-    """Plan 0041 Slice 2 — the red-CI preflight is ADVISORY: it warns, it never blocks, and it
-    goes SILENT whenever the answer isn't cheaply knowable (`gh` missing, unauthenticated,
-    offline, garbled payload). A warn-only check that hard-failed on a missing optional tool
-    would be a gate in disguise. Offline — `subprocess.run` is monkeypatched throughout."""
+class TestMissingChangelogSection:
+    """`_missing_changelog_section` is the PREPARE-time heads-up for the one thing the publish
+    job hard-fails on after the tag is already spent. Real tmp files, no git."""
 
     @staticmethod
-    def _patch_gh(monkeypatch, *, returncode: int = 0, stdout: str = "[]"):
+    def _write(root: Path, text: str) -> Path:
+        (root / br.CHANGELOG).write_text(text, encoding="utf-8")
+        return root
+
+    def test_missing_heading_is_reported(self, tmp_path):
+        self._write(tmp_path, "# Changelog\n\n## Unreleased\n\n- something\n")
+        assert br._missing_changelog_section(tmp_path, "0.6.0") is True
+
+    def test_populated_section_is_silent(self, tmp_path):
+        self._write(tmp_path, "# Changelog\n\n## 0.6.0\n\n- the thing\n\n## 0.5.1\n\n- old\n")
+        assert br._missing_changelog_section(tmp_path, "0.6.0") is False
+
+    def test_an_empty_section_counts_as_missing(self, tmp_path):
+        # A heading with no body produces empty release notes — the publish job refuses on that
+        # too, so the heads-up must fire.
+        self._write(tmp_path, "# Changelog\n\n## 0.6.0\n\n## 0.5.1\n\n- old\n")
+        assert br._missing_changelog_section(tmp_path, "0.6.0") is True
+
+    def test_absent_changelog_is_reported(self, tmp_path):
+        assert br._missing_changelog_section(tmp_path, "0.6.0") is True
+
+
+class TestCiStatusAdvisory:
+    """Plan 0041 Slice 2 — the red-CI preflight is ADVISORY: it warns, it never blocks, and it
+    goes SILENT whenever the answer isn't cheaply knowable. Offline — `subprocess.run` is
+    monkeypatched throughout, and the fake CAPTURES the call so the two guarantees the docstring
+    makes about the query itself (bounded, and about `main`) are pinned rather than assumed."""
+
+    @staticmethod
+    def _patch_gh(monkeypatch, *, returncode: int = 0, stdout: str = "[]") -> dict:
+        seen: dict = {}
+
         def fake_run(cmd, **kwargs):
+            seen["cmd"], seen["kwargs"] = cmd, kwargs
             return subprocess.CompletedProcess(cmd, returncode, stdout=stdout, stderr="")
 
         monkeypatch.setattr(br.subprocess, "run", fake_run)
+        return seen
+
+    def test_the_query_is_bounded_and_scoped_to_main(self, monkeypatch):
+        # Both were silently deletable: without `timeout` a hung `gh` stalls a release build
+        # indefinitely, and a wrong `--branch` would advise on some other branch's health.
+        seen = self._patch_gh(monkeypatch)
+        br._ci_status_advisory(Path("."))
+        assert seen["kwargs"].get("timeout") == br._CI_ADVISORY_TIMEOUT_S
+        cmd = seen["cmd"]
+        assert cmd[:2] == ["gh", "run"]
+        assert cmd[cmd.index("--branch") + 1] == br.MAIN_BRANCH
 
     def test_green_run_is_silent(self, monkeypatch):
         self._patch_gh(
@@ -847,6 +888,23 @@ class TestCiStatusAdvisory:
         msg = br._ci_status_advisory(Path("."))
         assert msg is not None and "in_progress" in msg
 
+    @pytest.mark.parametrize(
+        "returncode,stdout,why",
+        [
+            (1, "", "unauthenticated / offline / no such repo"),
+            (0, "not json", "garbled payload"),
+            (0, "[]", "no runs yet"),
+            (0, '{"message": "Not Found"}', "an API ERROR OBJECT where a list is documented"),
+            (0, '["a string, not a run object"]', "a list of non-objects"),
+        ],
+    )
+    def test_unknowable_conditions_silently_skip(self, monkeypatch, returncode, stdout, why):
+        # The last two are the load-bearing ones: `gh` answers a failed lookup with an OBJECT,
+        # and an indexed/keyed read of that shape would raise INSIDE `_apply` — crashing the
+        # build this helper is documented never to affect. Silence is the only correct answer.
+        self._patch_gh(monkeypatch, returncode=returncode, stdout=stdout)
+        assert br._ci_status_advisory(Path(".")) is None, why
+
     def test_missing_gh_silently_skips(self, monkeypatch):
         def boom(cmd, **kwargs):
             raise FileNotFoundError("gh")
@@ -861,26 +919,14 @@ class TestCiStatusAdvisory:
         monkeypatch.setattr(br.subprocess, "run", boom)
         assert br._ci_status_advisory(Path(".")) is None
 
-    def test_unauthenticated_or_offline_silently_skips(self, monkeypatch):
-        self._patch_gh(monkeypatch, returncode=1, stdout="")
-        assert br._ci_status_advisory(Path(".")) is None
+    def test_undecodable_output_silently_skips(self, monkeypatch):
+        # `text=True` decoding happens inside `subprocess.run`; a UnicodeDecodeError is a
+        # ValueError, which would otherwise escape past the OSError/SubprocessError catch.
+        def boom(cmd, **kwargs):
+            raise UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte")
 
-    def test_garbled_payload_silently_skips(self, monkeypatch):
-        self._patch_gh(monkeypatch, stdout="not json")
+        monkeypatch.setattr(br.subprocess, "run", boom)
         assert br._ci_status_advisory(Path(".")) is None
-
-    def test_no_runs_yet_silently_skips(self, monkeypatch):
-        self._patch_gh(monkeypatch, stdout="[]")
-        assert br._ci_status_advisory(Path(".")) is None
-
-    def test_it_never_blocks_it_only_returns_a_string(self, monkeypatch):
-        # The honest scope: this helper's ONLY power is to return text. `_apply` prints it and
-        # branches on nothing — pinned end-to-end in TestApplyBumpOrchestration.
-        self._patch_gh(
-            monkeypatch,
-            stdout='[{"status": "completed", "conclusion": "failure", "url": "u"}]',
-        )
-        assert isinstance(br._ci_status_advisory(Path(".")), str)
 
 
 class TestBumpOnlyDirty:
@@ -934,15 +980,28 @@ class TestApplyHookBypass:
     Hermetic: a throwaway repo under tmp_path, real git, real disk. The ambient git
     environment is fully isolated (GIT_CONFIG_GLOBAL/SYSTEM → an empty file; gpgsign
     pinned off) so pass/fail depends only on the code under test, never on this machine's
-    git config or user hooks. Does NOT re-test the base-ancestry refusal (already pinned
-    at `TestBaseAncestryGuard`) — it only SATISFIES that guard so `_apply` proceeds to the
-    commit.
+    git config or user hooks — and, since `_apply` gained the `gh` advisory preflight, the
+    autouse `_no_ambient_gh` fixture below keeps that promise true (an unpatched call would be
+    real network traffic at 20s a piece, decided by whoever's shell exported `GH_REPO`). Does
+    NOT re-test the base-ancestry refusal (already pinned at `TestBaseAncestryGuard`) — it only
+    SATISFIES that guard so `_apply` proceeds to the commit.
     """
 
     # Tracked tree that `classify()` splits BOTH ways: the architecture tree is the
     # stripped DEV_ONLY file the pre-commit gate reports "missing"; README.md ships.
     STRIPPED_FILE = "docs/claugentic-ARCHITECTURE_TREE.md"
     SHIPPED_FILE = "README.md"
+
+    @pytest.fixture(autouse=True)
+    def _no_ambient_gh(self, monkeypatch):
+        """Neutralize the advisory preflight for every `_apply` in this class (and subclasses).
+
+        The advisory is unit-tested exhaustively above; here it is pure ambient coupling — it
+        would shell out to whatever `gh` this machine has, against whatever repo the environment
+        points at. Tests that WANT an advisory override this explicitly (see
+        `test_a_red_ci_advisory_never_blocks_the_build`), which monkeypatch honors: a later
+        setattr in the test body wins over the fixture's."""
+        monkeypatch.setattr(br, "_ci_status_advisory", lambda root: None)
 
     @staticmethod
     def _git(repo: Path, *args: str, hooks: bool = False) -> subprocess.CompletedProcess:
@@ -1193,9 +1252,24 @@ class TestApplyBumpOrchestration(TestApplyHookBypass):
         # The bump is uncommitted here, so the commit-first step must be surfaced — a tag placed
         # now would point at a commit still advertising 0.4.0.
         assert "UNCOMMITTED" in out and "git commit -m" in out
+        # The fixture carries no CHANGELOG, so the prepare-time heads-up must fire too — this is
+        # what pins the print block as WIRED, not merely unit-tested in isolation.
+        assert "BEFORE YOU TAG" in out and "0.5.0" in out
 
         # THE honesty guarantee: the tool did NOT create the tag and did NOT push.
         assert self._tags(repo) == [], "the build must NOT create a tag — the human creates it"
+
+    def test_a_populated_changelog_section_silences_the_heads_up(self, repo, capsys):
+        # The negative half: with the section present, `_apply` says nothing about the CHANGELOG.
+        # (Non-vacuous against the assertion above, which fires on the same code path.)
+        (repo / br.CHANGELOG).write_text(
+            "# Changelog\n\n## 0.5.0\n\n- the thing that changed\n", encoding="utf-8"
+        )
+        self._git(repo, "add", "-A").check_returncode()
+        self._git(repo, "commit", "-qm", "add changelog").check_returncode()
+        self._git(repo, "update-ref", "refs/remotes/origin/main", "HEAD").check_returncode()
+        assert br._apply(bump="0.5.0") == 0
+        assert "BEFORE YOU TAG" not in capsys.readouterr().out
 
     def test_apply_bump_does_not_execute_a_push(self, repo):
         # No remote is configured on the fixture repo; a real push would ERROR. The flow returning
@@ -1241,7 +1315,7 @@ class TestApplyBumpOrchestration(TestApplyHookBypass):
         # The working-tree bump is left for the operator to `git checkout` (defined behavior).
         assert '"version": "0.5.0"' in (repo / br.PLUGIN_MANIFEST).read_text(encoding="utf-8")
 
-    def test_publish_time_rebuild_at_the_tagged_commit_is_allowed(self, repo):
+    def test_publish_time_rebuild_at_the_tagged_commit_is_allowed(self, repo, capsys):
         # Plan 0041 S2 / R4, end-to-end: this is exactly what `release.yml`'s publish job does —
         # `--apply` (no --bump) at the commit the `vX.Y.Z` tag points at, where the manifest
         # version EQUALS the tag. Under the old strictly-greater rule the workflow could never
@@ -1251,6 +1325,20 @@ class TestApplyBumpOrchestration(TestApplyHookBypass):
         assert self._release_manifest_version(repo, br.PLUGIN_MANIFEST) == "0.4.0"
         # Still no NEW tag and no push — the workflow pushes the branch, this script never does.
         assert self._tags(repo) == ["v0.4.0"]
+        # NEGATIVE control: the tree is clean here, so the commit-the-bump banner must be ABSENT.
+        # Without this, `if pending:` -> `if True:` survives and CI logs would carry a "commit the
+        # bump before tagging" instruction that is false on exactly this path.
+        assert "UNCOMMITTED" not in capsys.readouterr().out
+
+    def test_publish_time_rebuild_accepts_an_annotated_tag(self, repo):
+        # An ANNOTATED tag resolves to a tag OBJECT, not a commit — the `^{commit}` peel in
+        # `_tag_points_at_head` is the only reason the equal-at-HEAD relaxation works for one.
+        # Every other real-git test here uses a lightweight tag, so without this the peel is
+        # pinned at argument-string level only.
+        self._git(repo, "tag", "-a", "v0.4.0", "-m", "release v0.4.0").check_returncode()
+        annotated = self._git(repo, "cat-file", "-t", "v0.4.0").stdout.strip()
+        assert annotated == "tag", "fixture must produce an ANNOTATED tag or this is vacuous"
+        assert br._apply() == 0
 
     def test_publish_time_relaxation_does_not_cover_another_commit(self, repo):
         # The relaxation is narrow BY COMMIT, not by version: same equal-version situation, but the

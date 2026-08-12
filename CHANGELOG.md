@@ -21,24 +21,32 @@ tagged `vX.Y.Z`.
   `build_release.py --apply --bump <version>` **prepares** locally and stops, your single act is
   pushing the tag (`git tag vX.Y.Z && git push origin main vX.Y.Z`), and a tag-triggered
   workflow re-runs every gate at the tagged commit — the full suite on both OSes, the node
-  helper tests, all four gate scripts, a tag-versus-manifest match, and
-  `claude plugin validate --strict` — before it builds and publishes. **If any gate is red,
-  nothing publishes.** The workflow is the only publisher, and it publishes by invoking that
-  same harness-self build path, never a second build implementation in YAML.
+  helper tests, all four gate scripts, a tag-versus-manifest match, a check that the tagged
+  commit is actually an ancestor of `main`, and `claude plugin validate --strict` — before it
+  builds and publishes. **A run that fails before the branch push publishes nothing** (that push
+  is the second-to-last step; see the release ritual for the one window where a red run has
+  already served content). Publishing by hand is **retired as a practice, in the documented
+  flow** — nothing in the tooling pushes the branch, and only the publish job holds a
+  write-capable token — but `release` is not branch-protected, so a maintainer with push rights
+  can still write it directly. The workflow publishes by invoking that same harness-self build
+  path, never a second build implementation in YAML.
 - **What "an aborted run leaves zero side effects" now says instead.** That claim (0.5.0) was
-  unqualified. Stated exactly: an aborted prepare creates no tag and runs no push, but it does
-  leave the rebuilt local `release` branch and the rewritten manifests in your working tree —
-  both re-runnable, both `git checkout`-able. The script still never tags and never pushes.
+  unqualified. Stated exactly: an aborted prepare creates no tag and runs no push. What it
+  leaves depends on how far it got — an early refusal leaves nothing; a later one leaves the
+  rewritten manifests in your working tree (revert with `git checkout`) and, if it reached the
+  build, a rebuilt local `release` branch (that ref is force-reset, so it is not a `git checkout`
+  away — the next run simply rebuilds it). The script still never tags and never pushes.
 - **The trade-off this buys, stated plainly.** The tag now comes *before* publishing, so a red
-  run **spends that version number**: recover by bumping forward to the next patch — a tag is
-  never reused (deleting a failed tag is a documented exception, and it is yours to decide).
-  And because `marketplace.json` is bumped on `main` at prepare time, a failed run leaves the
-  catalog advertising a version the `release` branch does not yet serve, until a successful run
-  lands. Offline publishing is retired: CI is the only publisher.
+  run **spends that version number** — unless re-running the failed run fixes it, which is safe
+  by construction and is the first recovery to try. Otherwise bump forward to the next patch: a
+  tag is never reused (deleting a failed tag is a documented exception, and it is yours to
+  decide). And because `marketplace.json` is bumped on `main` at prepare time, a failed run
+  leaves the catalog advertising a version the `release` branch does not yet serve, until a
+  successful run lands. Offline publishing is retired.
 - **Test dependencies moved into `pyproject.toml`** as a PEP-735 `test` dependency group, and
-  every CI job installs from it. The pyyaml break above happened because a workflow hand-listed
-  its packages and one the suite imports at collection time was missing; there is now one place
-  to add a test dependency.
+  every job that runs pytest installs from it. The pyyaml break above happened because a
+  workflow hand-listed its packages and one the suite imports at collection time was missing;
+  there is now one place to add a test dependency.
 - CI action pins moved off the deprecated Node-20 action runtime (checkout / setup-python /
   setup-node at v7, which run on node24).
 
@@ -154,9 +162,10 @@ doc-budget story for adopters and a single-command release flow for maintainers.
   command; nothing is tagged or pushed inside `--apply`, so an aborted run leaves
   zero side effects. The release checklist collapsed to a thin wrapper around
   this one command. *(Correction, kept here rather than rewritten: "zero side
-  effects" was unqualified -- an aborted run does leave the rebuilt local
-  `release` branch and the bumped manifests. And the publish half of this entry
-  is superseded by the CI-publishes change under Unreleased.)*
+  effects" was unqualified -- depending on how far it got, an aborted run can
+  leave the rebuilt local `release` branch (force-reset, not checkout-revertable)
+  and the bumped manifests. And the publish half of this entry is superseded by
+  the CI-publishes change under Unreleased.)*
 
 ### Changed
 

@@ -30,9 +30,11 @@ CI PUBLISHES (plan 0041 Slice 2). This script is the ONE build path, run at TWO 
     the ONLY publisher; this script still NEVER tags and NEVER pushes, at either call site.
 
 Side effects, stated exactly (the honest form — NOT an unqualified "zero side effects"): an
-aborted/declined PREPARE run creates NO tag and runs NO push, but it DOES leave the local `release`
-branch rebuilt and (with `--bump`) the two manifests rewritten in the working tree — both
-re-runnable, both `git checkout`-able. The irreversible acts live outside this tool: the human's
+aborted/declined PREPARE run creates NO tag and runs NO push. What it MAY leave depends on how far
+it got — an early refusal (stale base) leaves nothing; a later one leaves the two manifests
+rewritten in the working tree (revert with `git checkout -- <manifests>`) and, if it reached the
+build, the local `release` branch force-reset to a fresh build (NOT a `git checkout` away — that
+ref is simply rebuilt by the next run). The irreversible acts live outside this tool: the human's
 tag push, and the workflow's `release`-branch push that the tag triggers. The eval-drift/BASELINE
 check stays model-upheld (see docs/RELEASE_CHECKLIST.md).
 
@@ -167,6 +169,10 @@ MARKETPLACE_MANIFEST = ".claude-plugin/marketplace.json"
 
 # The two manifests `--bump` writes the version into, from the ONE `--bump <version>` value.
 VERSIONED_MANIFESTS = (PLUGIN_MANIFEST, MARKETPLACE_MANIFEST)
+
+# The release-notes source. `release.yml` extracts the `## <version>` section from it and REFUSES
+# to publish without one; the prepare-time check below warns about the same thing pre-tag.
+CHANGELOG = "CHANGELOG.md"
 
 
 def is_dev_only(path: str) -> bool:
@@ -303,13 +309,13 @@ def _tag_points_at_head(root: Path, tag: str) -> bool:
     """True iff `tag` resolves to the SAME commit as HEAD.
 
     `^{commit}` PEELS an annotated tag (which resolves to a tag object, not a commit) so the
-    compare is commit-to-commit either way. FAILS CLOSED: any git error, or an empty
-    resolution, returns False — an unreadable tag can therefore only ever TIGHTEN the
-    version guard, never loosen it."""
+    compare is commit-to-commit either way. FAILS CLOSED: any git error (a non-zero exit OR git
+    itself being unrunnable), or an empty resolution, returns False — an unreadable tag can
+    therefore only ever TIGHTEN the version guard, never loosen it."""
     try:
         tagged = _git("-C", str(root), "rev-parse", "--verify", "--quiet", f"{tag}^{{commit}}")
         head = _git("-C", str(root), "rev-parse", "--verify", "--quiet", "HEAD^{commit}")
-    except subprocess.CalledProcessError:
+    except (subprocess.CalledProcessError, OSError):
         return False
     tagged, head = tagged.strip(), head.strip()
     return bool(tagged) and tagged == head
@@ -511,27 +517,33 @@ def _validate_built_tree(root: Path, built: str) -> int:
     return result.returncode
 
 
+def _dirty_paths(root: Path) -> list[str]:
+    """Every path with uncommitted working-tree changes, forward-slash normalized.
+
+    The ONE `git status --porcelain` reader (the path is columns 3+). Renames arrive as
+    `old -> new`; nothing here is ever renamed, so the plain trailing-path parse suffices —
+    but keeping a single parser is what stops that assumption from being re-made twice."""
+    return [
+        line[3:].strip().replace("\\", "/")
+        for line in _git("-C", str(root), "status", "--porcelain").splitlines()
+        if line.strip()
+    ]
+
+
 def _bump_only_dirty(root: Path, bump: str | None) -> bool:
     """True if the working tree is dirty in a way that must REFUSE the build.
 
     With no `--bump`, ANY dirty file refuses (the original clean-tree precondition). With `--bump`,
     the version write to the two manifests is the intended change, so a tree dirty ONLY in those
     two manifests is allowed to proceed; ANY other dirty path still refuses — the build must not
-    silently carry unrelated uncommitted work into a release.
-
-    Read from `git status --porcelain` (path is columns 3+; handles quoted/renamed entries via the
-    porcelain format's ` -> ` split for renames — the manifests are never renamed here, so a plain
-    trailing-path parse suffices)."""
-    dirty = [
-        line[3:].strip() for line in _git("-C", str(root), "status", "--porcelain").splitlines()
-        if line.strip()
-    ]
+    silently carry unrelated uncommitted work into a release."""
+    dirty = _dirty_paths(root)
     if not dirty:
         return False
     if bump is None:
         return True
     allowed = set(VERSIONED_MANIFESTS)
-    return any(path.replace("\\", "/") not in allowed for path in dirty)
+    return any(path not in allowed for path in dirty)
 
 
 def _gated_publish_command(version: str) -> str:
@@ -549,18 +561,43 @@ def _gated_publish_command(version: str) -> str:
 
 
 def _uncommitted_manifests(root: Path) -> list[str]:
-    """The versioned manifests carrying UNCOMMITTED working-tree changes (porcelain read).
+    """The versioned manifests carrying UNCOMMITTED working-tree changes.
 
     Load-bearing under CI-publishes: `--bump` writes the version into the working tree and
     deliberately does NOT commit it (abort-safety), but the workflow builds from the TAGGED
     COMMIT — so a tag placed before the bump is committed would publish the OLD version. This
     is what lets `_apply` print the commit step exactly when it is actually needed."""
-    dirty = {
-        line[3:].strip().replace("\\", "/")
-        for line in _git("-C", str(root), "status", "--porcelain").splitlines()
-        if line.strip()
-    }
+    dirty = set(_dirty_paths(root))
     return [m for m in VERSIONED_MANIFESTS if m in dirty]
+
+
+def _missing_changelog_section(root: Path, version: str) -> bool:
+    """True if `CHANGELOG.md` carries no non-empty `## <version>` section.
+
+    A PREPARE-TIME HEADS-UP, never a refusal. `release.yml` hard-fails on this (a release must
+    say what changed), but it does so AFTER the tag — i.e. at maximum cost. Forgetting to rename
+    `## Unreleased` is the likeliest human omission in the flow, so it is worth detecting for
+    free while the tag is still un-pushed. It stays a PRINT because at prepare time the heading
+    is *legitimately* still `## Unreleased` (renaming it would also dirty the tree the clean-tree
+    precondition guards), so refusing here would fight the flow it is trying to help.
+
+    An unreadable/absent CHANGELOG reads as missing — the message is a nudge either way."""
+    path = root / CHANGELOG
+    try:
+        text = path.read_text(encoding="utf-8")
+    except OSError:
+        return True
+    body: list[str] = []
+    in_section = False
+    for line in text.splitlines():
+        if line.strip() == f"## {version}":
+            in_section = True
+            continue
+        if in_section:
+            if line.startswith("## "):
+                break
+            body.append(line)
+    return not any(line.strip() for line in body)
 
 
 def _ci_status_advisory(root: Path) -> str | None:
@@ -572,7 +609,13 @@ def _ci_status_advisory(root: Path) -> str | None:
 
     SILENT-SKIPS (returns `None`) whenever the answer can't be known cheaply and reliably:
     `gh` not installed, not authenticated, offline, an unexpected payload, or no runs yet. A
-    warn-only check that fails loud on a missing optional tool would be a gate in disguise."""
+    warn-only check that fails loud on a missing optional tool would be a gate in disguise.
+
+    EVERY read of the payload is DEFENSIVE, deliberately (plan 0041 S2 Verify / F4). `gh` answers
+    a failed lookup with a JSON OBJECT (`{"message": ...}`), not the documented list — an
+    indexed/keyed read of that shape would raise inside `_apply` and crash the very build this
+    helper is documented never to affect. `ValueError` in the subprocess catch covers an
+    undecodable-output `UnicodeDecodeError` for the same reason."""
     try:
         result = subprocess.run(
             [
@@ -587,17 +630,18 @@ def _ci_status_advisory(root: Path) -> str | None:
             encoding="utf-8",
             timeout=_CI_ADVISORY_TIMEOUT_S,
         )
-    except (OSError, subprocess.SubprocessError):
-        return None  # `gh` absent / unrunnable / timed out — advisory, so stay silent.
+    except (OSError, ValueError, subprocess.SubprocessError):
+        return None  # `gh` absent / unrunnable / timed out / undecodable — stay silent.
     if result.returncode != 0:
         return None  # not authenticated, offline, or no such repo — stay silent.
     try:
-        runs = json.loads(result.stdout or "[]")
+        payload = json.loads(result.stdout or "[]")
     except ValueError:
         return None
-    if not isinstance(runs, list) or not runs or not isinstance(runs[0], dict):
+    # ONE defensive read: anything that isn't a non-empty list of objects is "unknown", not a crash.
+    run = payload[0] if isinstance(payload, list) and payload else None
+    if not isinstance(run, dict):
         return None
-    run = runs[0]
     status, conclusion = run.get("status") or "", run.get("conclusion") or ""
     where = run.get("url") or f"the latest run on {MAIN_BRANCH}"
     if status != "completed":
@@ -744,6 +788,14 @@ def _apply(bump: str | None = None) -> int:
         # command, which is now a TAG PUSH. The tool does NOT tag or push (the honesty guarantee).
         # Run it ONLY after the model-upheld check that stays a human `[J]` (eval-drift/BASELINE);
         # every deterministic gate re-runs in the workflow the tag triggers.
+        if _missing_changelog_section(root, version):
+            # A heads-up, NOT a refusal (see `_missing_changelog_section`): the workflow's own
+            # hard fail-loud stays the gate — this just moves the discovery to before the tag.
+            print(
+                f"\nBEFORE YOU TAG: {CHANGELOG} has no non-empty `## {version}` section — the "
+                f"publish job will REFUSE (it builds the GitHub Release notes from it). Rename "
+                f"the `## Unreleased` heading to `## {version}` and commit it."
+            )
         pending = _uncommitted_manifests(root)
         if pending:
             # The workflow builds from the TAGGED COMMIT, so an uncommitted bump would publish the
