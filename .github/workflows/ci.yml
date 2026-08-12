@@ -22,8 +22,11 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install pytest
-        run: python -m pip install --upgrade pip pytest
+      - name: Install test dependencies
+        # pyyaml: tests/test_frontmatter_parses.py imports yaml at module level — without it
+        # pytest dies at COLLECTION and zero tests run (this exact miss kept CI red 2026-08-01
+        # to 2026-08-12 while v0.5.1 shipped; a red suite must never be a silent one).
+        run: python -m pip install --upgrade pip pytest pyyaml
       - name: Run the test suite
         run: python -m pytest
 
