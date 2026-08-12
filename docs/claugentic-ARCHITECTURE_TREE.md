@@ -12,11 +12,12 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 - `.gitattributes` — line-ending normalization (`* text=auto eol=lf`, scripts forced LF) for a cross-platform plugin.
 - `CHANGELOG.md` — adopter-facing release history: current release's changes + a one-line-per-release prior list. Ships; git history is the full archive.
 - `LICENSE` — Apache-2.0 (public repo; © 2026 Shan Peiris).
-- `pyproject.toml` — open when changing test discovery or lint scope: pytest config (`testpaths`, `integration` marker) + ruff config (`extend-exclude=["eval"]`).
+- `pyproject.toml` — open when changing test deps, discovery, or lint scope: the PEP-735 `test` dependency group CI installs from + pytest config (`testpaths`, `integration` marker) + ruff (`extend-exclude=["eval"]`).
 
 ## .github/ — CI
 
-- `.github/workflows/ci.yml` — open for CI config: on push/PR to `main` runs pytest (ubuntu+windows, 3.12), `node --test` (Node 22), and the tree + version-sync gate scripts.
+- `.github/workflows/ci.yml` — open for CI config: on push/PR to `main` runs pytest (ubuntu+windows, 3.12; deps from the pyproject `test` group), `node --test` (Node 22), and the four gate scripts.
+- `.github/workflows/release.yml` — THE publisher: on a `v*` tag re-runs every gate + `claude plugin validate --strict` at the tagged commit, then `build_release.py --apply` → leased `release` push + GitHub Release.
 
 ## docs/ — process, standards, and project memory
 
@@ -105,7 +106,7 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 
 - `scripts/claugentic-check_architecture_tree.py` — open to change the tree gate: deterministic, checks presence + staleness + the `MAX_ENTRY_CHARS`=450 FORM budget + glob drift; `--staged`/default modes; `INCLUDE_GLOBS` the one per-repo knob.
 - `scripts/check_versions_synced.py` — open to change the version-sync gate: `plugin.json` version is SoT; fails loud (exit 1) if `marketplace.json` disagrees or on broken input. DoD run-gate, not hook-wired; files parsed independently.
-- `scripts/build_release.py` — SINGLE release entry point `--apply --bump <version>`: `DEV_ONLY_PATH_CLASSES` drives `classify`; runs preconditions → build → validate → STOP + print the gated `_gated_publish_command` (never run in-build).
+- `scripts/build_release.py` — SINGLE release BUILD path (local prepare + the workflow's publish): `DEV_ONLY_PATH_CLASSES` drives `classify`; preconditions → build → validate → STOP + print the gated tag-push. Never tags/pushes.
 - `scripts/check_doc_budgets.py` — open to change the ledger byte-budget gate: flags a managed ledger over its `DOC_BUDGETS` cap (CLAUDE 6K · DECISIONS index 3,500 B · decisions shards 14K each via one glob entry · ROADMAP 12K · INVARIANTS 20K) + a ≥90% WARN; `REQUIRED_SHARDS` existence guard; independent fail-loud reads. Not hook-wired.
 - `scripts/check_shipped_content.py` — shipped-content scanner gate (harness-self): scans the dev checkout, or `--root <tree>` a built/stripped worktree; HARD passes (exit 1) non-ASCII `*.js` · stranded tokens · dangling refs · closure `NEEDS ⊆ HAS`; gate-mention WARN.
 - `scripts/claugentic-session-advisor.py` — open to change the SessionStart advisor (not a gate): derives ONE "where am I / what's next" line; agent-facing `additionalContext` only on the resume branch; `CLAUDE_HARNESS_ADVISOR=off` mutes; fail-safe exit 0.
@@ -116,6 +117,7 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 - `tests/test_check_versions_synced.py` — tests for the version-sync gate (synced/drift/missing/garbled/missing-version/independent-read + main() exit codes); hermetic via tmp_path manifests. *(Out of `INCLUDE_GLOBS`.)*
 - `tests/test_check_doc_budgets.py` — tests for the ledger byte-budget gate (under/at/over budget, missing/unreadable, independent reads, main() exit codes); hermetic via tmp_path. *(Out of `INCLUDE_GLOBS`.)*
 - `tests/test_build_release.py` — release-builder tests: ship-vs-strip split, stale-base/version-increase/drop-check guards, the `--bump` writer (`TestBumpManifests`) + `TestApplyBumpOrchestration` (the one-command flow: abort · retry · gated-command-not-run). *(Out of `INCLUDE_GLOBS`.)*
+- `tests/test_release_workflow.py` — static shape pins for `.github/workflows/release.yml`: `v*` trigger, exact `contents: write`, `publish` `needs: gates`, the one build path, the push lease, gate parity with ci.yml, action-major floors. *(Out of `INCLUDE_GLOBS`.)*
 - `tests/test_product_spec_template.py` — pins the FROZEN acceptance-criteria schema: extracts the JSON block from PRODUCT_SPEC_TEMPLATE.md (always) + PRODUCT_SPEC.md (when present), asserting six keys, valid states/check, unique ids. *(Out of `INCLUDE_GLOBS`.)*
 - `tests/conftest.py` — open when an import fails under pytest: puts `scripts/` on `sys.path` + `_load_hyphenated` (importlib loader registering the two `claugentic-`-prefixed scripts under bare names).
 - `tests/test_session_advisor.py` — tests for the SessionStart advisor: HARD invariants (silent path emits neither key, `MAX_LINE_CHARS` cap, fail-safe exit 0), the recommendation priority order, the RETURN branches. *(Out of `INCLUDE_GLOBS`.)*

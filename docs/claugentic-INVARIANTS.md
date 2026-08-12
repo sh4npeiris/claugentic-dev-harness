@@ -109,7 +109,9 @@ the failure or near-miss that taught it).
   0.3.0, after plan 0024 added the `INVARIANTS.md` budget row — **fail-louded on the lazily-created
   `INVARIANTS.md`**, a hard error a fresh 0.3.0 adopter would hit. Live gate:
   `tests/test_build_release.py::TestReleaseInitContract` (membership) + `scripts/check_shipped_content.py`
-  (a **run-gate, NOT hook-enforced**; 0028 S3, closure pass 0034 S3) — the latter now mechanically pins
+  (a **run-gate, NOT hook-enforced**; 0028 S3, closure pass 0034 S3 — since 0041 S2 it is also run by
+  CI on every push to `main` AND at the tagged commit before anything publishes) — the latter now
+  mechanically pins
   the **exact-literal** cases: a dangling stripped-uncreated path reference (Pass A.a, hard), a stranded
   `claugentic-dev-harness:<token>` namespace literal (Pass B, hard), and — 0034 Slice 3 — the
   **referential closure `NEEDS ⊆ HAS`** (Pass D, hard): every stripped adopter-relevant path is
@@ -126,6 +128,27 @@ the failure or near-miss that taught it).
   therefore pinned mechanically for the exact literals + the referential closure — but **NOT** *fully*
   content-enforced: Pass D pins that nothing dangles (closure), **not** that the release is *correct*;
   the membership test + model-upheld review still complement it.
+
+---
+
+## The `release` branch has exactly ONE publisher
+
+- **Invariant —** only `.github/workflows/release.yml` pushes the `release` branch, and it does so
+  only by invoking `scripts/build_release.py --apply` at the tagged commit. No human command, no
+  other workflow, and no hand-rolled YAML build/push logic may write that branch. The human's one
+  release act is the tag push (`git tag vX.Y.Z && git push origin main vX.Y.Z`).
+- **Why —** the `release` branch IS the installed plugin, and it is force-updated. Two writers means
+  a publish can silently clobber the other's tree, and a YAML re-implementation of the strip drifts
+  from the tested one on its first edit — publishing content no test ever classified. One publisher
+  is also what makes "a red gate publishes nothing" true: if a human can still push the branch, the
+  gate is advisory. **Consequence to accept, not fix:** because the tag precedes publishing, a red
+  run spends that version — recover by bumping forward; a tag is never reused (deleting a failed tag
+  is an outward, user-gated exception).
+- **Provenance —** 2026-08-12 (plan 0041 S2): v0.5.1 published from an 11-day red-CI window because
+  the human force-pushed `release` and CI gated nothing that adopters consume. Pinned by
+  `tests/test_release_workflow.py` (`needs: gates`, the lease, no hand-rolled strip, no `--bump` at
+  publish) and `tests/test_build_release.py::TestGatedPublishCommand` (the printed human command
+  contains no `release`-branch push at all).
 
 ---
 

@@ -17,29 +17,41 @@ release; the list is short and reviewed at release.)
 Usage (run from anywhere — the script anchors to its own repo root):
     python scripts/build_release.py                        # dry-run: print ship vs strip, exit 0
     python scripts/build_release.py --apply                # (re)build the LOCAL `release` branch (no push)
-    python scripts/build_release.py --apply --bump X.Y.Z    # ONE-command release up to the human-gated push
+    python scripts/build_release.py --apply --bump X.Y.Z    # PREPARE a release up to the human-gated tag push
 
-`--apply --bump <version>` is the SINGLE release entry point (plan 0034 Slice 10): it runs every
-mechanizable step in ONE deterministic pass — preconditions -> write the version into BOTH
-manifests -> build the stripped `release` tree -> validate it -> STOP and PRINT the one gated
-command the human runs to publish. This is **one command up to a single human-gated push**, NOT
-"fully automated": the tool NEVER tags or pushes — it prints the exact command and stops, so an
-aborted/declined run leaves ZERO side effects (no tag, no push; only the local `release` branch +
-the bumped manifests on the current branch, both re-runnable). The force-push (irreversible) and
-the eval-drift/BASELINE check stay human-gated / model-upheld (see docs/RELEASE_CHECKLIST.md).
+CI PUBLISHES (plan 0041 Slice 2). This script is the ONE build path, run at TWO call sites:
+  * PREPARE (maintainer, locally) — `--apply --bump <version>` runs every mechanizable step in one
+    deterministic pass: preconditions -> write the version into BOTH manifests -> build the stripped
+    `release` tree locally -> validate it -> STOP and PRINT the one gated command the human runs.
+    That command is now a TAG PUSH, not a publish: `git tag vX.Y.Z && git push origin main vX.Y.Z`.
+  * PUBLISH (`.github/workflows/release.yml`, on a `v*` tag) — the workflow re-runs every gate at
+    the tagged commit, then invokes THIS script as `--apply` (no `--bump`) to rebuild the same
+    stripped tree, and IT pushes the `release` branch + creates the GitHub Release. The workflow is
+    the ONLY publisher; this script still NEVER tags and NEVER pushes, at either call site.
+
+Side effects, stated exactly (the honest form — NOT an unqualified "zero side effects"): an
+aborted/declined PREPARE run creates NO tag and runs NO push, but it DOES leave the local `release`
+branch rebuilt and (with `--bump`) the two manifests rewritten in the working tree — both
+re-runnable, both `git checkout`-able. The irreversible acts live outside this tool: the human's
+tag push, and the workflow's `release`-branch push that the tag triggers. The eval-drift/BASELINE
+check stays model-upheld (see docs/RELEASE_CHECKLIST.md).
 
 `--apply` (with or without `--bump`) force-resets a `release` branch to current `HEAD` in a
 throwaway worktree, removes the dev-only files there, and commits — the dev working tree is never
 touched (except the two manifests `--bump` writes). It does NOT push.
 
 Flow order (each stage fails loud with an actionable message; none makes the release "fully"
-correct/enforced — the force-push + eval-drift stay model-upheld):
+correct/enforced — the tag push + eval-drift stay human-gated / model-upheld):
+  * ci-advisory  — (ADVISORY, never blocks) warn if the latest CI run on `main` is not green.
+                   Silently skipped when `gh` or the network is absent.
   * stale-base   — HEAD must be ancestor-inclusive of `origin/main` (any missing commit,
                    not just merge commits, is a dropped-work refusal).
   * bump         — (`--bump` only) write `<version>` into BOTH manifests via a targeted
                    `"version"`-field replace (one-line diff per file), both-or-neither.
-  * version-up   — `plugin.json`'s version must be strictly greater than the latest
-                   published `vX.Y.Z` tag (no tag yet = first release, allowed).
+  * version-up   — `plugin.json`'s version must be strictly greater than the latest published
+                   `vX.Y.Z` tag, EXCEPT that equal is allowed when that tag points at HEAD
+                   (the publish-time run — see `_version_increase_error`). No tag yet = first
+                   release, allowed.
   * drop-check   — every path on `origin/main`-not-HEAD must be a stripped dev-only path
                    (a SHIPPED file in that diff = merged work missing from the build).
 
@@ -50,9 +62,9 @@ After the strip (before the commit) it also validates the BUILT tree:
                    NO commit — a break the strip introduced fails loud pre-push (the release branch
                    runs zero CI). Validates the shipped STRUCTURE, NOT that the release "passes CI".
 
-On success it PRINTS the one gated command (the `vX.Y.Z` tag is created THERE, at publish — never
-in-build, so an aborted run leaves no dangling tag that would corrupt the version anchor):
-    git tag vX.Y.Z && git push --force-with-lease origin release && git push origin vX.Y.Z
+On success it PRINTS the one gated command — the human's single act, which now only TAGS
+(publishing is the workflow's job, and it runs only if every gate is green):
+    git tag vX.Y.Z && git push origin main vX.Y.Z
 """
 
 from __future__ import annotations
@@ -130,10 +142,18 @@ DEV_ONLY_DIRS = (
 
 RELEASE_BRANCH = "release"
 
+# The dev branch the human pushes alongside the release tag (and the branch the advisory CI
+# check reads). Named once so the printed command, the advisory, and UPSTREAM_REF agree.
+MAIN_BRANCH = "main"
+
 # The live upstream tip the release MUST be anchored on. A build from a base that
 # excludes ANY commit reachable from here silently drops merged work (this is how
 # the v0.1.40 distillation was lost — see docs/RELEASE_CHECKLIST.md).
-UPSTREAM_REF = "origin/main"
+UPSTREAM_REF = f"origin/{MAIN_BRANCH}"
+
+# How long the ADVISORY `gh` CI lookup may take before it is abandoned (silently — it is a
+# courtesy check, never a gate; a slow/hanging network must not stall a release build).
+_CI_ADVISORY_TIMEOUT_S = 20
 
 # The source-of-truth plugin manifest — its `version` is what a release publishes. The
 # version-increase guard (plan 0034 Slice 4 / P0-1) reads this and refuses a build whose
@@ -279,19 +299,49 @@ def _read_manifest_version(root: Path) -> str:
     return version
 
 
-def _version_increase_error(root: Path) -> str | None:
-    """Refuse a release whose `plugin.json` version is NOT strictly greater than the latest
-    published `vX.Y.Z` tag (plan 0034 Slice 4 / P0-1). Returns an actionable error string, or
-    `None` when the build is allowed.
+def _tag_points_at_head(root: Path, tag: str) -> bool:
+    """True iff `tag` resolves to the SAME commit as HEAD.
 
-    Semantics (tag-anchored — the tag is the last thing actually PUBLISHED):
-      * NO `vX.Y.Z` tag at all       -> first release, ALLOW (bootstrap).
-      * new version > latest tag     -> ALLOW.
-      * new version == latest tag    -> REFUSE (re-publishing a shipped version).
-      * new version <  latest tag    -> REFUSE (downgrade).
-    A same-version REBUILD of an untagged in-progress version is inherently allowed: the tag
-    is created only at PUBLISH (never in-build), so a not-yet-published version is > every tag
-    and passes. This is the highest-probability silent bad release (a forgotten bump)."""
+    `^{commit}` PEELS an annotated tag (which resolves to a tag object, not a commit) so the
+    compare is commit-to-commit either way. FAILS CLOSED: any git error, or an empty
+    resolution, returns False — an unreadable tag can therefore only ever TIGHTEN the
+    version guard, never loosen it."""
+    try:
+        tagged = _git("-C", str(root), "rev-parse", "--verify", "--quiet", f"{tag}^{{commit}}")
+        head = _git("-C", str(root), "rev-parse", "--verify", "--quiet", "HEAD^{commit}")
+    except subprocess.CalledProcessError:
+        return False
+    tagged, head = tagged.strip(), head.strip()
+    return bool(tagged) and tagged == head
+
+
+def _version_increase_error(root: Path) -> str | None:
+    """Refuse a release whose `plugin.json` version is NOT greater than the latest published
+    `vX.Y.Z` tag (plan 0034 Slice 4 / P0-1). Returns an actionable error string, or `None`
+    when the build is allowed.
+
+    Semantics (tag-anchored), ONE guard serving the flow's TWO call sites:
+      * NO `vX.Y.Z` tag at all                    -> first release, ALLOW (bootstrap).
+      * new version >  latest tag                 -> ALLOW  (the PREPARE-time case; unchanged).
+      * new version == latest tag, tag AT HEAD    -> ALLOW  (the PUBLISH-time case; plan 0041).
+      * new version == latest tag, tag ELSEWHERE  -> REFUSE (re-publishing a shipped version).
+      * new version <  latest tag                 -> REFUSE (downgrade), tag position irrelevant.
+
+    Why the equal-at-HEAD case exists (plan 0041 Slice 2 / R4). Under CI-publishes the tag is
+    pushed BEFORE the publish, so when `release.yml` runs this build at the tagged commit the
+    tag already exists and equals the manifest version. Under the old strict-greater rule that
+    build could never run. The relaxation is deliberately narrow — `v<new>` must point at HEAD,
+    i.e. *this build is that tag's build* — so a re-publish of a shipped version from any other
+    commit stays refused exactly as before. PREPARE-time behavior is untouched (the version is
+    bumped ahead of every tag, so the strictly-greater branch short-circuits first).
+
+    BURNED-VERSION RECOVERY (the trade-off this shape accepts). Because the tag now precedes
+    publishing, a red gate run leaves the tag behind and that version number is spent. The
+    recovery is to BUMP FORWARD to the next patch and tag that: **a tag is never reused** —
+    re-tagging a version whose content already differs is how two builds come to claim one
+    version. Deleting the failed tag is the documented EXCEPTION, not the default: it is an
+    outward, irreversible act on a shared remote, so it is user-gated (see
+    docs/RELEASE_CHECKLIST.md)."""
     version = _read_manifest_version(root)
     new = _parse_semver(version)  # fails loud on a malformed manifest version
     latest_tag = _latest_release_tag(root)
@@ -299,11 +349,16 @@ def _version_increase_error(root: Path) -> str | None:
         return None  # first release — no anchor to compare against
     latest = _parse_semver(latest_tag.removeprefix("v"))
     if new > latest:
-        return None
+        return None  # the common PREPARE case — short-circuits before any tag resolution.
+    if new == latest and _tag_points_at_head(root, latest_tag):
+        return None  # PUBLISH-time: this build IS that tag's build, not a re-publish.
     return (
         f"refusing to build — {PLUGIN_MANIFEST} version {version} is not greater than the "
-        f"latest released tag {latest_tag}. Bump the version (a forgotten bump ships a 'new' "
-        f"release adopters see as no update; a lower version is a downgrade)."
+        f"latest released tag {latest_tag} (and {latest_tag} is not this commit). Bump the "
+        f"version forward (a forgotten bump ships a 'new' release adopters see as no update; "
+        f"a lower version is a downgrade). If a publish run failed AFTER the tag was pushed, "
+        f"that version is spent: bump forward to the next patch and tag THAT — a tag is "
+        f"never reused."
     )
 
 
@@ -480,24 +535,98 @@ def _bump_only_dirty(root: Path, bump: str | None) -> bool:
 
 
 def _gated_publish_command(version: str) -> str:
-    """The EXACT single command the human runs to publish (plan 0034 Slice 8/9/10). Tag-create +
-    lease-safe branch-push + tag-push are ONE atomic human-gated step. The `vX.Y.Z` tag is created
-    HERE, at publish — NOT in-build — so an aborted/declined run leaves no dangling tag. `--apply`
-    only PRINTS this string; it never runs it (the honesty guarantee — the push stays `[J]`)."""
+    """The EXACT single command the human runs — under CI-publishes (plan 0041 Slice 2) that is a
+    TAG PUSH, nothing more. Pushing `v<version>` triggers `.github/workflows/release.yml`, which
+    re-runs every gate at the tagged commit and only then pushes the `release` branch + creates the
+    GitHub Release. `main` rides along in the same push so the tagged commit is always reachable
+    from the branch (a tag whose commit is not on `main` would publish un-reviewed content).
+
+    The human's act is now REVERSIBLE-ish by comparison — it publishes nothing by itself; a red
+    gate run simply publishes nothing (and spends the version — see `_version_increase_error`).
+    `--apply` only PRINTS this string; it never runs it (the honesty guarantee — the tag push
+    stays a human `[J]` decision)."""
+    return f"git tag v{version} && git push origin {MAIN_BRANCH} v{version}"
+
+
+def _uncommitted_manifests(root: Path) -> list[str]:
+    """The versioned manifests carrying UNCOMMITTED working-tree changes (porcelain read).
+
+    Load-bearing under CI-publishes: `--bump` writes the version into the working tree and
+    deliberately does NOT commit it (abort-safety), but the workflow builds from the TAGGED
+    COMMIT — so a tag placed before the bump is committed would publish the OLD version. This
+    is what lets `_apply` print the commit step exactly when it is actually needed."""
+    dirty = {
+        line[3:].strip().replace("\\", "/")
+        for line in _git("-C", str(root), "status", "--porcelain").splitlines()
+        if line.strip()
+    }
+    return [m for m in VERSIONED_MANIFESTS if m in dirty]
+
+
+def _ci_status_advisory(root: Path) -> str | None:
+    """ADVISORY ONLY (plan 0041 Slice 2): a one-line warning when the latest CI run on `main` is
+    not green, or `None` when it is green / unknown. NEVER blocks a build and never affects an
+    exit code — the load-bearing gate is `release.yml`, which re-runs every gate at the tagged
+    commit before anything publishes. This is a courtesy heads-up at prepare time, so a
+    maintainer notices a red `main` before spending a version number on it.
+
+    SILENT-SKIPS (returns `None`) whenever the answer can't be known cheaply and reliably:
+    `gh` not installed, not authenticated, offline, an unexpected payload, or no runs yet. A
+    warn-only check that fails loud on a missing optional tool would be a gate in disguise."""
+    try:
+        result = subprocess.run(
+            [
+                "gh", "run", "list",
+                "--branch", MAIN_BRANCH,
+                "--limit", "1",
+                "--json", "conclusion,status,workflowName,url",
+            ],
+            cwd=str(root),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=_CI_ADVISORY_TIMEOUT_S,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None  # `gh` absent / unrunnable / timed out — advisory, so stay silent.
+    if result.returncode != 0:
+        return None  # not authenticated, offline, or no such repo — stay silent.
+    try:
+        runs = json.loads(result.stdout or "[]")
+    except ValueError:
+        return None
+    if not isinstance(runs, list) or not runs or not isinstance(runs[0], dict):
+        return None
+    run = runs[0]
+    status, conclusion = run.get("status") or "", run.get("conclusion") or ""
+    where = run.get("url") or f"the latest run on {MAIN_BRANCH}"
+    if status != "completed":
+        return (
+            f"ADVISORY (warn-only, does NOT block this build): the latest CI run on "
+            f"{MAIN_BRANCH} is still '{status}' — {where}"
+        )
+    if conclusion == "success":
+        return None
     return (
-        f"git tag v{version} && "
-        f"git push --force-with-lease origin {RELEASE_BRANCH} && "
-        f"git push origin v{version}"
+        f"ADVISORY (warn-only, does NOT block this build): the latest CI run on {MAIN_BRANCH} "
+        f"concluded '{conclusion}' — {where}. Releasing off a red main is how v0.5.1 shipped "
+        f"inside an 11-day broken-collection window; the tag-triggered release workflow will "
+        f"re-run every gate and refuse to publish if they are still red."
     )
 
 
 def _apply(bump: str | None = None) -> int:
     """(Re)build the LOCAL `release` branch = HEAD minus the dev-only files, in ONE deterministic
-    pass up to the human-gated push (plan 0034 Slice 10). Refuses on a stale base; NO tag, NO push.
+    pass up to the human-gated tag push (plan 0034 Slice 10). Refuses on a stale base; NO tag, NO push.
+
+    Runs at BOTH call sites of the CI-publishes flow (plan 0041 Slice 2): the maintainer's PREPARE
+    (usually with `--bump`) and `release.yml`'s PUBLISH job at the tagged commit (never `--bump` —
+    the version is already committed there). Same build, one code path.
 
     Stages, in flow order (each fails loud before any later mutation — an abort leaves no dangling
     tag, no push, and the `--bump` manifest write is the only working-tree change, revertable with
     `git checkout`):
+      0. ci-advisory — a warn-only heads-up if `main`'s latest CI run is not green (never blocks).
       1. preconditions — stale-base (broadened), then (if `--bump`) the version write, then
          version-must-increase, then clean-tree + drop-check.
       2. build the stripped `release` tree in a throwaway worktree.
@@ -509,6 +638,12 @@ def _apply(bump: str | None = None) -> int:
     check then validates). The clean-tree precondition runs AFTER the bump so the intended version
     write is not mistaken for a dirty tree; any OTHER pre-existing dirty state still refuses."""
     root = _repo_root()
+    # ADVISORY first so a red main is visible BEFORE any work — printed, never acted on. It
+    # cannot change the outcome of this function (no branch reads it); `release.yml` is the
+    # gate that actually stops a red release.
+    advisory = _ci_status_advisory(root)
+    if advisory:
+        print(advisory, file=sys.stderr)
     # base == HEAD because _apply builds from HEAD; keep in sync if that changes.
     missing = _missing_upstream_commits(root)
     if missing is None:
@@ -526,16 +661,17 @@ def _apply(bump: str | None = None) -> int:
         )
         return 1
     # C-1 (Slice 10): --bump writes the version into BOTH manifests from the one value, BEFORE the
-    # version-increase check validates it. A malformed/unwritable version fails loud here (no tag,
-    # no push exist yet — zero side effects beyond the working-tree write it may leave for the
-    # operator to `git checkout`). Runs after stale-base (a stale base must refuse before any write).
+    # version-increase check validates it. A malformed/unwritable version fails loud here — no tag
+    # and no push exist yet, so the ONLY side effect is the working-tree manifest write the operator
+    # can `git checkout`. Runs after stale-base (a stale base must refuse before any write).
     if bump is not None:
         try:
             _bump_manifests(root, bump)
         except ValueError as exc:
             print(f"ERROR: {exc}", file=sys.stderr)
             return 1
-    # P0-1 (Slice 4): the version must strictly increase off the latest published tag.
+    # P0-1 (Slice 4) + 0041 S2 (R4): the version must increase off the latest published tag —
+    # except at PUBLISH time, where equal is allowed iff that tag IS this commit.
     version_err = _version_increase_error(root)
     if version_err is not None:
         print(f"ERROR: {version_err}", file=sys.stderr)
@@ -603,17 +739,31 @@ def _apply(bump: str | None = None) -> int:
         ship_count = len(_tracked_files()) - len(strip)
         version = _read_manifest_version(root)
         print(f"OK: rebuilt local '{RELEASE_BRANCH}' branch from {head} ({ship_count} files). NOT pushed.")
-        print(f"Review with:  git diff main {RELEASE_BRANCH} --stat")
-        # C-3 (Slice 10): STOP + PRINT the one human-gated publish command. The tool does NOT tag
-        # or push — it prints the exact command and stops (the honesty guarantee). Run it ONLY after
-        # the model-upheld checks (eval-drift/BASELINE + the manual `git range-diff` drop-check).
+        print(f"Review with:  git diff {MAIN_BRANCH} {RELEASE_BRANCH} --stat")
+        # C-3 (Slice 10) as re-shaped by plan 0041 Slice 2: STOP + PRINT the one human-gated
+        # command, which is now a TAG PUSH. The tool does NOT tag or push (the honesty guarantee).
+        # Run it ONLY after the model-upheld check that stays a human `[J]` (eval-drift/BASELINE);
+        # every deterministic gate re-runs in the workflow the tag triggers.
+        pending = _uncommitted_manifests(root)
+        if pending:
+            # The workflow builds from the TAGGED COMMIT, so an uncommitted bump would publish the
+            # OLD version. (The workflow's own version guard would catch it and refuse — loudly,
+            # after the tag is already spent; catching it HERE is the cheap side of that trade.)
+            print(
+                f"\nFIRST — the version bump is UNCOMMITTED ({', '.join(pending)}). The release "
+                f"workflow builds from the TAGGED COMMIT, so commit it before tagging:\n"
+                f"    git commit -m \"chore: release v{version}\" -- {' '.join(pending)}"
+            )
         print(
-            "\nOne command up to a single human-gated push — the mechanized stages passed. Before "
-            "publishing, run the model-upheld checks (eval-drift vs eval/BASELINE.md + the manual "
-            "`git range-diff origin/release...release` drop-check), then publish with:\n"
+            f"\nPrepared — every mechanized stage passed. Before tagging, run the model-upheld "
+            f"check that stays yours (eval-drift vs eval/BASELINE.md), then run the ONE gated "
+            f"command:\n"
             f"    {_gated_publish_command(version)}\n"
-            "(creates the vX.Y.Z rollback-anchor tag + lease-safe force-push in ONE step; this tool "
-            "did NOT tag or push — nothing is published until you run the above.)"
+            f"That tag push triggers .github/workflows/release.yml, which re-runs EVERY gate at "
+            f"the tagged commit and publishes (pushes '{RELEASE_BRANCH}' + creates the GitHub "
+            f"Release) only if they are all green. This tool did NOT tag and did NOT push. Note "
+            f"the trade-off: a red run spends the version — recover by bumping forward, never by "
+            f"reusing the tag."
         )
         return 0
     finally:
