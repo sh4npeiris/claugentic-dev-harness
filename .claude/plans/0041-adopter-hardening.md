@@ -1,8 +1,8 @@
 # 0041 — Adopter hardening: make the harness's promises real in installed repos
 
-- **Status:** In Review — revision 4 (2026-08-12) applies round-3 items R9–R11 + advisories as written; awaiting the gate's diff confirmation (conditional pass granted round 3).
-- **Resumable from:** awaiting plan-gate round-4 diff confirmation (§Review)
-- **Blockers:** Slice 2 depends on PR #7 merging (user action; Slice 1 is green on that PR).
+- **Status:** Spec'd — Stage-3 PASS (round 4, 2026-08-12); Slice 2 spec below awaiting user approval.
+- **Resumable from:** Stage 5 — Slice 2 approval gate (§Spec)
+- **Blockers:** none (PR #7 merged; main CI green).
 - **Flags:** none
 - **Disposition at close:** per template — deferred remainders → `docs/claugentic-ROADMAP.md`.
 - **Roadmap item:** `docs/claugentic-ROADMAP.md` → Later/Ideas → "Plan 0041 — adopter hardening (ACTIVE 2026-08-12)".
@@ -180,3 +180,21 @@ RUNNING AS: Opus 5 (1M context) — same clean-context gate role, round 4.
 ---
 
 ## Spec  _(per slice, after Review passes — Stage 4)_
+
+### Slice 2 — Release formalization (CI-publishes)
+
+- **In plain English (shown first at the approval gate):**
+  - **What this builds:** releasing becomes *prepare locally → you push one tag → CI does everything else*. `build_release.py --apply --bump X.Y.Z` still prepares and validates on your machine and STOPS; your single human act shrinks to `git tag vX.Y.Z && git push origin main vX.Y.Z`. The tag triggers a workflow that re-runs every gate (pytest both OSes · node tests · the four gate scripts · `claude plugin validate --strict`), rebuilds the stripped release tree at the tagged commit, pushes the `release` branch, and creates a GitHub Release. **If any gate is red, nothing publishes.** Test dependencies move into `pyproject.toml` so the pyyaml class of silent CI break is structurally closed.
+  - **What "done" means for you:** a release can only reach adopters through a green workflow run; the release docs/copy tell exactly that story; the whole thing is pinned by tests.
+  - **What you're accepting (risks / trade-offs):** offline publishing is retired (CI is the only publisher) · a failed run burns a version number — recovery is bump-forward to the next patch, a tag is never reused (deleting the failed tag is a documented, user-gated exception) · the catalog version on main is written at prepare time, so a failed run leaves an advertised-but-unserved version until you re-run (documented honestly) · the workflow gets `contents: write` (minimum needed to push the branch + create the Release) · required-checks branch protection is a GitHub-settings step only you can apply (documented for you).
+- **Files & changes:**
+  - `pyproject.toml` — PEP-735 `[dependency-groups] test = ["pytest", "pyyaml"]`.
+  - `.github/workflows/ci.yml` — both pytest jobs install via the dependency group (single source of truth); action pins bumped off the deprecated Node-20 runtime (implementer verifies current majors).
+  - `.github/workflows/release.yml` (NEW) — `on: push: tags: ['v*']` · `permissions: contents: write` · job `gates`: checkout tagged commit (`fetch-depth: 0` — ancestry + tag anchors need history), full suite + gate scripts + `claude plugin validate --strict` + assert tag == `v` + plugin.json version at that commit · job `publish` (`needs: gates`): `python scripts/build_release.py --apply` at the tagged commit, lease-equivalent fetch-and-compare, push `release`, `gh release create` with notes from the CHANGELOG entry. Never hand-rolled build logic.
+  - `scripts/build_release.py` — docstring rewritten to the new flow · printed gated command becomes tag-push only · `_version_increase_error`: **equal is allowed iff the `v<new>` tag points at HEAD** (the CI-time case; prepare-time semantics unchanged), docstring documents the burned-version recovery · advisory red-CI preflight (`gh` check on origin/main; warn-only, silent-skip when `gh`/network absent — labeled advisory) · "zero side effects" wording corrected (aborted prepare = no tag/no push; bumped manifests + local branch remain).
+  - `docs/RELEASE_CHECKLIST.md` — rewritten to the new ritual; Honest-scope section updated (what CI now guarantees vs what stays model-upheld: the eval-drift check, the catalog window).
+  - Copy sweep (R3): `CLAUDE.md` release block · `docs/claugentic-decisions/release-contract.md:9/:11` · `docs/claugentic-INVARIANTS.md` release wording · `CHANGELOG.md` unreleased entry describing the shape change.
+  - `docs/claugentic-ARCHITECTURE_TREE.md` — `release.yml` (+ new test file) entries.
+- **In-scope standards dimensions:** `reliability-resilience` (red-run / absent-`gh` / lease-race postures) · `security` (minimal workflow permissions, pinned actions) · `docs-traceability` (claims match wiring after the sweep) · `testing` (semantic-change pins).
+- **Tests to add:** version-guard pins for equal-allowed-iff-tag-points-at-HEAD (+ prepare-time unchanged) · printed-command pin updated · a static `release.yml` sanity test (YAML parses; invokes `build_release.py --apply`; `needs: gates`; permissions exactly `contents: write`) · CI-install-from-group asserted by the existing collection behavior (removing pyyaml from the group must fail loud).
+- **Acceptance criteria:** full pytest + node + four gate scripts green · `claude plugin validate --strict` green (model-upheld this slice; mechanized for every future release by the workflow) · grep finds zero occurrences of the swept release-story phrases · tree + doc budgets green · dry-run tag and branch protection explicitly OUT (post-land, user-gated / user-applied).
