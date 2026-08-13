@@ -912,8 +912,17 @@ class TestClauseComposition:
         # died exactly in the cluttered repo that most needs it. The clause budget is
         # RESERVED, so the ellipsis must land in the plan list, not on a nudge.
         self._overflowing_repo(repo, monkeypatch, plans=6)
-        msg = adv.build_output(adv.derive_state())["systemMessage"]
+        state = adv.derive_state()
+        payload = adv.build_output(state)
+        msg = payload["systemMessage"]
         head, skew, housekeeping = msg.split(adv.CLAUSE_SEP)
+
+        # R3-a (Stage-7 round 2): the reserved clause budget must shorten ONLY the
+        # user line — in the overflow regime the agent-facing string still carries
+        # the FULL recommendation, byte-identical to the un-reserved form.
+        assert payload["additionalContext"] == adv._cap(
+            adv.ADVISORY_PREFIX + adv.recommend_next(state)
+        )
 
         assert len(msg) <= adv.MAX_LINE_CHARS  # the ceiling still always wins
         assert msg.endswith(
