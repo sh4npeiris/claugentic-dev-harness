@@ -90,7 +90,7 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 
 - `skills/product/SKILL.md` — open to change the product layer: two modes — Spec (product-designer discover → elevate → frozen-schema validate → user-owned PRODUCT_SPEC.md) and Gap (`engine/audit.js` criteria mode → `harness-product:backlog` fence).
 
-- `skills/doctor/SKILL.md` — open for harness-OWN-health (NOT your code — that's audit): runs the gates read-only + plan-scan + init post-conditions + Stage-9 signal → green/WARN/breach snapshot → SELECT → treat / roadmap.
+- `skills/doctor/SKILL.md` — open for harness-OWN-health (NOT your code — that's audit): runs the gates read-only + plan-scan + init post-conditions (incl. the stamped-fence-vs-installed-plugin skew row) + Stage-9 signal → green/WARN/breach snapshot → SELECT → treat / roadmap.
 
 - `skills/condense/SKILL.md` — open to change the condensation operator: encodes the WORKFLOW condensation pass as a guarded procedure (classify-first → absorb → promote → merge → trim). Proposes a diff, human approves, applies via `/doctor`'s treat. OFFERed on a WARN.
 
@@ -109,7 +109,7 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 - `scripts/build_release.py` — SINGLE release BUILD path (local prepare + the workflow's publish): `DEV_ONLY_PATH_CLASSES` drives `classify`; preconditions → build → validate → STOP + print the gated tag-push. Never tags/pushes.
 - `scripts/check_doc_budgets.py` — open to change the ledger byte-budget gate: flags a managed ledger over its `DOC_BUDGETS` cap (CLAUDE 6K · DECISIONS index 3,500 B · decisions shards 14K each via one glob entry · ROADMAP 12K · INVARIANTS 20K) + a ≥90% WARN; `REQUIRED_SHARDS` existence guard; independent fail-loud reads. Not hook-wired.
 - `scripts/check_shipped_content.py` — shipped-content scanner gate (harness-self): scans the dev checkout, or `--root <tree>` a built/stripped worktree; HARD passes (exit 1) non-ASCII `*.js` · stranded tokens · dangling refs · closure `NEEDS ⊆ HAS`; gate-mention WARN.
-- `scripts/claugentic-session-advisor.py` — open to change the SessionStart advisor (not a gate): derives ONE "where am I / what's next" line; agent-facing `additionalContext` only on the resume branch; `CLAUDE_HARNESS_ADVISOR=off` mutes; fail-safe exit 0.
+- `scripts/claugentic-session-advisor.py` — open to change the SessionStart advisor (not a gate): ONE "where am I / what's next" line + two user-facing currency clauses (docs-behind-plugin skew · landed/cold count, `COLD_DAYS`) whose budget is RESERVED, so overflow truncates the recommendation, never a nudge; `additionalContext` = resume branch only, never the clauses; `CLAUDE_HARNESS_ADVISOR=off` mutes; fail-safe exit 0.
 
 ## tests/ — gate test suite
 
@@ -120,7 +120,7 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 - `tests/test_release_workflow.py` — static shape pins for `.github/workflows/release.yml`: `v*` trigger, read-only default + write on `publish` only, `needs: gates`, on-main + tag↔version refusals, the push lease, derived gate parity, CHANGELOG heading contract. *(Out of `INCLUDE_GLOBS`.)*
 - `tests/test_product_spec_template.py` — pins the FROZEN acceptance-criteria schema: extracts the JSON block from PRODUCT_SPEC_TEMPLATE.md (always) + PRODUCT_SPEC.md (when present), asserting six keys, valid states/check, unique ids. *(Out of `INCLUDE_GLOBS`.)*
 - `tests/conftest.py` — open when an import fails under pytest: puts `scripts/` on `sys.path` + `_load_hyphenated` (importlib loader registering the two `claugentic-`-prefixed scripts under bare names).
-- `tests/test_session_advisor.py` — tests for the SessionStart advisor: HARD invariants (silent path emits neither key, `MAX_LINE_CHARS` cap, fail-safe exit 0), the recommendation priority order, the RETURN branches. *(Out of `INCLUDE_GLOBS`.)*
+- `tests/test_session_advisor.py` — tests for the SessionStart advisor: HARD invariants (silent path, `MAX_LINE_CHARS` cap, fail-safe exit 0), priority order, RETURN branches, currency nudges (skew · `_version_lt` totality · `_is_cold` table · clause-preserving overflow) + the audience-split pin and the foreign-CWD anchor pin (subprocess). *(Out of `INCLUDE_GLOBS`.)*
 - `tests/test_shipped_condensation_trigger.py` — regression scan (plan 0038 S1): reuses `build_release`'s ship classifier and asserts NO shipped file points an adopter at the orphaned "doc-budget WARN fires" condensation trigger. *(Out of `INCLUDE_GLOBS`.)*
 - `tests/workflows/_load-helpers.mjs` — the shared extract-and-eval harness (`loadHelpersFrom`) the four `*.test.mjs` files import: extracts a script's `// --- helpers ---` block + evals via `new Function`. Not collected. *(Out of `INCLUDE_GLOBS`.)*
 - `tests/workflows/verify.test.mjs` — `node --test` tests for `engine/verify.js`'s pure helpers: the `KNOWN_MODULES` ⇄ `docs/claugentic-standards/*.md` set-equality pin, the `finalVerdict` presence-assertion, the test-diff-mandates-`testing` rule. *(Out of `INCLUDE_GLOBS`.)*
