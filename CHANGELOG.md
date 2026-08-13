@@ -11,6 +11,14 @@ tagged `vX.Y.Z`.
 
 ## Unreleased
 
+### Added
+
+- **The SessionStart advisor now volunteers two currency nudges** (user-facing only; mute with
+  `CLAUDE_HARNESS_ADVISOR=off`): when your repo's stamped harness docs are behind the installed
+  plugin it says so and points at `:init`, and when Done/stale plans pile up in `.claude/plans/`
+  it points at `:doctor`. Both reads are best-effort and fail silent; the agent-facing context is
+  untouched (resume-branch only, byte-identical to before). `/doctor` gains the same skew row.
+
 ### Changed
 
 - **Releasing is now gated on green CI — the shape changed.** This is maintainer-facing only;
