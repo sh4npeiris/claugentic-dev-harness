@@ -75,7 +75,7 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 ## .claude/ — harness config
 
 - `.claude/settings.json` — Claude Code settings (currently `{}`; the tree gate moved to the git pre-commit hook, the advisor hook lives plugin-side). See DECISIONS → Tree-gate altitude.
-- `.claude/claugentic-doc-budgets.json` — open to change THIS repo's ledger byte caps (the one cap source): CLAUDE 6K · DECISIONS index 3,500 B · `decisions/*.md` 14K each (glob key) · ROADMAP 12K · INVARIANTS 20K. Dev-only (`init-gen`) — never ships.
+- `.claude/claugentic-doc-budgets.json` — open to change THIS repo's ledger byte caps: the one cap source (the file IS the list — no values restated here); read by the doc-budget gate, pinned byte-exactly by its migration test. Dev-only (`init-gen`) — never ships.
 - `.githooks/pre-commit` — open when changing the commit gate: wired via `core.hooksPath=.githooks`, runs `claugentic-check_architecture_tree.py --staged` once per `git commit` (exit 1 aborts).
 
 ## .claude-plugin/ — plugin manifest (makes this repo installable)

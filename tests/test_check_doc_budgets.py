@@ -252,6 +252,41 @@ class TestWarnBand:
         assert "A.md" in out
 
 
+class TestWarnBandReferenceTable:
+    """The band's LOWER edge, pinned against a fixed reference cap of 100.
+
+    The relative cases above pin only that 95/100 warns — so `WARN_RATIO` 0.9 -> 0.8 or even
+    -> 0.5 passes every one of them (measured). A silently-lowered ratio would start warning
+    on real ledgers with nothing turning red, which is exactly the "the gate cried wolf, so
+    we stopped reading it" failure. A fixed table nails all four regions at once.
+
+    `cap * WARN_RATIO` = 90, so: 89 is below the band · 90 is the first warn · 100 is AT
+    budget (warn, NOT a breach — only a STRICT excess breaches) · 101 is the first breach.
+    """
+
+    CAP = 100
+
+    @pytest.mark.parametrize(
+        "measured,expected_level",
+        [(0, None), (89, None), (90, "warn"), (99, "warn"), (100, "warn"), (101, "error")],
+    )
+    def test_the_band_edges(self, tmp_path, measured, expected_level):
+        ledger = tmp_path / "x.md"
+        ledger.write_bytes(b"x" * measured)
+        result = cdb._check_one(str(ledger), self.CAP)
+        assert (result[0] if result is not None else None) == expected_level
+
+    def test_the_threshold_is_derived_from_warn_ratio_not_hardcoded(self, tmp_path):
+        # The table above is the fixed reference; this pins that the constant is what MOVES
+        # it, so the two can't be satisfied by an unrelated hardcoded 90.
+        ledger = tmp_path / "x.md"
+        first_warn = int(self.CAP * cdb.WARN_RATIO)
+        ledger.write_bytes(b"x" * (first_warn - 1))
+        assert cdb._check_one(str(ledger), self.CAP) is None
+        ledger.write_bytes(b"x" * first_warn)
+        assert cdb._check_one(str(ledger), self.CAP)[0] == "warn"
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # INVARIANTS ledger — parity coverage at BOTH bands (WARN >= 90%, breach >= 100%).
 # INVARIANTS is the accreting sibling to DECISIONS; its 20 KB budget earns the same
@@ -435,6 +470,48 @@ class TestMalformedConfigFailsLoud:
         assert rc == 1
         assert "non-boolean" in out
 
+    def test_a_non_utf8_byte_exits_1_without_a_traceback(self, budget_repo, capsys):
+        # `UnicodeDecodeError` is a `ValueError`, NOT an `OSError` — it escaped the original
+        # except tuple entirely and produced a raw traceback. Named-except, not bare-ValueError.
+        budget_repo.config_path.write_bytes(b'{"CLAUDE.md": 6000, "\xff\xfe.md": 1}')
+        rc, out = self._run(capsys)
+        assert rc == 1
+        assert "not valid UTF-8" in out
+        assert "Traceback" not in out
+
+    def test_a_utf8_bom_parses_as_content(self, budget_repo):
+        # PowerShell's `>` / `Set-Content` write a BOM by default, so this is the FIRST thing
+        # a Windows adopter hits. `utf-8-sig` makes it content, not a syntax error.
+        budget_repo.config_path.write_bytes(b"\xef\xbb\xbf" + b'{"A.md": 100}')
+        budget_repo.write("A.md", 10)
+        problems, _warnings, summary = cdb.evaluate()
+        assert problems == []
+        assert "A.md <= 100 bytes" in summary
+
+    def test_pathologically_nested_json_exits_1_without_a_traceback(self, budget_repo, capsys):
+        # Deep nesting exhausts the parser's stack as `RecursionError` — neither `OSError` nor
+        # `JSONDecodeError`, so it escaped too.
+        budget_repo.configure_text("[" * 60000 + "]" * 60000)
+        rc, out = self._run(capsys)
+        assert rc == 1
+        assert "nested too deeply" in out
+        assert "Traceback" not in out
+
+    def test_a_duplicate_key_is_fatal_not_last_wins(self, budget_repo, capsys):
+        # Stdlib JSON silently keeps the LAST value, so the tighter cap the author wrote
+        # simply vanishes and the gate still reports OK. A cap list is a set of promises.
+        budget_repo.configure_text('{"CLAUDE.md": 6000, "CLAUDE.md": 999999}')
+        rc, out = self._run(capsys)
+        assert rc == 1
+        assert "duplicate key" in out
+        assert "CLAUDE.md" in out
+
+    def test_a_duplicate_key_inside_the_object_form_is_fatal(self, budget_repo, capsys):
+        budget_repo.configure_text('{"A.md": {"max": 100, "max": 999999}}')
+        rc, out = self._run(capsys)
+        assert rc == 1
+        assert "duplicate key" in out
+
     def test_a_broken_config_measures_nothing_and_is_one_line(self, budget_repo):
         # A broken CAP SOURCE is fatal to the run by design (no measurement it produced could
         # be trusted) — exactly one problem line, no summary, no partial measurement.
@@ -455,6 +532,63 @@ class TestMalformedConfigFailsLoud:
         assert (broken_rc, absent_rc) == (1, 0)
         assert broken_out.strip() != absent_out.strip()
         assert absent_out.strip() == cdb.NO_CONFIG_NOTE
+
+
+class TestKeyShapeValidation:
+    """KEY-side boundary validation — the half that was missing.
+
+    A key whose shape could ONLY ever match nothing is refused, so "a dead glob is skipped"
+    honestly means *no files of that shape yet* rather than *your entry is broken and this
+    gate will never tell you*. Without this, `docs/**/*.md` — the natural spelling, and the
+    one `.gitignore`/tsconfig teach — measured ZERO files and printed `(0 files)` under the
+    `OK:` banner at exit 0: the fail-open this module forbids, through supported-looking
+    syntax.
+    """
+
+    @pytest.mark.parametrize(
+        "key", ["docs/**/*.md", "docs/**", "**/*.md", "docs/deep/**/x.md"]
+    )
+    def test_a_double_star_key_is_refused(self, budget_repo, capsys, key):
+        budget_repo.configure({key: 100})
+        rc = cdb.main([])
+        out = capsys.readouterr().out
+        assert rc == 1
+        assert "`**`" in out
+        assert key in out
+
+    @pytest.mark.parametrize("key", ["docs/*/x.md", "*/x.md", "a/*b/c.md"])
+    def test_a_star_outside_the_final_component_is_refused(self, budget_repo, capsys, key):
+        budget_repo.configure({key: 100})
+        rc = cdb.main([])
+        out = capsys.readouterr().out
+        assert rc == 1
+        assert "outside its final path component" in out
+        assert key in out
+
+    def test_an_empty_key_is_refused(self, budget_repo, capsys):
+        budget_repo.configure({"   ": 100})
+        rc = cdb.main([])
+        assert rc == 1
+        assert "empty key" in capsys.readouterr().out
+
+    def test_the_production_shard_key_still_validates(self):
+        # The shape this repo actually ships must survive the new guard — a validator that
+        # rejects the live config would be caught here, not in CI.
+        assert cdb._validate_key("docs/claugentic-decisions/*.md") is None
+
+    @pytest.mark.parametrize(
+        "key",
+        ["CLAUDE.md", "docs/claugentic-DECISIONS.md", "docs/claugentic-decisions/*.md", "*.md"],
+    )
+    def test_legitimate_keys_are_accepted(self, key):
+        assert cdb._validate_key(key) is None
+
+    def test_the_refusal_happens_before_the_cap_is_read(self, budget_repo, capsys):
+        # Key-then-value ordering: a broken key with a broken cap reports the KEY, which is
+        # the defect that makes the entry meaningless regardless of its cap.
+        budget_repo.configure({"docs/**/*.md": "not-a-number"})
+        cdb.main([])
+        assert "`**`" in capsys.readouterr().out
 
 
 class TestConfigEntryForms:
@@ -645,6 +779,53 @@ class TestSubdirectoryUnderAGlobIsAWarn:
     def test_a_plain_entry_never_surveys_subdirectories(self):
         assert cdb._unbudgeted_subtrees("docs/claugentic-DECISIONS.md") == []
 
+    def test_an_unreadable_directory_degrades_to_a_warn_naming_the_entry(self, shards, monkeypatch):
+        # `Path.is_dir()`/`Path.glob()` swallow OSError internally; `iterdir()` does NOT.
+        real_iterdir = Path.iterdir
+
+        def boom(self, *a, **k):
+            if self.name == "decisions":
+                raise PermissionError("denied")
+            return real_iterdir(self, *a, **k)
+
+        monkeypatch.setattr(Path, "iterdir", boom)
+        problems, warnings, summary = cdb.evaluate()  # must NOT raise
+        assert problems == []
+        assert "OK:" in summary
+        assert len(warnings) == 1
+        assert shards.pattern in warnings[0]
+        assert "could not be surveyed" in warnings[0]
+
+    def test_a_failed_survey_does_not_discard_an_ALREADY_QUEUED_breach(self, shards, budget_repo, monkeypatch):
+        # THE independence property, for the SURVEY half. The raising `iterdir` used to
+        # propagate out of `evaluate()` — taking the breach queued by the EARLIER entry with
+        # it, so the run printed nothing and the exit code came from a traceback.
+        budget_repo.write(shards.single, 500)  # over its 100 budget, queued FIRST
+        real_iterdir = Path.iterdir
+
+        def boom(self, *a, **k):
+            if self.name == "decisions":
+                raise PermissionError("denied")
+            return real_iterdir(self, *a, **k)
+
+        monkeypatch.setattr(Path, "iterdir", boom)
+        problems, warnings, summary = cdb.evaluate()
+        assert summary == ""
+        assert any("INDEX.md" in p for p in problems)  # the earlier breach still prints
+        assert any("could not be surveyed" in w for w in warnings)
+
+    def test_a_failed_survey_still_exits_1_when_a_breach_exists(self, shards, budget_repo, monkeypatch):
+        budget_repo.write(shards.single, 500)
+        real_iterdir = Path.iterdir
+
+        def boom(self, *a, **k):
+            if self.name == "decisions":
+                raise PermissionError("denied")
+            return real_iterdir(self, *a, **k)
+
+        monkeypatch.setattr(Path, "iterdir", boom)
+        assert cdb.main([]) == 1  # must NOT raise
+
 
 class TestGlobEntryEvaluation:
     def test_all_shards_under_cap_is_ok(self, shards):
@@ -726,10 +907,56 @@ class TestReportOnly:
         budget_repo.write("A.md", 500)
         problems, warnings, summary = cdb.evaluate()
         assert problems == []  # graced — not a breach
-        assert "OK:" in summary
         assert len(warnings) == 1
         assert warnings[0].startswith(cdb.REPORT_ONLY_TAG)
         assert warnings[0].endswith(cdb.REMEDIATION)  # verbatim, not a softened variant
+
+    def test_a_fired_grace_forbids_the_all_within_budget_headline(self, budget_repo):
+        # THE anti-laundering pin. A run that passes ON A GRACE is a different fact from a
+        # run where everything fit, and the SUMMARY is what a CI tail or a `grep OK:` reads —
+        # so the headline may not claim "all managed ledgers within budget" over a file
+        # measured at 5x its cap. Whole-line equality: the headline AND the clause together.
+        budget_repo.configure({"A.md": {"max": 100, "reportOnly": True}})
+        budget_repo.write("A.md", 500)
+        _problems, _warnings, summary = cdb.evaluate()
+        assert summary == (
+            "OK: 1 report-only breach(es) NOT within budget (see WARN above) - "
+            "A.md OVER budget 100 bytes [report-only]"
+        )
+        assert "all managed ledgers within budget" not in summary
+        assert "A.md <=" not in summary  # never rendered as cap-satisfied
+
+    def test_the_graced_count_tracks_the_breaches_not_the_entries(self, budget_repo):
+        budget_repo.configure(
+            {"A.md": {"max": 100, "reportOnly": True}, "B.md": {"max": 100, "reportOnly": True}}
+        )
+        budget_repo.write("A.md", 500)
+        budget_repo.write("B.md", 500)
+        _problems, _warnings, summary = cdb.evaluate()
+        assert summary.startswith("OK: 2 report-only breach(es) NOT within budget")
+
+    def test_a_clean_sibling_entry_keeps_its_cap_satisfied_clause(self, budget_repo):
+        # The headline is run-wide; the OVER-budget rendering is strictly per entry.
+        budget_repo.configure({"A.md": {"max": 100, "reportOnly": True}, "B.md": 200})
+        budget_repo.write("A.md", 500)
+        budget_repo.write("B.md", 10)
+        _problems, _warnings, summary = cdb.evaluate()
+        assert "A.md OVER budget 100 bytes [report-only]" in summary
+        assert "B.md <= 200 bytes" in summary
+
+    def test_a_graced_glob_entry_renders_the_over_budget_clause(self, budget_repo):
+        budget_repo.configure({"decisions/*.md": {"max": 100, "reportOnly": True}})
+        budget_repo.write("decisions/honesty.md", 500)
+        _problems, _warnings, summary = cdb.evaluate()
+        assert "decisions/*.md (1 files) OVER budget 100 bytes each [report-only]" in summary
+
+    def test_an_unfired_grace_leaves_the_headline_alone(self, budget_repo):
+        # The flag being SET is not the trigger — the grace actually FIRING is.
+        budget_repo.configure({"A.md": {"max": 100, "reportOnly": True}})
+        budget_repo.write("A.md", 10)
+        _problems, _warnings, summary = cdb.evaluate()
+        assert summary.startswith(cdb.OK_SUMMARY_PREFIX)
+        assert "report-only" not in summary
 
     def test_a_report_only_entry_within_cap_produces_no_special_output(self, budget_repo):
         # The grace shows ONLY when it fires: an in-budget report-only ledger is ordinary.
@@ -815,6 +1042,19 @@ class TestSummaryRendering:
     def test_a_single_file_entry_keeps_its_plain_clause(self, shards):
         _problems, _warnings, summary = cdb.evaluate()
         assert "INDEX.md <= 100 bytes" in summary
+
+    def test_the_whole_summary_line_is_pinned(self, budget_repo):
+        # THE byte-equivalence envelope. Every other assertion here is a substring, so
+        # rewording the headline or swapping the separator survives them all (measured).
+        # Deliberately HERMETIC — a two-entry scratch config — so the envelope pin does not
+        # re-import the live-ledger-size coupling that the CWD tests below shed.
+        budget_repo.configure({"A.md": 100, "B.md": 200})
+        budget_repo.write("A.md", 10)
+        budget_repo.write("B.md", 10)
+        _problems, _warnings, summary = cdb.evaluate()
+        assert summary == (
+            "OK: all managed ledgers within budget - A.md <= 100 bytes, B.md <= 200 bytes"
+        )
 
     def test_clause_order_follows_the_authored_config(self, budget_repo):
         # The config is the source of truth for reading order too — `json.loads` preserves
@@ -934,13 +1174,44 @@ class TestInvokedFromASubdirectory:
     def test_output_is_identical_from_the_repo_root_and_from_a_subdirectory(self):
         at_root = self._run(REPO_ROOT)
         at_subdir = self._run(REPO_ROOT / "tests")
-        assert at_root.returncode == 0, at_root.stdout + at_root.stderr
+        # The property under test is CROSS-CWD EQUALITY, not "the repo is currently in
+        # budget" — so no absolute `returncode == 0` here: a docs commit that breaches a
+        # ledger must turn the doc-budget GATE red, never this unit test, for a reason that
+        # has nothing to do with working directories.
         assert at_subdir.returncode == at_root.returncode
         assert at_subdir.stdout == at_root.stdout
+        # ...with a size-INDEPENDENT non-vacuity guard: `CLAUDE.md` is named by the OK
+        # summary and by any breach line alike, so this is red exactly when the gate no-ops
+        # (an absent/renamed config) — which is the way this comparison could pass emptily.
+        assert "CLAUDE.md" in at_root.stdout
+
+    def test_a_decoy_repo_in_the_cwd_cannot_redirect_the_gate(self, tmp_path):
+        # THE anchor pin. Both cases above run with a cwd INSIDE this repo, so `_repo_root`'s
+        # `Path(__file__)` and a mutant's `Path.cwd()` resolve the SAME root and the mutant
+        # survives the entire suite (measured). A git-init'ed DECOY repo holding its own caps
+        # config and a wildly over-cap CLAUDE.md is what diverges them: anchored on the
+        # script's own location the gate never sees the decoy; anchored on the cwd it would
+        # measure it and exit 1.
+        subprocess.run(
+            ["git", "init", "-q", str(tmp_path)], check=True, capture_output=True, text=True
+        )
+        (tmp_path / ".claude").mkdir()
+        (tmp_path / cdb.CONFIG_PATH).write_text('{"CLAUDE.md": 10}', encoding="utf-8")
+        (tmp_path / "CLAUDE.md").write_bytes(b"x" * 5000)  # 500x the decoy cap
+        decoy = self._run(tmp_path)
+        at_root = self._run(REPO_ROOT)
+        assert decoy.returncode == 0, decoy.stdout + decoy.stderr
+        assert decoy.stdout == at_root.stdout
+        # Size-independent restatement of the same fact: the decoy's cap was never applied.
+        assert "budget 10" not in decoy.stdout
 
     def test_the_summary_names_every_configured_entry(self):
         # Derived from the config + the live filesystem, so adding a shard or a budgeted
         # ledger updates this expectation automatically instead of going stale.
+        # DELIBERATE live-size coupling, stated at the site: this asserts the cap-satisfied
+        # rendering, so it is red if a real ledger breaches. That is accepted here (the point
+        # is that the real config drives the real summary) and is exactly why the envelope
+        # pin in `TestSummaryRendering` is hermetic instead.
         config = TestProductionConfig._config()
         out = self._run(REPO_ROOT / "tests").stdout
         for key, cap in config.items():

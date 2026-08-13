@@ -292,11 +292,16 @@ INIT_GEN_OUTPUTS = frozenset(
         # harness-tuned numbers (which is exactly why the harness's own config is stripped).
         # HONEST STATUS — registered AHEAD of its writer: the caps config is classed `init-gen`
         # by plan 0041 Slice 4 (the slice that creates and strips the harness's own config),
-        # while the `init` step that writes an adopter's copy lands in Slice 7 of the SAME plan,
-        # with no release in between. Until Slice 7 lands, this entry states the INTENDED HAS
-        # source rather than an implemented one. If Slice 7 is ever abandoned, the honest fix is
-        # to re-annotate the class as `recreate-on-demand` (the shipped docs already tell an
-        # adopter how to author the file by hand) — never to leave this claim standing.
+        # while the `init` step that writes an adopter's copy is Slice 7 of the SAME plan. No
+        # release is PLANNED between them — that is plan ORDER, model-upheld; nothing here
+        # gates it and Pass D accepts this entry unconditionally. Until Slice 7 lands, this
+        # entry states the INTENDED HAS source rather than an implemented one.
+        # If that promise is not kept — Slice 7 abandoned, OR a release cut before it lands —
+        # the honest fix is to re-annotate the class as `recreate-on-demand` (the shipped docs
+        # already tell an adopter how to author the file by hand), never to leave this claim
+        # standing. `test_init_documents_the_caps_config` (strict xfail) is the tripwire: it
+        # turns the suite RED the moment init learns to write the config, forcing this note and
+        # its sibling in `build_release.py` to be removed rather than quietly outliving it.
         ".claude/claugentic-doc-budgets.json",
     }
 )

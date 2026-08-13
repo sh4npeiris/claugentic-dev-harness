@@ -209,7 +209,7 @@ class TestDerivedHandListsEqualOld:
     # every historical membership below is still asserted in full, and a path in neither set
     # still fails these pins loud. Mirrors `test_build_release.TestManifestMigration
     # .POST_MIGRATION_ADDITIONS` (deliberately restated, not imported — each of these frozen
-    # snapshots is local build-history for the module it guards).
+    # snapshots is local build-history for the module it guards); a new entry updates BOTH.
     _ADDED_SINCE_MIGRATION = frozenset(
         {
             # plan 0041 Slice 4 — the per-repo doc-budget caps config, class `init-gen`, so it
@@ -325,6 +325,23 @@ class TestClosurePassD:
         assert "docs/claugentic-ARCHITECTURE_TREE.md" in csc.INIT_GEN_OUTPUTS
         for path in csc._paths_in_classes("init-gen"):
             assert path in csc.INIT_GEN_OUTPUTS
+
+    @pytest.mark.xfail(
+        strict=True,
+        reason="plan 0041 Slice 7 writes the init step; this flips RED the moment it lands",
+    )
+    def test_init_documents_the_caps_config(self):
+        # THE TRIPWIRE for the one forward registration in `INIT_GEN_OUTPUTS`. Pass D vouches
+        # for `.claude/claugentic-doc-budgets.json` on the PROMISE that init will generate an
+        # adopter's own — a promise nothing gates, so if Slice 7 were dropped the gate would
+        # keep passing on it forever and the registration's own written instruction ("if
+        # Slice 7 is ever abandoned, re-annotate as `recreate-on-demand`") would have no
+        # mechanism behind it. `strict=True` makes this the mechanism in both directions: it
+        # is RED today (xfail, as expected) and turns the SUITE red the instant init learns
+        # to write the config — forcing whoever lands Slice 7 to delete this marker and the
+        # HONEST STATUS comments that go with it.
+        init_skill = (Path(__file__).resolve().parent.parent / "skills" / "init" / "SKILL.md")
+        assert ".claude/claugentic-doc-budgets.json" in init_skill.read_text(encoding="utf-8")
 
     def test_recreate_on_demand_is_accepted_by_the_class_not_init(self, at_repo_root):
         # The plan-gate's taxonomy fix: recreate-on-demand members (INVARIANTS/PRODUCT/

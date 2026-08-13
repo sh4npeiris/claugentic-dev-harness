@@ -49,52 +49,71 @@ def present_shards(shard_dir: Path) -> set[str]:
     return {p.name for p in shard_dir.glob("*.md")}
 
 
+# THE TWO ORACLES — one expression each, used by BOTH the live assertion and its hermetic
+# refusal case. Sharing them is the point: when the live case and its non-vacuity proof are
+# written as two different expressions, the hermetic half can stay green while the live half
+# quietly rots into something that can no longer fail.
+def dead_routes(index_text: str, shard_names: set[str]) -> set[str]:
+    """Direction 1's oracle: routed by the index, absent from disk."""
+    return routed_shards(index_text) - shard_names
+
+
+def unrouted_shards(index_text: str, shard_names: set[str]) -> set[str]:
+    """Direction 2's oracle: present on disk, routed from nowhere."""
+    return shard_names - routed_shards(index_text)
+
+
 class TestIndexRoutesOnlyToShardsThatExist:
     """Direction 1: index -> filesystem. A route with no file behind it is a dead link."""
 
     def test_every_routed_shard_exists(self):
-        routed = routed_shards(INDEX_PATH.read_text(encoding="utf-8"))
+        index_text = INDEX_PATH.read_text(encoding="utf-8")
+        present = present_shards(SHARD_DIR)
         # Non-vacuity guard: an empty parse would make the assertion below trivially true.
-        assert routed, f"{INDEX_PATH.name} routes to no shards — the index parse found nothing."
-        missing = sorted(name for name in routed if not (SHARD_DIR / name).exists())
+        assert routed_shards(index_text), (
+            f"{INDEX_PATH.name} routes to no shards — the index parse found nothing."
+        )
+        missing = sorted(dead_routes(index_text, present))
         assert missing == [], (
             f"{INDEX_PATH.name} routes to shard(s) that do not exist: {missing}. Restore them "
             "(git history) or drop their index lines."
         )
 
     def test_a_deleted_shard_is_refused(self, tmp_path):
-        # NON-VACUOUS: the relation must actually flag the delete case, not just pass today.
+        # NON-VACUOUS, through the SAME expression the live case uses.
         shard_dir = tmp_path / "claugentic-decisions"
         shard_dir.mkdir()
         (shard_dir / "honesty.md").write_text("x", encoding="utf-8")
         index = "- [honesty](claugentic-decisions/honesty.md)\n- [gone](claugentic-decisions/gone.md)\n"
-        assert routed_shards(index) - present_shards(shard_dir) == {"gone.md"}
+        assert dead_routes(index, present_shards(shard_dir)) == {"gone.md"}
 
 
 class TestEveryShardIsRoutedFromTheIndex:
     """Direction 2: filesystem -> index. An unrouted shard is unreachable content."""
 
     def test_every_shard_file_is_referenced_by_the_index(self):
-        routed = routed_shards(INDEX_PATH.read_text(encoding="utf-8"))
+        index_text = INDEX_PATH.read_text(encoding="utf-8")
         present = present_shards(SHARD_DIR)
         # Non-vacuity guard: an empty shard dir would make the assertion below trivially true.
         assert present, f"{SHARD_DIR} contains no shards — the directory scan found nothing."
-        unrouted = sorted(present - routed)
+        unrouted = sorted(unrouted_shards(index_text, present))
         assert unrouted == [], (
             f"shard(s) not routed from {INDEX_PATH.name}: {unrouted}. Add an index line for "
             "each (external references reach a shard only through the index)."
         )
 
     def test_an_unrouted_shard_is_refused(self, tmp_path):
-        # NON-VACUOUS: the delete case and the unrouted case are different set differences,
-        # so this direction fails on its own even when direction 1 is perfectly clean.
+        # NON-VACUOUS, through the SAME expression the live case uses. The delete case and
+        # the unrouted case are different set differences, so this direction fails on its own
+        # even when direction 1 is perfectly clean.
         shard_dir = tmp_path / "claugentic-decisions"
         shard_dir.mkdir()
         (shard_dir / "honesty.md").write_text("x", encoding="utf-8")
         (shard_dir / "orphan.md").write_text("x", encoding="utf-8")
         index = "- [honesty](claugentic-decisions/honesty.md)\n"
-        assert routed_shards(index) - present_shards(shard_dir) == set()  # direction 1 clean
-        assert present_shards(shard_dir) - routed_shards(index) == {"orphan.md"}
+        present = present_shards(shard_dir)
+        assert dead_routes(index, present) == set()  # direction 1 clean
+        assert unrouted_shards(index, present) == {"orphan.md"}
 
 
 class TestTheIndexParse:

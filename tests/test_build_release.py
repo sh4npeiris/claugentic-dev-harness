@@ -178,6 +178,9 @@ class TestManifestMigration:
     # the frozen historical membership below is still asserted in full, and any path that
     # appears in neither set still fails loud (an accidental strip is exactly what this
     # catches). Add a line here only alongside its `DEV_ONLY_PATH_CLASSES` entry.
+    # SIBLING: `test_check_shipped_content.TestDerivedHandListsEqualOld._ADDED_SINCE_MIGRATION`
+    # carries the same delta for that module's own frozen hand-lists — deliberately restated
+    # rather than imported (each is local build-history), so a new entry updates BOTH.
     POST_MIGRATION_ADDITIONS = frozenset(
         {
             # plan 0041 Slice 4 — the per-repo doc-budget caps config (`init-gen`): the

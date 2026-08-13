@@ -10,12 +10,10 @@ gate suite at Verify/Land and in CI, but **NOT hook-wired** (the one hook-enforc
 stays the architecture-tree check). See docs/claugentic-WORKFLOW.md -> Definition of Done.
 
 CONFIG-DRIVEN — the caps are DATA, not code. Every cap this gate enforces is read from
-`<repo-root>/.claude/claugentic-doc-budgets.json`, the ONE cap source per repo (the very
-file `/doctor`'s adopter budget advisory reads; the canonical schema statement lives in
-`skills/doctor/SKILL.md` -> *Adopter doc-budget advisory* and is not restated here beyond
-the shape below). This script carries no cap of its own, so a repo — this one included —
-tunes its budgets without touching this file, and there is never a second cap list to
-drift out of sync:
+`<repo-root>/.claude/claugentic-doc-budgets.json`, the ONE cap source per repo — the very
+file `/doctor`'s adopter budget advisory reads. This script carries no cap of its own, so a
+repo — this one included — tunes its budgets without touching this file, and there is never
+a second cap list to drift out of sync:
 
     {
       "<relpath>": <max_bytes>,                          # a plain integer byte cap
@@ -27,13 +25,24 @@ Flat, path-keyed, and nothing else: no `version` field, no non-path keys at all.
 repo-root-relative — `main()` anchors the process at the repo root (see `_repo_root`), so
 the gate behaves identically invoked from any directory.
 
+WHERE THE SCHEMA IS DEFINED (honest as of plan 0041 Slice 4). `skills/doctor/SKILL.md` ->
+*Adopter doc-budget advisory* is the canonical HOME for the schema, but today it documents
+only the ADOPTER-facing subset — the flat `{"<relpath>": <max_bytes>}` map — and still says
+that map has no glob support. The glob-by-key and `reportOnly` forms are stated HERE until
+Slice 6 converges the two statements; treat this docstring as authoritative for those two
+forms and doctor's reader-contract as authoritative for the flat one. Two homes is a
+temporary state, and naming it is cheaper than letting a reader discover the contradiction.
+
 NOT CONFIGURED IS NOT A FAILURE, BUT A BROKEN CONFIG IS. An ABSENT config is the
 not-opted-in posture: one quiet note, exit 0, nothing measured — this gate enforces only
 where a repo has opted in. A PRESENT config is that repo's own signal, so it is validated
-at the boundary and every structural defect (unparseable JSON, a non-object root, a
-non-integer or non-positive cap, an unknown object key) is a fail-loud problem line + exit
-1. Absent and malformed are deliberately DIFFERENT verdicts: collapsing them would turn a
-typo in your own cap list into a silent free pass — the forbidden fail-open.
+at the boundary and every structural defect — unreadable or non-UTF-8 file, unparseable or
+pathologically nested JSON, a duplicate key, a non-object root, a key shape that could only
+watch nothing, a non-integer or non-positive cap, an unknown object key — is a fail-loud
+problem line + exit 1, never a traceback (`_load_config` catches its failure modes BY NAME;
+see its docstring for the list and for why a bare `except ValueError` is refused). Absent
+and malformed are deliberately DIFFERENT verdicts: collapsing them would turn a typo in
+your own cap list into a silent free pass — the forbidden fail-open.
 
 Two thresholds per entry. The budget is a forcing function that keeps the always-/often-
 loaded context lean; the **WARN band** (a ledger past WARN_RATIO of its budget) fixes the
@@ -63,35 +72,44 @@ key/marker contradiction (`"a.md": {"glob": true}`) that something would then ha
 adjudicate. The trade is the one every glob-keyed config makes (`.gitignore`, tsconfig
 `include`): a path whose literal basename contains `*` is not expressible as a budget key —
 `*` is illegal in a Windows filename and is the metacharacter `pathlib` expands everywhere
-else. `_resolve_targets` is the only place that knows the difference; `_check_one` measures
-a plain path and has no idea globs exist.
+else. Those same precedents also teach `**`, which this gate does NOT support and therefore
+REFUSES at the boundary (`_validate_key`) rather than accepting into a pattern that measures
+nothing. `_resolve_targets` is the only place that knows the difference; `_check_one`
+measures a plain path and has no idea globs exist.
 
 A GLOB entry that matches NOTHING is SKIPPED — no error, no warn. The config declares a cap
 for a SHAPE of file, never the existence of any; existence is a separate concern with its
 own home (for this repo, `tests/test_decisions_index_agreement.py` pins the decisions index
-and its shard files against each other in BOTH directions). A dead glob is not silent
-though: its OK-summary clause still renders the count RESOLVED THIS RUN, so `(0 files)`
-stays on screen. A SUBDIRECTORY under a glob'd directory is a WARN, not an error — the entry
-measures a FLAT directory and does not recurse, so nested files really are unbudgeted and
-worth naming, but that is never a reason to fail a repo that legitimately nests something
-there.
+and its shard files against each other in BOTH directions). Because `_validate_key` has
+already refused every key shape that could ONLY ever match nothing, a zero-match glob
+honestly means "no files of that shape yet" — that is what makes this silent skip safe. It
+is not invisible either: the summary clause renders the count RESOLVED THIS RUN, so
+`(0 files)` stays on screen. A SUBDIRECTORY under a glob'd directory is a WARN, not an error
+— the entry measures a FLAT directory and does not recurse, so nested files really are
+unbudgeted and worth naming, but that is never a reason to fail a repo that legitimately
+nests something there.
 
 REPORT-ONLY is a GRACE flag, never a cure. `{"max": N, "reportOnly": true}` downgrades a
 strict BREACH of that entry from a problem (exit 1) to a warn line carrying REPORT_ONLY_TAG
 and the SAME remediation — the "you inherited an over-budget ledger; here is the signal,
 land your work" posture. It is scoped to the SIZE verdict alone: a missing or unreadable
 budgeted file still fails loud (existence is not what the grace was granted for), and a
-report-only file that is *within* its cap produces nothing special at all. NOTHING
-MECHANICAL CLEARS THE FLAG — condensing the ledger and deleting `reportOnly` is a judgement
-call owned by `/condense` + `/doctor` (model-upheld); this gate will report-only forever if
-you let it, and it says so on every run the grace fires.
+report-only file that is *within* its cap produces nothing special at all. A fired grace
+also CHANGES THE SUMMARY — the headline states the count of report-only breaches instead of
+claiming "all managed ledgers within budget", and that entry's clause renders `OVER budget`
+rather than `<= max`. A run that passes on a grace must never render as a clean pass to
+anyone tailing CI or grepping `OK:`. NOTHING MECHANICAL CLEARS THE FLAG — condensing the
+ledger and deleting `reportOnly` is a judgement call owned by `/condense` + `/doctor`
+(model-upheld); this gate will report-only forever if you let it, and it re-prints the
+breach in full on every run the grace fires.
 
 Each entry is read INDEPENDENTLY (mirroring the version-sync gate's discipline): one
 oversize / missing / unreadable / warn file must never mask a breach in another, so every
-breach surfaces in one run. A missing budgeted file is a fail-loud problem (don't silently
-skip — a deleted ledger is a contract breach). The CONFIG's own validity is deliberately
-NOT that case: a broken cap source makes every measurement untrustworthy, so it is one
-fatal problem line rather than a per-entry survey.
+breach surfaces in one run — a property that covers the SURVEY half too (see
+`_unbudgeted_subtrees`), not just the measuring half. A missing budgeted file is a fail-loud
+problem (don't silently skip — a deleted ledger is a contract breach). The CONFIG's own
+validity is deliberately NOT that case: a broken cap source makes every measurement
+untrustworthy, so it is one fatal problem line rather than a per-entry survey.
 
 Fails loud: a breach, a missing file, an unreadable file or a broken config each produce a
 plain, actionable message + exit 1 — never a swallowed exception, never a silent pass. A
@@ -136,10 +154,19 @@ WARN_REMEDIATION = "approaching budget — plan a compaction pass soon (merge su
 # stays kind-blind and the two remediations can never drift into each other.
 SHARD_REMEDIATION = " — or split this shard topically into a new one"
 
-# PREFIXED to a breach the `reportOnly` grace downgraded to a warn. A prefix (not a suffix)
-# so it composes with SHARD_REMEDIATION instead of competing with it, and so the grace is
-# the first thing read on the line — the message must never look like a clean pass.
-REPORT_ONLY_TAG = "[report-only] "
+# The one grace token, used in BOTH places a fired grace is visible: prefixed to the warn
+# line (a prefix, not a suffix, so it composes with SHARD_REMEDIATION instead of competing
+# with it, and so the grace is the first thing read) and suffixed to that entry's summary
+# clause. One token so the WARN and the summary can never disagree about what fired.
+REPORT_ONLY_MARK = "[report-only]"
+REPORT_ONLY_TAG = REPORT_ONLY_MARK + " "
+
+# The two SUMMARY headlines. They differ only when a grace actually fired — and then the
+# headline must NOT say "all managed ledgers within budget", because one is not: the run
+# passes on the grace, which is a different fact and is stated as one. `OK:` survives in
+# both (the run genuinely exits 0); what changes is the claim after it.
+OK_SUMMARY_PREFIX = "OK: all managed ledgers within budget - "
+GRACED_SUMMARY_PREFIX = "OK: {n} report-only breach(es) NOT within budget (see WARN above) - "
 
 # The ABSENT-config note: quiet, exit 0, and textually nothing like a breach or an OK
 # summary — "this repo has not opted in", which is a legitimate steady state.
@@ -156,17 +183,80 @@ NO_ENTRIES_NOTE = f"OK: {CONFIG_PATH} declares no budget entries; nothing measur
 class BudgetConfigError(RuntimeError):
     """The caps CONFIG is structurally broken — the gate's cap source, not a measured ledger.
 
-    Raised by `_load_config`/`_parse_rule` for unparseable JSON, a non-object root, a
-    non-integer or non-positive cap, a missing/unknown object key, or a non-boolean
-    `reportOnly`. Caught once, in `evaluate()`, and surfaced as a single problem line: fail
-    loud, exit 1, no traceback. It is deliberately FATAL to the run rather than per-entry —
-    when the cap source is broken, no measurement it produced can be trusted.
+    Raised by `_load_config`/`_validate_key`/`_parse_rule` for an unreadable/undecodable
+    file, unparseable or pathologically nested JSON, a duplicate key, a non-object root, a
+    key shape that would silently watch nothing, a non-integer or non-positive cap, a
+    missing/unknown object key, or a non-boolean `reportOnly`. Caught once, in `evaluate()`,
+    and surfaced as a single problem line: fail loud, exit 1, no traceback. It is
+    deliberately FATAL to the run rather than per-entry — when the cap source is broken, no
+    measurement it produced can be trusted.
     """
 
 
 def _is_glob(key: str) -> bool:
     """Is this config key a GLOB entry? The key's SHAPE is the declaration — see ENTRY KINDS."""
     return GLOB_MARKER in key
+
+
+def _validate_key(key: str) -> None:
+    """Boundary-validate a config KEY's SHAPE. Pure — no filesystem, exactly like the rest of
+    validation; whether the target exists is `_check_one`'s question, not this one's.
+
+    This is where "a glob entry measures a FLAT directory and does not recurse" stops being
+    documentation and becomes UNREPRESENTABLE. Two shapes are refused:
+
+      * `**` anywhere. `docs/**/*.md` — the natural spelling of "everything under docs", and
+        exactly what this module's own cited precedents (`.gitignore`, tsconfig `include`)
+        teach an author to write — resolves through `<parent>.glob(<name>)` to a pattern that
+        measures NOTHING here, printing `(0 files)` under the `OK:` banner at exit 0. That is
+        the fail-open this module forbids, reachable through supported-looking syntax. Its
+        meaning is not even stable: CPython 3.12 and 3.13 disagree on whether `**` yields
+        files, so the same config would measure a different set on CI than on a laptop.
+      * a `*` OUTSIDE the final path component (`docs/*/x.md`). Only the last component is
+        expanded, so such an entry silently watches nothing for the same reason.
+
+    With both refused, a zero-match glob honestly means "no files of that shape YET" — which
+    is what makes the silent-skip rule in the module docstring safe to state.
+    """
+    if not key.strip():
+        raise BudgetConfigError(
+            f"{CONFIG_PATH}: a budget entry has an empty key — every key is a repo-root-relative "
+            "path or a flat glob."
+        )
+    if GLOB_MARKER * 2 in key:
+        raise BudgetConfigError(
+            f'{CONFIG_PATH}: entry "{key}" uses `**`, which this gate does not support — a glob '
+            "entry measures a FLAT directory and does not recurse, so a `**` key would silently "
+            'measure nothing; use "<dir>/*.<ext>" and add a separate entry per subdirectory.'
+        )
+    head, _, _tail = key.rpartition("/")
+    if GLOB_MARKER in head:
+        raise BudgetConfigError(
+            f'{CONFIG_PATH}: entry "{key}" has a `{GLOB_MARKER}` outside its final path component '
+            "— only the last component is expanded, so this entry would silently measure "
+            'nothing; put the `*` in the filename part, e.g. "docs/notes/*.md".'
+        )
+
+
+def _no_duplicate_keys(pairs: list[tuple[str, object]]) -> dict:
+    """`json.loads` object hook making a DUPLICATE key fatal instead of last-wins.
+
+    Stdlib JSON silently keeps the LAST value for a repeated key, so
+    `{"CLAUDE.md": 6000, "CLAUDE.md": 999999}` parses cleanly, reports OK, and the tighter
+    cap the author wrote is simply gone. A cap list is a set of promises, not a stream of
+    assignments — a repeat is an author error, and this gate's whole posture is that a
+    present config is a signal to be trusted. Applies at EVERY nesting level, so a repeated
+    `"max"` inside an object entry is caught by the same rule.
+    """
+    seen: set[str] = set()
+    for key, _value in pairs:
+        if key in seen:
+            raise BudgetConfigError(
+                f'{CONFIG_PATH}: duplicate key "{key}" — JSON keeps only the last value, so one '
+                "of the two would be silently discarded; keep exactly one."
+            )
+        seen.add(key)
+    return dict(pairs)
 
 
 def _cap_bytes(key: str, raw: object) -> int:
@@ -199,7 +289,11 @@ def _parse_rule(key: str, value: object) -> dict:
     config. The object form exists ONLY for the grace flag, so any other key in it is an
     author error (a typo'd `"maxBytes"` must not silently become "no cap"), not something to
     ignore: unknown keys are named in the message so the fix is obvious.
+
+    The KEY is validated first (`_validate_key`): a shape that could only ever watch nothing
+    is refused before its cap is even read.
     """
+    _validate_key(key)
     if isinstance(value, dict):
         unknown = sorted(set(value) - {OBJECT_MAX_KEY, OBJECT_REPORT_ONLY_KEY})
         if unknown:
@@ -231,20 +325,43 @@ def _load_config(path: Path) -> dict[str, dict] | None:
     verdicts the whole not-opted-in posture rests on — see the module docstring. Entry order
     is preserved (`json.loads` yields an insertion-ordered dict), so the OK summary reads in
     the order the repo authored its caps.
+
+    TOTALITY: every way this read can fail is caught BY NAME and converted to a
+    `BudgetConfigError`. Deliberately NOT a bare `except ValueError` — `UnicodeDecodeError`
+    and `json.JSONDecodeError` are both `ValueError` subclasses, and a blanket catch would
+    also swallow a genuine programming error raised inside the hook. The named set:
+      * `OSError`            — unreadable/permission-denied file
+      * `UnicodeDecodeError` — a non-UTF-8 byte in the config (a stray latin-1 paste)
+      * `json.JSONDecodeError`— syntax
+      * `RecursionError`     — pathologically nested JSON exhausting the parser's stack
+    Decoded as `utf-8-sig`, so a BOM (what PowerShell's `>`/`Set-Content` writes by default,
+    and what an adopter will hit first) parses as content rather than as a syntax error.
     """
     if not path.exists():
         return None
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
+        raw = json.loads(
+            path.read_text(encoding="utf-8-sig"), object_pairs_hook=_no_duplicate_keys
+        )
     except OSError as exc:
         raise BudgetConfigError(
             f"{CONFIG_PATH} could not be read ({exc}) — the caps config exists but is "
             "unreadable; fix its permissions or remove it to opt out."
         ) from exc
+    except UnicodeDecodeError as exc:
+        raise BudgetConfigError(
+            f"{CONFIG_PATH} is not valid UTF-8 ({exc}) — the caps config must be UTF-8 text "
+            "(a BOM is fine); re-save it in UTF-8 (or remove the file to opt out)."
+        ) from exc
     except json.JSONDecodeError as exc:
         raise BudgetConfigError(
             f"{CONFIG_PATH} is not valid JSON ({exc}) — the caps config is this repo's own cap "
             "source; fix the syntax (or remove the file to opt out)."
+        ) from exc
+    except RecursionError as exc:
+        raise BudgetConfigError(
+            f"{CONFIG_PATH} is nested too deeply to parse ({exc}) — the caps config is a FLAT "
+            "map of path to byte cap; flatten it (or remove the file to opt out)."
         ) from exc
     if not isinstance(raw, dict):
         raise BudgetConfigError(
@@ -279,13 +396,27 @@ def _unbudgeted_subtrees(rel_path: str) -> list[str]:
     A non-glob key has no directory of its own to survey, and a glob whose directory is
     absent has nothing to report — both return `[]`. Kept separate from `_resolve_targets` so
     each function answers exactly one question (what do I measure? / what am I NOT measuring?).
+
+    The `iterdir()` guard is load-bearing, not defensive noise. `Path.is_dir()` and
+    `Path.glob()` swallow `OSError` internally; `iterdir()` does NOT — so one unreadable
+    globbed directory used to raise straight out of `evaluate()`, discarding every breach
+    already queued by an EARLIER entry and printing nothing at all. That is precisely the
+    "one file must never mask a breach in another" property this module claims, broken by the
+    half of the run that only SURVEYS. A failed survey degrades to a warn line naming the
+    entry: we could not look, we say so, and every measurement still reports.
     """
     if not _is_glob(rel_path):
         return []
     parent = Path(rel_path).parent
     if not parent.is_dir():
         return []
-    subdirs = sorted(p.as_posix() for p in parent.iterdir() if p.is_dir())
+    try:
+        subdirs = sorted(p.as_posix() for p in parent.iterdir() if p.is_dir())
+    except OSError as exc:
+        return [
+            f"{rel_path} could not be surveyed for subdirectories ({exc}) — any nested files "
+            "under it are unmeasured; this entry's own matches were still measured."
+        ]
     if not subdirs:
         return []
     return [
@@ -295,12 +426,22 @@ def _unbudgeted_subtrees(rel_path: str) -> list[str]:
     ]
 
 
-def _summary_clause(rel_path: str, rule: dict, matched: int) -> str:
-    """One OK-summary clause per ENTRY (not per file) — a glob collapses to a single
-    clause carrying the count RESOLVED THIS RUN, so the summary can't claim a stale
-    shard count (and a dead glob visibly reads `(0 files)`). ASCII-only (`<=`, no glyph)
-    like the rest of the summary. A `reportOnly` entry that is WITHIN its cap renders
-    exactly like any other — the grace shows only when it actually fires."""
+def _summary_clause(rel_path: str, rule: dict, matched: int, graced: bool) -> str:
+    """One summary clause per ENTRY (not per file) — a glob collapses to a single clause
+    carrying the count RESOLVED THIS RUN, so the summary can't claim a stale shard count (and
+    a dead glob visibly reads `(0 files)`). ASCII-only (`<=`, no glyph) like the rest.
+
+    `graced` is the entry's OWN verdict for this run — did the `reportOnly` grace actually
+    fire on any of its files — and it is threaded in rather than re-derived, because this
+    function cannot see a measurement. It flips the clause from "cap satisfied" to
+    "OVER budget", which is the whole point: a graced entry is a ledger the run is
+    knowingly passing OVER its cap, and rendering it as `<= max` would state the opposite of
+    what was measured. A `reportOnly` entry that is WITHIN its cap renders exactly like any
+    other — the grace shows only when it actually fires."""
+    if graced:
+        if _is_glob(rel_path):
+            return f"{rel_path} ({matched} files) OVER budget {rule['max_bytes']} bytes each {REPORT_ONLY_MARK}"
+        return f"{rel_path} OVER budget {rule['max_bytes']} bytes {REPORT_ONLY_MARK}"
     if _is_glob(rel_path):
         return f"{rel_path} ({matched} files) <= {rule['max_bytes']} bytes each"
     return f"{rel_path} <= {rule['max_bytes']} bytes"
@@ -350,35 +491,43 @@ def evaluate() -> tuple[list[str], list[str], str]:
     problems: list[str] = []
     warnings: list[str] = []
     clauses: list[str] = []
+    graced: list[str] = []
     for rel_path, rule in config.items():
         warnings.extend(_unbudgeted_subtrees(rel_path))
         targets = _resolve_targets(rel_path)
+        entry_graced = False
         for target in targets:
             result = _check_one(target, rule["max_bytes"])
             if result is None:
                 continue
             level, msg = result
-            # Both decorations ride on facts only THIS loop knows — the entry's KIND and its
-            # grace FLAG — so `_check_one` stays blind to each. Both apply ONLY to a size
-            # verdict: neither "split it topically" nor a granted grace answers a missing or
-            # unreadable file. Computed once, BEFORE either decoration, so the second test
-            # cannot accidentally read the first's suffix.
+            # THREE things ride on facts only THIS loop knows — the entry's KIND, its grace
+            # FLAG, and (for the summary) whether the grace actually FIRED — so `_check_one`
+            # stays blind to all three. All three apply ONLY to a size verdict: neither
+            # "split it topically" nor a granted grace answers a missing or unreadable file,
+            # and neither may recolour that entry's summary clause. `size_verdict` is the
+            # single suffix-sniff they share; it is computed once, BEFORE any decoration, so
+            # no later test can accidentally read an earlier one's suffix.
             size_verdict = msg.endswith((REMEDIATION, WARN_REMEDIATION))
             if size_verdict and _is_glob(rel_path):
                 msg += SHARD_REMEDIATION
             if size_verdict and level == "error" and rule["report_only"]:
                 level, msg = "warn", REPORT_ONLY_TAG + msg
+                graced.append(target)
+                entry_graced = True
             (problems if level == "error" else warnings).append(msg)
-        clauses.append(_summary_clause(rel_path, rule, len(targets)))
+        clauses.append(_summary_clause(rel_path, rule, len(targets), entry_graced))
     if problems:
         return (problems, warnings, "")
     if not clauses:
         return ([], warnings, NO_ENTRIES_NOTE)
-    # ASCII-only output (no `<=` glyph) — the gate runs on Windows consoles
-    # (cp1252) and CI alike; the version-sync template keeps its messages ASCII
-    # for the same portability reason.
-    summary = "OK: all managed ledgers within budget - " + ", ".join(clauses)
-    return ([], warnings, summary)
+    # A fired grace changes the HEADLINE, not just the clause: the run passes, but "all
+    # managed ledgers within budget" would be a plain falsehood about a file measured over
+    # its cap — and `OK:` is what a CI tail or a `grep OK:` reads. State the grace instead.
+    # ASCII-only output (no `<=` glyph) — the gate runs on Windows consoles (cp1252) and CI
+    # alike; the version-sync template keeps its messages ASCII for the same portability reason.
+    prefix = GRACED_SUMMARY_PREFIX.format(n=len(graced)) if graced else OK_SUMMARY_PREFIX
+    return ([], warnings, prefix + ", ".join(clauses))
 
 
 def _repo_root() -> Path:
