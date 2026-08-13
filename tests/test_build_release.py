@@ -418,14 +418,22 @@ class TestSemverParse:
 class TestVersionIncreaseGuard:
     """Plan 0034 Slice 4 / P0-1 — the version-must-INCREASE precondition, TAG-ANCHORED.
     `_version_increase_error` returns an actionable string to REFUSE, or `None` to ALLOW.
-    Offline: `_read_manifest_version` + `_latest_release_tag` are monkeypatched so no real
-    manifest/git/network is touched. The tag is the last thing actually PUBLISHED, so it is
-    the correct anchor (`origin/release` is never fetched by the build)."""
+    Offline: `_read_manifest_version` + `_latest_release_tag` (+ `_tag_points_at_head`) are
+    monkeypatched so no real manifest/git/network is touched.
+
+    Plan 0041 Slice 2 (R4) — TWO call sites, one guard, under CI-publishes:
+      * PREPARE time (the maintainer's repo, pre-tag): semantics UNCHANGED — the manifest
+        version must be strictly greater than the latest `vX.Y.Z` tag.
+      * PUBLISH time (the release workflow, AT the tagged commit): the tag now EXISTS and
+        equals the manifest version, so `equal` must be ALLOWED — but ONLY when `v<new>`
+        points at HEAD (i.e. this build IS that tag's build). Equal-at-a-different-commit
+        stays a refusal: that is genuinely re-publishing a shipped version."""
 
     @staticmethod
-    def _patch(monkeypatch, *, version: str, latest_tag: str | None):
+    def _patch(monkeypatch, *, version: str, latest_tag: str | None, tag_at_head: bool = False):
         monkeypatch.setattr(br, "_read_manifest_version", lambda root: version)
         monkeypatch.setattr(br, "_latest_release_tag", lambda root: latest_tag)
+        monkeypatch.setattr(br, "_tag_points_at_head", lambda root, tag: tag_at_head)
 
     def test_no_tag_first_release_allows(self, monkeypatch):
         # Bootstrap: no vX.Y.Z tag exists yet → first release → ALLOW (nothing to compare).
@@ -436,19 +444,53 @@ class TestVersionIncreaseGuard:
         self._patch(monkeypatch, version="0.4.0", latest_tag="v0.3.1")
         assert br._version_increase_error(Path(".")) is None
 
-    def test_equal_to_latest_tag_refuses(self, monkeypatch):
-        # A version already published as a tag can't be re-shipped as "new".
-        self._patch(monkeypatch, version="0.3.1", latest_tag="v0.3.1")
+    def test_equal_to_latest_tag_refuses_when_the_tag_is_elsewhere(self, monkeypatch):
+        # PREPARE-time semantics, unchanged: a version already published as a tag that points
+        # at some OTHER commit can't be re-shipped as "new".
+        self._patch(monkeypatch, version="0.3.1", latest_tag="v0.3.1", tag_at_head=False)
         err = br._version_increase_error(Path("."))
         assert err is not None and "0.3.1" in err and "v0.3.1" in err
+
+    def test_equal_allowed_iff_the_tag_points_at_head(self, monkeypatch):
+        # PUBLISH-time (the release workflow runs AT the tagged commit): `v0.3.1` IS HEAD, so
+        # this build is that tag's build, not a re-publish → ALLOW. Without this the workflow
+        # could never publish anything (the tag precedes the build under CI-publishes).
+        self._patch(monkeypatch, version="0.3.1", latest_tag="v0.3.1", tag_at_head=True)
+        assert br._version_increase_error(Path(".")) is None
+
+    def test_burned_version_recovery_is_named_in_the_refusal(self, monkeypatch):
+        # R4: a red publish run leaves the tag behind, so the NEXT attempt at the same version
+        # is refused. The message must name the recovery (bump forward; never reuse a tag).
+        self._patch(monkeypatch, version="0.3.1", latest_tag="v0.3.1", tag_at_head=False)
+        err = br._version_increase_error(Path("."))
+        assert err is not None
+        assert "never reused" in err.lower() or "never reuse" in err.lower()
 
     def test_less_than_latest_tag_refuses(self, monkeypatch):
         # A downgrade must be refused loudly.
         self._patch(monkeypatch, version="0.3.0", latest_tag="v0.3.1")
         assert br._version_increase_error(Path(".")) is not None
 
+    def test_less_than_latest_tag_refuses_even_at_head(self, monkeypatch):
+        # The equal-at-HEAD relaxation is EXACTLY that — a downgrade stays refused even if the
+        # (higher) latest tag happens to sit on HEAD.
+        self._patch(monkeypatch, version="0.3.0", latest_tag="v0.3.1", tag_at_head=True)
+        assert br._version_increase_error(Path(".")) is not None
+
+    def test_greater_than_never_consults_the_tag_position(self, monkeypatch):
+        # Prepare-time path stays git-free beyond the tag list: the strictly-greater branch
+        # must short-circuit BEFORE any rev-parse (a needless git call in the common case).
+        monkeypatch.setattr(br, "_read_manifest_version", lambda root: "0.4.0")
+        monkeypatch.setattr(br, "_latest_release_tag", lambda root: "v0.3.1")
+
+        def _boom(root, tag):
+            raise AssertionError("the strictly-greater branch must not resolve the tag")
+
+        monkeypatch.setattr(br, "_tag_points_at_head", _boom)
+        assert br._version_increase_error(Path(".")) is None
+
     def test_same_untagged_version_rebuild_allows(self, monkeypatch):
-        # In-progress version 0.4.0 has NOT been tagged yet (the tag is created only at
+        # In-progress version 0.4.0 has NOT been tagged yet (the tag is created by the human at
         # publish). The latest PUBLISHED tag is still v0.3.1, so 0.4.0 > v0.3.1 → ALLOW —
         # a same-version rebuild of an untagged version is permitted.
         self._patch(monkeypatch, version="0.4.0", latest_tag="v0.3.1")
@@ -463,6 +505,49 @@ class TestVersionIncreaseGuard:
         self._patch(monkeypatch, version="not-a-version", latest_tag="v0.3.1")
         with pytest.raises(ValueError):
             br._version_increase_error(Path("."))
+
+
+class TestTagPointsAtHead:
+    """`_tag_points_at_head` is the ONE thing that distinguishes the publish-time equal case
+    from a genuine re-publish. It peels annotated tags (`^{commit}`) and FAILS CLOSED — any
+    git error reads as False, so an unreadable tag can only ever TIGHTEN the guard."""
+
+    def test_true_when_the_tag_resolves_to_head(self, monkeypatch):
+        monkeypatch.setattr(br, "_git", lambda *args: "abc123\n")
+        assert br._tag_points_at_head(Path("."), "v0.3.1") is True
+
+    def test_false_when_the_tag_is_a_different_commit(self, monkeypatch):
+        def fake_git(*args):
+            return "abc123\n" if "v0.3.1^{commit}" in args else "def456\n"
+
+        monkeypatch.setattr(br, "_git", fake_git)
+        assert br._tag_points_at_head(Path("."), "v0.3.1") is False
+
+    def test_peels_the_annotated_tag(self, monkeypatch):
+        seen: list[tuple[str, ...]] = []
+
+        def fake_git(*args):
+            seen.append(args)
+            return "abc123\n"
+
+        monkeypatch.setattr(br, "_git", fake_git)
+        br._tag_points_at_head(Path("."), "v0.3.1")
+        assert any("v0.3.1^{commit}" in a for a in seen), (
+            "an ANNOTATED tag resolves to a tag object — it must be peeled with ^{commit}"
+        )
+
+    def test_git_failure_fails_closed(self, monkeypatch):
+        def fake_git(*args):
+            raise subprocess.CalledProcessError(1, ["git", *args])
+
+        monkeypatch.setattr(br, "_git", fake_git)
+        assert br._tag_points_at_head(Path("."), "v0.3.1") is False
+
+    def test_empty_resolution_fails_closed(self, monkeypatch):
+        # `rev-parse --verify --quiet` on a missing ref exits 0 with EMPTY stdout in some git
+        # builds — an empty == empty compare must NOT read as "the tag is at HEAD".
+        monkeypatch.setattr(br, "_git", lambda *args: "\n")
+        assert br._tag_points_at_head(Path("."), "v0.3.1") is False
 
 
 class TestLatestReleaseTag:
@@ -672,25 +757,176 @@ class TestBumpManifests:
 
 
 class TestGatedPublishCommand:
-    """Plan 0034 Slice 8/9/10 / C-3 — `_gated_publish_command` is the EXACT single command the
-    human runs to publish: tag-at-publish + `--force-with-lease` + tag-push, ONE atomic step."""
+    """Plan 0041 Slice 2 — under CI-publishes the human's single act is a TAG PUSH; publishing
+    belongs to `.github/workflows/release.yml`. `_gated_publish_command` must therefore contain
+    NO `release`-branch push at all (that would be a second publisher racing the workflow)."""
 
     def test_exact_command_string(self):
         assert br._gated_publish_command("0.4.0") == (
-            "git tag v0.4.0 && "
-            "git push --force-with-lease origin release && "
-            "git push origin v0.4.0"
+            "git tag v0.4.0 && git push origin main v0.4.0"
         )
 
-    def test_tag_at_publish_not_in_build(self):
-        # The tag lives in the printed command (created at publish), never in-build.
+    def test_tag_is_created_by_the_human_not_in_build(self):
+        # The tag lives in the printed command, never in-build.
         assert "git tag v" in br._gated_publish_command("1.2.3")
 
-    def test_lease_safe_push(self):
-        # Slice 9: the branch push is lease-safe, not a bare --force.
+    def test_the_human_never_pushes_the_release_branch(self):
+        # THE shape change: the workflow is the only publisher. Any `release`-branch push here
+        # would fork the publish path (two writers of one branch).
         cmd = br._gated_publish_command("1.2.3")
-        assert "--force-with-lease" in cmd
-        assert "push --force origin" not in cmd
+        assert br.RELEASE_BRANCH not in cmd
+        assert "--force" not in cmd
+
+    def test_main_rides_along_with_the_tag(self):
+        # The tagged commit must be reachable from `main` — otherwise the workflow would build
+        # and publish a commit that never landed on the branch.
+        assert "git push origin main v1.2.3" in br._gated_publish_command("1.2.3")
+
+
+class TestUncommittedManifests:
+    """`_uncommitted_manifests` decides whether `_apply` prints the commit-the-bump step. Under
+    CI-publishes the workflow builds from the TAGGED COMMIT, so an uncommitted bump would tag a
+    commit that still advertises the old version. Offline (`_git` monkeypatched)."""
+
+    def test_clean_tree_returns_nothing(self, monkeypatch):
+        monkeypatch.setattr(br, "_git", lambda *a: "")
+        assert br._uncommitted_manifests(Path(".")) == []
+
+    def test_reports_both_dirty_manifests(self, monkeypatch):
+        monkeypatch.setattr(
+            br,
+            "_git",
+            lambda *a: " M .claude-plugin/plugin.json\n M .claude-plugin/marketplace.json\n",
+        )
+        assert br._uncommitted_manifests(Path(".")) == list(br.VERSIONED_MANIFESTS)
+
+    def test_ignores_unrelated_dirty_paths(self, monkeypatch):
+        monkeypatch.setattr(br, "_git", lambda *a: " M README.md\n?? scratch.txt\n")
+        assert br._uncommitted_manifests(Path(".")) == []
+
+    def test_windows_backslash_paths_normalized(self, monkeypatch):
+        monkeypatch.setattr(br, "_git", lambda *a: " M .claude-plugin\\plugin.json\n")
+        assert br._uncommitted_manifests(Path(".")) == [br.PLUGIN_MANIFEST]
+
+
+class TestMissingChangelogSection:
+    """`_missing_changelog_section` is the PREPARE-time heads-up for the one thing the publish
+    job hard-fails on after the tag is already spent. Real tmp files, no git."""
+
+    @staticmethod
+    def _write(root: Path, text: str) -> Path:
+        (root / br.CHANGELOG).write_text(text, encoding="utf-8")
+        return root
+
+    def test_missing_heading_is_reported(self, tmp_path):
+        self._write(tmp_path, "# Changelog\n\n## Unreleased\n\n- something\n")
+        assert br._missing_changelog_section(tmp_path, "0.6.0") is True
+
+    def test_populated_section_is_silent(self, tmp_path):
+        self._write(tmp_path, "# Changelog\n\n## 0.6.0\n\n- the thing\n\n## 0.5.1\n\n- old\n")
+        assert br._missing_changelog_section(tmp_path, "0.6.0") is False
+
+    def test_an_empty_section_counts_as_missing(self, tmp_path):
+        # A heading with no body produces empty release notes — the publish job refuses on that
+        # too, so the heads-up must fire.
+        self._write(tmp_path, "# Changelog\n\n## 0.6.0\n\n## 0.5.1\n\n- old\n")
+        assert br._missing_changelog_section(tmp_path, "0.6.0") is True
+
+    def test_absent_changelog_is_reported(self, tmp_path):
+        assert br._missing_changelog_section(tmp_path, "0.6.0") is True
+
+
+class TestCiStatusAdvisory:
+    """Plan 0041 Slice 2 — the red-CI preflight is ADVISORY: it warns, it never blocks, and it
+    goes SILENT whenever the answer isn't cheaply knowable. Offline — `subprocess.run` is
+    monkeypatched throughout, and the fake CAPTURES the call so the two guarantees the docstring
+    makes about the query itself (bounded, and about `main`) are pinned rather than assumed."""
+
+    @staticmethod
+    def _patch_gh(monkeypatch, *, returncode: int = 0, stdout: str = "[]") -> dict:
+        seen: dict = {}
+
+        def fake_run(cmd, **kwargs):
+            seen["cmd"], seen["kwargs"] = cmd, kwargs
+            return subprocess.CompletedProcess(cmd, returncode, stdout=stdout, stderr="")
+
+        monkeypatch.setattr(br.subprocess, "run", fake_run)
+        return seen
+
+    def test_the_query_is_bounded_and_scoped_to_main(self, monkeypatch):
+        # Both were silently deletable: without `timeout` a hung `gh` stalls a release build
+        # indefinitely, and a wrong `--branch` would advise on some other branch's health.
+        seen = self._patch_gh(monkeypatch)
+        br._ci_status_advisory(Path("."))
+        assert seen["kwargs"].get("timeout") == br._CI_ADVISORY_TIMEOUT_S
+        cmd = seen["cmd"]
+        assert cmd[:2] == ["gh", "run"]
+        assert cmd[cmd.index("--branch") + 1] == br.MAIN_BRANCH
+
+    def test_green_run_is_silent(self, monkeypatch):
+        self._patch_gh(
+            monkeypatch,
+            stdout='[{"status": "completed", "conclusion": "success", "url": "u"}]',
+        )
+        assert br._ci_status_advisory(Path(".")) is None
+
+    def test_red_run_warns_and_labels_itself_advisory(self, monkeypatch):
+        self._patch_gh(
+            monkeypatch,
+            stdout='[{"status": "completed", "conclusion": "failure", "url": "https://x/1"}]',
+        )
+        msg = br._ci_status_advisory(Path("."))
+        assert msg is not None
+        assert msg.startswith("ADVISORY")
+        assert "does NOT block" in msg
+        assert "https://x/1" in msg
+
+    def test_in_progress_run_warns(self, monkeypatch):
+        self._patch_gh(
+            monkeypatch, stdout='[{"status": "in_progress", "conclusion": null, "url": "u"}]'
+        )
+        msg = br._ci_status_advisory(Path("."))
+        assert msg is not None and "in_progress" in msg
+
+    @pytest.mark.parametrize(
+        "returncode,stdout,why",
+        [
+            (1, "", "unauthenticated / offline / no such repo"),
+            (0, "not json", "garbled payload"),
+            (0, "[]", "no runs yet"),
+            (0, '{"message": "Not Found"}', "an API ERROR OBJECT where a list is documented"),
+            (0, '["a string, not a run object"]', "a list of non-objects"),
+        ],
+    )
+    def test_unknowable_conditions_silently_skip(self, monkeypatch, returncode, stdout, why):
+        # The last two are the load-bearing ones: `gh` answers a failed lookup with an OBJECT,
+        # and an indexed/keyed read of that shape would raise INSIDE `_apply` — crashing the
+        # build this helper is documented never to affect. Silence is the only correct answer.
+        self._patch_gh(monkeypatch, returncode=returncode, stdout=stdout)
+        assert br._ci_status_advisory(Path(".")) is None, why
+
+    def test_missing_gh_silently_skips(self, monkeypatch):
+        def boom(cmd, **kwargs):
+            raise FileNotFoundError("gh")
+
+        monkeypatch.setattr(br.subprocess, "run", boom)
+        assert br._ci_status_advisory(Path(".")) is None
+
+    def test_timeout_silently_skips(self, monkeypatch):
+        def boom(cmd, **kwargs):
+            raise subprocess.TimeoutExpired(cmd, 1)
+
+        monkeypatch.setattr(br.subprocess, "run", boom)
+        assert br._ci_status_advisory(Path(".")) is None
+
+    def test_undecodable_output_silently_skips(self, monkeypatch):
+        # `text=True` decoding happens inside `subprocess.run`; a UnicodeDecodeError is a
+        # ValueError, which would otherwise escape past the OSError/SubprocessError catch.
+        def boom(cmd, **kwargs):
+            raise UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte")
+
+        monkeypatch.setattr(br.subprocess, "run", boom)
+        assert br._ci_status_advisory(Path(".")) is None
 
 
 class TestBumpOnlyDirty:
@@ -744,15 +980,28 @@ class TestApplyHookBypass:
     Hermetic: a throwaway repo under tmp_path, real git, real disk. The ambient git
     environment is fully isolated (GIT_CONFIG_GLOBAL/SYSTEM → an empty file; gpgsign
     pinned off) so pass/fail depends only on the code under test, never on this machine's
-    git config or user hooks. Does NOT re-test the base-ancestry refusal (already pinned
-    at `TestBaseAncestryGuard`) — it only SATISFIES that guard so `_apply` proceeds to the
-    commit.
+    git config or user hooks — and, since `_apply` gained the `gh` advisory preflight, the
+    autouse `_no_ambient_gh` fixture below keeps that promise true (an unpatched call would be
+    real network traffic at 20s a piece, decided by whoever's shell exported `GH_REPO`). Does
+    NOT re-test the base-ancestry refusal (already pinned at `TestBaseAncestryGuard`) — it only
+    SATISFIES that guard so `_apply` proceeds to the commit.
     """
 
     # Tracked tree that `classify()` splits BOTH ways: the architecture tree is the
     # stripped DEV_ONLY file the pre-commit gate reports "missing"; README.md ships.
     STRIPPED_FILE = "docs/claugentic-ARCHITECTURE_TREE.md"
     SHIPPED_FILE = "README.md"
+
+    @pytest.fixture(autouse=True)
+    def _no_ambient_gh(self, monkeypatch):
+        """Neutralize the advisory preflight for every `_apply` in this class (and subclasses).
+
+        The advisory is unit-tested exhaustively above; here it is pure ambient coupling — it
+        would shell out to whatever `gh` this machine has, against whatever repo the environment
+        points at. Tests that WANT an advisory override this explicitly (see
+        `test_a_red_ci_advisory_never_blocks_the_build`), which monkeypatch honors: a later
+        setattr in the test body wins over the fixture's."""
+        monkeypatch.setattr(br, "_ci_status_advisory", lambda root: None)
 
     @staticmethod
     def _git(repo: Path, *args: str, hooks: bool = False) -> subprocess.CompletedProcess:
@@ -993,13 +1242,34 @@ class TestApplyBumpOrchestration(TestApplyHookBypass):
         assert '"version": "0.5.0"' in plugin and '"version": "0.5.0"' in market
 
         out = capsys.readouterr().out
-        # C-3: the EXACT gated command is printed (tag-at-publish + lease-safe push).
-        assert "git tag v0.5.0 && git push --force-with-lease origin release && git push origin v0.5.0" in out
-        # Honesty framing: never "fully automated".
-        assert "one command up to a single human-gated push" in out.lower()
+        # C-3 as re-shaped by 0041 S2: the EXACT gated command is printed, and it TAGS only.
+        assert "git tag v0.5.0 && git push origin main v0.5.0" in out
+        assert "--force" not in out, "the human never force-pushes anything under CI-publishes"
+        # Honesty framing: the workflow publishes, and only on green.
+        assert "release.yml" in out and "only if they are all green" in out
+        # The burned-version trade-off is stated where the human decides to tag.
+        assert "bumping forward" in out and "reusing the tag" in out
+        # The bump is uncommitted here, so the commit-first step must be surfaced — a tag placed
+        # now would point at a commit still advertising 0.4.0.
+        assert "UNCOMMITTED" in out and "git commit -m" in out
+        # The fixture carries no CHANGELOG, so the prepare-time heads-up must fire too — this is
+        # what pins the print block as WIRED, not merely unit-tested in isolation.
+        assert "BEFORE YOU TAG" in out and "0.5.0" in out
 
         # THE honesty guarantee: the tool did NOT create the tag and did NOT push.
-        assert self._tags(repo) == [], "the build must NOT create a tag — it is created at publish"
+        assert self._tags(repo) == [], "the build must NOT create a tag — the human creates it"
+
+    def test_a_populated_changelog_section_silences_the_heads_up(self, repo, capsys):
+        # The negative half: with the section present, `_apply` says nothing about the CHANGELOG.
+        # (Non-vacuous against the assertion above, which fires on the same code path.)
+        (repo / br.CHANGELOG).write_text(
+            "# Changelog\n\n## 0.5.0\n\n- the thing that changed\n", encoding="utf-8"
+        )
+        self._git(repo, "add", "-A").check_returncode()
+        self._git(repo, "commit", "-qm", "add changelog").check_returncode()
+        self._git(repo, "update-ref", "refs/remotes/origin/main", "HEAD").check_returncode()
+        assert br._apply(bump="0.5.0") == 0
+        assert "BEFORE YOU TAG" not in capsys.readouterr().out
 
     def test_apply_bump_does_not_execute_a_push(self, repo):
         # No remote is configured on the fixture repo; a real push would ERROR. The flow returning
@@ -1026,16 +1296,72 @@ class TestApplyBumpOrchestration(TestApplyHookBypass):
             assert rel.stdout.strip() == head_before
 
     def test_abort_at_version_increase_stage_leaves_no_tag(self, repo):
-        # Stage: version-increase. Tag the repo at v0.5.0, then try to bump to 0.5.0 (== latest tag)
-        # → the version-increase guard REFUSES. The bump WROTE the manifests first (that's the
-        # operator-revertable working-tree change), but NO tag is created and NO release commit.
-        self._git(repo, "tag", "v0.5.0").check_returncode()
+        # Stage: version-increase. v0.5.0 is already PUBLISHED at an EARLIER commit; bumping to
+        # 0.5.0 here would re-ship a shipped version → REFUSE. (The tag must sit off HEAD: an
+        # equal version whose tag IS HEAD is the legitimate publish-time rebuild, pinned below.)
+        # The bump WROTE the manifests first (the operator-revertable working-tree change), but NO
+        # tag is created and NO release commit.
+        published = self._git(repo, "rev-parse", "HEAD").stdout.strip()
+        self._git(repo, "tag", "v0.5.0", published).check_returncode()
+        (repo / "later.txt").write_text("later work\n", encoding="utf-8")
+        self._git(repo, "add", "-A").check_returncode()
+        self._git(repo, "commit", "-qm", "work after the release").check_returncode()
+        self._git(repo, "update-ref", "refs/remotes/origin/main", "HEAD").check_returncode()
+
         rc = br._apply(bump="0.5.0")
         assert rc == 1
         # No NEW tag beyond the one we set up.
         assert self._tags(repo) == ["v0.5.0"]
         # The working-tree bump is left for the operator to `git checkout` (defined behavior).
         assert '"version": "0.5.0"' in (repo / br.PLUGIN_MANIFEST).read_text(encoding="utf-8")
+
+    def test_publish_time_rebuild_at_the_tagged_commit_is_allowed(self, repo, capsys):
+        # Plan 0041 S2 / R4, end-to-end: this is exactly what `release.yml`'s publish job does —
+        # `--apply` (no --bump) at the commit the `vX.Y.Z` tag points at, where the manifest
+        # version EQUALS the tag. Under the old strictly-greater rule the workflow could never
+        # build anything; the narrow equal-at-HEAD relaxation is what makes CI-publishes possible.
+        self._git(repo, "tag", "v0.4.0").check_returncode()  # fixture manifests are at 0.4.0
+        assert br._apply() == 0
+        assert self._release_manifest_version(repo, br.PLUGIN_MANIFEST) == "0.4.0"
+        # Still no NEW tag and no push — the workflow pushes the branch, this script never does.
+        assert self._tags(repo) == ["v0.4.0"]
+        # NEGATIVE control: the tree is clean here, so the commit-the-bump banner must be ABSENT.
+        # Without this, `if pending:` -> `if True:` survives and CI logs would carry a "commit the
+        # bump before tagging" instruction that is false on exactly this path.
+        assert "UNCOMMITTED" not in capsys.readouterr().out
+
+    def test_publish_time_rebuild_accepts_an_annotated_tag(self, repo):
+        # An ANNOTATED tag resolves to a tag OBJECT, not a commit — the `^{commit}` peel in
+        # `_tag_points_at_head` is the only reason the equal-at-HEAD relaxation works for one.
+        # Every other real-git test here uses a lightweight tag, so without this the peel is
+        # pinned at argument-string level only.
+        self._git(repo, "tag", "-a", "v0.4.0", "-m", "release v0.4.0").check_returncode()
+        annotated = self._git(repo, "cat-file", "-t", "v0.4.0").stdout.strip()
+        assert annotated == "tag", "fixture must produce an ANNOTATED tag or this is vacuous"
+        assert br._apply() == 0
+
+    def test_publish_time_relaxation_does_not_cover_another_commit(self, repo):
+        # The relaxation is narrow BY COMMIT, not by version: same equal-version situation, but the
+        # tag sits elsewhere → still refused. (Non-vacuous against the test above: identical
+        # versions, only the tag's commit differs.)
+        published = self._git(repo, "rev-parse", "HEAD").stdout.strip()
+        self._git(repo, "tag", "v0.4.0", published).check_returncode()
+        (repo / "later.txt").write_text("later work\n", encoding="utf-8")
+        self._git(repo, "add", "-A").check_returncode()
+        self._git(repo, "commit", "-qm", "work after the release").check_returncode()
+        self._git(repo, "update-ref", "refs/remotes/origin/main", "HEAD").check_returncode()
+        assert br._apply() == 1
+
+    def test_a_red_ci_advisory_never_blocks_the_build(self, repo, capsys, monkeypatch):
+        # The advisory's honest scope, end-to-end: a RED main prints a warning and the build still
+        # succeeds. (Non-vacuous — the same run is asserted green in the happy-path tests above,
+        # so this pins the WARNING appears, not merely that nothing broke.)
+        monkeypatch.setattr(
+            br, "_ci_status_advisory", lambda root: "ADVISORY (warn-only): main is red"
+        )
+        assert br._apply(bump="0.5.0") == 0
+        captured = capsys.readouterr()
+        assert "ADVISORY (warn-only): main is red" in captured.err
 
     def test_abort_at_built_tree_validation_leaves_no_tag(self, tmp_path, monkeypatch):
         # Stage: built-tree validation. Strand a token in a SHIPPED doc so the built-tree scan

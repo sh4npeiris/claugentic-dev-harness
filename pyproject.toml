@@ -1,3 +1,13 @@
+# The harness's own test dependencies, as a PEP-735 dependency group — the SINGLE source of
+# truth every CI job installs from (`python -m pip install --group test`). Declaring them here
+# rather than in each workflow's install line is what closes the class of break that kept CI red
+# 2026-08-01..2026-08-12: `tests/test_frontmatter_parses.py` imports `yaml` at module level, the
+# workflow's hand-listed install line never mentioned pyyaml, and pytest died at COLLECTION — a
+# red suite that read as a silent one. A new test dependency is now added in ONE place.
+# Requires pip >= 25.1 for `--group` (the workflows upgrade pip before installing).
+[dependency-groups]
+test = ["pytest", "pyyaml"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 markers = [

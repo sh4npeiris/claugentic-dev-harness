@@ -15,4 +15,4 @@ All external references point at THIS file — never link a shard path from outs
 - [roles-review](claugentic-decisions/roles-review.md) — Roles & review: roster postures, diverse panel, craft-is-first-class, lens coverage, runtime-qa, worktree hygiene.
 - [doc-lifecycle](claugentic-decisions/doc-lifecycle.md) — Doc lifecycle & condensation: the budgets ladder (bump for logs/index · shard for rule-books), reads-vs-knows principle, Readiness posture.
 - [plugin-distribution](claugentic-decisions/plugin-distribution.md) — Plugin identity & distribution: marketplace github-object form, release branch, managed docs are adopter-aware, init/update contracts.
-- [release-contract](claugentic-decisions/release-contract.md) — Release contract: build_release single command, ship/strip classes, shipped-content scanner, referential closure, range-diff drop-check, plan-0034 `source.ref` repoint.
+- [release-contract](claugentic-decisions/release-contract.md) — Release contract: CI-publishes (tag → gated workflow), build_release as the one build path, ship/strip classes, shipped-content scanner, referential closure, range-diff drop-check.
