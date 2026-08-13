@@ -8,7 +8,7 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 
 - `README.md` — the adopter-facing pitch: plugin value, the "addractive" craft headline, the six commands (init · product · audit · build · doctor · condense), install/update, how the pipeline works, honest status.
 - `CLAUDE.md` — this repo's agent guidance: engineering principles, harness discipline, workflow + DoD pointers.
-- `.gitignore` — open when changing what's tracked: shares `.claude/{agents,plans,settings.json}`, ignores only `.claude/settings.local.json` + build artifacts.
+- `.gitignore` — open when changing what's tracked: `.claude/*` is ignored with a per-file un-ignore (`agents/`, `plans/`, `settings.json`, `claugentic-doc-budgets.json` — an untracked caps config silently disarms the budget gate).
 - `.gitattributes` — line-ending normalization (`* text=auto eol=lf`, scripts forced LF) for a cross-platform plugin.
 - `CHANGELOG.md` — adopter-facing release history: current release's changes + a one-line-per-release prior list. Ships; git history is the full archive.
 - `LICENSE` — Apache-2.0 (public repo; © 2026 Shan Peiris).
@@ -75,6 +75,7 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 ## .claude/ — harness config
 
 - `.claude/settings.json` — Claude Code settings (currently `{}`; the tree gate moved to the git pre-commit hook, the advisor hook lives plugin-side). See DECISIONS → Tree-gate altitude.
+- `.claude/claugentic-doc-budgets.json` — open to change THIS repo's ledger byte caps (the one cap source): CLAUDE 6K · DECISIONS index 3,500 B · `decisions/*.md` 14K each (glob key) · ROADMAP 12K · INVARIANTS 20K. Dev-only (`init-gen`) — never ships.
 - `.githooks/pre-commit` — open when changing the commit gate: wired via `core.hooksPath=.githooks`, runs `claugentic-check_architecture_tree.py --staged` once per `git commit` (exit 1 aborts).
 
 ## .claude-plugin/ — plugin manifest (makes this repo installable)
@@ -107,7 +108,7 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 - `scripts/claugentic-check_architecture_tree.py` — open to change the tree gate: deterministic, checks presence + staleness + the `MAX_ENTRY_CHARS`=450 FORM budget + glob drift; `--staged`/default modes; `INCLUDE_GLOBS` the one per-repo knob.
 - `scripts/check_versions_synced.py` — open to change the version-sync gate: `plugin.json` version is SoT; fails loud (exit 1) if `marketplace.json` disagrees or on broken input. DoD run-gate, not hook-wired; files parsed independently.
 - `scripts/build_release.py` — SINGLE release BUILD path (local prepare + the workflow's publish): `DEV_ONLY_PATH_CLASSES` drives `classify`; preconditions → build → validate → STOP + print the gated tag-push. Never tags/pushes.
-- `scripts/check_doc_budgets.py` — open to change the ledger byte-budget gate: flags a managed ledger over its `DOC_BUDGETS` cap (CLAUDE 6K · DECISIONS index 3,500 B · decisions shards 14K each via one glob entry · ROADMAP 12K · INVARIANTS 20K) + a ≥90% WARN; `REQUIRED_SHARDS` existence guard; independent fail-loud reads. Not hook-wired.
+- `scripts/check_doc_budgets.py` — open to change the ledger byte-budget MECHANICS (caps are data: `.claude/claugentic-doc-budgets.json`): absent config = no-op, malformed = fail loud, `*`-key = glob, `reportOnly` = graced breach, ≥90% WARN, independent reads. Not hook-wired.
 - `scripts/check_shipped_content.py` — shipped-content scanner gate (harness-self): scans the dev checkout, or `--root <tree>` a built/stripped worktree; HARD passes (exit 1) non-ASCII `*.js` · stranded tokens · dangling refs · closure `NEEDS ⊆ HAS`; gate-mention WARN.
 - `scripts/claugentic-session-advisor.py` — open to change the SessionStart advisor (not a gate): ONE "where am I / what's next" line + two user-facing currency clauses (docs-behind-plugin skew · landed/cold count, `COLD_DAYS`) whose budget is RESERVED, so overflow truncates the recommendation, never a nudge; `additionalContext` = resume branch only, never the clauses; `CLAUDE_HARNESS_ADVISOR=off` mutes; fail-safe exit 0.
 
@@ -115,7 +116,8 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 
 - `tests/test_check_architecture_tree.py` — tests for the tree-check gate (presence, staleness incl. the `.ts/.tsx` regression, `--staged` scope, mode dispatch + exit codes, CWD-independence); hermetic via mocked `_git`. *(Out of `INCLUDE_GLOBS`.)*
 - `tests/test_check_versions_synced.py` — tests for the version-sync gate (synced/drift/missing/garbled/missing-version/independent-read + main() exit codes); hermetic via tmp_path manifests. *(Out of `INCLUDE_GLOBS`.)*
-- `tests/test_check_doc_budgets.py` — tests for the ledger byte-budget gate (under/at/over budget, missing/unreadable, independent reads, main() exit codes); hermetic via tmp_path. *(Out of `INCLUDE_GLOBS`.)*
+- `tests/test_check_doc_budgets.py` — tests for the ledger byte-budget gate (under/at/over, missing/unreadable, independent reads, exit codes) + the config boundary: absent-vs-malformed, glob-by-key, dead-glob skip, subdir WARN, reportOnly. *(Out of `INCLUDE_GLOBS`.)*
+- `tests/test_decisions_index_agreement.py` — pins `claugentic-DECISIONS.md`'s routing index against `docs/claugentic-decisions/` in BOTH directions (no dead route · no unrouted shard); replaced `check_doc_budgets`'s `REQUIRED_SHARDS`. *(Out of `INCLUDE_GLOBS`.)*
 - `tests/test_build_release.py` — release-builder tests: ship-vs-strip split, stale-base/version-increase/drop-check guards, the `--bump` writer (`TestBumpManifests`) + `TestApplyBumpOrchestration` (the one-command flow: abort · retry · gated-command-not-run). *(Out of `INCLUDE_GLOBS`.)*
 - `tests/test_release_workflow.py` — static shape pins for `.github/workflows/release.yml`: `v*` trigger, read-only default + write on `publish` only, `needs: gates`, on-main + tag↔version refusals, the push lease, derived gate parity, CHANGELOG heading contract. *(Out of `INCLUDE_GLOBS`.)*
 - `tests/test_product_spec_template.py` — pins the FROZEN acceptance-criteria schema: extracts the JSON block from PRODUCT_SPEC_TEMPLATE.md (always) + PRODUCT_SPEC.md (when present), asserting six keys, valid states/check, unique ids. *(Out of `INCLUDE_GLOBS`.)*

@@ -173,17 +173,34 @@ class TestManifestMigration:
         }
     )
 
+    # Paths DELIBERATELY added to the manifest after the migration snapshot above, each with
+    # the change that added it. This is an explicit allow-delta, never a loosened assertion:
+    # the frozen historical membership below is still asserted in full, and any path that
+    # appears in neither set still fails loud (an accidental strip is exactly what this
+    # catches). Add a line here only alongside its `DEV_ONLY_PATH_CLASSES` entry.
+    POST_MIGRATION_ADDITIONS = frozenset(
+        {
+            # plan 0041 Slice 4 — the per-repo doc-budget caps config (`init-gen`): the
+            # harness's own harness-tuned caps must not ship into adopter repos.
+            ".claude/claugentic-doc-budgets.json",
+        }
+    )
+
     # The SIX classes — every dev-only FILE maps to exactly one (dirs stay out of the classes).
     SIX_CLASSES = frozenset(
         {"init-seed", "init-gen", "recreate-on-demand", "self-gate", "config", "dangle"}
     )
 
     def test_dict_keys_match_pre_migration_membership(self):
-        # frozenset -> dict-keys is membership-preserving: the manifest keys are byte-identical
-        # to the prior hand-authored `DEV_ONLY_FILES` frozenset.
-        assert set(br.DEV_ONLY_PATH_CLASSES) == self.PRE_MIGRATION_DEV_ONLY_FILES
+        # frozenset -> dict-keys is membership-preserving: the manifest keys are the prior
+        # hand-authored `DEV_ONLY_FILES` frozenset plus the explicitly-declared additions.
+        expected = self.PRE_MIGRATION_DEV_ONLY_FILES | self.POST_MIGRATION_ADDITIONS
+        assert set(br.DEV_ONLY_PATH_CLASSES) == expected
+        # ...and the historical membership is still pinned in full on its own — no path that
+        # shipped/stripped before the migration may quietly leave the manifest.
+        assert self.PRE_MIGRATION_DEV_ONLY_FILES <= set(br.DEV_ONLY_PATH_CLASSES)
         # The back-compat alias is derived from the dict keys — same membership.
-        assert br.DEV_ONLY_FILES == self.PRE_MIGRATION_DEV_ONLY_FILES
+        assert br.DEV_ONLY_FILES == expected
 
     def test_shipped_set_is_byte_identical_across_the_migration(self):
         # THE load-bearing check: for the pre-migration membership fed through the (unchanged)
@@ -297,6 +314,20 @@ class TestReleaseInitContract:
         # so `init` can copy it → `CHARTER.md` (create-if-absent). The harness keeps no live
         # `CHARTER.md` of its own (it follows its default grain — absent ≡ current behavior).
         assert br.is_dev_only("docs/claugentic-_CHARTER.md") is False
+
+    def test_the_caps_config_strips_as_an_init_gen_output(self):
+        # Plan 0041 Slice 4. `.claude/` is NOT a stripped subtree (only `.claude/plans/` is
+        # dir-swept), and the release policy is DEFAULT-INCLUDE — so without a manifest entry
+        # this file would ship the HARNESS's own harness-tuned caps (a 3,500 B cap on the
+        # DECISIONS *index*) into every adopter repo, at exactly the path init seeds.
+        assert br.is_dev_only(".claude/claugentic-doc-budgets.json") is True
+        # `init-gen`, NOT `config`: shipped docs point an adopter AT this path, which is the
+        # one thing the `config` class asserts is never true of its members.
+        assert br.recreate_class(".claude/claugentic-doc-budgets.json") == "init-gen"
+        # End-to-end through the classifier, not just the predicate: it lands in strip.
+        ship, strip = br.classify(["README.md", ".claude/claugentic-doc-budgets.json"])
+        assert strip == [".claude/claugentic-doc-budgets.json"]
+        assert ship == ["README.md"]
 
 
 class TestDecisionsShardDirStrips:

@@ -111,6 +111,13 @@ DEV_ONLY_PATH_CLASSES = {
     "docs/claugentic-ARCHITECTURE_TREE.md": "init-gen",       # init generates the adopter's own file map
     "docs/claugentic-INVARIANTS.md": "recreate-on-demand",    # the workflow lazily creates it (DoD step (f))
     "docs/RELEASE_CHECKLIST.md": "dangle",             # harness-self release ritual; no adopter ever has it
+    # The per-repo doc-budget caps config. Dev-infra by SHAPE, adopter-relevant by REFERENCE:
+    # shipped docs (WORKFLOW's escape-valve ladder, `/doctor`, `/condense`) point an adopter at
+    # this exact path, and init generates the adopter's OWN caps from their repo. That is why it
+    # is `init-gen` and NOT `config` — the `config` class's contract is "no shipped doc points an
+    # adopter AT them", which is false here. Stripping it keeps the HARNESS's caps (a 3,500 B
+    # DECISIONS *index* cap, harness-tuned) out of adopter repos, where init seeds their own.
+    ".claude/claugentic-doc-budgets.json": "init-gen",
     # Harness-self tooling (an install doesn't need them).
     "scripts/check_versions_synced.py": "self-gate",   # checks the plugin's two manifests — irrelevant to adopters
     "scripts/check_doc_budgets.py": "self-gate",       # budgets the harness's OWN ledgers (harness-tuned caps) — irrelevant to adopters

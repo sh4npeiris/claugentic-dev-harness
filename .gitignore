@@ -4,6 +4,9 @@
 !.claude/agents/
 !.claude/plans/
 !.claude/settings.json
+# This repo's OWN doc-budget caps. It MUST stay tracked: `check_doc_budgets.py` is a no-op
+# when the config is absent, so an ignored config would silently disarm the gate in CI.
+!.claude/claugentic-doc-budgets.json
 .claude/settings.local.json
 
 # ── Python ───────────────────────────────────────────────────────────────────
