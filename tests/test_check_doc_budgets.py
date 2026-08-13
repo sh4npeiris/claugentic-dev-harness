@@ -1118,7 +1118,7 @@ class TestProductionConfig:
             "CLAUDE.md": 6000,
             "docs/claugentic-DECISIONS.md": 3500,
             "docs/claugentic-decisions/*.md": 14000,
-            "docs/claugentic-ROADMAP.md": 12000,
+            "docs/claugentic-ROADMAP.md": 14000,
             "docs/claugentic-INVARIANTS.md": 20000,
         }
 

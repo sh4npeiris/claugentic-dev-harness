@@ -9,3 +9,4 @@ Part of the decisions ledger — index & filing rule: `docs/claugentic-DECISIONS
 ## Readiness
 
 The core works on real repos; the harness is feature-complete and **deferred backlog items ship to real use, not speculatively** (YAGNI). The bar for improving it is unchanged — no new tech debt, both gate groups pass, in-scope `docs/claugentic-standards/` dimensions reviewer-signed (DoD canonical in WORKFLOW).
+- **Shard existence = the two-direction index↔shards agreement pytest (0041 S4), never a second cap.** Every index-routed shard must exist; every shard file must be index-routed; both directions fail independently. The glob budget entry stays the SOLE cap; `REQUIRED_SHARDS` is deleted.
