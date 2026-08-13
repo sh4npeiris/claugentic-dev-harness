@@ -204,6 +204,20 @@ class TestDerivedHandListsEqualOld:
         }
     )
 
+    # Manifest paths added AFTER those three snapshots were frozen, each with the change that
+    # added it and the class it carries. An explicit allow-delta, never a loosened assertion:
+    # every historical membership below is still asserted in full, and a path in neither set
+    # still fails these pins loud. Mirrors `test_build_release.TestManifestMigration
+    # .POST_MIGRATION_ADDITIONS` (deliberately restated, not imported — each of these frozen
+    # snapshots is local build-history for the module it guards); a new entry updates BOTH.
+    _ADDED_SINCE_MIGRATION = frozenset(
+        {
+            # plan 0041 Slice 4 — the per-repo doc-budget caps config, class `init-gen`, so it
+            # joins the RECREATED partition (never the dangle set).
+            ".claude/claugentic-doc-budgets.json",
+        }
+    )
+
     def test_harness_self_scripts_derived_equals_old(self):
         # LITERALLY equal — every `self-gate` path is exactly the old hand-list. (This set is
         # also A.b's scan target, so literal equality is load-bearing for that pass too.)
@@ -220,10 +234,13 @@ class TestDerivedHandListsEqualOld:
         # `DEV_ONLY_FILES` and its subtraction in `dangling_paths()` was always a no-op. The
         # derivation correctly drops it; the delta is EXACTLY that one dead entry.
         assert self._OLD_INIT_CREATES - csc._RECREATED == {"docs/claugentic-CHARTER.md"}
-        assert csc._RECREATED - self._OLD_INIT_CREATES == frozenset()
+        # ...and in the other direction, exactly the paths declared as post-snapshot additions
+        # (a recreate-class path that is in NEITHER list is an unexplained membership change).
+        assert csc._RECREATED - self._OLD_INIT_CREATES == self._ADDED_SINCE_MIGRATION
         # The phantom was never a member of the strip set, so the derivation reproduces the
-        # exact EFFECTIVE membership (old ∩ strip == derived ∩ strip == derived).
-        assert self._OLD_INIT_CREATES & br.DEV_ONLY_FILES == csc._RECREATED
+        # exact EFFECTIVE membership (old ∩ strip == derived ∩ strip == derived, modulo the
+        # declared additions).
+        assert self._OLD_INIT_CREATES & br.DEV_ONLY_FILES == csc._RECREATED - self._ADDED_SINCE_MIGRATION
 
     def test_dangling_paths_is_byte_identical_across_migration(self):
         # THE load-bearing no-op property: `dangling_paths()` — the only consumer of these
@@ -235,6 +252,10 @@ class TestDerivedHandListsEqualOld:
             - self._OLD_INIT_CREATES
             - self._OLD_HARNESS_SELF_SCRIPTS
             - self._OLD_DANGLE_EXCLUDED
+            # The snapshots predate these paths, so the OLD computation can't classify them —
+            # subtracting the declared additions is what keeps the two sides comparable (each
+            # addition's real class is pinned by its own test, not assumed here).
+            - self._ADDED_SINCE_MIGRATION
         )
         assert csc.dangling_paths() == old_dangle
 
@@ -262,9 +283,21 @@ class TestClosurePassD:
     that was prose-only: every stripped adopter-relevant path is recreatable via its class's HAS
     source. Non-vacuous by construction — the "gap injected → flagged" tests prove the check
     actually catches a missing HAS, not just that the live manifest happens to pass.
+
+    CWD-COUPLING FIXED (0040-banked, absorbed by plan 0041 Slice 4). The four cases below feed
+    a REAL shipped set through `br._tracked_files()`, which shells `git ls-files` — scoped to
+    the process CWD, so run from `tests/` it returned only that subtree and the closure read
+    as broken (two cases red, two passing for the wrong reason). `at_repo_root` anchors them,
+    so this class now holds from any working directory.
     """
 
-    def test_live_manifest_is_closed(self):
+    @pytest.fixture
+    def at_repo_root(self, monkeypatch):
+        """`br._tracked_files()` shells `git ls-files`, which is scoped to the CWD — run it
+        from the git-authoritative repo root so these cases hold from any directory."""
+        monkeypatch.chdir(br._repo_root())
+
+    def test_live_manifest_is_closed(self, at_repo_root):
         # The load-bearing pin: over the REAL shipped set, NEEDS ⊆ HAS holds — no gaps.
         ship = frozenset(br.classify(br._tracked_files())[0])
         assert csc.closure_gaps(ship) == []
@@ -275,7 +308,7 @@ class TestClosurePassD:
         assert csc._init_seed_of("docs/claugentic-DECISIONS.md") == "docs/claugentic-_DECISIONS.md"
         assert csc._init_seed_of("docs/claugentic-ROADMAP.md") == "docs/claugentic-_ROADMAP.md"
 
-    def test_missing_init_seed_is_a_gap(self):
+    def test_missing_init_seed_is_a_gap(self, at_repo_root):
         # NON-VACUOUS: drop the DECISIONS/ROADMAP seeds from the shipped set → the init-seed HAS
         # source can't vouch for the stripped docs → a hard gap per stripped init-seed path.
         ship = frozenset(br.classify(br._tracked_files())[0]) - {
@@ -293,7 +326,24 @@ class TestClosurePassD:
         for path in csc._paths_in_classes("init-gen"):
             assert path in csc.INIT_GEN_OUTPUTS
 
-    def test_recreate_on_demand_is_accepted_by_the_class_not_init(self):
+    @pytest.mark.xfail(
+        strict=True,
+        reason="plan 0041 Slice 7 writes the init step; this flips RED the moment it lands",
+    )
+    def test_init_documents_the_caps_config(self):
+        # THE TRIPWIRE for the one forward registration in `INIT_GEN_OUTPUTS`. Pass D vouches
+        # for `.claude/claugentic-doc-budgets.json` on the PROMISE that init will generate an
+        # adopter's own — a promise nothing gates, so if Slice 7 were dropped the gate would
+        # keep passing on it forever and the registration's own written instruction ("if
+        # Slice 7 is ever abandoned, re-annotate as `recreate-on-demand`") would have no
+        # mechanism behind it. `strict=True` makes this the mechanism in both directions: it
+        # is RED today (xfail, as expected) and turns the SUITE red the instant init learns
+        # to write the config — forcing whoever lands Slice 7 to delete this marker and the
+        # HONEST STATUS comments that go with it.
+        init_skill = (Path(__file__).resolve().parent.parent / "skills" / "init" / "SKILL.md")
+        assert ".claude/claugentic-doc-budgets.json" in init_skill.read_text(encoding="utf-8")
+
+    def test_recreate_on_demand_is_accepted_by_the_class_not_init(self, at_repo_root):
         # The plan-gate's taxonomy fix: recreate-on-demand members (INVARIANTS/PRODUCT/
         # PRODUCT_SPEC) are BY DESIGN not init-produced — the closure accepts them via the class
         # (they are NOT in INIT_GEN_OUTPUTS and have no `_X.md` seed, yet close cleanly).
@@ -315,7 +365,7 @@ class TestClosurePassD:
         }
         assert "CLAUDE.md" in csc._DANGLE_EXCLUDED  # config
 
-    def test_closure_drives_evaluate_exit_1_on_a_gap(self, monkeypatch, tmp_path):
+    def test_closure_drives_evaluate_exit_1_on_a_gap(self, at_repo_root, monkeypatch, tmp_path):
         # End-to-end through evaluate(): a shipped set missing the DECISIONS seed makes Pass D a
         # HARD problem (drives main() to exit 1), even with all text passes clean.
         ship = sorted(
