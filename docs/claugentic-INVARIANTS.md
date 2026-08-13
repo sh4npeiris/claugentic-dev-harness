@@ -6,8 +6,7 @@ gate**: nothing mechanically enforces these. One entry per genuine invariant; mo
 has none, so keep this lean. (Sibling to `docs/claugentic-DECISIONS.md` — a *decision* is
 "what we chose"; an *invariant* is "what must hold".)
 
-Each entry: **the invariant** · **why** (what breaks if violated) · **provenance** (dated —
-the failure or near-miss that taught it).
+Each entry: **the invariant** · **why** (what breaks if violated) · **enforcement, stated exactly** (which half is test-pinned vs model-upheld — a partly-enforced must-hold must say where the line falls, never imply the whole is mechanical) · **provenance** (dated — the failure or near-miss that taught it).
 
 ---
 
