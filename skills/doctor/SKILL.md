@@ -96,7 +96,8 @@ runs no script, sets no exit code, and blocks nothing.
   is the honest cost of the flat shape, not a silent pass on a file this read claims to watch.
 - **Skip-when-absent is the default (HARD rule).** If `.claude/claugentic-doc-budgets.json`
   is **not present**, this read is **silently skipped — mark N-A, emit no output, no error,
-  no WARN, no breach.** An un-configured repo (the adopter default) produces *nothing* here. This is the exact safety property that let the harness gate be
+  no WARN, no breach.** An un-configured repo (the adopter default) produces *nothing*
+  here. This is the exact safety property that let the harness gate be
   stripped; the portable read inherits it — it must never fail-loud on a repo that hasn't
   opted in. (An absent *key* for a present config = that file is un-capped → skipped too.)
 - **When the config is present:** for each capped file that exists, measure its byte size
