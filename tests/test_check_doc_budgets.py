@@ -1200,7 +1200,7 @@ class TestInvokedFromASubdirectory:
         (tmp_path / "CLAUDE.md").write_bytes(b"x" * 5000)  # 500x the decoy cap
         decoy = self._run(tmp_path)
         at_root = self._run(REPO_ROOT)
-        assert decoy.returncode == 0, decoy.stdout + decoy.stderr
+        assert decoy.returncode == at_root.returncode, decoy.stdout + decoy.stderr
         assert decoy.stdout == at_root.stdout
         # Size-independent restatement of the same fact: the decoy's cap was never applied.
         assert "budget 10" not in decoy.stdout
