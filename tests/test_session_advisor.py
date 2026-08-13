@@ -21,6 +21,11 @@ tests lock the HARD invariants the slice exists to guarantee:
   * CURRENCY NUDGES — stamped-docs-behind-plugin skew (fires only when BOTH versions
     parse and managed < installed; every other case silent) and the landed/cold plan
     housekeeping count (`COLD_DAYS`, git-absent is never cold).
+  * TOTALITY — `_version_lt` must never raise: its left-hand input is hand-editable
+    fence text, and an escape blanks the WHOLE banner (resume line included), not just
+    the nudge. Pinned by the `1.²` / 5000-digit rows AND an end-to-end `main()` case.
+  * TRUNCATION ORDER — the clause budget is reserved, so an overflow eats the
+    recommendation's tail and never a nudge (`TestClauseComposition`).
   * OFF-SWITCH — `CLAUDE_HARNESS_ADVISOR=off` mutes the advisor to `{}` even with
     actionable state present (fail-safe to silent; read at the `main()` boundary).
 
@@ -28,20 +33,37 @@ Hermetic by construction: `tmp_path` materialises real roadmap/plan/CLAUDE.md/
 plugin.json files; the advisor's PATH CONSTANTS — including `PLUGIN_MANIFEST_PATH` —
 are monkeypatched to point at them, so no real repo artifact (and no live plugin
 version) leaks into a comparison. `_plan_git_meta` (the one `git log` seam) is
-monkeypatched so the age AND coldness branches are deterministic and offline. The two
-exceptions are named and deliberate: `TestVersionSkew`'s anchor pair reads the REAL
-manifest, because proving the `__file__` anchor resolves is their whole point.
+monkeypatched so the age AND coldness branches are deterministic and offline, and
+`_is_cold` is pinned against a FIXED `now` so no test reads the wall clock. The ONE
+exception is named and deliberate: `test_anchor_survives_a_foreign_cwd_...` spawns the
+real module in a subprocess and reads the REAL manifest — the working directory is the
+thing under test and cannot be faked in-process, which is exactly why the earlier
+in-process form was vacuous (it passed on a CWD-anchored mutant).
 """
 
 from __future__ import annotations
 
 import json
 import subprocess
+import sys
 import time
+from pathlib import Path
 
 import pytest
 
 import advisor as adv
+
+# The advisor's REAL on-disk location — the anchor pin spawns it from a foreign cwd.
+ADVISOR_PATH = Path(adv.__file__).resolve()
+
+# The version a decoy `.claude-plugin/plugin.json` in that foreign cwd advertises. It
+# must never appear in the advisor's output: seeing it means the anchor followed the CWD.
+DECOY_VERSION = "9.9.9"
+
+# Bytes that are NOT valid UTF-8 (a lone \xff, then a truncated 2-byte sequence).
+# `read_text(encoding="utf-8")` raises UnicodeDecodeError on these — a ValueError, NOT an
+# OSError, which is exactly why every reader's except had to widen.
+NOT_UTF8 = b"\xff\xfe\x00 not valid utf-8 \xc3\x28"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Fixture text — the EXACT fence/sentinel forms the real ROADMAP uses.
@@ -122,6 +144,15 @@ def repo(tmp_path, monkeypatch):
     monkeypatch.setattr(adv, "_plan_git_meta", lambda _path: (None, None))
 
     class Builder:
+        def __init__(self) -> None:
+            # The raw paths, exposed so a test can write NON-UTF-8 BYTES — the decode
+            # failure mode the text helpers below cannot express, and the one that used
+            # to escape every reader's `except OSError` and blank the whole banner.
+            self.roadmap_path = roadmap_path
+            self.plans_dir = plans_dir
+            self.claude_path = claude_path
+            self.manifest_path = manifest_path
+
         def roadmap(self, text: str) -> None:
             roadmap_path.parent.mkdir(parents=True, exist_ok=True)
             roadmap_path.write_text(text, encoding="utf-8")
@@ -505,6 +536,60 @@ class TestFailSafe:
         # The roadmap read failed -> absent fences -> nothing actionable -> {}.
         assert json.loads(capsys.readouterr().out.strip()) == {}
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# NON-UTF-8 INPUTS — the failure mode that used to escape every `except OSError`.
+# `UnicodeDecodeError` is a ValueError, NOT an OSError, so before the widening a
+# single mojibake'd file blanked the WHOLE banner (resume line included). Each
+# reader must degrade to "this ONE input is absent" and nothing else.
+# ─────────────────────────────────────────────────────────────────────────────
+class TestUndecodableInputsDegradeOnlyThemselves:
+    def test_non_utf8_claude_md_loses_only_the_stamp(self, repo, capsys):
+        repo.roadmap(AUDIT_EMPTY)
+        repo.plan("0022-advisor.md", PLAN_IN_FLIGHT)
+        repo.plugin_manifest(plugin_json("0.5.1"))
+        repo.claude_path.write_bytes(NOT_UTF8)
+        assert adv._read_managed_version() is None
+        assert adv.main([]) == 0
+        payload = json.loads(capsys.readouterr().out.strip())
+        assert "Resume work in progress" in payload["systemMessage"]  # the banner SURVIVES
+
+    def test_non_utf8_plugin_manifest_loses_only_the_skew(self, repo, capsys):
+        repo.roadmap(AUDIT_EMPTY)
+        repo.plan("0022-advisor.md", PLAN_IN_FLIGHT)
+        repo.claude_md(managed_claude_md("0.4.1"))
+        repo.manifest_path.parent.mkdir(parents=True, exist_ok=True)
+        repo.manifest_path.write_bytes(NOT_UTF8)
+        assert adv._read_installed_version() is None
+        assert adv.main([]) == 0
+        payload = json.loads(capsys.readouterr().out.strip())
+        assert "Resume work in progress" in payload["systemMessage"]
+        assert "re-run" not in payload["systemMessage"]
+
+    def test_non_utf8_roadmap_loses_only_the_fences(self, repo, capsys):
+        repo.roadmap(AUDIT_OPEN)
+        repo.plan("0022-advisor.md", PLAN_IN_FLIGHT)
+        repo.roadmap_path.write_bytes(NOT_UTF8)
+        assert adv._read_roadmap() == (adv.FenceState(), adv.FenceState())
+        assert adv.main([]) == 0
+        assert "Resume work in progress" in json.loads(capsys.readouterr().out.strip())["systemMessage"]
+
+    def test_non_utf8_plan_file_is_skipped_not_fatal(self, repo, capsys):
+        repo.roadmap(AUDIT_EMPTY)
+        repo.plan("0022-advisor.md", PLAN_IN_FLIGHT)
+        (repo.plans_dir / "0023-mojibake.md").write_bytes(NOT_UTF8)
+        scan = adv._read_plans()
+        assert [p.name for p in scan.in_flight] == ["0022-advisor.md"]  # the bad one skipped
+        assert (scan.landed, scan.cold) == (0, 0)  # and NOT miscounted as landed
+        assert adv.main([]) == 0
+        assert "0022-advisor" in json.loads(capsys.readouterr().out.strip())["systemMessage"]
+
+    def test_deeply_nested_manifest_json_is_silent_not_fatal(self, repo):
+        # `json.loads` raises RecursionError (not a ValueError) on pathological nesting.
+        repo.plugin_manifest("[" * 100_000 + "]" * 100_000)
+        assert adv._read_installed_version() is None
+        assert adv.build_output(adv.derive_state()) == {}
+
     def test_outer_failsafe_swallows_unexpected_error(self, monkeypatch, capsys):
         # If derive_state itself blew up, main() must still exit 0 with no output.
         monkeypatch.setattr(adv, "derive_state", lambda: (_ for _ in ()).throw(RuntimeError("boom")))
@@ -529,22 +614,44 @@ class TestFailSafe:
 # Fires only when BOTH versions are readable AND both parse AND managed < installed.
 # ─────────────────────────────────────────────────────────────────────────────
 class TestVersionSkew:
-    def test_manifest_path_is_anchored_on_the_script_never_the_cwd(self):
-        # THE anchoring pin: the manifest is the PLUGIN's own, located relative to the
-        # advisor file — the same relative shape in-source and under ${CLAUDE_PLUGIN_ROOT}.
-        # A CWD-relative anchor would read the ADOPTER repo, which has no .claude-plugin/.
-        from pathlib import Path
+    def test_anchor_survives_a_foreign_cwd_holding_a_decoy_manifest(self, tmp_path):
+        # THE anchoring pin, with a real oracle. The earlier in-process form was VACUOUS:
+        # it recomputed the same `__file__` expression, and pytest runs from the repo root
+        # where a CWD anchor and the `__file__` anchor COINCIDE — so the exact forbidden
+        # form `Path(".claude-plugin/plugin.json").resolve()` passed it. The working
+        # directory is the thing under test, and it cannot be faked in-process, so this
+        # spawns the module from a foreign cwd that holds a DECOY manifest and asserts the
+        # anchor did not move. (This is the adopter's situation: their repo IS the cwd.)
+        decoy = tmp_path / ".claude-plugin"
+        decoy.mkdir()
+        (decoy / "plugin.json").write_text(plugin_json(DECOY_VERSION), encoding="utf-8")
 
-        expected = Path(adv.__file__).resolve().parent.parent / ".claude-plugin" / "plugin.json"
-        assert adv.PLUGIN_MANIFEST_PATH == expected
-        assert adv.PLUGIN_MANIFEST_PATH.is_absolute()
-
-    def test_real_manifest_version_is_readable_through_that_anchor(self):
-        # Not hermetic by design: proves the anchor resolves against the REAL shipped
-        # layout, which is the only thing the constant exists to do.
-        assert adv._read_installed_version() == json.loads(
-            adv.PLUGIN_MANIFEST_PATH.read_text(encoding="utf-8")
-        )["version"]
+        probe = tmp_path / "probe.py"
+        probe.write_text(
+            "import importlib.util, json, sys\n"
+            f"spec = importlib.util.spec_from_file_location('a', {str(ADVISOR_PATH)!r})\n"
+            "m = importlib.util.module_from_spec(spec)\n"
+            # Required: @dataclass resolves annotations through sys.modules[__module__].
+            "sys.modules['a'] = m\n"
+            "spec.loader.exec_module(m)\n"
+            "print(json.dumps({'path': str(m.PLUGIN_MANIFEST_PATH),\n"
+            "                  'version': m._read_installed_version()}))\n",
+            encoding="utf-8",
+        )
+        seen = json.loads(
+            subprocess.run(
+                [sys.executable, str(probe)],
+                cwd=tmp_path,
+                capture_output=True,
+                text=True,
+                check=True,
+            ).stdout
+        )
+        real_version = json.loads(ADVISOR_PATH.parent.parent.joinpath(".claude-plugin", "plugin.json").read_text(encoding="utf-8"))["version"]
+        assert seen["path"] == str(adv.PLUGIN_MANIFEST_PATH)  # unmoved by the foreign cwd
+        assert str(tmp_path) not in seen["path"]  # never resolved into the adopter's tree
+        assert seen["version"] != DECOY_VERSION  # never the decoy the cwd offered
+        assert seen["version"] == real_version  # the REAL shipped plugin version
 
     def test_skew_fires_when_stamped_docs_are_behind_the_plugin(self, repo):
         repo.claude_md(managed_claude_md("0.4.1"))
@@ -572,12 +679,16 @@ class TestVersionSkew:
             ("v0.4.1", "0.5.1"),  # `v` prefix
             ("0.4.x", "0.5.1"),  # placeholder segment
             ("0.4.1", "latest"),  # unparseable installed side
-            ("", "0.5.1"),  # blank stamp
+            ("1.²", "0.5.1"),  # non-ASCII digit — `isdigit()` True, `int()` rejects
         ],
     )
     def test_malformed_semver_is_silent(self, repo, managed, installed):
         # "Cannot compare" must never render as "you are stale" — a false skew costs trust.
-        repo.claude_md(managed_claude_md(managed) if managed else "# CLAUDE.md\n")
+        # NOTE: there is no blank-stamp row here. A truly blank stamp is UNREACHABLE —
+        # MANAGED_VERSION_RE's `\S+` cannot match an empty string, so a blank stamp reads
+        # as an ABSENT fence (covered by test_absent_managed_fence_...). The empty-string
+        # input to the compare itself is covered by the `_version_lt` table's ("0.5.1", "").
+        repo.claude_md(managed_claude_md(managed))
         repo.plugin_manifest(plugin_json(installed))
         assert adv.build_output(adv.derive_state()) == {}
 
@@ -619,10 +730,28 @@ class TestVersionSkew:
             ("0.9.0", "0.10.0", True),  # numeric, not lexicographic
             ("0.5.1-rc.1", "0.5.1", None),
             ("0.5.1", "", None),
+            # TOTALITY (Stage-7 #1). The left side is arbitrary user text — MANAGED_VERSION_RE
+            # captures `\S+` from a HAND-EDITABLE CLAUDE.md fence — so this function must never
+            # raise: an escape blanks the ENTIRE banner (resume line included), silently.
+            ("1.²", "1.3", None),  # `str.isdigit()` is True here but `int()` REJECTS it
+            ("1." + "9" * 5000, "1.3", None),  # >4300 digits: CPython's int-conversion ValueError
         ],
     )
     def test_version_lt_table(self, a, b, expected):
         assert adv._version_lt(a, b) is expected
+
+    def test_a_hand_typoed_fence_never_blanks_the_banner(self, repo, capsys):
+        # END-TO-END regression for the same defect: a fence stamped `@1.²` must not cost
+        # the user the resume line. Before the fix, main() printed NOTHING — not even `{}`.
+        repo.roadmap(AUDIT_EMPTY)
+        repo.claude_md(managed_claude_md("1.²"))
+        repo.plugin_manifest(plugin_json("0.5.1"))
+        repo.plan("0022-advisor.md", PLAN_IN_FLIGHT)
+        assert adv.main([]) == 0
+        payload = json.loads(capsys.readouterr().out.strip())
+        assert "Resume work in progress" in payload["systemMessage"]
+        assert "additionalContext" in payload
+        assert "re-run" not in payload["systemMessage"]  # unparseable -> skipped, never guessed
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -670,16 +799,27 @@ class TestLandedAndColdPlans:
         assert state.cold_plans == 0
         assert "landed/cold" not in adv.build_output(state)["systemMessage"]
 
-    def test_cold_threshold_is_exclusive_at_the_boundary(self, repo, monkeypatch):
-        # Exactly COLD_DAYS old is NOT yet cold (the comparison is strictly older-than).
-        monkeypatch.setattr(
-            adv,
-            "_plan_git_meta",
-            lambda _path: ("30 days ago", int(time.time()) - adv.COLD_SECONDS + 5),
-        )
-        repo.roadmap(AUDIT_EMPTY)
-        repo.plan("0022-advisor.md", PLAN_IN_FLIGHT)
-        assert adv.derive_state().cold_plans == 0
+    # `_is_cold` is pinned DIRECTLY against a FIXED `now` — the only form that pins the
+    # threshold itself. Routing through fixtures at 2 and 40 days left `>` vs `>=`, a
+    # lowered COLD_DAYS and an `abs()` sign-flip all alive; these rows kill all three,
+    # and the fixed epoch removes the last wall-clock dependency from the suite.
+    _FIXED_NOW = 1_700_000_000.0
+
+    @pytest.mark.parametrize(
+        ("days_old", "expected"),
+        [
+            (29, False),  # inside the window
+            (30, False),  # EXACTLY COLD_DAYS — strictly older-than, so not yet cold
+            (31, True),  # past the threshold
+            (-31, False),  # clock skew: a future commit is not "old" (kills `abs()`)
+        ],
+    )
+    def test_is_cold_threshold_table(self, days_old, expected):
+        epoch = int(self._FIXED_NOW - days_old * 86400)
+        assert adv._is_cold(epoch, self._FIXED_NOW) is expected
+
+    def test_is_cold_unknown_epoch_is_never_cold(self):
+        assert adv._is_cold(None, self._FIXED_NOW) is False
 
     def test_future_dated_commit_is_not_cold(self, repo, monkeypatch):
         # Clock skew must not invert the comparison into a bogus nudge.
@@ -746,9 +886,11 @@ class TestClauseComposition:
         assert "re-run /claugentic-dev-harness:init" in payload["systemMessage"]
         assert "additionalContext" not in payload
 
-    def test_composed_line_is_capped_as_a_whole(self, repo, monkeypatch):
-        # The cap applies AFTER composition — a long resume line plus both clauses must
-        # still land inside the budget (truncated honestly, never silently over).
+    @staticmethod
+    def _overflowing_repo(repo, monkeypatch, *, plans: int) -> None:
+        """A repo whose composed line CANNOT fit: `plans` long-named cold in-flight
+        plans + a landed plan + a version skew, so both clauses fire and the resume
+        summary alone blows the budget."""
         monkeypatch.setattr(
             adv, "_plan_git_meta", lambda _path: ("6 weeks ago", int(time.time()) - 40 * 86400)
         )
@@ -756,6 +898,48 @@ class TestClauseComposition:
         repo.claude_md(managed_claude_md("0.4.1"))
         repo.plugin_manifest(plugin_json("0.5.1"))
         repo.plan("0018-done.md", PLAN_DONE)
+        for i in range(plans):
+            repo.plan(
+                f"00{i:02d}-very-long-plan-name-that-eats-budget.md",
+                "- **Status:** Approved\n"
+                "- **Resumable from:** " + ("a very long resumable description " * 20) + "\n"
+                "## Decomposition (slices)\n- [ ] **only.**\n",
+            )
+
+    def test_overflow_truncates_the_recommendation_never_a_clause(self, repo, monkeypatch):
+        # THE ORDERING PIN (Stage-7 #3). Compose-then-cap made the clauses the first
+        # casualty — and since cold plans ARE in-flight plans, the "run doctor" nudge
+        # died exactly in the cluttered repo that most needs it. The clause budget is
+        # RESERVED, so the ellipsis must land in the plan list, not on a nudge.
+        self._overflowing_repo(repo, monkeypatch, plans=6)
+        msg = adv.build_output(adv.derive_state())["systemMessage"]
+        head, skew, housekeeping = msg.split(adv.CLAUSE_SEP)
+
+        assert len(msg) <= adv.MAX_LINE_CHARS  # the ceiling still always wins
+        assert msg.endswith(
+            "7 landed/cold plans in .claude/plans — run /claugentic-dev-harness:doctor to sweep."
+        )
+        assert skew == "Harness docs stamped 0.4.1 < plugin 0.5.1 — re-run /claugentic-dev-harness:init."
+        assert housekeeping.endswith("to sweep.")
+        assert "…" in head  # the truncation landed in the recommendation
+        assert "…" not in skew and "…" not in housekeeping
+
+    def test_both_clauses_survive_at_ten_in_flight_plans(self, repo, monkeypatch):
+        # The measured worst case from the Stage-7 panel: pre-fix, one clause was gone at
+        # 4 in-flight plans and both at 8. Neither may be lost at 10.
+        self._overflowing_repo(repo, monkeypatch, plans=10)
+        msg = adv.build_output(adv.derive_state())["systemMessage"]
+        assert len(msg) <= adv.MAX_LINE_CHARS
+        assert adv.INIT_CMD in msg
+        assert adv.DOCTOR_CMD in msg
+        assert msg.endswith("to sweep.")
+
+    def test_with_no_clause_firing_the_line_is_the_bare_capped_recommendation(
+        self, repo, monkeypatch
+    ):
+        # Property (d) of the reserve: no clause -> byte-identical to a plain `_cap`.
+        monkeypatch.setattr(adv, "_plan_git_meta", lambda _path: ("2 days ago", None))
+        repo.roadmap(AUDIT_EMPTY)
         for i in range(6):
             repo.plan(
                 f"00{i:02d}-very-long-plan-name-that-eats-budget.md",
@@ -763,10 +947,19 @@ class TestClauseComposition:
                 "- **Resumable from:** " + ("a very long resumable description " * 20) + "\n"
                 "## Decomposition (slices)\n- [ ] **only.**\n",
             )
-        payload = adv.build_output(adv.derive_state())
-        assert len(payload["systemMessage"]) == adv.MAX_LINE_CHARS
-        assert payload["systemMessage"].endswith("…")
-        assert len(payload["additionalContext"]) <= adv.MAX_LINE_CHARS
+        state = adv.derive_state()
+        msg = adv.build_output(state)["systemMessage"]
+        assert msg == adv._cap(adv.recommend_next(state))
+        assert len(msg) <= adv.MAX_LINE_CHARS  # `_cap` rstrips, so it can land just under
+        assert msg.endswith("…")
+
+    def test_a_pathological_clause_tail_still_respects_the_ceiling(self, monkeypatch):
+        # FLOOR GUARD: a clause tail near the whole budget would reserve the head into a
+        # negative slice. The reserve is abandoned and the ceiling wins unconditionally.
+        monkeypatch.setattr(adv, "MIN_HEAD_CHARS", 40)
+        line = adv._compose_user_line("a recommendation " * 20, ("x" * (adv.MAX_LINE_CHARS - 10),))
+        assert len(line) <= adv.MAX_LINE_CHARS
+        assert line.endswith("…")
 
 
 # ─────────────────────────────────────────────────────────────────────────────

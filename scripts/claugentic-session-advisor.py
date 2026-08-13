@@ -14,9 +14,10 @@ re-running init) and landed/cold plans piling up in `.claude/plans/` (the fix is
 `/doctor` sweep). This script is PLUGIN-RESIDENT, so those two reach an adopter on a
 plugin update alone — no re-init, no shipped-doc round trip.
 
-HONESTY REGISTER — this is an ADVISOR, not a gate. It reports what the fences SAY
-and asserts nothing new; it never blocks, never passes/fails, and never appears in
-the Definition-of-Done gate list. The `additionalContext` it injects is prefixed
+HONESTY REGISTER — this is an ADVISOR, not a gate. It reports what the fences and the
+plugin manifest SAY, plus two deterministic derivations it owns (a numeric version
+compare and a `COLD_DAYS` threshold); it never blocks, never passes/fails, and never
+appears in the Definition-of-Done gate list. The `additionalContext` it injects is prefixed
 "Derived suggestion (confirm before acting):" so a SessionStart injection can never
 silently auto-drive a resume past `build`'s deliberate re-confirm gate (RETURN-6).
 
@@ -55,12 +56,14 @@ DERIVE-DON'T-STORE — it introduces NO new state store. It reads only:
 OUTPUT CONTRACT (SessionStart):
   * exit 0 ALWAYS; emit JSON on stdout — `{ systemMessage }` for a nudge, both
     `{ systemMessage, additionalContext }` for the resume branch (see AUDIENCE-SPLIT).
-  * SILENT path — nothing actionable (fresh repo / no fences / no plans), OR the
-    off-switch — emits NEITHER key (an empty-but-present key still costs tokens; the
-    no-nag posture means literally no surface). Both print `{}`.
+  * SILENT path — nothing actionable AND no currency clause (fresh repo / no fences /
+    no plans / nothing stale), OR the off-switch — emits NEITHER key (an empty-but-present
+    key still costs tokens; the no-nag posture means literally no surface). Both print `{}`.
   * SIZE-CAPPED — each of `systemMessage` / `additionalContext` is one tight line,
     capped at `MAX_LINE_CHARS` (this slice exists to fix context bloat; the
-    advisor's own output is budgeted like any managed surface).
+    advisor's own output is budgeted like any managed surface). On the user line the
+    currency clauses are RESERVED, so an overflow eats the recommendation's tail and
+    never a nudge (`_compose_user_line`).
 
 FAIL-SAFE — ANY error (missing files, parse failure, non-repo, missing plans dir)
 collapses to exit 0 with no output. A SessionStart hook must NEVER block or slow a
@@ -106,6 +109,12 @@ PLUGIN_MANIFEST_PATH = Path(__file__).resolve().parent.parent / ".claude-plugin"
 # OUTPUT BUDGET — the HARD ceiling for each emitted line (one tight line each).
 # ─────────────────────────────────────────────────────────────────────────────
 MAX_LINE_CHARS = 320
+
+# The floor on the reserve in `_compose_user_line`: if reserving the clause tail would
+# leave the recommendation less than this, the reserve is abandoned and the whole line
+# is capped normally. Guards the degenerate case (a clause tail near the whole budget)
+# where a reserve would slice the head down to an ellipsis — or past zero.
+MIN_HEAD_CHARS = 40
 
 # The advisory prefix on `additionalContext` (RETURN-6): a SessionStart injection
 # must never read as an instruction the agent silently acts on. Single source of
@@ -206,6 +215,11 @@ class AdvisorState:
 # Readers — each degrades to an "absent input" default rather than raising, so a
 # single malformed input can never blank the whole advisor. The OUTER fail-safe in
 # main() is the last line of defence for anything these don't anticipate.
+#
+# EVERY `read_text(encoding="utf-8")` here catches `(OSError, ValueError)`, not
+# `OSError` alone: non-UTF-8 bytes raise `UnicodeDecodeError`, which IS a ValueError
+# and is NOT an OSError — the difference between "this one input is absent" and "the
+# user lost their whole session banner". Named classes, never `except Exception`.
 # ─────────────────────────────────────────────────────────────────────────────
 def _fence_body(text: str, markers: tuple[str, str]) -> str | None:
     """The text BETWEEN a fence's start/end markers, or None if either is absent.
@@ -242,14 +256,14 @@ def _read_fence(text: str, markers: tuple[str, str], empty_sentinel: str) -> Fen
 def _read_roadmap() -> tuple[FenceState, FenceState]:
     """Read both backlog fences from `docs/claugentic-ROADMAP.md`.
 
-    A missing/unreadable roadmap yields two absent fences (FenceState defaults) —
-    the natural fresh-repo silent path, not an error.
+    A missing / unreadable / non-UTF-8 roadmap yields two absent fences (FenceState
+    defaults) — the natural fresh-repo silent path, not an error.
     """
     if not ROADMAP_PATH.exists():
         return (FenceState(), FenceState())
     try:
         text = ROADMAP_PATH.read_text(encoding="utf-8")
-    except OSError:
+    except (OSError, ValueError):
         return (FenceState(), FenceState())
     audit = _read_fence(text, AUDIT_FENCE, AUDIT_EMPTY_SENTINEL)
     product = _read_fence(text, PRODUCT_FENCE, PRODUCT_EMPTY_SENTINEL)
@@ -320,7 +334,10 @@ def _plan_git_meta(path: Path) -> tuple[str | None, int | None]:
     age, _, epoch = raw.partition("\x1f")
     age = age.strip() or None
     epoch = epoch.strip()
-    return (age, int(epoch) if epoch.isdigit() else None)
+    # `.isdecimal()`, not `.isdigit()` — the latter admits characters `int()` rejects,
+    # and this conversion sits OUTSIDE the try above (see `_version_lt` for the same
+    # guard and why an escape from a reader is never merely a missing field).
+    return (age, int(epoch) if epoch.isdecimal() else None)
 
 
 def _is_cold(epoch: int | None, now: float) -> bool:
@@ -360,7 +377,7 @@ def _read_plans() -> PlansScan:
     for path in candidates:
         try:
             text = path.read_text(encoding="utf-8")
-        except OSError:
+        except (OSError, ValueError):
             continue
         if not _is_in_flight(text):
             landed += 1
@@ -385,17 +402,21 @@ def _read_installed_version() -> str | None:
     this reports the version of the plugin the advisor is SHIPPED INSIDE, which is
     exactly what an adopter's stamped docs are compared against.
 
-    ANY failure → None (missing file, unreadable, unparseable JSON, no/blank `version`,
-    a non-string `version`): the skew nudge then simply doesn't fire. Degrade, never
-    raise — a malformed manifest must not cost the user their session banner.
+    Returns None for every failure this read can meet: a missing or unreadable file
+    (`OSError`), bytes that aren't UTF-8 (`UnicodeDecodeError`, a `ValueError`), JSON
+    that won't parse or nests past the interpreter's recursion limit, a non-object
+    document, and a missing / non-string / blank `version`. The skew nudge then simply
+    doesn't fire. The exception classes are NAMED, never a blanket `except Exception` —
+    but they are named WIDE enough to cover the decode, because an escape from here
+    costs the user their whole session banner, not just this nudge.
     """
     try:
         text = PLUGIN_MANIFEST_PATH.read_text(encoding="utf-8")
-    except OSError:
+    except (OSError, ValueError):
         return None
     try:
         manifest = json.loads(text)
-    except (ValueError, TypeError):
+    except (ValueError, TypeError, RecursionError):
         return None
     if not isinstance(manifest, dict):
         return None
@@ -411,13 +432,14 @@ def _read_managed_version() -> str | None:
     ABSENT IN THIS SOURCE REPO — this repo's CLAUDE.md has no such fence, so this
     returns None here and the version input is silently skipped (never a dead-branch
     crash). On an adopter repo, reads the `claugentic-dev-harness@<semver>` stamp
-    from inside the fence. Any read failure → None (degrade, don't raise).
+    from inside the fence. A missing / unreadable / non-UTF-8 CLAUDE.md → None
+    (degrade, don't raise).
     """
     if not CLAUDE_MD_PATH.exists():
         return None
     try:
         text = CLAUDE_MD_PATH.read_text(encoding="utf-8")
-    except OSError:
+    except (OSError, ValueError):
         return None
     body = _fence_body(text, MANAGED_FENCE)
     if body is None:
@@ -507,11 +529,22 @@ def recommend_next(state: AdvisorState) -> str | None:
 def _version_lt(a: str, b: str) -> bool | None:
     """`a < b` as dot-separated NUMERIC tuples, or None when either side isn't one.
 
-    Tolerant by construction and DELIBERATELY narrow: only all-digit segments compare
+    Tolerant by construction and DELIBERATELY narrow: only all-decimal segments compare
     (`0.4.1` < `0.5.1`). Anything else — a pre-release/build suffix (`0.5.1-rc.1`), a
     `v` prefix, an empty string — yields None, meaning "cannot compare", and the caller
     SKIPS the nudge. Guessing an ordering for a form this function doesn't model would
     be worse than staying silent: a false "your docs are stale" costs trust.
+
+    TOTAL BY CONSTRUCTION — it must NEVER raise. The left-hand value is arbitrary user
+    text (`MANAGED_VERSION_RE` captures `\\S+` from a hand-editable CLAUDE.md fence), and
+    an escape here does not merely skip the nudge: it blanks the WHOLE banner, resume
+    line included, via `main()`'s outer fail-safe. The `try` is the LOAD-BEARING guard —
+    only it catches a >4300-digit segment, a perfectly legal decimal string that still
+    raises under CPython's int-conversion limit. `.isdecimal()` (NOT `.isdigit()`, which
+    is True for `'²'` — a character `int()` rejects) is the cheap fast path and states
+    the intended domain; it is behaviourally SUBSUMED by the `try`, so swapping it back
+    to `.isdigit()` is a provably equivalent mutant. Do not "simplify" by dropping the
+    `try`: that one is killable, and the suite kills it.
 
     Unequal lengths compare naturally (`0.4` < `0.4.1`, `0.5` > `0.4.1`) — Python's
     tuple ordering is exactly the shortest-is-lower semantics wanted here.
@@ -519,9 +552,12 @@ def _version_lt(a: str, b: str) -> bool | None:
     parsed = []
     for value in (a, b):
         segments = value.split(".")
-        if not all(segment.isdigit() for segment in segments):
+        if not all(segment.isdecimal() for segment in segments):
             return None
-        parsed.append(tuple(int(segment) for segment in segments))
+        try:
+            parsed.append(tuple(int(segment) for segment in segments))
+        except ValueError:
+            return None
     return parsed[0] < parsed[1]
 
 
@@ -564,17 +600,52 @@ def _currency_clauses(state: AdvisorState) -> tuple[str, ...]:
 # ─────────────────────────────────────────────────────────────────────────────
 # Output contract — render the recommendation to the SessionStart JSON.
 # ─────────────────────────────────────────────────────────────────────────────
-def _cap(line: str) -> str:
-    """Hard-cap one line to `MAX_LINE_CHARS` (ellipsis on overflow).
+def _cap(line: str, limit: int = MAX_LINE_CHARS) -> str:
+    """Hard-cap one line to `limit` chars, default `MAX_LINE_CHARS` (ellipsis on overflow).
 
     The advisor's own output is size-budgeted — this is the deterministic ceiling
     the tests assert. The ellipsis keeps an over-long derived line honest (truncated,
-    not silently dropped) while never exceeding the cap.
+    not silently dropped) while never exceeding the cap. `limit` exists for
+    `_compose_user_line`'s reserve; callers with no budget to share omit it.
     """
     line = " ".join(line.split())  # collapse any stray newlines/runs to one tight line
-    if len(line) <= MAX_LINE_CHARS:
+    if len(line) <= limit:
         return line
-    return line[: MAX_LINE_CHARS - 1].rstrip() + "…"
+    return line[: limit - 1].rstrip() + "…"
+
+
+def _compose_user_line(recommendation: str | None, clauses: tuple[str, ...]) -> str:
+    """The ONE user-facing line: recommendation + currency clauses, within the ceiling.
+
+    RESERVE, don't compose-then-cap. Composing first and capping the whole line makes
+    the clauses the FIRST casualty of overflow — and because cold plans ARE in-flight
+    plans, that loses the "run doctor to sweep" nudge precisely in the cluttered repo
+    that most needs it (measured pre-fix: gone at 4 in-flight plans, both gone at 8).
+    So the clause tail is reserved and the RECOMMENDATION absorbs the truncation: the
+    ellipsis lands in the plan list, and the clause that survives is the one telling
+    the user to sweep the plans that caused the overflow.
+
+    THREE properties this must keep, in priority order:
+      1. The ceiling ALWAYS wins — the result is never longer than `MAX_LINE_CHARS`.
+      2. With no clause firing the result is byte-identical to a bare `_cap`.
+      3. `additionalContext` never passes through here (see `build_output`) — it is
+         built from `recommendation` alone, so the agent-facing string is unaffected
+         by anything on this side of the split.
+
+    FLOOR GUARD: a pathological clause tail (longer than the budget minus
+    `MIN_HEAD_CHARS`) would reserve the head down to an ellipsis or worse — a negative
+    slice. In that case the reserve is abandoned and the whole composed line is capped
+    normally: property 1 holds unconditionally, which is the one that must.
+    """
+    tail = CLAUSE_SEP.join(clauses)
+    if recommendation is None:
+        return _cap(tail)
+    if not tail:
+        return _cap(recommendation)
+    head_limit = MAX_LINE_CHARS - len(tail) - len(CLAUSE_SEP)
+    if head_limit < MIN_HEAD_CHARS:
+        return _cap(recommendation + CLAUSE_SEP + tail)
+    return _cap(recommendation, head_limit) + CLAUSE_SEP + tail
 
 
 def build_output(state: AdvisorState, *, enabled: bool = True) -> dict[str, str]:
@@ -588,10 +659,11 @@ def build_output(state: AdvisorState, *, enabled: bool = True) -> dict[str, str]
 
     SILENT path: nothing actionable AND no currency clause -> `{}` (NEITHER key).
 
-    COMPOSITION: the ONE recommendation and the currency clauses are joined by
-    `CLAUSE_SEP` into a SINGLE user-facing line, then `_cap`ped as a whole (the ceiling
-    is per emitted line, so composing before capping is what keeps it honest). A clause
-    can stand alone: when nothing else fires, the clauses ARE the message.
+    COMPOSITION: the ONE recommendation and the currency clauses become a SINGLE
+    user-facing line via `_compose_user_line`, which RESERVES the clause budget so an
+    overflow truncates the recommendation, never a nudge (see that helper for why the
+    order matters). A clause can stand alone: when nothing else fires, the clauses ARE
+    the message.
 
     AUDIENCE-SPLIT (0024 problem #5 — anti-nudge). `systemMessage` is the user-facing
     orientation line and is emitted on EVERY actionable path so the USER stays
@@ -603,8 +675,9 @@ def build_output(state: AdvisorState, *, enabled: bool = True) -> dict[str, str]
     no-product-spec) push "work the user didn't ask for", so they go systemMessage-ONLY
     — the user stays oriented, the agent is NOT nudged. The two CURRENCY clauses are
     systemMessage-ONLY on the same rule: `additionalContext` is built from
-    `recommendation` ALONE, never from the composed line, so widening the clauses into
-    the agent's context is a code change, not a formatting accident. This does NOT
+    `recommendation` ALONE and never passes through `_compose_user_line`, so widening
+    the clauses into the agent's context is a code change, not a formatting accident —
+    and the clause-budget reserve cannot perturb the agent-facing string. This does NOT
     regress RETURN-6: the `ADVISORY_PREFIX` disclaimer is preserved wherever
     `additionalContext` IS emitted (the resume branch).
     """
@@ -614,8 +687,7 @@ def build_output(state: AdvisorState, *, enabled: bool = True) -> dict[str, str]
     clauses = _currency_clauses(state)
     if recommendation is None and not clauses:
         return {}
-    parts = [p for p in (recommendation, *clauses) if p]
-    output = {"systemMessage": _cap(CLAUSE_SEP.join(parts))}
+    output = {"systemMessage": _compose_user_line(recommendation, clauses)}
     # Mirror priority-1 of recommend_next: resume == in-flight plans present. Only the
     # agent-facing context for that genuine next-action carries the disclaimer prefix —
     # and it carries the RECOMMENDATION only (see AUDIENCE-SPLIT above).

@@ -146,15 +146,18 @@ Confirm the adoption wiring `init` established is still intact (the canonical co
   harness's is **reported, never assumed broken** (init never clobbers it).
 - **Managed-file stamps** present and **parseable** — a managed doc/tree's stamp line carries a
   parseable-semver on line 1 (the never-clobber upsert marker).
-- **Stamped fence vs the installed plugin** — compare the CLAUDE.md `harness:managed` fence's
-  `claugentic-dev-harness@<semver>` stamp against the **installed plugin's own**
-  `.claude-plugin/plugin.json` `version` (the plugin the session is running, not the adopter
-  repo — an adopter has no `.claude-plugin/` of its own). Stamp **<** plugin = **skew**, and the
-  treat is **re-run `/claugentic-dev-harness:init`** (already an init concern — the never-clobber
-  upsert re-stamps; **not** a new treat class). The comparison is `[D]` **only where both values
-  are readable and both parse as numeric semver**; a missing fence, an unreadable manifest, or a
-  non-numeric version is **N-A — never a guess and never a breach.** (The SessionStart advisor
-  surfaces the same skew as a one-line user-facing nudge; this row is the on-demand read of it.)
+- **Stamped fence vs the installed plugin** *(read-only — not a gate)* — compare the CLAUDE.md
+  `harness:managed` fence's `claugentic-dev-harness@<semver>` stamp against the **installed
+  plugin's own** `.claude-plugin/plugin.json` `version` (the plugin the session is running, not
+  the adopter repo — an adopter has no `.claude-plugin/` of its own). Stamp **<** plugin =
+  **skew**. **Doctor REPORTS it; the remedy is for YOU to re-run
+  `/claugentic-dev-harness:init`** (its never-clobber upsert re-stamps the fence) — **this is
+  not one of doctor's applied treats** (see *Treat* — that set is exactly four, and init's
+  repo-wide blast radius does not meet the treat boundary). The comparison is `[D]` **only where
+  both values are readable and both parse as numeric semver**; a missing fence, an unreadable
+  manifest, or a non-numeric version is **N-A — never a guess and never a breach.** (The
+  SessionStart advisor surfaces the same skew as a one-line user-facing nudge; this is the
+  on-demand read of it.)
 - **(Shared mode only) the plugin self-reference** in `.claude/settings.json` — the harness in
   `extraKnownMarketplaces` + `enabledPlugins`. **Solo mode has no self-reference by design** — its
   absence in solo mode is **not** a finding (don't flag the intended divergence).
@@ -189,7 +192,7 @@ doctor regenerates it from scratch.
 | landed plan present | flag | `[J]` classification |
 | cold / stale plan | flag | `[J]` classification |
 | init post-condition | green / flag | read-only check |
-| stamped fence vs installed plugin | green / **skew** / **N-A** | `[D]` stamp version vs `plugin.json` version (N-A if either is unreadable/non-numeric) |
+| stamped fence vs installed plugin | green / **skew** / **N-A** | `[D] read-only — not a gate`: stamp version vs `plugin.json` version (N-A if either is unreadable/non-numeric); remedy = you re-run `init`, not a treat |
 | Stage-9 harvest signal | flag | `[J]` soft advisory |
 
 **`[D]` vs `[J]` is load-bearing, not decoration:** a `[D]` row states the gate's exact exit
