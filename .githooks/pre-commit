@@ -1,12 +1,61 @@
 #!/bin/sh
-# claugentic-dev-harness — architecture-tree gate at COMMIT time. Replaces the per-action
-# Claude Code PostToolUse/Stop hooks: checked once per `git commit`, locally, before the commit
-# is written; a non-zero exit aborts the commit. `--staged` scopes it to what's being committed.
-# Silent on success; prints the gate's message and blocks only on a real problem. A git failure
-# must never block a commit, so resolve the root defensively and let a clean state pass.
+# claugentic-dev-harness — the commit-time gate(s). Checked once per `git commit`, locally,
+# before the commit is written; a non-zero exit aborts it. Each gate is invoked with the args
+# its call site gives it, so a gate that is not staged-scoped is never told that it is.
+#
+# INFRASTRUCTURE THAT CANNOT BE REACHED NEVER BLOCKS A COMMIT — a broken git, no working
+# Python 3.7+, a gate script that is not in this checkout. Anything a gate ITSELF exits
+# non-zero on aborts the commit, including a gate that crashes on import: a gate
+# present-but-broken is a repo defect, not a teammate's machine.
+# The two skips differ in register, deliberately: a broken git passes SILENTLY (there is no
+# repo to report into), while no working Python and a missing gate script pass LOUDLY — one
+# plain line each, on stderr.
+# NO TIMEOUT, stated rather than hidden: a gate that hangs hangs the commit (Ctrl-C is the
+# exit). There is no portable POSIX timeout, and depending on `timeout(1)` would trade a rare
+# hang for a common "not found" on exactly the machines this wrapper exists to protect.
 root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
-if command -v python3 >/dev/null 2>&1; then PY=python3; else PY=python; fi
-out=$("$PY" "$root/scripts/claugentic-check_architecture_tree.py" --staged 2>&1)
-[ $? -eq 0 ] && exit 0
-printf '%s\n' "$out"
-exit 1
+# PROBE each candidate, never merely its presence, and never pick before probing. The
+# Windows-Store `python3` STUB exists on PATH and exits non-zero, and it commonly sits BESIDE a
+# working `python` — pick-then-probe disarms the gate on an ordinary Windows machine and says
+# "no Python" while Python works. Python 2 answers `-c ""` happily and then dies on the gate
+# with a SyntaxError, so the probe asserts the VERSION the gate scripts record for themselves
+# (`# Python 3.7+`). Raise this floor only when a hook-wired gate raises its own.
+PY=
+for cand in python3 python; do
+  if "$cand" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 7) else 1)' >/dev/null 2>&1; then
+    PY=$cand
+    break
+  fi
+done
+if [ -z "$PY" ]; then
+  printf '%s\n' "claugentic tree gate SKIPPED: no working Python 3.7+ on PATH (tried python3, python) - install Python 3 and the gate resumes on your next commit (no re-init needed)" >&2
+  exit 0
+fi
+# Run ONE gate with the args given. A gate script that is not in this checkout is a skip, not a
+# block (a stale hook, a sparse checkout, a half-finished clone). stdout is CAPTURED (a clean
+# pass prints nothing at all — no per-commit noise); stderr FLOWS THROUGH untouched. Exit 0 ->
+# return 0 and discard the captured stdout; non-zero -> print the captured report and return 1.
+# GATE-SIDE OBLIGATION: a gate chained here reports advisory lines on STDERR — whatever it
+# writes to stdout is discarded when it passes. Today's chained gate (the tree check) prints
+# only its verdict, so this channel is normally silent; it exists for a gate that reports while
+# passing — a byte-budget WARN band, a report-only breach.
+# Chaining another gate is one more `run_gate <script> [args] || rc=1` line, and `rc` is what
+# makes it run-both-and-report: a later gate's failure never masks an earlier gate's message.
+run_gate() {
+  gate=$1
+  shift
+  if [ ! -f "$root/$gate" ]; then
+    printf '%s\n' "claugentic gate SKIPPED: $gate is not in this checkout" >&2
+    return 0
+  fi
+  gate_out=$("$PY" "$root/$gate" "$@")
+  gate_status=$?
+  if [ $gate_status -eq 0 ]; then
+    return 0
+  fi
+  [ -n "$gate_out" ] && printf '%s\n' "$gate_out"
+  return 1
+}
+rc=0
+run_gate scripts/claugentic-check_architecture_tree.py --staged || rc=1
+exit $rc

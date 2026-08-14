@@ -13,6 +13,16 @@ tagged `vX.Y.Z`.
 
 ### Added
 
+- **Team-friendly commit gate (warn-and-pass) + husky chaining.** The pre-commit wrapper now
+  probes for a working Python (`python3` then `python`, 3.7+): a machine without one gets ONE
+  plain skip-notice and the commit proceeds — infrastructure failure never blocks a commit
+  (a broken git passes silently; a gate that runs and fails still aborts). Gate warnings now
+  ride stderr, which the wrapper always lets through, so advisory output survives a passing
+  commit. On repos already using husky, `init` OFFERS to chain the gate into `.husky/pre-commit`
+  (marker-guarded, idempotent, never an overwrite — travels to teammates via husky's own npm
+  `prepare`). The CLAUDE.md fence gains a teammate bootstrap line, and init's report cautions
+  about broad build-time content scanners ingesting `docs/` (a real adopter incident).
+
 - **The SessionStart advisor now volunteers two currency nudges** (user-facing only; mute with
   `CLAUDE_HARNESS_ADVISOR=off`): when your repo's stamped harness docs are behind the installed
   plugin it says so and points at `:init`, and when Done/stale plans pile up in `.claude/plans/`

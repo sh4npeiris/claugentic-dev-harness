@@ -646,8 +646,14 @@ def main(argv: list[str]) -> int:
             file=sys.stderr,
         )
         return 1
+    # THE STREAM CONTRACT (the sibling rule — `check_doc_budgets.py`'s module docstring states
+    # it in full): advisory `WARN:` lines ride STDERR, the verdict (problem lines / the OK
+    # summary) rides STDOUT. This gate is not hook-wired, but the contract is a GATE-FAMILY
+    # obligation, not a per-script choice: the pre-commit wrapper discards a passing gate's
+    # stdout, so a WARN emitted there would be swallowed by any wrapper that ever chains it.
+    # The ERROR paths in this same `main()` already use stderr.
     for w in warnings:
-        print(f"WARN: {w}")
+        print(f"WARN: {w}", file=sys.stderr)
     if problems:
         print("\n".join(problems))
         return 1

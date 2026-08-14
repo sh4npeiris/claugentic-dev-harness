@@ -46,11 +46,12 @@ your own cap list into a silent free pass — the forbidden fail-open.
 
 Two thresholds per entry. The budget is a forcing function that keeps the always-/often-
 loaded context lean; the **WARN band** (a ledger past WARN_RATIO of its budget) fixes the
-"breaks the build with no prior signal" handicap — it emits a WARN (printed, exit 0), the
-cue to plan a compaction pass BEFORE the hard ceiling. Only a STRICT excess over the
-budget is a breach (exit 1). Caps differ by load profile, which is exactly why they are
-per-repo data: an always-loaded anchor is kept tight, while an on-demand ledger that has
-been SHARDED (a small routing index plus one file per topic) caps each shard instead.
+"breaks the build with no prior signal" handicap — it emits a WARN (printed to STDERR, see THE
+STREAM CONTRACT below; exit 0), the cue to plan a compaction pass BEFORE the hard ceiling.
+Only a STRICT excess over the budget is a breach (exit 1). Caps differ by load profile, which
+is exactly why they are per-repo data: an always-loaded anchor is kept tight, while an
+on-demand ledger that has been SHARDED (a small routing index plus one file per topic) caps
+each shard instead.
 
 HONEST SCOPE of a per-shard (glob) cap: it bounds the SIZE of each shard a consultation
 reads. It does NOT bound how many shards a consultation opens — that is the index's
@@ -115,8 +116,22 @@ Fails loud: a breach, a missing file, an unreadable file or a broken config each
 plain, actionable message + exit 1 — never a swallowed exception, never a silent pass. A
 WARN never changes the exit code (it is a heads-up, not a failure).
 
+THE STREAM CONTRACT — WARN goes to STDERR, everything else to STDOUT. The two streams carry
+two different kinds of statement: stdout is this run's VERDICT (the OK summary, or the problem
+lines that earned the exit 1), stderr is the ADVISORY channel (every `WARN:` line — a WARN
+band, a report-only breach, an unsurveyable subtree). The split exists because a caller that
+must stay quiet on a clean pass has to be able to discard the verdict WITHOUT discarding the
+advisory: the shared `.githooks/pre-commit` wrapper captures a gate's stdout (so a passing
+commit prints nothing at all) and lets stderr flow straight through — so that, ONCE THIS GATE
+IS CHAINED INTO THAT WRAPPER (plan 0041 Slice 7; today it is a run-gate only, and nothing
+chains it), a report-only breach will be visible at every commit. Merged streams make those
+two requirements contradictory — the grace flag would be a silent no-op. Consequences, stated
+honestly: CI logs interleave both (nothing is lost), and anyone running this gate with
+`2>/dev/null` now hides its warnings. Exit codes are unchanged — a WARN is still exit 0.
+
 Modes:
-    python scripts/check_doc_budgets.py    # human/CI: stdout, exit 0 OK / exit 1 on any problem
+    python scripts/check_doc_budgets.py    # human/CI: exit 0 OK / exit 1 on any problem
+                                           # verdict -> stdout, WARN -> stderr (see above)
 """
 
 from __future__ import annotations
@@ -573,8 +588,12 @@ def main(argv: list[str]) -> int:
     _force_utf8_output()
     os.chdir(_repo_root())
     problems, warnings, summary = evaluate()
+    # THE STREAM CONTRACT (see the module docstring): advisory -> stderr, verdict -> stdout.
+    # The pre-commit wrapper captures stdout to stay silent on a clean pass, so once this gate
+    # is chained in (plan 0041 Slice 7) a WARN printed there would be swallowed and the
+    # report-only grace would signal nothing.
     for w in warnings:
-        print(f"WARN: {w}")
+        print(f"WARN: {w}", file=sys.stderr)
     if problems:
         print("\n".join(problems))
         return 1

@@ -443,11 +443,16 @@ class TestMainExitCodes:
         assert "OK summary" in capsys.readouterr().out
 
     def test_clean_tree_with_warn_still_exits_0(self, monkeypatch, capsys):
+        # STREAM-CONTRACT UPDATE (plan 0041 Slice 5, the sibling rule): the advisory `WARN:`
+        # line rides STDERR — the verdict (problems / the OK summary) keeps stdout. The gate
+        # family shares one contract, because the pre-commit wrapper discards a passing gate's
+        # stdout; this gate is not chained today, and the contract is what keeps it chainable.
         self._stub_evaluate(monkeypatch, problems=[], warnings=["w/x.md:1: heuristic warn"])
         assert csc.main([]) == 0
-        out = capsys.readouterr().out
-        assert "WARN: w/x.md:1: heuristic warn" in out
-        assert "OK summary" in out
+        captured = capsys.readouterr()
+        assert "WARN: w/x.md:1: heuristic warn" in captured.err
+        assert "WARN:" not in captured.out
+        assert "OK summary" in captured.out
 
     def test_hard_flagged_tree_exits_1(self, monkeypatch, capsys):
         self._stub_evaluate(monkeypatch, problems=["x.md: stranded token"], warnings=[])
