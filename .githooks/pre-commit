@@ -1,12 +1,33 @@
 #!/bin/sh
-# claugentic-dev-harness — architecture-tree gate at COMMIT time. Replaces the per-action
-# Claude Code PostToolUse/Stop hooks: checked once per `git commit`, locally, before the commit
-# is written; a non-zero exit aborts the commit. `--staged` scopes it to what's being committed.
-# Silent on success; prints the gate's message and blocks only on a real problem. A git failure
-# must never block a commit, so resolve the root defensively and let a clean state pass.
+# claugentic-dev-harness — the commit-time gate(s). Replaces the per-action Claude Code
+# PostToolUse/Stop hooks: checked once per `git commit`, locally, before the commit is
+# written; a non-zero exit aborts the commit. `--staged` scopes each gate to what is being
+# committed. INFRASTRUCTURE FAILURE NEVER BLOCKS A COMMIT — a broken git, or a missing/broken
+# Python, passes LOUDLY (one line on stderr): only a gate that actually RAN and failed aborts.
 root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
 if command -v python3 >/dev/null 2>&1; then PY=python3; else PY=python; fi
-out=$("$PY" "$root/scripts/claugentic-check_architecture_tree.py" --staged 2>&1)
-[ $? -eq 0 ] && exit 0
-printf '%s\n' "$out"
-exit 1
+# PROBE the interpreter, never merely its presence: the Windows-Store `python3` stub EXISTS on
+# PATH and exits non-zero, so presence alone cannot tell "no Python" from "the gate failed" —
+# and every commit would abort with a cryptic error. One probe answers both cases.
+if ! "$PY" -c "" >/dev/null 2>&1; then
+  printf '%s\n' "claugentic tree gate SKIPPED: no working python3/python — install Python or re-run /claugentic-dev-harness:init" >&2
+  exit 0
+fi
+# Run ONE gate. stdout is CAPTURED (a clean pass prints nothing at all — no per-commit noise);
+# stderr FLOWS THROUGH untouched, so a gate's advisory channel (a WARN band, a report-only
+# breach) is visible on every commit. Exit 0 -> return 0 and discard the captured stdout;
+# non-zero -> print the captured report and return 1. Chaining a second gate is one more
+# `run_gate <script> || rc=1` line, and `rc` is what makes it run-both-and-report: a later
+# gate's failure never masks an earlier gate's message.
+run_gate() {
+  gate_out=$("$PY" "$root/$1" --staged)
+  gate_status=$?
+  if [ $gate_status -eq 0 ]; then
+    return 0
+  fi
+  [ -n "$gate_out" ] && printf '%s\n' "$gate_out"
+  return 1
+}
+rc=0
+run_gate scripts/claugentic-check_architecture_tree.py || rc=1
+exit $rc

@@ -241,15 +241,21 @@ class TestWarnBand:
         assert any("C.md" in p for p in problems)  # the breach still surfaces (exit 1)
         assert any("A.md" in w for w in warnings)  # the warn still surfaces
 
-    def test_main_prints_warn_and_exits_0(self, ledgers, capsys):
+    def test_main_prints_warn_to_stderr_and_exits_0(self, ledgers, capsys):
+        # STREAM-CONTRACT UPDATE (plan 0041 Slice 5): the assertion moved from stdout to
+        # stderr, and gained the negative half. The pre-commit wrapper CAPTURES a gate's
+        # stdout (so a clean commit prints nothing) and lets stderr through — a WARN on
+        # stdout is therefore a WARN nobody ever sees at commit time.
         ledgers("A", 95)  # warn band only — no breach
         ledgers("B", 100)
         ledgers("C", 150)
         rc = cdb.main([])
         assert rc == 0
-        out = capsys.readouterr().out
-        assert "WARN:" in out
-        assert "A.md" in out
+        captured = capsys.readouterr()
+        assert "WARN:" in captured.err
+        assert "A.md" in captured.err
+        assert "WARN:" not in captured.out  # never on the captured (verdict) stream
+        assert "OK:" in captured.out  # ...and the verdict still rides stdout
 
 
 class TestWarnBandReferenceTable:
@@ -360,6 +366,46 @@ class TestMainDispatch:
         rc = cdb.main([])  # must NOT raise — fail loud via exit code + message
         assert rc == 1
         assert "is missing" in capsys.readouterr().out
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# THE STREAM CONTRACT (plan 0041 Slice 5) — advisory (WARN) -> stderr, verdict -> stdout.
+#
+# Load-bearing for the pre-commit wrapper, which CAPTURES a gate's stdout (a clean commit
+# prints nothing at all) and lets stderr flow through. Put a WARN on stdout and the
+# report-only grace becomes a signal nobody ever sees at commit time; put the verdict on
+# stderr and a clean run stops being quiet. Both halves are pinned, in both directions, so a
+# mutant that merges the streams (either way) turns this class red.
+# ─────────────────────────────────────────────────────────────────────────────
+class TestStreamContract:
+    def test_a_clean_run_says_nothing_on_the_advisory_stream(self, ledgers, capsys):
+        ledgers("A", 10)
+        ledgers("B", 10)
+        ledgers("C", 10)
+        assert cdb.main([]) == 0
+        captured = capsys.readouterr()
+        assert captured.err == ""  # nothing to advise -> the wrapper stays silent
+        assert captured.out.startswith(cdb.OK_SUMMARY_PREFIX)
+
+    def test_a_problem_rides_the_verdict_stream(self, ledgers, capsys):
+        ledgers("A", 150)  # breach
+        ledgers("B", 10)
+        ledgers("C", 10)
+        assert cdb.main([]) == 1
+        captured = capsys.readouterr()
+        assert "A.md" in captured.out
+        assert captured.err == ""  # a breach is a verdict, never an advisory
+
+    def test_a_warn_and_a_breach_land_on_different_streams(self, ledgers, capsys):
+        # THE split, exercised in one run: the warn must not follow the breach onto stdout,
+        # and the breach must not follow the warn onto stderr.
+        ledgers("A", 95)  # warn band
+        ledgers("B", 10)
+        ledgers("C", 400)  # breach
+        assert cdb.main([]) == 1
+        captured = capsys.readouterr()
+        assert "C.md" in captured.out and "A.md" not in captured.out
+        assert "A.md" in captured.err and "C.md" not in captured.err
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -759,7 +805,7 @@ class TestSubdirectoryUnderAGlobIsAWarn:
         (shards.dir / "nested").mkdir()
         rc = cdb.main([])
         assert rc == 0
-        assert "WARN:" in capsys.readouterr().out
+        assert "WARN:" in capsys.readouterr().err  # advisory stream (0041 S5 stream contract)
 
     def test_the_matched_shards_are_still_measured(self, shards):
         # The WARN must not become a substitute for the measurement it sits beside.
@@ -894,13 +940,17 @@ class TestGlobEntryEvaluation:
 # ─────────────────────────────────────────────────────────────────────────────
 class TestReportOnly:
     def test_a_report_only_breach_warns_and_exits_0(self, budget_repo, capsys):
+        # STREAM-CONTRACT UPDATE (plan 0041 Slice 5): a graced breach is a WARN, so it rides
+        # STDERR. This is the case the split was built for — on stdout the wrapper would
+        # discard it at exit 0 and the grace would be a silent no-op.
         budget_repo.configure({"A.md": {"max": 100, "reportOnly": True}})
         budget_repo.write("A.md", 500)
         rc = cdb.main([])
         assert rc == 0
-        out = capsys.readouterr().out
-        assert cdb.REPORT_ONLY_TAG in out
-        assert "500" in out  # the measurement is still reported in full
+        captured = capsys.readouterr()
+        assert cdb.REPORT_ONLY_TAG in captured.err
+        assert "500" in captured.err  # the measurement is still reported in full
+        assert cdb.REPORT_ONLY_MARK in captured.out  # ...and the summary headline still lands
 
     def test_a_report_only_breach_carries_the_same_remediation(self, budget_repo):
         budget_repo.configure({"A.md": {"max": 100, "reportOnly": True}})
@@ -983,9 +1033,11 @@ class TestReportOnly:
         budget_repo.configure({"A.md": {"max": 100, "reportOnly": True}})
         rc = cdb.main([])
         assert rc == 1
-        out = capsys.readouterr().out
-        assert "is missing" in out
-        assert cdb.REPORT_ONLY_TAG not in out
+        captured = capsys.readouterr()
+        assert "is missing" in captured.out  # a problem line — the verdict stream
+        # The tag must be absent from BOTH streams now that they differ: asserting only on
+        # stdout would let a graced-missing-file regression hide on the advisory stream.
+        assert cdb.REPORT_ONLY_TAG not in captured.out + captured.err
 
     def test_report_only_does_not_grace_an_unreadable_file(self, budget_repo, monkeypatch):
         budget_repo.configure({"A.md": {"max": 100, "reportOnly": True}})
@@ -1180,6 +1232,10 @@ class TestInvokedFromASubdirectory:
         # has nothing to do with working directories.
         assert at_subdir.returncode == at_root.returncode
         assert at_subdir.stdout == at_root.stdout
+        # STREAM-CONTRACT UPDATE (plan 0041 Slice 5): warnings moved to stderr, so stdout
+        # equality alone no longer covers the gate's whole output — comparing BOTH streams is
+        # what keeps this pin as strong as it was when everything rode stdout.
+        assert at_subdir.stderr == at_root.stderr
         # ...with a size-INDEPENDENT non-vacuity guard: `CLAUDE.md` is named by the OK
         # summary and by any breach line alike, so this is red exactly when the gate no-ops
         # (an absent/renamed config) — which is the way this comparison could pass emptily.
@@ -1202,6 +1258,7 @@ class TestInvokedFromASubdirectory:
         at_root = self._run(REPO_ROOT)
         assert decoy.returncode == at_root.returncode, decoy.stdout + decoy.stderr
         assert decoy.stdout == at_root.stdout
+        assert decoy.stderr == at_root.stderr  # both streams (0041 S5 stream contract)
         # Size-independent restatement of the same fact: the decoy's cap was never applied.
         assert "budget 10" not in decoy.stdout
 
