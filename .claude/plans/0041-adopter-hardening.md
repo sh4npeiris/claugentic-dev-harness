@@ -533,3 +533,202 @@ Per `docs/claugentic-WORKFLOW.md` → Stage 7 (*when the SPEC is what's wrong*, 
 - **In-scope standards dimensions:** `reliability-resilience` (the probe's totality; the stream contract; failure modes) · `testing` (the battery incl. the parity pin — no weakening) · `docs-traceability` (init prose + fence + the shipped-content cleanliness of every edit) · honesty on the wrapper's printed claims.
 - **Tests to add:** per above; mutation-shaped: probe removed ⇒ the stub case fails; stderr-flow removed ⇒ the WARN-visible case fails; marker-idempotency removed ⇒ the double-append case fails (hermetic husky fixture).
 - **Acceptance criteria:** full battery green · this repo's own commit flow: green-clean commits stay silent, a synthetic WARN is visible at commit time (demonstrated) · shipped-content green (init SKILL edits adopter-aware) · the parity pin red if either wrapper home drifts · doctor's existing hook-wiring row still true (no contract change to what doctor asserts).
+
+### Slice 5 — Verify verdict (Stage 7)
+
+**RUNNING AS: Opus 5 (1M context)** — the same model family as the panel and (per the orchestrator) the builder. The independence here is **role + clean context**, never model: a reduction of rubber-stamping risk, not a guarantee.
+
+**VERDICT: CHANGES REQUIRED** — one implementer pass. Four lenses ran (reliability · honesty · docs-traceability · testing); no yagni-sentinel, so I applied the YAGNI weighing myself and cut/narrowed three prescriptions below. **Two blocking defects reproduced in scratch repos by me, not read** — and **one panel-prescribed fix re-creates the very bug it fixes** (H6). The slice's core is sound: the stream contract is correct and end-to-end proven, the parity pin is a real mechanism, the battery is honest about its own environment. What fails is **totality** — the wrapper's promise ("infrastructure failure never blocks a commit") is false in two reachable shapes, and the husky chain, which lands in a *tracked* file, can block **every teammate's** commit.
+
+**What I re-executed (evidence, not report).** Full suite on `b5db261`: **563 passed / 1 xfailed**; all four gates exit 0. Then, in scratch repos through real `sh`:
+
+- **R-1 reproduced verbatim.** PATH = stub `python3` (exits 9) + **working** `python` + `git` ⇒ the wrapper printed `claugentic tree gate SKIPPED: no working python3/python` and exited 0, while `python scripts/…tree.py --staged` in the same environment printed `OK`. The gate is permanently disarmed on the *most common Windows shape*, with a factually false message. The battery cannot see it — `env_with_stub_python` never contains a working sibling (`tests/test_precommit_wrapper.py:147-159`).
+- **R-2 reproduced.** Gate script absent, real Python present ⇒ **rc 1**, stdout empty, stderr = `python.exe: can't open file '…tree.py': [Errno 2]`. A commit rejected by infrastructure, with the raw interpreter error as its only explanation — the exact inversion of `.githooks/pre-commit:5-6`.
+- **The prescribed fixes, validated end-to-end** (five scenarios, all green): stub+working ⇒ **gate RAN**; stub+working with a RED gate ⇒ still **rc 1** (the fallback does not weaken the gate); no Python ⇒ **exactly one** stderr line (the shell's own "command not found" *is* suppressed by the probe's redirection — so G6's `len(splitlines()) == 1` is satisfiable without a `command -v` pre-check); stub-only ⇒ one line; missing script ⇒ loud skip, rc 0.
+- **H6's correction, measured.** `[ -f "$hook" ] && { sh "$hook" || exit 1; }` as the **last** line of `.husky/pre-commit` (which append-at-EOF guarantees) returns **1** when the wrapper is absent ⇒ the husky hook exits 1 ⇒ **every commit blocked** — the panel's R-3 fix reintroduces R-3. The `if … then … fi` form returns 0. Both measured.
+- **Bounds measured, not reasoned.** The WARN-emitter sweep across `scripts/` returns exactly **two** sites — `check_doc_budgets.py` (fixed here) and `check_shipped_content.py:650` (not) — so R-5's sibling set is closed at one. Live ledger headroom for the land commit: `plugin-distribution.md` 11,777 B of 14,000 (WARN at 12,600 ⇒ **823 B** before the band); `INVARIANTS.md` 12,910 of 20,000. The land obligations fit, but L1 is the one to keep tight.
+- **G9's vacuity confirmed by running the gate:** today `check_doc_budgets.py` emits `OK: all managed ledgers within budget` with **empty stderr**, so the two new `stderr == stderr` assertions compare `"" == ""`.
+
+---
+
+## Required changes (one pass) — disposition: **fix-in-this-pass**
+
+Every wrapper edit lands in **both homes** (`.githooks/pre-commit` + the template in `skills/init/SKILL.md:492-527`); `TestTemplateParity` makes that mechanical, so drift is not a risk — forgetting is.
+
+### A. Wrapper totality (blocking)
+
+**W1 [blocking, R-1] — probe *candidates*, not the pre-picked one.** Replace the `command -v` selection + `"$PY" -c ""` probe with the loop below. **Version floor `(3, 7)`, not the panel's `(3, 8)` — my correction:** the two hook-wired gates record their own floor at `scripts/claugentic-check_architecture_tree.py:446` and `scripts/check_doc_budgets.py:579` (`stream.reconfigure(…)  # Python 3.7+`), both use `from __future__ import annotations` (3.7+), and **neither uses a 3.8-only construct** (the walrus is at `check_shipped_content.py:437`, which is harness-self and never hook-wired). A `(3, 8)` floor would loudly skip on an interpreter both gates run on *and* would plant a second, undocumented version claim that disagrees with the code's own comments — the duplicate-source-of-truth failure this plan has already fixed twice.
+
+```sh
+# PROBE each candidate, never merely its presence. The Windows-Store `python3` STUB exists on
+# PATH and exits non-zero, and it commonly sits BESIDE a working `python` — picking first and
+# probing second disarms the gate on the most ordinary Windows machine. Python 2 answers `-c ""`
+# happily and then dies on the gate with a SyntaxError, so the probe asserts the VERSION the
+# gate scripts record for themselves (`# Python 3.7+` in each gate's `_force_utf8_output`).
+# Raise this floor only when a hook-wired gate raises its own.
+PY=
+for cand in python3 python; do
+  if "$cand" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 7) else 1)' >/dev/null 2>&1; then
+    PY=$cand
+    break
+  fi
+done
+if [ -z "$PY" ]; then
+  printf '%s\n' "claugentic tree gate SKIPPED: no working Python 3.7+ on PATH (tried python3, python) - install Python 3 and the gate resumes on your next commit (no re-init needed)" >&2
+  exit 0
+fi
+```
+
+That notice text also discharges **F3**: `re-run /claugentic-dev-harness:init` is inert at this surface (init does not bake the interpreter into the file — `SKILL.md:529-532` says so; the reader is a teammate at `git commit` who may not have the plugin; and init accepts `py`, which the wrapper never tries). Drop the re-init remedy in **both** homes.
+
+**W2 [blocking, R-2] — an existence guard inside `run_gate`, before invocation.**
+
+```sh
+if [ ! -f "$root/$gate" ]; then
+  printf '%s\n' "claugentic gate SKIPPED: $gate is not in this checkout" >&2
+  return 0
+fi
+```
+
+Reachable via keep-mine-gate-off re-init leaving an old hook, a gitignored `scripts/`, sparse checkout, or a mid-`init` clone.
+
+**W3 [R-6] — per-gate args. IN-SLICE (adjudication 5: reliability is right, it is cheaper now).** It is the *same function* W2 already rewrites, it costs two tokens, and the existing `test_the_gate_is_scoped_to_the_staged_set` keeps passing unchanged: `run_gate() { gate=$1; shift; … "$PY" "$root/$gate" "$@" … }` with the call site `run_gate scripts/claugentic-check_architecture_tree.py --staged`. Left as-is, Slice 7 chains an argv-ignoring gate behind a hardcoded `--staged` and the header's own scoping claim becomes false the moment an unstaged over-cap edit blocks an unrelated commit.
+
+**W4 [blocking, F1] — "passes LOUDLY" is false for half its subject; sweep all four sites.** The git-failure branch passes **silently** (`root=$(… 2>/dev/null) || exit 0`) — and its own test is named `test_a_failing_git_passes_without_a_word`, asserting `stderr == ""`. Un-hedged sites (swept; `SKILL.md:473-476`'s prose is the correctly-split sibling and stays): `.githooks/pre-commit:6` · `skills/init/SKILL.md:497` · `docs/claugentic-ARCHITECTURE_TREE.md:79` · `:120`. Honest split: **a broken git passes silently (there is no repo to report into); a missing/broken Python and a missing gate script pass loudly.**
+
+**W5 [F2] — the header's totality claim, resolved jointly with W2. The residual, decided (adjudication 1):** after the existence guard, *missing* skips — but a gate script that **exists and crashes on import** still exits non-zero and still blocks, and **that is the correct posture**: a broken gate script is a repo defect the whole team should see, not a teammate's machine. Do not extend fail-open to it. Header text:
+
+> INFRASTRUCTURE THAT CANNOT BE REACHED NEVER BLOCKS A COMMIT — a broken git, no working Python 3.7+, a gate script that is not in this checkout. Anything a gate ITSELF exits non-zero on aborts the commit, **including a gate that crashes on import**: a gate present-but-broken is a repo defect, not a teammate's machine.
+
+### B. The husky section + the fence (blocking)
+
+Rewrite `skills/init/SKILL.md:550-584` as one ordered procedure — **this order** (adjudication 2), because each step is a precondition of the next:
+
+**H1 [DT-3] — scope first.** The husky bullet currently sits as a **peer of Gate OFF** (`:535` vs `:550`), so a literal reader on a gate-off repo chains to a wrapper that was never written. Open with *"Only when the gate is ON (the wrapper was written in this run or already exists)"*. (Pre-existing peer ambiguity; this diff is what makes it consequential.)
+
+**H2 [DT-2] — read the record before asking.** `:576-579` promises "a re-run never re-asks" with **no reader**. Prepend: *"Read the `- Husky chain:` line in the detected-tooling block FIRST; if present, honor it and skip the offer (report the recorded outcome)."* Every sibling recorded-choice line in this skill states its reader explicitly.
+
+**H3 [R-4] — trackability precondition; decided: REFUSE-to-chain, not warn-and-chain.** Before offering, run `git check-ignore -v .githooks/pre-commit`. If ignored/untrackable: **do not append**, report the reason + the one-line fix, and **record nothing** (so a fixed repo is re-offered). Rationale: this mirrors init's own precedent — it makes `.claude/settings.json` trackable *before* wiring it (`SKILL.md:556-562`) and has a fail-loud `git check-ignore` guard at `:886`. With H6 in place a missing wrapper degrades to a silent no-gate rather than a block, so warn-and-chain would be *safe* — but a silent disarm is precisely the class this slice exists to kill, and failing at `init` in front of the user beats failing at every teammate's commit. Report it like the settings.json step.
+
+**H4 [F6] — reachability, and report "appended", not "chained".** The block is appended at EOF into a file init never parses; an existing `exit 0` above it makes it dead while the report and the fence both say chained. Add: *"scan the existing file for an unconditional `exit` above the append point — if one exists, say so and do not call the gate live."* Report register: **"appended"**.
+
+**H5 [R-9] — a failed read STOPS.** An unreadable `.husky/pre-commit` currently degrades to "marker absent" ⇒ duplicate chain. One clause: *"if the file cannot be read, STOP and report — never append."*
+
+**H6 [blocking, R-3 — with my correction; the panel's own form re-creates the bug].** The block goes into a **tracked** file, so `sh <missing wrapper>` (exit **127**) blocks **every teammate**. But the panel's guard `[ -f "$hook" ] && { sh "$hook" || exit 1; }` **returns 1 when the file is absent**, and append-at-EOF guarantees it is the hook's last command ⇒ husky exits 1 ⇒ every commit blocked anyway. **Measured both ways.** Use the `if`/`fi` form:
+
+```sh
+# >>> claugentic-dev-harness tree gate (managed marker — do not duplicate)
+# A MISSING wrapper must not block anyone: `if`/`fi` (never `[ -f … ] && { … }`, which returns
+# 1 when the test fails and would abort the commit from the hook's last line). A wrapper that
+# RUNS and fails still blocks — that is the gate doing its job.
+hook="$(git rev-parse --show-toplevel 2>/dev/null)/.githooks/pre-commit"
+if [ -f "$hook" ]; then sh "$hook" || exit 1; fi
+# <<< claugentic-dev-harness tree gate
+```
+
+**H7 [F5] — honest propagation register, 3 sites** (`SKILL.md:580` + the step-9 report + plan `:524`): detection matches a bare `.husky/` dir with **no `prepare` script**, and propagation is entirely the adopter's `package.json`. → *"usually free — **if** the repo's own `package.json` carries husky's `prepare` script (husky's default). The harness neither wires nor checks it."*
+
+**H8 [blocking, F4 + DT-1] — rewrite the fence's bootstrap line; it covers TWO hazards.** `SKILL.md:719-723` is written byte-identical into every teammate's always-loaded `CLAUDE.md`. (a) *"there is nothing to do — the harness check is chained"* is **false in the recorded, supported DECLINED state**; (b) *"If this repo wires them via `.githooks/`, run `git config core.hooksPath .githooks`"* invites a husky-repo reader — who has no way to self-classify — to point git **away from `.husky`** and **disable the adopter's own lint-staged hooks**. Replace with a **check-first, conditional-per-branch** block:
+
+> **New clone? Hooks never activate automatically** (git's design) — check before you commit: run `git config --get core.hooksPath`.
+> - prints `.githooks` → wired; nothing to do.
+> - prints nothing → run `git config core.hooksPath .githooks` **once per clone** (or re-run `/claugentic-dev-harness:init`).
+> - prints `.husky` or `.husky/_` → **do not change it** (that would disable this repo's husky hooks). Run `npm install` so husky installs its hooks; the harness check runs too **only if** `.husky/pre-commit` contains the `claugentic-dev-harness tree gate` marker — grep it, and if it is absent re-run `/claugentic-dev-harness:init`, which can chain it.
+
+And fix the meta-claim at `:718`: *"(it states facts, so it stays true whichever way this repo is wired)"* is the laundering sentence — it is what let an unconditional falsehood through. → *"one fixed block, byte-identical every run: it tells the reader how to **check**, so it needs no per-repo variation."*
+
+**H9 [DT-1 minor] — the step-9 report (`SKILL.md:1022-1029`) lacks the fourth, solo outcome:** solo mode skips the offer entirely (`:582-584`), so a solo husky repo must report the `core.hooksPath` conflict per solo divergence (b).
+
+### C. The Slice-7 present-tense family (adjudication 3)
+
+**S1 [F7 + DT-4] — `scripts/check_doc_budgets.py`'s new docstring present-tenses S7's wiring.** *"a report-only breach is visible at every commit"* — the gate is **not chained** (its own tree entry hedges correctly: *"Not hook-wired"*). Recast as the one-clause future form (*"…so that, once Slice 7 chains this gate in, a report-only breach is visible at every commit"*). Same nit in the wrapper header, both homes: its two named examples (WARN band, report-only breach) **both live only in the unchained gate** — name the tree gate's verdict output as today's live case.
+
+**S2 [G3] — the tripwire.** The stream-contract payoff clause has no falsifier; the only strict xfail in the repo is S4's (`tests/test_check_shipped_content.py:329` — verified). Add the house-pattern 3-liner to `tests/test_precommit_wrapper.py`: `test_the_budget_gate_is_chained_into_the_wrapper`, `strict=True`, reason naming Slice 7, asserting `check_doc_budgets` appears in `.githooks/pre-commit`. Red today, flips the suite red the instant S7 lands — and write the abandonment branch into the reason (if S7 is dropped, the stream contract is re-registered as tree-gate-only).
+
+**Standing instruction (adjudication 3 — this is the THIRD consecutive slice for this class; I am naming it rather than leaving it to harvest).** See **L8**: one line into the plan's remaining-slice preamble, plus a Stage-9 harvest candidate. The S4 riders caught it at review all three times, which means the *review* mechanism works and the *authoring* rule is missing.
+
+### D. Tests (the oracle half)
+
+**T1 [G1]** — the missing-gate-script case (pins W2's posture: rc 0 + the notice on stderr + the fake gate proven never to have run).
+**T2 [R-1's new case, the one the battery structurally cannot see today]** — stub `python3` **plus a working `python`** ⇒ assert the **gate RAN** (fake gate writes a sentinel) and that a RED gate under that PATH still returns rc 1.
+**T3 [G5]** — the stub must log its own invocation and the test must assert the log; today `PY=python` (never select `python3`) survives in **both** homes, 19/19 green, while the test name claims the probe caught the stub.
+**T4 [G6]** — `assert len(stderr.splitlines()) == 1` in both notice cases (measured achievable with W1's loop).
+**T5 [G7]** — one from-a-subdirectory case; the cwd-anchored mutant survives 19/19 today while three sites assert worktree-safety.
+**T6 [G4, deterministic half]** — extract `_shell_or_fail(found, ci)` from the `sh` fixture and unit-test **both** branches; today `if CI:` → `if False:` leaves 19/19 green, i.e. the anti-vacuity guard is the one thing in the battery with no test.
+**T7 [G2]** — the husky idempotency **rule** is unpinned: deleting the SKILL's "Idempotent on the OPEN marker" bullet, or inverting it, leaves all four husky tests green — only the test-local `_chain` reimplementation is proven. Add a SKILL-anchored assertion (marker-as-idempotency-key + the refusal wording + check-BEFORE-append present in the section text) and rename the class to say what it actually pins. **Same edit replaces the literal `|| exit 1` pin at `:447` with H6's semantic**: *a missing wrapper does not block; a failing wrapper does* — exercised through `sh`, not asserted as a substring.
+**T8 [G8 — narrowed, my correction]** — the parity normalizer (`_run_logic`) is shell-context-blind, but **do not** add the odd-quote-count check: the skip notice is prose and one reworded apostrophe ("doesn't") would turn the parity pin red for a non-behavioral reason. Add the **heredoc precondition only** (`assert "<<" not in script`) plus one docstring line naming the residual limitation (line-based; assumes no line-spanning quotes). Latent, not live — this is the cheap honest guard, not a shell parser.
+**T9 [G9 — honesty-note, keep the assertions]** — measured: this repo's live gate emits an empty stderr today, so both new `stderr == stderr` lines compare `"" == ""`. Keep them (they arm themselves the moment any ledger enters the WARN band, and they cost nothing) and correct the comment, which currently claims restored strength: *"today both sides are empty — no ledger is in the WARN band; this arms itself the moment one is."*
+
+### E. In-slice code/doc (the sibling rule)
+
+**E1 [R-5, reverse absorption] — `scripts/check_shipped_content.py:650` prints `WARN:` on stdout.** The slice's own fix (`check_doc_budgets.py` WARN → stderr) names the class; the sweep shows exactly **one** unfixed instance, in a file whose sibling ERROR lines already use stderr (`:627`, `:646`). One token + one capsys seam edit, no second correctness requirement ⇒ folded in. Payoff at land: **DT-7's invariant lands with zero known non-conformers** instead of shipping with one named in its own text.
+
+**E2 [DT-5, ships] — `docs/claugentic-PLAYBOOK.md:85`** *"the same result on every machine and in CI"* is now false in exactly the new case → *"…on every machine with a working Python — without one the gate skips loudly and the commit passes."*
+
+**E3 [R-8, confirmed in-slice (adjudication 6) — with one addition of mine]** — init step 5b appends `.githooks/** text eol=lf` to `.gitattributes` (append-if-absent). This repo self-protects via a global `* text=auto eol=lf`; do **not** impose that global form on an adopter. **Shared mode ONLY** — `.gitattributes` is a *tracked* file, so editing it in solo mode would violate the solo invariant, and the solo hook lives at `.git/hooks/pre-commit`, which git never normalizes. Honest register: I could not execute `dash` on this platform, so I ratify this on cost (one line) and blast radius (a CRLF-committed multi-line wrapper is a parse error for every `/bin/sh`-is-dash teammate), not on a reproduction — keep that caveat out of shipped copy; the line itself needs no claim.
+
+---
+
+## Land-commit obligations (owner: the orchestrator, not the implementer)
+
+**L1 — DECISIONS repair (a):** `docs/claugentic-decisions/plugin-distribution.md:22` — the *"resolve-once, exit-code-preserving"* rationale now reads as the opposite of this slice's headline (fail-open is no longer advisor-only), and *"written with the DETECTED interpreter"* was **already false on `main`**. Amend to the form drafted in the docs-trace report. **Budget note: this shard has 823 B before its WARN band — keep the amendment tight or condense in the same commit.**
+**L2 — DECISIONS repair (b):** `docs/claugentic-decisions/deterministic-gates.md:7` — *"never-clobbers (reports + continues)"* is incomplete for the new husky branch; add the offer clause.
+**L3 — the two originally-planned DECISIONS lines:** the warn-and-pass posture (user-directed, approved) · the DIH Tailwind content-scanner incident.
+**L4 — a new INVARIANTS entry (DT-7):** *a chained gate's advisory output rides stderr — the wrapper eats stdout*, with the enforcement split stated honestly (wrapper half test-pinned; per-gate half model-upheld). With E1 landed it names **no** non-conformer. (`INVARIANTS.md` is at 12,910/20,000 — ample room.)
+**L5 — CHANGELOG `## Unreleased`:** S5 ships adopter-visible behavior (init's husky question, an append into a tracked file, the wrapper's warn-and-pass + stream contract, the fence bootstrap line). S4 correctly had none; S5 differs.
+**L6 — plan-copy amendments** (see the Spec-amendment block below): `:525` (F8, dated) · `:526` (the doctor claim struck) · `:535` (the AC reworded).
+**L7 — `docs/claugentic-ARCHITECTURE_TREE.md:79` locator trim:** drop the restated literal `"$PY" -c ""` command per the freshly-harvested locator clause (the entry locates; the file states).
+**L8 — the standing instruction + harvest candidate:** one line into the plan's remaining-slice preamble — *"any sentence describing a capability a later slice wires rides the future tense AND a strict-xfail tripwire naming that slice"* — and register the general rule as a **Stage-9 harvest candidate** with a proposed home (`docs/claugentic-standards/docs-traceability.md`, a new dimension: *forward promises are dated and carry a falsifier*). There is no `honesty.md` standards module; honesty lives in the reviewer role + INVARIANTS, which is why this keeps landing at review instead of at authoring time. **Do not invent the module in this pass** — route it.
+**L9 — Slice 6 scope additions (adjudication 4, "strike vs build" → strike now, build there):** add to the Slice 6 bullet (a) a **doctor interpreter-health row** (run the hook's own probe; report SKIPPED as a flag) and (b) a **husky-aware hook-wiring row** (a chained `.husky` repo is a supported third wiring today, and doctor `SKILL.md:143-146` files it as a foreign-hooks-path conflict). Slice 6 already opens that file; a ROADMAP routing would outlive the plan file that promises it.
+
+---
+
+## Spec amendments (Stage 7 procedure: `docs/claugentic-WORKFLOW.md` → Stage 7)
+
+The implementation is faithful to these lines; **the lines are wrong** — a spec-conformant diff is no defense.
+
+1. **`:525` (F8) — WORDING amendment; it DATES the promise, it does not change what the user accepted.** *"a repo at a WARN band sees it at every commit instead of never"* is Slice 7's outcome: the only chained gate is the tree gate, and it writes **everything** to stdout (verified — `claugentic-check_architecture_tree.py` has no stderr emission anywhere), so at land **no commit surfaces any WARN**. The mechanism-fix *is* Slice 7, and the user accepted the wrapper + the stream contract, which both land here in full. → *"the wrapper's advisory channel is live from this slice; the first gate that uses it is the doc-budget gate, chained in Slice 7."* **No return to the user required — but the tense correction is not cosmetic**: without it, the stream contract ships with zero live consumers while the copy says otherwise.
+2. **`:526` (R-7 / F9) — MATERIAL; surface to the user at land.** *"warn-and-pass means the gate is advisory on interpreter-less machines (loud, **and doctor flags it**…)"* names a compensating control that **does not exist**: doctor has no interpreter-health row (it checks file presence + `hooksPath`, and runs gates with the *agent's* interpreter — a different resolution path entirely), and the wrapper's own notice is stderr-on-exit-0, which GUI clients that show output only on failure will drop. **The posture itself is approved and is not re-litigated** — only its stated mitigation is corrected. Strike "and doctor flags it"; state the residual honestly (*the only signal is one stderr line at commit time; a doctor row is routed to Slice 6*), and tell the user in one line at land.
+3. **`:535` (F10) — AC reword.** *"doctor's existing hook-wiring row still true (no contract change to what doctor asserts)"* is technically satisfiable and misleading: the row's text is unchanged, but this slice creates a **third** wiring (husky-chained, `hooksPath=.husky`) that doctor reports as a conflict. → *"doctor's hook-wiring row is unchanged and still correct for the two wirings it knows; the new husky-chained wiring is reported as a `core.hooksPath` conflict until Slice 6 teaches it the third (L9)."*
+
+---
+
+## ROADMAP (genuinely separate future work)
+
+- **R-6's successor:** nothing. (Folded in — see W3.)
+- **F11 — the Tailwind caution's trigger is never armed.** Step 8's scan list (eslint / tsconfig / test-runners / CI) contains **no content-scanner-class tool**, so on the motivating repo the new caution at `SKILL.md:1044-1055` would never fire. Two honest options; **take the cheap one in-slice if it is one clause** (make the caution name its own sources — Tailwind/UnoCSS config, docs indexer, SSG/codegen with broad globs — so it is self-triggering prose rather than a dependent on step 8); **route widening step 8's detection to ROADMAP** (that is a detection-surface change with its own test burden, and the plan explicitly chose "no mechanical config-sniffing — YAGNI").
+- **No timeout on the probe or the gate invocation** (noted by reliability, not a finding): there is no portable POSIX fix. One honest clause in the wrapper header is the right treatment; a `timeout(1)` dependency is not.
+
+## Watch-item (not a fix — adjudication 9)
+
+- **G4's Windows-CI `sh` risk.** `tests/test_precommit_wrapper.py` is the repo's **first** `sh`-dependent test, and the fixture **hard-fails** (by design) when `CI` is set and `sh` is absent. GitHub's Windows runners ship Git Bash, but its presence on the default `PATH` for the `python -m pytest` step is not something I can verify from here. **The land PR's CI run is the check — read the Windows legs specifically before merge.** If it fails there, the fix is PATH/shell setup in the workflow, never loosening the guard to a skip (that would re-create exactly the false green the guard exists to prevent).
+
+## Explicitly dropped (with reason — nothing silent)
+
+- **X1 — `(3, 8)` as the version floor (R-1's second half).** Dropped in favor of `(3, 7)`; evidence and reasoning in W1. A floor above the code's own recorded requirement is a second source of truth and a false skip.
+- **X2 — the odd-quote-count half of G8.** Dropped: it would turn the parity pin red on an apostrophe in prose (a reword to "doesn't"), trading a latent false-green for a live false-red. The heredoc guard (T8) covers the realistic blind spot.
+- **X3 — "extend fail-open to a gate script that crashes on import" (a possible reading of F2).** Dropped deliberately: a present-but-broken gate is a repo defect the whole team should see. W5 states that boundary instead of widening it.
+- **X4 — the cosmetic `not in out+err` concatenation nit** (testing lens): dropped, no behavioral or clarity gain.
+- **X5 — re-litigating warn-and-pass, commit-time-only enforcement, or default-chain.** Not dropped-as-refuted — **out of bounds**: user decisions. Every finding above refines the *wiring and the register* of that posture; none questions it.
+
+---
+
+## Definition of Done check
+
+| | |
+|---|---|
+| **Acceptance criteria** | ✗ — the battery is green (563 passed / 1 xfailed) and the parity pin is real, but AC-5 is falsified as worded (F10 → amendment 3), and "a synthetic WARN is visible at commit time" is demonstrable only with a synthetic gate, never with a chained one (F8 → amendment 1). |
+| **In-scope dimensions** | `reliability-resilience` ✗ (W1, W2, W3, H3, H6, E3) · `testing` ✗ (T1–T9) · `docs-traceability` ✗ (H1–H9, E2, L1–L7) · honesty ✗ (W4, W5, S1, H7, H8, amendments 1–3). |
+| **Missed dimension (spec scoping)** | The spec scoped honesty to *"the wrapper's printed claims"* — but the findings that bit hardest are **documentation** claims (the fence written into every teammate's `CLAUDE.md`, the SKILL prose, two tree entries, the plan's own approval-gate copy). **Honesty is in-scope for every surface a slice writes, not only its runtime output** — carry that into the remaining slices' specs. `maintainability-structure` was unnamed but is met: the two-home duplication has a real DRY mechanism (`TestTemplateParity`). |
+| **All gates green** | ✓ at `b5db261` — tree · version-sync · shipped-content · doc-budgets all exit 0; suite green. |
+| **No new debt** | ✗ until the above lands: two reachable commit-blocking paths (one team-wide, in a tracked file), one factually false runtime message, four un-hedged claims in shipped/always-loaded copy, one unfixed WARN-stream sibling, and six mutants surviving the new battery. |
+
+## Plain English (what's wrong · how bad · what could break)
+
+The good half is genuinely good: warnings now come out of a separate pipe so a passing commit can stay silent without swallowing them, and the copy that tells adopters how to write the hook is now checked by a test instead of trusted — that is the thing this repo keeps getting wrong, done right.
+
+The bad half is that the hook's headline promise — *"a broken setup never stops you committing"* — is false in two ordinary situations, and I reproduced both rather than reading them. On a very common Windows setup (a fake `python3` shortcut sitting next to a real `python`), the hook decides there is no Python at all, says so untruthfully, and quietly stops checking anything **forever** — the repo's guard is off and nobody is told. And if the checking script is missing from someone's checkout, their commit is **rejected** with a raw Python error and nothing else — the exact wall this slice was written to remove.
+
+The most dangerous item is the husky feature, because its wiring goes into a **shared, committed** file: as written, if the harness's own hook file is missing on a teammate's machine, **every commit for every teammate on the project fails**. The panel's proposed fix has the same defect through a different door — I ran both forms and measured it — so take the corrected shape here, not the one in the report.
+
+Everything else is truthfulness in writing: four places say a broken git "passes loudly" when it passes in total silence; a line that will be copied into every teammate's always-loaded instructions tells husky users "there is nothing to do" even when the user declined to wire anything, and tells them to run a command that would **switch off their own project's hooks**; and the plan promises the user two things that only arrive one slice later, plus one safety net (`/doctor` noticing a skipped gate) that does not exist at all. The posture the user chose is not in question anywhere here — only whether the code and the copy tell the truth about it.
