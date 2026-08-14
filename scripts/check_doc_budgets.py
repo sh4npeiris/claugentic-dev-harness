@@ -122,11 +122,12 @@ lines that earned the exit 1), stderr is the ADVISORY channel (every `WARN:` lin
 band, a report-only breach, an unsurveyable subtree). The split exists because a caller that
 must stay quiet on a clean pass has to be able to discard the verdict WITHOUT discarding the
 advisory: the shared `.githooks/pre-commit` wrapper captures a gate's stdout (so a passing
-commit prints nothing at all) and lets stderr flow straight through (so a report-only breach
-is visible at every commit). Merged streams make those two requirements contradictory — the
-grace flag would be a silent no-op. Consequences, stated honestly: CI logs interleave both
-(nothing is lost), and anyone running this gate with `2>/dev/null` now hides its warnings.
-Exit codes are unchanged — a WARN is still exit 0.
+commit prints nothing at all) and lets stderr flow straight through — so that, ONCE THIS GATE
+IS CHAINED INTO THAT WRAPPER (plan 0041 Slice 7; today it is a run-gate only, and nothing
+chains it), a report-only breach will be visible at every commit. Merged streams make those
+two requirements contradictory — the grace flag would be a silent no-op. Consequences, stated
+honestly: CI logs interleave both (nothing is lost), and anyone running this gate with
+`2>/dev/null` now hides its warnings. Exit codes are unchanged — a WARN is still exit 0.
 
 Modes:
     python scripts/check_doc_budgets.py    # human/CI: exit 0 OK / exit 1 on any problem
@@ -588,8 +589,9 @@ def main(argv: list[str]) -> int:
     os.chdir(_repo_root())
     problems, warnings, summary = evaluate()
     # THE STREAM CONTRACT (see the module docstring): advisory -> stderr, verdict -> stdout.
-    # The pre-commit wrapper captures stdout to stay silent on a clean pass, so a WARN printed
-    # there would be swallowed and the report-only grace would signal nothing.
+    # The pre-commit wrapper captures stdout to stay silent on a clean pass, so once this gate
+    # is chained in (plan 0041 Slice 7) a WARN printed there would be swallowed and the
+    # report-only grace would signal nothing.
     for w in warnings:
         print(f"WARN: {w}", file=sys.stderr)
     if problems:

@@ -1233,8 +1233,11 @@ class TestInvokedFromASubdirectory:
         assert at_subdir.returncode == at_root.returncode
         assert at_subdir.stdout == at_root.stdout
         # STREAM-CONTRACT UPDATE (plan 0041 Slice 5): warnings moved to stderr, so stdout
-        # equality alone no longer covers the gate's whole output — comparing BOTH streams is
-        # what keeps this pin as strong as it was when everything rode stdout.
+        # equality alone no longer covers the gate's whole output.
+        # HONEST STATUS (measured): today BOTH sides are empty — no live ledger is in the WARN
+        # band — so this line currently compares "" == "". It costs nothing and ARMS ITSELF the
+        # moment any ledger crosses 90%, which is exactly when a CWD-dependent advisory would
+        # start diverging unnoticed.
         assert at_subdir.stderr == at_root.stderr
         # ...with a size-INDEPENDENT non-vacuity guard: `CLAUDE.md` is named by the OK
         # summary and by any breach line alike, so this is red exactly when the gate no-ops
@@ -1258,7 +1261,9 @@ class TestInvokedFromASubdirectory:
         at_root = self._run(REPO_ROOT)
         assert decoy.returncode == at_root.returncode, decoy.stdout + decoy.stderr
         assert decoy.stdout == at_root.stdout
-        assert decoy.stderr == at_root.stderr  # both streams (0041 S5 stream contract)
+        # Both streams (0041 S5 stream contract). Same honest status as the case above: empty
+        # on both sides today, live the moment a ledger enters the WARN band.
+        assert decoy.stderr == at_root.stderr
         # Size-independent restatement of the same fact: the decoy's cap was never applied.
         assert "budget 10" not in decoy.stdout
 
