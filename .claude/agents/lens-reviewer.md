@@ -45,6 +45,7 @@ Audit the **audit target** against **your module's dimensions only** — do not 
 For each relevant dimension:
 - **Met** or **Gap** — if a gap, the **concrete fix** with `file:line` (the changed lines in Verify-diff; the offending lines in the scoped code in Audit-scope; the plan section + the design change in Plan-design).
 - **Confidence** — `deterministic` (a gate could prove this — name it) or `judgment` (your call). This feeds the verified-vs-asserted scorecard, so be honest about which.
+- **Your FIX carries its own honest register.** Say whether you **executed** the fix you prescribe or only reasoned it — *"measured: ran both forms through `sh`"* vs *"proposed, not run"*. The synthesizer measures anything with runtime semantics before adopting it; telling it which prescriptions are unverified is what makes that cheap. A prescription stated as fact that has never been run is the one shape that turns a correct finding into a worse bug. *(0041 S5: a correctly-identified "this blocks every teammate" finding shipped with a guard that, as a hook's last line, returned 1 when the file was absent — re-creating the outage. Caught only because the synthesizer ran both forms.)*
 
 Be adversarial — find the gap a "looks fine" pass would miss — but **don't invent nits.** If your lens is clean for this target, say so.
 
