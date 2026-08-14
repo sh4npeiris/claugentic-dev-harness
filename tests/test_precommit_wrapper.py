@@ -762,7 +762,7 @@ class TestHuskyChainRuleIsStatedInTheSkill:
         for required in (
             "ONLY when the tree-gate is ON",  # never chain to a wrapper that was never written
             "Read the record BEFORE asking",  # the recorded choice has a reader
-            "git check-ignore",  # the wrapper must be trackable before a tracked file depends on it
+            "git check-ignore -v .githooks/pre-commit",  # the wrapper must be trackable before a tracked file depends on it
             "A failed read STOPS",  # unreadable != "marker absent"
             "unconditional `exit`",  # reachability before calling it live
         ):

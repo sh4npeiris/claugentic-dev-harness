@@ -655,7 +655,10 @@ then stays model-upheld via the CLAUDE.md authority anchor.
      not optional: an absent wrapper (a fresh clone mid-`init`, a sparse checkout, a
      gitignored path) must degrade to *no gate*, never to *no commits for anybody*.
   8. **Never overwrite anything** — everything already in `.husky/pre-commit` is preserved
-     byte-for-byte; the block only ever grows the file. `|| exit 1` keeps a **failing** gate
+     byte-for-byte; the block only ever grows the file. **If the file did not exist and this
+     append created it, mark it executable** (`chmod +x` / `git update-index --chmod=+x`, the
+     same requirement the two other hook-write sites state) — husky runs the file directly,
+     and a bitless hook is **skipped silently**: chained, reported, never run. `|| exit 1` keeps a **failing** gate
      blocking, and `git rev-parse --show-toplevel` keeps the path worktree-safe.
   9. **Chaining replaces nothing else:** still write `.githooks/pre-commit`, and still leave
      `core.hooksPath` untouched (husky owns it).
