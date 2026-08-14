@@ -42,6 +42,17 @@ gold-plating an irrelevant one, never skipping a relevant one.
 
 ---
 
+## Opt-in by absence — a "no config, no-op" mechanism is armed only by its config's PRESENCE
+
+- **Good looks like —** A mechanism that is **opt-in by the presence of a file** (a caps/policy/lint config, a `.env`) treats *absent* as "not opted in" **only where that file's presence is itself guaranteed** — tracked in version control, and asserted by a test that queries the VCS rather than reading the ignore rules' wording. The two defaults are reviewed as a **composition**: a deny-by-default ignored directory with a per-file un-ignore allow-list, plus an absent-is-a-no-op reader, compose into a mechanism that is **green on the author's machine and disarmed everywhere else** — in CI, in every fresh clone, for every other contributor. Neither site is wrong on its own, which is exactly why no single-file review finds it; the defect lives at the join.
+- **Auditor checks —** `[D]` For every path a tool reads as its *own* configuration, run the VCS's ignore-and-track queries against it (`git check-ignore -v <path>`, `git ls-files --error-unmatch <path>`) — is it genuinely tracked, or only present locally? `[D]` If the repo ignores a directory and re-includes files one by one, every file **added to that directory in this diff** needs its own un-ignore line — grep the diff for such adds. `[J]` What does the mechanism do when its config is missing — fail loud, or pass quietly? If quietly, name what guarantees presence. `[J]` Would the absence be *visible*? A no-op that prints one line is recoverable; one that prints nothing is not.
+- **Confidence —** `mixed`
+- **Tradeoff (plain English) —** "Absent config = not opted in" is the right posture for a tool that must not fail a repo that never asked for it — and it is indistinguishable, from the outside, from the tool being switched off. Pinning presence costs one ignore-file line and one test. Skipping it means that the day the file stops being tracked, every check it drives stops running and every run still reads green.
+- **Incident that motivated this (delete this rule once its cause is gone) —** Plan 0041 Slice 4 (2026-08-13): the harness's doc-budget caps moved out of a hardcoded dict into a per-repo config file, and the reader's *designed* posture for an absent config is a quiet exit 0 ("this repo has not opted in"). The repo's ignore file excludes the whole `.claude/` directory and re-includes shared files individually — so the brand-new config was invisible to git by default. Both decisions were correct in isolation; composed, they would have shipped a gate that passed green locally and **measured nothing in CI or in any fresh clone**, with no error anywhere. Caught by the implementer mid-slice, not by any reviewer. The fix is one un-ignore line **plus** a test asserting the file is tracked *through the VCS itself*, never through the ignore rules' wording.
+- **Sources —** cross-ref *Correctness & failure paths* above ("a gate that silently passes on its own breakage is the forbidden failure class"); Git docs — `gitignore(5)` negation patterns and `git-check-ignore`; Nygard, *Release It!* on fail-open defaults.
+
+---
+
 ## Idempotency & safe retry
 
 - **Good looks like —** Mutating operations that cross a network boundary (API calls, queue publishes, DB writes) are idempotent or protected by an idempotency key, so retrying on transient failure cannot create duplicate side effects.
