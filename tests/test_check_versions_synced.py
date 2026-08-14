@@ -11,9 +11,13 @@ Hermetic by construction:
     real repo manifest leaks in.
   * The two files are written independently per-case, so the independence-of-read
     property can be exercised directly (one broken, one fine).
+  * The fixture also RESTORES the process working directory, because `main()` chdirs
+    and never changes back — see the comment at that line.
 """
 
 from __future__ import annotations
+
+from pathlib import Path
 
 import pytest
 
@@ -35,6 +39,13 @@ def manifests(tmp_path, monkeypatch):
     market = tmp_path / "marketplace.json"
     monkeypatch.setattr(cvs, "PLUGIN_PATH", plugin)
     monkeypatch.setattr(cvs, "MARKETPLACE_PATH", market)
+    # RESTORE THE CWD. `cvs.main()` does `os.chdir(_repo_root())` and never changes back, so
+    # any test here that drives `main()` LEAKS a process-wide chdir to the repo root into
+    # every test that runs after it. A no-op `monkeypatch.chdir` to the current directory is
+    # purely for its teardown: it records the cwd now and restores it afterwards. The leak is
+    # not theoretical — it was masking a genuinely red CWD-coupled test elsewhere in the
+    # suite, which only failed once this fixture stopped papering over it.
+    monkeypatch.chdir(Path.cwd())
 
     def write(plugin_text: str | None, marketplace_text: str | None) -> None:
         if plugin_text is not None:

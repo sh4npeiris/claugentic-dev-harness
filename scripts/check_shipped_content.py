@@ -285,7 +285,26 @@ def _init_seed_of(path: str) -> str:
 # the adopter repo rather than copying from a seed (skills/init/SKILL.md step 4 generates the
 # architecture tree). An explicit, commented seam — the gate does not guess which stripped file
 # init can regenerate; a new init-gen output is registered here alongside its manifest class.
-INIT_GEN_OUTPUTS = frozenset({"docs/claugentic-ARCHITECTURE_TREE.md"})
+INIT_GEN_OUTPUTS = frozenset(
+    {
+        "docs/claugentic-ARCHITECTURE_TREE.md",  # init step 4 generates the adopter's file map
+        # The adopter's OWN doc-budget caps, generated from THEIR ledgers — never the harness's
+        # harness-tuned numbers (which is exactly why the harness's own config is stripped).
+        # HONEST STATUS — registered AHEAD of its writer: the caps config is classed `init-gen`
+        # by plan 0041 Slice 4 (the slice that creates and strips the harness's own config),
+        # while the `init` step that writes an adopter's copy is Slice 7 of the SAME plan. No
+        # release is PLANNED between them — that is plan ORDER, model-upheld; nothing here
+        # gates it and Pass D accepts this entry unconditionally. Until Slice 7 lands, this
+        # entry states the INTENDED HAS source rather than an implemented one.
+        # If that promise is not kept — Slice 7 abandoned, OR a release cut before it lands —
+        # the honest fix is to re-annotate the class as `recreate-on-demand` (the shipped docs
+        # already tell an adopter how to author the file by hand), never to leave this claim
+        # standing. `test_init_documents_the_caps_config` (strict xfail) is the tripwire: it
+        # turns the suite RED the moment init learns to write the config, forcing this note and
+        # its sibling in `build_release.py` to be removed rather than quietly outliving it.
+        ".claude/claugentic-doc-budgets.json",
+    }
+)
 
 
 def closure_gaps(ship: frozenset[str]) -> list[str]:

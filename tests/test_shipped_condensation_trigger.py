@@ -27,6 +27,8 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
+import pytest
+
 import build_release as br  # the SINGLE ship classifier — see check_shipped_content.py
 import check_shipped_content as csc  # reuse its shipped-text reader (binary-asset skip)
 
@@ -103,6 +105,16 @@ class TestOrphanedTriggerPattern:
 
 
 class TestShippedSetHasNoOrphanedTrigger:
+    @pytest.fixture(autouse=True)
+    def at_repo_root(self, monkeypatch):
+        """`br._tracked_files()` shells `git ls-files`, which is scoped to the process CWD —
+        run from `tests/` it lists only that subtree (relative to it) and `_shipped_texts()`
+        raises `FileNotFoundError`. Anchor at the git-authoritative repo root so this scan
+        holds from any working directory. (It read as green in full runs only because a
+        sibling module leaked an unrestored chdir; that leak is now fixed, which is what
+        exposed this.)"""
+        monkeypatch.chdir(br._repo_root())
+
     def test_no_shipped_file_points_an_adopter_at_the_doc_budget_warn_trigger(self):
         hits = find_orphaned_triggers(_shipped_texts())
         assert hits == [], (
