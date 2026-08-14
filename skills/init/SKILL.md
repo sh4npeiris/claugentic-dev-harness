@@ -466,54 +466,97 @@ then stays model-upheld via the CLAUDE.md authority anchor.
   one config line per clone):
   1. **Write `.githooks/pre-commit`** — the same wrapper logic this harness ships in its
      own `.githooks/pre-commit`: it resolves the repo root via `git rev-parse
-     --show-toplevel` (worktree-safe), picks `python3 || python` and **probes** it, runs
+     --show-toplevel` (worktree-safe), **probes each interpreter candidate** (`python3`
+     then `python`) for a working Python 3.7+, runs
      `scripts/claugentic-check_architecture_tree.py --staged`, and **exit 1 aborts the
      commit**. Three properties make it safe on a real team, and none of them may be
      dropped when you write the file:
-     - **Infrastructure failure never blocks a commit.** A git failure resolving the root
-       passes; so does a **missing or broken interpreter** — the wrapper *probes* the
-       interpreter (`"$PY" -c ""`) instead of trusting its presence, prints **one** plain
-       line on stderr, and exits 0. Presence alone is not enough: on Windows a `python3`
-       **stub** sits on `PATH` and exits non-zero, which is indistinguishable from a failing
-       gate once the gate has run — that is how a teammate without Python ends up with every
-       commit blocked by a cryptic error.
+     - **Infrastructure that cannot be REACHED never blocks a commit** — a broken git, no
+       working Python 3.7+, or a gate script that is not in this checkout. Each skips and
+       the commit proceeds. Two registers, deliberately different: a **broken git passes
+       silently** (there is no repo to report into), while **no working Python** and a
+       **missing gate script** pass **loudly** — one plain line each, on stderr. What is NOT
+       covered: a gate that RUNS and exits non-zero still aborts, **including one that
+       crashes on import** — a gate present-but-broken is a repo defect the whole team
+       should see, not one teammate's machine.
+     - **Probe candidates; never pick one and probe it second.** On Windows a `python3`
+       **stub** sits on `PATH`, exits non-zero, and commonly sits **beside a working
+       `python`** — picking first would disarm the gate permanently while reporting "no
+       Python" on a machine where Python works. The probe also asserts the **version**
+       (`sys.version_info >= (3, 7)`, the floor the gate scripts record for themselves), so
+       a Python 2 that answers a bare `-c ""` cannot get through and die on the gate with a
+       SyntaxError.
      - **Quiet when clean, loud when it matters.** A gate's **stdout is captured** (a clean
        pass prints nothing at all) while its **stderr flows through untouched**, so anything
        a gate reports on the advisory channel is visible at every commit without making a
        clean run chatty. Never add a `2>&1` **to the gate invocation** — that merges the
        advisory channel into the captured stream and silently swallows it. (The probe line's
        `>/dev/null 2>&1` is a different thing: it discards the *probe's* noise, not a gate's.)
-     - **One gate per line.** The `run_gate` function is the seam: a second commit-time
-       check is one more `run_gate <script> || rc=1` line, and `rc` is what makes it
-       run-both-and-report (a later gate's failure never masks an earlier gate's message).
+       This is a **two-sided contract**: a gate chained here must print advisory lines on
+       **stderr**, because what it writes to stdout is discarded whenever it passes.
+     - **One gate per line, with its own args.** The `run_gate` function is the seam: a
+       second commit-time check is one more `run_gate <script> [args] || rc=1` line, and
+       `rc` is what makes it run-both-and-report (a later gate's failure never masks an
+       earlier gate's message). Scope flags live at the **call site**, so a gate that does
+       not read `--staged` is never handed it.
 
      Wrapper (**run-logic identical** to the shipped hook — copy it verbatim; only the comment
      header is adopter-appropriate, since a fresh adopter has no per-action hooks to "replace"):
      ```sh
      #!/bin/sh
      # claugentic-dev-harness — the commit-time gate(s). Checked once per `git commit`,
-     # locally, before the commit is written; a non-zero exit aborts it. `--staged` scopes
-     # each gate to what is being committed. INFRASTRUCTURE FAILURE NEVER BLOCKS A COMMIT —
-     # a broken git, or a missing/broken Python, passes LOUDLY (one line on stderr): only a
-     # gate that actually RAN and failed aborts, so a teammate without Python is never
-     # walled out of committing.
+     # locally, before the commit is written; a non-zero exit aborts it. Each gate is invoked
+     # with the args its call site gives it, so a gate that is not staged-scoped is never told
+     # that it is.
+     #
+     # INFRASTRUCTURE THAT CANNOT BE REACHED NEVER BLOCKS A COMMIT — a broken git, no working
+     # Python 3.7+, a gate script that is not in this checkout. Anything a gate ITSELF exits
+     # non-zero on aborts the commit, including a gate that crashes on import: a gate
+     # present-but-broken is a repo defect, not a teammate's machine.
+     # The two skips differ in register, deliberately: a broken git passes SILENTLY (there is
+     # no repo to report into), while no working Python and a missing gate script pass LOUDLY
+     # — one plain line each, on stderr.
+     # NO TIMEOUT, stated rather than hidden: a gate that hangs hangs the commit (Ctrl-C is
+     # the exit). There is no portable POSIX timeout, and depending on `timeout(1)` would
+     # trade a rare hang for a common "not found" on exactly the machines this protects.
      root=$(git rev-parse --show-toplevel 2>/dev/null) || exit 0
-     if command -v python3 >/dev/null 2>&1; then PY=python3; else PY=python; fi
-     # PROBE the interpreter, never merely its presence: the Windows-Store `python3` stub EXISTS on
-     # PATH and exits non-zero, so presence alone cannot tell "no Python" from "the gate failed" —
-     # and every commit would abort with a cryptic error. One probe answers both cases.
-     if ! "$PY" -c "" >/dev/null 2>&1; then
-       printf '%s\n' "claugentic tree gate SKIPPED: no working python3/python — install Python or re-run /claugentic-dev-harness:init" >&2
+     # PROBE each candidate, never merely its presence, and never pick before probing. The
+     # Windows-Store `python3` STUB exists on PATH and exits non-zero, and it commonly sits
+     # BESIDE a working `python` — pick-then-probe disarms the gate on an ordinary Windows
+     # machine and says "no Python" while Python works. Python 2 answers `-c ""` happily and
+     # then dies on the gate with a SyntaxError, so the probe asserts the VERSION the gate
+     # scripts record for themselves (`# Python 3.7+`). Raise this floor only when a
+     # hook-wired gate raises its own.
+     PY=
+     for cand in python3 python; do
+       if "$cand" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 7) else 1)' >/dev/null 2>&1; then
+         PY=$cand
+         break
+       fi
+     done
+     if [ -z "$PY" ]; then
+       printf '%s\n' "claugentic tree gate SKIPPED: no working Python 3.7+ on PATH (tried python3, python) - install Python 3 and the gate resumes on your next commit (no re-init needed)" >&2
        exit 0
      fi
-     # Run ONE gate. stdout is CAPTURED (a clean pass prints nothing at all — no per-commit noise);
-     # stderr FLOWS THROUGH untouched, so a gate's advisory channel (a WARN band, a report-only
-     # breach) is visible on every commit. Exit 0 -> return 0 and discard the captured stdout;
-     # non-zero -> print the captured report and return 1. Chaining a second gate is one more
-     # `run_gate <script> || rc=1` line, and `rc` is what makes it run-both-and-report: a later
-     # gate's failure never masks an earlier gate's message.
+     # Run ONE gate with the args given. A gate script that is not in this checkout is a skip,
+     # not a block (a stale hook, a sparse checkout, a half-finished clone). stdout is CAPTURED
+     # (a clean pass prints nothing at all — no per-commit noise); stderr FLOWS THROUGH
+     # untouched. Exit 0 -> return 0 and discard the captured stdout; non-zero -> print the
+     # captured report and return 1.
+     # GATE-SIDE OBLIGATION: a gate chained here reports advisory lines on STDERR — whatever it
+     # writes to stdout is discarded when it passes. Today's chained gate (the tree check)
+     # prints only its verdict, so this channel is normally silent; it exists for a gate that
+     # reports while passing — a byte-budget WARN band, a report-only breach.
+     # Chaining another gate is one more `run_gate <script> [args] || rc=1` line, and `rc` is
+     # what makes it run-both-and-report: a later gate's failure never masks an earlier one's.
      run_gate() {
-       gate_out=$("$PY" "$root/$1" --staged)
+       gate=$1
+       shift
+       if [ ! -f "$root/$gate" ]; then
+         printf '%s\n' "claugentic gate SKIPPED: $gate is not in this checkout" >&2
+         return 0
+       fi
+       gate_out=$("$PY" "$root/$gate" "$@")
        gate_status=$?
        if [ $gate_status -eq 0 ]; then
          return 0
@@ -522,14 +565,23 @@ then stays model-upheld via the CLAUDE.md authority anchor.
        return 1
      }
      rc=0
-     run_gate scripts/claugentic-check_architecture_tree.py || rc=1
+     run_gate scripts/claugentic-check_architecture_tree.py --staged || rc=1
      exit $rc
      ```
      **Make it executable** — set the file's exec bit (`chmod +x .githooks/pre-commit`;
-     git tracks the bit so a clone inherits it). The wrapper itself prefers `python3` then
-     falls back to `python`, so the step-1 interpreter detection is not baked into the file.
+     git tracks the bit so a clone inherits it). The wrapper probes `python3` then `python`
+     itself, so the step-1 interpreter detection is not baked into the file.
      A repo whose Python is missing at `init` time still gets the hook: it skips (loudly)
      until Python is installed, then starts gating with no re-run needed.
+     - **Line endings — shared mode only.** The wrapper is a **multi-line `sh` script**, and
+       on a repo whose checkout normalizes to CRLF it becomes a **parse error** for every
+       teammate whose `/bin/sh` is `dash` — a blocked commit with a raw shell error. So
+       **append `.githooks/** text eol=lf` to `.gitattributes`** (append-if-line-absent;
+       create the file if absent; never rewrite an existing line, and never impose a
+       repo-global `* text=auto` — that is the adopter's call, not the harness's). **Solo
+       mode: do NOT do this** — `.gitattributes` is a tracked file (the solo invariant
+       forbids editing it) and the solo hook lives at `.git/hooks/pre-commit`, which git
+       never normalizes.
   2. **Run `git config core.hooksPath .githooks`** — points git at the tracked hook
      directory so the hook fires on every commit in this clone.
 - **Gate OFF (Keep-mine-gate-off) →** wire **no** pre-commit hook: do **not** write
@@ -549,39 +601,78 @@ then stays model-upheld via the CLAUDE.md authority anchor.
   hook config.
 - **Husky repos — OFFER to chain (otherwise the gate is written-but-inactive).** Husky points
   `core.hooksPath` away from `.githooks`, so the never-clobber branch above leaves the wrapper
-  on disk and **dead**. Detect husky specifically: `git config --get core.hooksPath` is
-  `.husky` **or `.husky/_`** (husky v9 points git at the generated `_` subdir while the
-  authored hooks stay in `.husky/`), **or** a `.husky/` directory exists containing a
-  `pre-commit`. When it matches, **ask** (`AskUserQuestion`, **default: chain**) —
-  *Chain (default):* "run the harness's tree check from your existing husky `pre-commit`;
-  your hook keeps working exactly as it does today" · *Don't chain:* "leave husky untouched —
-  the wrapper stays on disk but inactive, and the tree stays model-upheld."
-  **On chain, APPEND at end-of-file — never overwrite — this marker-guarded block to
-  `.husky/pre-commit`** (create that file if it is absent; never write into `.husky/_`, which
-  husky generates):
-  ```sh
-  # >>> claugentic-dev-harness tree gate (managed marker — do not duplicate)
-  sh "$(git rev-parse --show-toplevel)/.githooks/pre-commit" || exit 1
-  # <<< claugentic-dev-harness tree gate
-  ```
-  - **Idempotent on the OPEN marker** — if `# >>> claugentic-dev-harness tree gate` already
-    appears in the file, **write nothing** and report "husky chain already present". The marker
-    is the contract: a second append would run the gate twice and double every message it
-    prints. Check for the marker BEFORE appending, on every run.
-  - **Never overwrite anything** — everything already in `.husky/pre-commit` is preserved
-    byte-for-byte; the block only ever grows the file by those three lines. `|| exit 1` keeps a
-    failing gate blocking, and `git rev-parse --show-toplevel` keeps the path worktree-safe.
-  - **Chaining replaces nothing else:** still write `.githooks/pre-commit`, and still leave
-    `core.hooksPath` untouched (husky owns it).
-  - **Record the choice** in the detected-tooling block (step 8) as `- Husky chain: <chained |
-    declined (tree gate written but inactive)>` — keyed on the `Husky chain:` label,
-    append-if-line-absent — so a re-run never re-asks. Same recorded-choice shape as the
-    gate-off decision, and the report names it either way.
-  - **Teammates get it for free:** husky reinstalls itself on `npm install` (its `prepare`
-    script), so a chained gate travels with the repo — no per-clone `git config` step.
-  - **Solo mode: skip this offer entirely.** `.husky/pre-commit` is a **tracked** file, so
-    appending to it would place a tracked change — the solo invariant forbids that. Report the
-    `core.hooksPath` conflict per solo divergence (b) instead.
+  on disk and **dead**. This is an **ordered procedure — each step is a precondition of the
+  next**; do not reorder it, and do not run any of it in the cases step 1 excludes.
+  1. **ONLY when the tree-gate is ON** — i.e. `.githooks/pre-commit` was written in this run
+     or already exists on disk. This bullet is **not** a peer of *Gate OFF*: on a
+     Keep-mine-gate-off repo there is no wrapper to chain **to**, so chaining would wire a
+     hard dependency on a file that will never exist. Gate OFF ⇒ skip this whole procedure.
+  2. **Read the record BEFORE asking.** Look for the `- Husky chain:` line in the
+     detected-tooling block (step 8, the same block step 4's `Architecture tree:` line lives
+     in). **If it is present, honor it and skip the offer** — report the recorded outcome
+     ("husky chain: declined (recorded)"). This is the reader that makes "a re-run never
+     re-asks" true; without it the record is write-only.
+  3. **Detect husky specifically:** `git config --get core.hooksPath` is `.husky` **or
+     `.husky/_`** (husky v9 points git at the generated `_` subdir while the authored hooks
+     stay in `.husky/`), **or** a `.husky/` directory exists containing a `pre-commit`. No
+     match ⇒ nothing to offer, no record written.
+  4. **Trackability precondition — REFUSE to chain a dependency on an untrackable file.** Run
+     `git check-ignore -v .githooks/pre-commit`. If the wrapper is **ignored** (it would never
+     reach a teammate), **do not append, do not ask, and record NOTHING** — report the reason,
+     the ignore rule `check-ignore` printed, and the one-line fix (un-ignore the path, e.g. a
+     `!.githooks/` negation **after** the broad ignore line), then continue. Recording nothing
+     is deliberate: a repo that fixes its ignore rules is offered the chain on the next run.
+     This mirrors what `init` already does for its own `.claude/settings.json` (make it
+     trackable *before* wiring it) and the `git check-ignore` guard in the solo block.
+  5. **Ask** (`AskUserQuestion`, **default: chain**) — *Chain (default):* "run the harness's
+     tree check from your existing husky `pre-commit`; your hook keeps working exactly as it
+     does today" · *Don't chain:* "leave husky untouched — the wrapper stays on disk but
+     inactive, and the tree stays model-upheld."
+  6. **On chain, READ `.husky/pre-commit` first** (create it only if it is **absent**; never
+     write into `.husky/_`, which husky generates):
+     - **A failed read STOPS the chain.** If the file exists but cannot be read, **stop and
+       report** — never append. An unreadable file is not an absent marker, and treating it as
+       one appends a duplicate block. (Same stop-if-ambiguous posture as the rest of `init`.)
+     - **Idempotent on the OPEN marker** — if `# >>> claugentic-dev-harness tree gate` already
+       appears in the file, **write nothing** and report "husky chain already present". The
+       marker **is** the idempotency key: a second append would run the gate twice and double
+       every message it prints. Check for the marker **BEFORE** appending, on every run.
+     - **Reachability — check before you call it live.** The block is appended at
+       **end-of-file**. Scan the existing content for an **unconditional `exit`** above the
+       append point (e.g. a hook ending `exit 0`): if one exists, the appended block is
+       **unreachable** — say so in the report and do **not** describe the gate as running.
+  7. **APPEND at end-of-file — never overwrite — this marker-guarded block:**
+     ```sh
+     # >>> claugentic-dev-harness tree gate (managed marker — do not duplicate)
+     # A MISSING wrapper must not block anyone: `if`/`fi` (never `[ -f … ] && { … }`, which
+     # returns 1 when the test fails and would abort the commit from the hook's last line).
+     # A wrapper that RUNS and fails still blocks — that is the gate doing its job.
+     hook="$(git rev-parse --show-toplevel 2>/dev/null)/.githooks/pre-commit"
+     if [ -f "$hook" ]; then sh "$hook" || exit 1; fi
+     # <<< claugentic-dev-harness tree gate
+     ```
+     **This file is TRACKED — it runs on every teammate's machine**, which is why the guard is
+     not optional: an absent wrapper (a fresh clone mid-`init`, a sparse checkout, a
+     gitignored path) must degrade to *no gate*, never to *no commits for anybody*.
+  8. **Never overwrite anything** — everything already in `.husky/pre-commit` is preserved
+     byte-for-byte; the block only ever grows the file. `|| exit 1` keeps a **failing** gate
+     blocking, and `git rev-parse --show-toplevel` keeps the path worktree-safe.
+  9. **Chaining replaces nothing else:** still write `.githooks/pre-commit`, and still leave
+     `core.hooksPath` untouched (husky owns it).
+  10. **Record the choice** in the detected-tooling block (step 8) as `- Husky chain: <appended
+      | declined (tree gate written but inactive)>` — keyed on the `Husky chain:` label,
+      append-if-line-absent — so a re-run never re-asks (step 2 is its reader). Same
+      recorded-choice shape as the gate-off decision, and the report names it either way.
+      Report **"appended"**, not "chained": `init` appends a block; whether it then *runs* is
+      the reachability question of step 6.
+  11. **Propagation is the adopter's npm machinery, not the harness's.** A chained gate travels
+      with the repo **usually for free — *if* the repo's own `package.json` carries husky's
+      `prepare` script** (husky's default, and how husky reinstalls its hooks on
+      `npm install`). Detection here matches a bare `.husky/` directory too, which may have no
+      `prepare` at all: **the harness neither wires nor checks it.**
+  12. **Solo mode: skip this whole procedure.** `.husky/pre-commit` is a **tracked** file, so
+      appending to it would place a tracked change — the solo invariant forbids that. Report
+      the `core.hooksPath` conflict per solo divergence (b) instead.
 
 > **Solo divergence (b) — pre-commit hook → `.git/hooks/pre-commit`, NOT `.githooks/` +
 > `core.hooksPath`.** In **solo mode** with the gate **ON** (Fresh / Mature-no-tree /
@@ -711,16 +802,22 @@ volatile content** so a re-write is byte-identical:
   - A **static adoption-notes pointer**: `docs/claugentic-PLAYBOOK.md` covers how to drive the
     harness plus adoption notes — including that the architecture-tree check runs at commit time,
     not while you edit. One fixed line, byte-identical every run (no volatile content).
-  - **The teammate bootstrap line** (shared mode only — see the solo note below). Git
+  - **The teammate bootstrap block** (shared mode only — see the solo note below). Git
     **never activates hooks on clone**, by design, so a teammate's fresh clone commits with no
     gate at all until one command is run — the single most common way team wiring silently
-    stops existing. Write this as one fixed, conditional line, byte-identical every run
-    (it states facts, so it stays true whichever way this repo is wired):
-    > **New clone?** Git never activates hooks automatically. If this repo wires them via
-    > `.githooks/`, run `git config core.hooksPath .githooks` **once per clone** (or re-run
-    > `/claugentic-dev-harness:init`, which sets it for you). If this repo uses **husky**,
-    > there is nothing to do — husky reinstalls itself on `npm install` and the harness check
-    > is chained from `.husky/pre-commit`.
+    stops existing. Write it **check-first and conditional per branch**: one fixed block,
+    byte-identical every run — it tells the reader how to **check**, so it needs no per-repo
+    variation and can never assert something this repo did not do:
+    > **New clone? Hooks never activate automatically** (git's design) — check before you
+    > commit: run `git config --get core.hooksPath`.
+    > - prints `.githooks` → wired; nothing to do.
+    > - prints nothing → run `git config core.hooksPath .githooks` **once per clone** (or
+    >   re-run `/claugentic-dev-harness:init`).
+    > - prints `.husky` or `.husky/_` → **do not change it** (that would disable this repo's
+    >   husky hooks). Run `npm install` so husky installs its hooks; the harness check runs
+    >   too **only if** `.husky/pre-commit` contains the `claugentic-dev-harness tree gate`
+    >   marker — grep it, and if it is absent re-run `/claugentic-dev-harness:init`, which can
+    >   chain it.
 - The **engineering principles** (SOLID > DRY > KISS > YAGNI; validate at boundaries;
   fail loudly; configurable over hardcoded; single source of truth).
 - A **workflow pointer** ("substantial work follows `docs/claugentic-WORKFLOW.md`").
@@ -853,12 +950,14 @@ repo root in dev — the same source the step-3 managed-copy uses.)
   solo divergence (d)): in **solo** mode the whole detected-tooling block — and this line — is
   in **`CLAUDE.local.md`**; in **shared** mode it is in `CLAUDE.md`. This is what makes a
   re-`init` read its own mode back and stay consistent.
-- **Record the husky-chain choice (step 5b's contract) — only when husky was detected.** Write
-  `- Husky chain: <chained | declined (tree gate written but inactive)>` into this same block,
-  **keyed on the `Husky chain:` label**, append-if-line-absent and **never rewritten** (like
-  `Harness mode:`) — that record is what stops a re-run re-asking. A repo without husky gets
-  **no such line at all** (nothing was chosen), and solo mode never writes one (step 5b skips
-  the offer there).
+- **Record the husky-chain choice (step 5b's contract) — only when husky was detected AND the
+  offer was actually made.** Write `- Husky chain: <appended | declined (tree gate written but
+  inactive)>` into this same block, **keyed on the `Husky chain:` label**, append-if-line-absent
+  and **never rewritten** (like `Harness mode:`) — that record is what stops a re-run re-asking,
+  and **step 5b's step 2 is its reader**. Three cases write **no line at all**: a repo without
+  husky (nothing was chosen), solo mode (the offer is skipped), and the **refused** case where
+  `.githooks/pre-commit` is git-ignored — that one deliberately stays unrecorded so a repo that
+  fixes its ignore rules is offered the chain again.
 
 **(detect a competing way-of-work doc — non-destructive; never delete).** Adopting onto a
 repo that carries an *obvious* rival way-of-work / agent-instruction doc can mislead agents.
@@ -1023,10 +1122,16 @@ Then emit the clear summary, grouped:
   "pre-commit hook already wired" (idempotent re-run), a `core.hooksPath` **conflict** flagged
   (the adopter has their own hooks path — see step 5b, both modes), or **"tree-gate OFF — no
   pre-commit hook wired"** (Keep-mine-gate-off). **When husky was detected** (step 5b), name
-  the chain outcome too: *chained into `.husky/pre-commit`* (and that teammates get it via
-  `npm install`, no per-clone step), *already present* (the marker was there — nothing
-  written), or *declined — the wrapper is on disk but inactive while husky owns
-  `core.hooksPath`*.
+  the chain outcome too — **"appended", never "chained"** (whether it runs is step 6's
+  reachability question): *appended to `.husky/pre-commit`* — adding that it reaches teammates
+  **if** their repo's `package.json` carries husky's `prepare` script (husky's default; the
+  harness neither wires nor checks it), and flagging **unreachable** when an unconditional
+  `exit` sits above the block · *already present* (the marker was there — nothing written) ·
+  *declined — the wrapper is on disk but inactive while husky owns `core.hooksPath`* ·
+  *refused — `.githooks/pre-commit` is git-ignored*, with the ignore rule and the fix (step 5b
+  records nothing in this case, so a fixed repo is offered again) · **and in solo mode the
+  fourth outcome:** the offer is skipped entirely (a tracked-file append is forbidden there),
+  so report the `core.hooksPath` conflict per solo divergence (b).
 - **Merged** — the `.claude/settings.json` plugin self-reference (`extraKnownMarketplaces` +
   `enabledPlugins`), or "already declared" on a re-run. **In solo mode this group is
   omitted** — step 5c is skipped, so `.claude/settings.json` and the committed `.gitignore`
@@ -1049,9 +1154,14 @@ string it was never meant to read**. This is a real adopter incident, not a hypo
 CSS-utility scanner globbing the whole repo choked on harness doc content and broke that
 project's build until `docs/` was excluded. So **when step 8's detection found tooling of that
 class, say so in the report** and recommend the one-line fix — **exclude `docs/` from the
-scanner's globs** (harness docs are input for humans and agents, never for the build). No
-mechanical check does this: `init` neither reads nor edits your build config, so this is a
-flag for you, deliberately prose (config-sniffing every build tool would be guesswork).
+scanner's globs** (harness docs are input for humans and agents, never for the build). **This
+caution names its own sources** rather than depending on step 8's gate-oriented scan (which
+looks for lint/type/test/CI config and would never surface one of these): a Tailwind/UnoCSS
+config with a repo-wide `content`/`include` glob · a docs indexer or search-index build · a
+static-site generator or codegen step reading `**/*.md`. **Raise it whenever one of those is
+present, even if step 8 reported nothing.** No mechanical check does this: `init` neither reads
+nor edits your build config, so this is a flag for you, deliberately prose (config-sniffing
+every build tool would be guesswork).
 
 **On a repo already at the installed version, the whole run is a true no-op** that reports
 "already at the installed version — nothing to refresh." When managed content had drifted,
