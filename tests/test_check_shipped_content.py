@@ -376,14 +376,21 @@ class TestClosurePassD:
         # SCRIPT DELIVERY (init puts the gate itself in the adopter's repo). S6 shipped the
         # script into the release PAYLOAD, which is not the same as putting it in a reading
         # repo: measured in a scratch adopter repo, `python scripts/check_doc_budgets.py` exits
-        # 2 (no such file), and the plugin's own copy anchors to its own checkout and prints a
-        # green about the HARNESS's ledgers. So every shipped sentence about running this gate
-        # is presence-scoped and says the repo-local copy "arrives with 0041 Slice 7's init
-        # step" — a forward promise, and this is its falsifier.
+        # 2 (no such file), and the plugin's own copy anchors to its own checkout — its verdict
+        # is about the plugin clone's tree (from an install, a not-configured no-op; from a dev
+        # checkout, the harness's green), never the adopter's. So every shipped sentence about
+        # running this gate is presence-scoped and says the repo-local copy "arrives with 0041
+        # Slice 7's init step" — a forward promise, and this is its falsifier.
+        # THE PREDICATE MEASURES DELIVERY, NOT MENTION (S6 code-review F7): it keys on the
+        # DELIVERED destination path — born-prefixed per the recorded decision
+        # (release-contract → ship-class != delivery) — so a passing mention of the gate in
+        # init's prose ("arrives in Slice 7", or a seeding-only S7 naming the reader) cannot
+        # flip it. WHEN THIS FLIPS at S7: sweep the shipped invocation copy to the delivered
+        # path (doctor's probe row · WORKFLOW gate 4 + adopter note) as well as the tense.
         # NOTE: this test only READS init's SKILL. It must never edit it — the two tripwires
         # above/below are armed on that file's current content.
         init_skill = (Path(__file__).resolve().parent.parent / "skills" / "init" / "SKILL.md")
-        assert "check_doc_budgets" in init_skill.read_text(encoding="utf-8")
+        assert "scripts/claugentic-check_doc_budgets.py" in init_skill.read_text(encoding="utf-8")
 
     def test_recreate_on_demand_is_accepted_by_the_class_not_init(self, at_repo_root):
         # The plan-gate's taxonomy fix: recreate-on-demand members (INVARIANTS/PRODUCT/

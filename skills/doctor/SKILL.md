@@ -53,10 +53,12 @@ gate into the adopter's repo, and the repo-local copy of the budget gate **arriv
 ABSENT script is **N-A**, never a breach and never an error. (Per-script presence is the adopter
 signal — there is no separate "am I an adopter" flag.)
 **NEVER substitute the plugin's own copy of a gate script.** Every gate anchors to its OWN
-checkout (`_repo_root()` reads `__file__`) and then measures *that* tree — run the plugin's copy
-from an adopter's project and it prints a cheerful green **about the harness's ledgers, not
-theirs**. A green about the wrong repo is worse than an honest N-A: if the script is not in this
-repo, mark N-A and stop.
+checkout (`_repo_root()` reads `__file__`) and then measures *that* tree — **never yours**. Run
+the plugin's copy from an adopter's project and the verdict is about the plugin clone: from an
+**installed** plugin (whose caps config is stripped) that is a "not configured … nothing
+measured" no-op note; from a **dev checkout** of the harness it is a green about the harness's
+ledgers. Either shape is a verdict about the wrong repo, and that is worse than an honest N-A:
+if the script is not in this repo, mark N-A and stop.
 **Capture BOTH streams when you run a gate.** A gate's verdict rides **stdout** and its `WARN:`
 lines ride **stderr** (the stream contract the shared pre-commit wrapper depends on) — a
 stdout-only capture reports a WARN run as a silent green, which is the one classification error
@@ -70,7 +72,9 @@ that matters here.
   **1 = breach** (`plugin.json` ↔ `marketplace.json` version drift, or a malformed manifest).
   **If absent:** mark **N-A**, do not run.
 - **`python scripts/check_doc_budgets.py`** — *(in the release payload; the repo-local copy
-  arrives with 0041 Slice 7's `init` step. Where the script IS present it measures THAT repo's
+  arrives with 0041 Slice 7's `init` step — under the managed prefix, per the recorded delivery
+  decision (`scripts/claugentic-check_doc_budgets.py`), so probe for **whichever of the two
+  names is present**: unprefixed in this repo, prefixed in a delivered adopter copy. Where the script IS present it measures THAT repo's
   own ledgers against THAT repo's own caps — it is not harness-self)*. **If present:** exit
   **0 + no `WARN:` line = green** · exit **0 + a `WARN:` line = WARN** (a ledger ≥ 90% of its
   budget — the cue to condense before it hard-breaks) · exit **1 = breach** (a ledger over budget,
@@ -80,8 +84,8 @@ that matters here.
   measured"*. Report that as **green-with-nothing-measured**, never as "budgets pass". **If
   absent** — the norm outside this repo today, because no `init` step delivers it yet (0041
   Slice 7 does that; a pre-ship plugin install is the secondary case): mark **N-A**, do not run,
-  and do **not** reach for the plugin's own copy (see *The rule* — it would report on the
-  harness's ledgers, not this repo's).
+  and do **not** reach for the plugin's own copy (see *The rule* — its verdict is about the
+  plugin clone's tree, never this repo's).
 - **`python scripts/check_shipped_content.py`** — *(harness-self — N-A in an adopter; its script is
   stripped from the release)*. Scans the SHIPPED tree's text for release/init-contract content
   breaches. **If the script is present:** exit **0 + no `WARN:` line = green** · exit **0 + a
@@ -146,7 +150,9 @@ Slice 7's `init` step delivers one, it is the **only** budget signal available.
   (`len(read_bytes())` — bytes, never char count) and compare to its cap:
   - **A breach is STRICTLY over** — `measured > cap`. A file sitting exactly **at** its cap is
     **not** a breach; it is a WARN.
-  - **The WARN band is inclusive at 90%** — `measured >= 90% of cap` is in the band. Surface a
+  - **The WARN band is inclusive at 90%** — `measured >= int(cap * 0.9)` is in the band (the
+    gate floors the threshold to a whole byte, so on a cap not divisible by 10 the band opens
+    1 byte early — fail-safe in direction). Surface a
     `[J]` "condense soon" advisory carrying the `[D]` byte figure — e.g. *"DECISIONS.md at 92% of
     your configured cap (55200 / 60000 bytes) — condense soon."* The **byte count and the
     comparison are the `[D]` mechanical part**; **"condense soon" is `[J]` judgment.**
@@ -248,7 +254,9 @@ Confirm the adoption wiring `init` established is still intact (the canonical co
   EXACTLY** — `.githooks/pre-commit` is the source of truth; read it rather than paraphrasing it.
   Iterate the candidates **in order, `python3` then `python`**, and **EXECUTE each** with
   `-c 'import sys; sys.exit(0 if sys.version_info >= (3, 7) else 1)'`, stopping at the first that
-  exits 0. **Never `command -v` / `where` / a bare PATH lookup:** resolution-without-execution is
+  exits 0. (The candidate order and the 3.7 floor restated here are **test-pinned to the hook** —
+  `tests/test_precommit_wrapper.py` turns red if either home drifts; when the hook's floor moves,
+  this section moves in the same change.) **Never `command -v` / `where` / a bare PATH lookup:** resolution-without-execution is
   precisely the Windows-Store-stub false negative — a `python3` shim that resolves, exits
   non-zero, and commonly sits *beside* a working `python` — that this probe exists to defeat.
   - **Probe through `sh` where you have it** (`sh -c '…'`), because the hook's PATH view is not

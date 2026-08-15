@@ -106,7 +106,12 @@ HISTORICAL_RE = re.compile(
     # FORWARD clause, and a guard whose contract is "history is not a denial" must never
     # exempt a line that both promises the next slice and caveats the gate away today
     # (0041 S6 land, L8 — measured: the forward form silently swallowed a live denial).
-    r"used to be|no longer|formerly|stopped being|was stripped",
+    # Bare `no longer` is OUT for the same reason (S6 code-review F3): it is a PRESENT-STATE
+    # negation ("is no longer shipped" = a live false denial the guard must not exempt); only
+    # its honest collocations are history — `no longer stripped` (post-ship fact) and the
+    # supersession phrasings `no longer true` / `no longer the case`.
+    r"used to be|no longer stripped|no longer true|no longer the case"
+    r"|formerly|stopped being|was stripped",
     re.IGNORECASE,
 )
 
@@ -265,6 +270,23 @@ class TestStalePremisePatterns:
         }
         assert len(find_ship_class_denials(texts)) == 1
 
+    def test_a_present_state_negation_does_not_excuse_a_live_denial(self):
+        # F3 (0041 S6 code-review). Bare `no longer` is a present-state negation, not history:
+        # "is no longer shipped" is a live false denial and must be CAUGHT. Only the honest
+        # post-ship collocation `no longer stripped` stays exempt.
+        live = {
+            "docs/n.md": (
+                "`scripts/check_doc_budgets.py` is no longer shipped (N-A in an adopter).\n"
+            )
+        }
+        honest = {
+            "docs/h.md": (
+                "`scripts/check_doc_budgets.py` is no longer stripped from the release.\n"
+            )
+        }
+        assert len(find_ship_class_denials(live)) == 1
+        assert find_ship_class_denials(honest) == []
+
     def test_a_caveat_on_a_sibling_gate_does_not_implicate_this_one(self):
         # The scan is LINE-scoped: a nearby honest caveat about a stripped gate is not a
         # denial of this one.
@@ -275,6 +297,43 @@ class TestStalePremisePatterns:
             )
         }
         assert find_ship_class_denials(texts) == []
+
+
+class TestScanVocabularyIsExercised:
+    """F9 (0041 S6 code-review): this file claims SOLE mechanical custody of stale ship-class
+    copy, so every alternation branch and every derived marker is positively exercised here —
+    a narrowed/rotted regex cannot stay green by only ever being tested through one phrasing."""
+
+    def test_the_context_gate_matches_the_gate_it_guards(self):
+        # Identity pin: DOC_BUDGET_CONTEXT_RE hardcodes a token lines below GATE_NAME — tie
+        # them, so a gate rename cannot silently divorce the scans from their subject (the
+        # ships-pin stays green on a rename: default-include has no entry to miss).
+        assert DOC_BUDGET_CONTEXT_RE.search(GATE_NAME)
+        assert DOC_BUDGET_CONTEXT_RE.search("the doc-budget WARN")
+        assert DOC_BUDGET_CONTEXT_RE.search("a doc budget breach")
+
+    @pytest.mark.parametrize(
+        "claim",
+        [
+            "no WARN can fire",
+            "no doc-budget WARN can fire",
+            "it will never produce that WARN",
+            "an adopter cannot produce the WARN",
+            "you can't produce its doc-budget WARN",
+            "a fresh repo can not produce a WARN",
+            "that gate is stripped",
+            "this gate is stripped",
+            "the gate is stripped",
+        ],
+    )
+    def test_every_unreachability_branch_is_live(self, claim):
+        texts = {"docs/u.md": f"doc-budget note: {claim}.\n"}
+        assert len(find_unreachability_claims(texts)) == 1, claim
+
+    @pytest.mark.parametrize("marker", SHIP_CLASS_DENIALS)
+    def test_every_denial_marker_is_live(self, marker):
+        texts = {"docs/m.md": f"`{GATE_PATH}` — {marker}, so skip it.\n"}
+        assert len(find_ship_class_denials(texts)) == 1, marker
 
 
 class TestShippedSetMakesNoStaleClaim:

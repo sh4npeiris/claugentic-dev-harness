@@ -20,8 +20,9 @@ tagged `vX.Y.Z`.
   *your* repo yet — that `init` step is a later change — so for now `python
   scripts/check_doc_budgets.py` will not resolve in your project, and `/doctor`'s budget
   advisory stays your budget signal. Do **not** substitute the plugin's own copy: every gate
-  script anchors to its own checkout, so run from your project it would print a cheerful green
-  about the *harness's* ledgers, not yours. Where the script IS present it measures that repo's
+  script anchors to its own checkout, so run from your project its verdict is about the plugin
+  clone, not yours — from an install (whose caps config is stripped) a "not configured" no-op;
+  from a harness dev checkout, a green about the *harness's* ledgers. Where the script IS present it measures that repo's
   ledgers against that repo's `.claude/claugentic-doc-budgets.json`, and with **no** config it
   exits 0 having measured nothing — the not-opted-in posture, so nothing changes for a repo
   that has not written one. It stays a run-gate you invoke; chaining it into the pre-commit
@@ -36,7 +37,8 @@ tagged `vX.Y.Z`.
   catch) — reporting a dead interpreter as a flag with the hook's own remedy. And **husky-aware
   hook wiring**: a `.husky/pre-commit` carrying the managed marker is now recognized as a
   *healthy* third wiring shape instead of a hooksPath conflict, with sub-flags for a marker
-  made unreachable by an early `exit`, a missing exec bit on a hook `init` created, and a
+  made unreachable by an early `exit`, a missing exec bit on the chained hook (git index mode,
+  checked unconditionally — never conditioned on who created the file), and a
   git-ignored wrapper. The re-wire treat now refuses to re-point `core.hooksPath` away from a
   healthy chain; the treat **count** is still exactly four, though that treat's **boundary** grew
   — it may now offer to un-ignore the wrapper, an action `init` itself refuses to take.

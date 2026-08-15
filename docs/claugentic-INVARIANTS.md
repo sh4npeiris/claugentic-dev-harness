@@ -106,8 +106,9 @@ Each entry: **the invariant** · **why** (what breaks if violated) · **enforcem
   plan is "structured by `TEMPLATE.md`" while `.claude/plans/` (the template's home) is stripped
   wholesale (a degraded dangling ref); and the stronger (2) `check_doc_budgets.py` shipped and — new at
   0.3.0, after plan 0024 added the `INVARIANTS.md` budget row — **fail-louded on the lazily-created
-  `INVARIANTS.md`**, a hard error a fresh 0.3.0 adopter would hit. (It ships again from 0041 S6 —
-  the failure mode is closed: caps are per-repo data, an absent config a quiet no-op.) Live gate:
+  `INVARIANTS.md`**, a hard error a fresh 0.3.0 adopter would hit. (Ships again from 0041 S6 —
+  absent CONFIG = quiet no-op; a cap on an ABSENT file still exits 1 even under `reportOnly`,
+  so S7's seeder caps only files it creates.) Live gate:
   `tests/test_build_release.py::TestReleaseInitContract` (membership) + `scripts/check_shipped_content.py`
   (a **run-gate, NOT hook-enforced**; 0028 S3, closure pass 0034 S3 — run by CI on every push to `main`,
   and **since 0041 S2 also at the tagged commit** before anything publishes) — the latter
