@@ -189,3 +189,12 @@ Each entry: **the invariant** · **why** (what breaks if violated) · **enforcem
 - **Why —** the wrapper's contract is quiet-when-clean: stdout is the verdict channel (shown only on failure), stderr the advisory channel (always flows through). A gate that warns on stdout looks compliant, passes green, and its early-warning signal never reaches a human — the exact hole (R6) plan 0041 S5 exists to close.
 - **Enforcement, stated exactly —** **Test-pinned (wrapper half):** `tests/test_precommit_wrapper.py` pins that stderr survives a passing gate and stdout is discarded. **Model-upheld (per-gate half):** nothing scans a gate's source for stdout-WARNs; as of 0041 S5 both WARN-emitting gates (`check_doc_budgets.py`, `check_shipped_content.py`) conform — zero known non-conformers.
 - **Provenance —** 2026-08-14, plan 0041 S5 (the R6 residual). Established with the stream contract; the sibling sweep that moved `check_shipped_content.py`'s WARN to stderr landed in the same slice so this entry names no violator.
+
+---
+
+## The wrapper's Python floor and the hook-wired gates' syntax move together
+
+- **Invariant —** The floor the pre-commit wrapper's probe demands (`>= (3, 7)`) is the SAME floor every **hook-wired** gate is written to. Raise the wrapper's floor only when a hook-wired gate raises its own; never let a hook-wired gate use syntax above it (walrus, `match`).
+- **Why —** the probe picks the interpreter the gates then run on. Too low, and the wrapper hands the commit to one that dies on a `SyntaxError` — infrastructure blocking a commit, the exact failure warn-and-pass exists to remove.
+- **Enforcement, stated exactly —** **Test-pinned:** the wrapper's floor against the `# Python 3.7+` marker each hook-wired gate records for itself (numeric drift either side turns red). **Model-upheld:** that no hook-wired gate's *syntax* exceeds it — nothing parses the sources; the 2026-08-14 evidence is a hand-read (both hook-wired gates parse clean at 3.7; the one repo script that does not is never hook-wired). An `ast.parse(src, feature_version=<floor>)` check over that set is routed to the slice that chains the second gate (0041 S7); until then this half is a read, not a proof.
+- **Provenance —** 2026-08-14, plan 0041 S5. The floor was a Verify correction: the panel prescribed `(3, 8)`, the gates' own recorded requirement was 3.7. The hook-wired SET grows when the budget gate is chained in — that is when the blast radius widens.

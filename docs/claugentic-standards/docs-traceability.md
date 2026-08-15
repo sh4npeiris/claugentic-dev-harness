@@ -63,6 +63,17 @@ gold-plating an irrelevant one, never skipping a relevant one.
 
 ---
 
+## Forward promises in prose — future tense, a named owner, and a falsifier
+
+- **Good looks like —** Any sentence describing a capability a **later change** will wire — in a docstring, a comment, skill/README copy, an index entry, a ledger line, or an approval-gate summary — rides the **future tense**, **names the change that makes it true**, and is backed by a **mechanical falsifier** (`testing.md` → *Forward promises need a tripwire* owns that half: the strict expected-failure that fires when the promise is KEPT). Two halves of one rule — the tense protects today's reader, the tripwire protects tomorrow's author. A promise that is **abandoned** gets the same treatment as one that is kept: the sentence is rewritten, never left standing.
+- **Auditor checks —** `[D]` Grep the diff's *prose* (docstrings, comments, `.md` copy, index entries, plan/approval text) for present-tense capability verbs — *is wired · consults · fires · surfaces · is visible at every …* — and for each ask: is it true **at the moment this change lands**, in a fresh clone? `[J]` If not, is it future-tense **and** does it name the change that wires it? `[D]` Does a falsifier exist for it? `[J]` **One correctly-hedged site is a signal, not a clean bill** — when a change hedges one forward reference, sweep every sibling that says the same thing.
+- **Confidence —** `mixed` — the grep is mechanical; whether a sentence is true *today* is a reviewer call.
+- **Tradeoff (plain English) —** Writing "once the next change lands, X is visible" instead of "X is visible" costs six words and keeps the document honest on the day it ships. The alternative is copy that is true only on the author's roadmap: every reader between now and then is misinformed, and if the later change is dropped, the sentence never becomes true at all.
+- **Incident that motivated this (delete this rule once its cause is gone) —** Plan 0041, three consecutive slices (S3 · S4 · S5, 2026-08-13/14). Each slice's brand-new copy described a mechanism a **later slice of the same plan** would wire, in the present tense: a nudge's compensating control that did not exist; four sibling registrations beside one correctly-hedged one; and a gate docstring plus an approval-gate summary claiming a warning "is visible at every commit" when nothing had yet chained that gate. The review side caught it all three times — the reviewer bar item existed and still fired — which is precisely the evidence that the missing rule was an **authoring** rule, not a review one. It is filed here, in a module the implementer self-applies before handing off.
+- **Sources —** cross-ref `testing.md` → *Forward promises need a tripwire* (the mechanical half of this rule) and *Decision traceability* above; the harness's honesty bar (never state a planned mechanism in the present tense).
+
+---
+
 ## Onboarding and runbook documentation
 
 - **Good looks like —** A new developer can clone and run the project by following `docs/SETUP.md` without asking anyone. Operational procedures (deploy, rollback, incident response, cron management) have a runbook reference. The README explains the project's purpose and entry points.

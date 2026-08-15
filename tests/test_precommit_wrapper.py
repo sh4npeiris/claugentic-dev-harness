@@ -765,6 +765,7 @@ class TestHuskyChainRuleIsStatedInTheSkill:
             "git check-ignore -v .githooks/pre-commit",  # the wrapper must be trackable before a tracked file depends on it
             "A failed read STOPS",  # unreadable != "marker absent"
             "unconditional `exit`",  # reachability before calling it live
+            "mark it executable",  # a created hook without the bit is one git silently never runs
         ):
             assert required in section, required
 
