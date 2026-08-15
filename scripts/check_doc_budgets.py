@@ -4,10 +4,13 @@
 A monotonic-ledger trip-wire: a managed ledger grows only — it never shrinks on its own
 — so this gate FLAGS (never edits) when one balloons past a sane TOTAL byte budget and
 names the remediation (a compaction pass: merge superseded entries to git history). It is
-a run-gate in the same register as `scripts/check_versions_synced.py` —
-**mechanical-when-run** (plain messages, no model judgement), run in the Definition-of-Done
-gate suite at Verify/Land and in CI, but **NOT hook-wired** (the one hook-enforced gate
-stays the architecture-tree check). See docs/claugentic-WORKFLOW.md -> Definition of Done.
+a run-gate in the same register as the harness-self `scripts/check_versions_synced.py`
+(that one stays stripped from the release; THIS gate SHIPS as of plan 0041 Slice 6, because
+its caps are per-repo data rather than harness-tuned code) — **mechanical-when-run** (plain
+messages, no model judgement), run in the Definition-of-Done gate suite at Verify/Land and
+in CI, but **NOT hook-wired**: chaining it into the shared pre-commit wrapper is plan 0041
+Slice 7, and until that lands the one hook-enforced gate stays the architecture-tree check.
+See docs/claugentic-WORKFLOW.md -> Definition of Done.
 
 CONFIG-DRIVEN — the caps are DATA, not code. Every cap this gate enforces is read from
 `<repo-root>/.claude/claugentic-doc-budgets.json`, the ONE cap source per repo — the very
@@ -25,13 +28,13 @@ Flat, path-keyed, and nothing else: no `version` field, no non-path keys at all.
 repo-root-relative — `main()` anchors the process at the repo root (see `_repo_root`), so
 the gate behaves identically invoked from any directory.
 
-WHERE THE SCHEMA IS DEFINED (honest as of plan 0041 Slice 4). `skills/doctor/SKILL.md` ->
-*Adopter doc-budget advisory* is the canonical HOME for the schema, but today it documents
-only the ADOPTER-facing subset — the flat `{"<relpath>": <max_bytes>}` map — and still says
-that map has no glob support. The glob-by-key and `reportOnly` forms are stated HERE until
-Slice 6 converges the two statements; treat this docstring as authoritative for those two
-forms and doctor's reader-contract as authoritative for the flat one. Two homes is a
-temporary state, and naming it is cheaper than letting a reader discover the contradiction.
+WHERE THE SCHEMA IS DEFINED (converged by plan 0041 Slice 6 — ONE home, no longer two).
+`skills/doctor/SKILL.md` -> *Adopter doc-budget advisory* is the canonical home for the
+reader-contract, and it now states ALL THREE entry forms — the plain integer cap, the
+`{"max": N, "reportOnly": true}` object, and the glob-by-key form — with the same edge
+semantics this module implements. This docstring describes THIS GATE's behavior; where the
+two must agree about the SCHEMA, doctor's reader-contract is authoritative. One schema
+statement, two readers (this gate and doctor's advisory) — never two contracts.
 
 NOT CONFIGURED IS NOT A FAILURE, BUT A BROKEN CONFIG IS. An ABSENT config is the
 not-opted-in posture: one quiet note, exit 0, nothing measured — this gate enforces only
@@ -80,8 +83,8 @@ measures a plain path and has no idea globs exist.
 
 A GLOB entry that matches NOTHING is SKIPPED — no error, no warn. The config declares a cap
 for a SHAPE of file, never the existence of any; existence is a separate concern with its
-own home (for this repo, `tests/test_decisions_index_agreement.py` pins the decisions index
-and its shard files against each other in BOTH directions). Because `_validate_key` has
+own home (the harness's own repo, for instance, keeps a test pinning its decisions index and
+its shard files against each other in BOTH directions). Because `_validate_key` has
 already refused every key shape that could ONLY ever match nothing, a zero-match glob
 honestly means "no files of that shape yet" — that is what makes this silent skip safe. It
 is not invisible either: the summary clause renders the count RESOLVED THIS RUN, so

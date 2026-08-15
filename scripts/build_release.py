@@ -123,8 +123,13 @@ DEV_ONLY_PATH_CLASSES = {
     # and its tripwire) lives on the matching `check_shipped_content.INIT_GEN_OUTPUTS` entry.
     ".claude/claugentic-doc-budgets.json": "init-gen",
     # Harness-self tooling (an install doesn't need them).
+    # NOT here (deliberate, plan 0041 Slice 6): `scripts/check_doc_budgets.py` SHIPS. Its old
+    # `self-gate` rationale ("budgets the harness's OWN harness-tuned caps") died in Slice 4 —
+    # the caps became per-repo DATA in `.claude/claugentic-doc-budgets.json` and the script only
+    # reads it, so it is adopter-portable (absent config = quiet no-op, exit 0). Do not re-add an
+    # entry for it: by default-include, the ABSENCE of a line is what ships it, and any class
+    # value here would strip it again.
     "scripts/check_versions_synced.py": "self-gate",   # checks the plugin's two manifests — irrelevant to adopters
-    "scripts/check_doc_budgets.py": "self-gate",       # budgets the harness's OWN ledgers (harness-tuned caps) — irrelevant to adopters
     "scripts/check_shipped_content.py": "self-gate",   # scans the SHIPPED tree's text — harness-self, reasons about the release, never ships
     "scripts/build_release.py": "self-gate",           # this script
     # Repo config / dev-infra (machinery no shipped doc points an adopter at).

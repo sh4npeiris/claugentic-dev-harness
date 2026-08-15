@@ -1,5 +1,5 @@
 ---
-description: Check the harness's OWN health (distinct from /audit, which checks YOUR code vs the standards) — run the existing deterministic gates read-only (architecture-tree always · version-sync + doc-budgets + shipped-content are harness-self, run only where their script is present, else N-A in an adopter), scan for landed/cold plans, re-assert the init post-conditions, and flag a likely-skipped Stage-9 harvest, then report a green/WARN/breach snapshot. It treats only the bounded-mechanical set (delete a landed/cold plan · re-wire the pre-commit hook · apply a user-approved doc-condensation diff · tree hygiene) — and ONLY on your explicit approval, never silently. Anything substantive is routed to the roadmap → plan → offered to build. The diagnose is strictly read-only; nothing is mutated before you select and approve.
+description: Check the harness's OWN health (distinct from /audit, which checks YOUR code vs the standards) — run the existing deterministic gates read-only (architecture-tree and doc-budgets both ship and run wherever present · version-sync + shipped-content are harness-self, run only where their script is present, else N-A in an adopter), probe the commit hook's own interpreter, scan for landed/cold plans, re-assert the init post-conditions (including a husky-chained hook as a healthy wiring), and flag a likely-skipped Stage-9 harvest, then report a green/WARN/breach snapshot. It treats only the bounded-mechanical set (delete a landed/cold plan · re-wire the pre-commit hook, never clobbering a healthy husky chain · apply a user-approved doc-condensation diff · tree hygiene) — and ONLY on your explicit approval, never silently. Anything substantive is routed to the roadmap → plan → offered to build. The diagnose is strictly read-only; nothing is mutated before you select and approve.
 ---
 
 # /claugentic-dev-harness:doctor
@@ -43,11 +43,24 @@ below. Run each check and record its result for the report:
 ### 1. The deterministic gates  *(exit code → status; `[D]`)*
 
 Run each via the Bash tool and classify by exit code — **run them, do not re-implement them.**
-**The rule:** the **tree gate always ships and always runs**; the **harness-self gates**
-(version-sync, doc-budgets, shipped-content) run **iff their script is present** — when a script
-is ABSENT (an adopter repo: all are stripped from the release) the gate is **N-A (harness-self —
-not shipped to adopters)**, never a breach and never an error. (Per-script presence is the
-adopter signal — there is no separate "am I an adopter" flag.)
+**The rule — payload membership and repo-local presence are TWO facts, and you run on the
+second.** The **tree gate and the doc-budget gate ship in the release payload**; the
+**harness-self gates** (version-sync, shipped-content) reason about the *plugin* rather than the
+reading repo, so the release strips them. **Shipping is not delivery:** `init` copies the tree
+gate into the adopter's repo, and the repo-local copy of the budget gate **arrives with plan
+0041 Slice 7's `init` step** — so outside this repo its script is simply not there today. So:
+**run each gate iff ITS OWN script is present in THIS repo** — per-script, never per-class. An
+ABSENT script is **N-A**, never a breach and never an error. (Per-script presence is the adopter
+signal — there is no separate "am I an adopter" flag.)
+**NEVER substitute the plugin's own copy of a gate script.** Every gate anchors to its OWN
+checkout (`_repo_root()` reads `__file__`) and then measures *that* tree — run the plugin's copy
+from an adopter's project and it prints a cheerful green **about the harness's ledgers, not
+theirs**. A green about the wrong repo is worse than an honest N-A: if the script is not in this
+repo, mark N-A and stop.
+**Capture BOTH streams when you run a gate.** A gate's verdict rides **stdout** and its `WARN:`
+lines ride **stderr** (the stream contract the shared pre-commit wrapper depends on) — a
+stdout-only capture reports a WARN run as a silent green, which is the one classification error
+that matters here.
 
 - **`python scripts/claugentic-check_architecture_tree.py`** — exit **0 = green** · exit **1
   = breach** (a missing/stale entry or a zero-coverage glob-drift). The tree gate is the one
@@ -56,12 +69,19 @@ adopter signal — there is no separate "am I an adopter" flag.)
   script is stripped from the release)*. **If the script is present:** exit **0 = green** · exit
   **1 = breach** (`plugin.json` ↔ `marketplace.json` version drift, or a malformed manifest).
   **If absent:** mark **N-A**, do not run.
-- **`python scripts/check_doc_budgets.py`** — *(harness-self — N-A in an adopter; its script is
-  stripped from the release)*. **If the script is present:** exit **0 + no `WARN:` line = green**
-  · exit **0 + a `WARN:` line = WARN** (a ledger ≥ 90% of its budget — the cue to condense before
-  it hard-breaks) · exit **1 = breach** (a ledger over budget). **The INVARIANTS cap already lives
-  in this script** (added in 0024 S3) — doctor just runs it; **there is no script change.**
-  **If absent:** mark **N-A**, do not run.
+- **`python scripts/check_doc_budgets.py`** — *(in the release payload; the repo-local copy
+  arrives with 0041 Slice 7's `init` step. Where the script IS present it measures THAT repo's
+  own ledgers against THAT repo's own caps — it is not harness-self)*. **If present:** exit
+  **0 + no `WARN:` line = green** · exit **0 + a `WARN:` line = WARN** (a ledger ≥ 90% of its
+  budget — the cue to condense before it hard-breaks) · exit **1 = breach** (a ledger over budget,
+  or a broken caps config). **Every cap it enforces comes from
+  `.claude/claugentic-doc-budgets.json` — the script holds none of its own**, so a repo with no
+  config gets exit 0 and the plain note *"doc budgets are not configured for this repo; nothing
+  measured"*. Report that as **green-with-nothing-measured**, never as "budgets pass". **If
+  absent** — the norm outside this repo today, because no `init` step delivers it yet (0041
+  Slice 7 does that; a pre-ship plugin install is the secondary case): mark **N-A**, do not run,
+  and do **not** reach for the plugin's own copy (see *The rule* — it would report on the
+  harness's ledgers, not this repo's).
 - **`python scripts/check_shipped_content.py`** — *(harness-self — N-A in an adopter; its script is
   stripped from the release)*. Scans the SHIPPED tree's text for release/init-contract content
   breaches. **If the script is present:** exit **0 + no `WARN:` line = green** · exit **0 + a
@@ -76,45 +96,84 @@ imply a harness-self gate passed when it didn't run.
 
 ### 2. Adopter doc-budget advisory  *(config-driven · `[D]` byte / `[J]` "condense soon" · NOT a gate)*
 
-The **adopter-portable** companion to the harness-self doc-budgets gate above. Where that
-gate is stripped from the release (so an adopter's repo never produces its WARN), this read
-gives an adopter the **same "condense soon" signal** — sourced not from a gate but from a
-per-repo caps config the adopter owns. It is **read-only and advisory**, never a gate: it
-runs no script, sets no exit code, and blocks nothing.
+The **read-only, on-demand companion** to the doc-budget gate above — and the **canonical home
+for the caps-config reader-contract**: the gate and this advisory are two readers of ONE cap
+source, and this section is where that source's shape and edge semantics are defined (the gate's
+module docstring describes the gate's behavior and defers here on the schema). The difference is
+register, not data: the gate returns an exit code and can fail a run; this read **runs no script,
+sets no exit code, and blocks nothing.** Use it to answer *"how close am I?"* on demand — and in
+**any repo that has no repo-local gate script**, which is every repo but this one until 0041
+Slice 7's `init` step delivers one, it is the **only** budget signal available.
 
-- **The caps source is ONE file:** `.claude/claugentic-doc-budgets.json` — a JSON map
-  `{ "<relpath>": <max_bytes>, ... }` (repo-relative path → integer byte cap). This is the
-  **single adopter-side cap list.** Never read `scripts/check_doc_budgets.py`'s `DOC_BUDGETS`
-  for this — those are the harness's OWN harness-tuned caps (a separate, **harness-self**
-  concern; that script is **stripped from the release** and fail-louds on adopter files, which
-  is exactly why this config-driven read exists instead).
-- **A SPLIT ledger needs one caps key per part.** If a repo has climbed the escape-valve
-  ladder's last rung (`docs/claugentic-WORKFLOW.md` → *The escape-valve ladder*) and split a
-  ledger into a routing index plus per-topic parts, add **one key per file** — the index at
-  its own (deliberately tight) cap, and each part at the shared per-part cap. The map is flat
-  and has **no glob support**, so an unlisted part is simply un-capped and skipped here; that
-  is the honest cost of the flat shape, not a silent pass on a file this read claims to watch.
-- **Skip-when-absent is the default (HARD rule).** If `.claude/claugentic-doc-budgets.json`
-  is **not present**, this read is **silently skipped — mark N-A, emit no output, no error,
-  no WARN, no breach.** An un-configured repo (the adopter default) produces *nothing*
-  here. This is the exact safety property that let the harness gate be
-  stripped; the portable read inherits it — it must never fail-loud on a repo that hasn't
-  opted in. (An absent *key* for a present config = that file is un-capped → skipped too.)
-- **When the config is present:** for each capped file that exists, measure its byte size
-  (`len(read_bytes())` — bytes, never char count) and compare to its cap. At **≥90% of the
-  cap**, surface a `[J]` "condense soon" advisory carrying the `[D]` byte figure — e.g.
-  *"DECISIONS.md at 92% of your configured cap (55200 / 60000 bytes) — condense soon."* The
-  **byte count and the 90% comparison are the `[D]` mechanical part**; **"condense soon" is
-  `[J]` judgment** — an advisory, never a gate verdict. Below 90% report green for that file;
-  a capped file that doesn't exist is skipped (nothing to measure).
+- **The reader-contract — the caps config, stated exactly.**
+  `.claude/claugentic-doc-budgets.json` is the ONE cap source per repo. Its root is a JSON
+  object, and **every key is a repo-relative path or a flat glob — there are no reserved keys at
+  all** (a `"version"` key is read as a path named `version`, not as metadata). **Three entry
+  forms, and nothing else:**
+  - **Plain integer** — `"docs/claugentic-DECISIONS.md": 60000` — that file's byte cap.
+  - **Object with the grace flag** — `"docs/claugentic-ROADMAP.md": {"max": 14000, "reportOnly":
+    true}` — the same cap, breach downgraded to a warning (see the grace bullet). `max` is
+    required; an **unknown key inside the object is a fail-loud error**, never ignored.
+  - **Glob by key** — a key containing `*`, e.g. `"docs/claugentic-decisions/*.md": 14000`. **The
+    key's shape IS the declaration** (there is no kind field): the cap fans out and **each match
+    is measured independently against that same number**. `*` is allowed **only in the final path
+    component**, and `**` is **refused outright** — the natural-looking `docs/**/*.md` matches
+    nothing and would pass green under an OK banner, the exact fail-open the refusal prevents. A
+    glob matching **nothing** is skipped silently (a cap is declared for a *shape* of file, never
+    for the existence of one); a **subdirectory** under a glob'd directory is a WARN, not an error
+    (the entry measures a flat directory and does not recurse). **Duplicate keys are fatal** —
+    JSON last-wins would silently discard the tighter cap.
+- **A glob is the SOLE cap for its matches.** Never add a per-file key beside a glob that already
+  covers that file: two caps for one file is the second cap source the one-cap-source invariant
+  forbids. **A SPLIT ledger is exactly this case** — if a repo has climbed the escape-valve
+  ladder's last rung (`docs/claugentic-WORKFLOW.md` → *The escape-valve ladder*), cap the routing
+  index by its own path at its own (deliberately tight) number, and cover **every** part with one
+  glob key, so adding a part later needs no config edit.
+- **Absent, empty, and broken are THREE different verdicts — never collapse them.**
+  - **Absent config** → this read is **skipped: mark N-A, emit no output, no error, no WARN, no
+    breach.** An un-configured repo has not opted in, and producing nothing is the point. (An
+    absent *key* within a present config = that file is un-capped → skipped too.)
+  - **Present with zero entries** → a distinct, *positive* statement: the config exists and
+    **declares no budget entries**; nothing was measured. Say that, not "N-A" — the difference is
+    what tells a user whether their config was read at all.
+  - **Broken** (unreadable, non-UTF-8, unparseable JSON, a non-object root, a duplicate key, a
+    non-integer or non-positive cap, an unknown object key, a key shape that could only ever match
+    nothing) → **report it loudly as a finding.** A typo in your own cap list must never read as a
+    free pass; the gate exits 1 on these **and on any other structural defect** (the list is
+    illustrative, not closed — pathological nesting and a non-boolean `reportOnly` are two more),
+    and this read must not be softer.
+- **Measuring, and the two thresholds.** For each capped file that exists, measure its byte size
+  (`len(read_bytes())` — bytes, never char count) and compare to its cap:
+  - **A breach is STRICTLY over** — `measured > cap`. A file sitting exactly **at** its cap is
+    **not** a breach; it is a WARN.
+  - **The WARN band is inclusive at 90%** — `measured >= 90% of cap` is in the band. Surface a
+    `[J]` "condense soon" advisory carrying the `[D]` byte figure — e.g. *"DECISIONS.md at 92% of
+    your configured cap (55200 / 60000 bytes) — condense soon."* The **byte count and the
+    comparison are the `[D]` mechanical part**; **"condense soon" is `[J]` judgment.**
+  - Below the band, report green for that file. A capped file that **does not exist** is a
+    **finding, never a silent skip** — the gate fails loud on it, because a deleted ledger is a
+    contract breach.
+- **`reportOnly` is a grace, not a cure — and it graces ONLY the size verdict.** With
+  `{"max": N, "reportOnly": true}` a strict breach of that entry is downgraded from a failure to a
+  tagged warning carrying the **same remediation** (the "you inherited an over-budget ledger; here
+  is the signal, land your work" posture). Nothing else moves: a **missing or unreadable** budgeted
+  file still fails loud even with the flag set, and a report-only file *within* its cap produces
+  nothing special. **A fired grace changes the headline** — the summary states the count of
+  report-only breaches instead of claiming "all managed ledgers within budget", and that entry
+  renders as **OVER budget**, tagged; a run that passes on a grace must never read as a clean pass.
+  **Nothing mechanical clears the flag:** condensing the ledger and deleting `reportOnly` is a
+  `[J]` judgement owned by `/condense` and this skill, and the grace re-prints in full on every run
+  until a human removes it.
+- **Streams, when you read the GATE's output rather than this config:** the verdict rides
+  **stdout**, every `WARN:` line rides **stderr**. Capture both, or a WARN run reads as a green one.
 - **Honesty (the line to hold):** this read **NEVER claims to be a gate.** Say *"the caps
   config puts DECISIONS at 92% — condense soon"*, never *"the budget gate WARNs"* — there is
   no gate here, only a config-driven advisory. A "condense soon" advisory surfaces as a
   finder-pipeline finding (SELECT below), routed like any other — the condensation itself is
   the existing user-approved-diff treat (`docs/claugentic-WORKFLOW.md` → the condensation pass).
 - **OFFER `/condense` as the next step (the ramp, not a dead-end).** When this read surfaces a
-  "condense soon" advisory — and equally when the harness-self **doc-budgets gate returns a
-  `WARN:` line** (a ledger ≥90% of its budget) — **OFFER `/claugentic-dev-harness:condense`** as
+  "condense soon" advisory — and equally when the **doc-budget gate returns a `WARN:` line** (a
+  ledger ≥90% of its budget) — **OFFER `/claugentic-dev-harness:condense`** as
   the operator that does the work: it runs the ordered condensation procedure (classify-first →
   absorb-landed → promote-must-holds → merge-siblings → trim-locators), proposes a diff, and
   applies it via the **same** user-approved-diff treat below. A WARN/breach here is a **ramp to
@@ -140,10 +199,77 @@ Whether a plan is "cold" is **your judgment (`[J]`)**, not a script output — l
 Confirm the adoption wiring `init` established is still intact (the canonical contract is
 `skills/init/SKILL.md` + `docs/claugentic-DECISIONS.md` → *The deterministic gates*; check, don't restate):
 
-- **Pre-commit hook wired** — **shared mode:** `.githooks/pre-commit` present **and**
-  `git config core.hooksPath` = `.githooks`; **solo mode:** `.git/hooks/pre-commit` present
-  with `core.hooksPath` left at default. A non-default existing `core.hooksPath` that isn't the
-  harness's is **reported, never assumed broken** (init never clobbers it).
+- **Pre-commit hook wired — THREE healthy shapes.** Report green on any of:
+  - **shared:** `.githooks/pre-commit` present **and** `git config core.hooksPath` = `.githooks`;
+  - **solo:** `.git/hooks/pre-commit` present with `core.hooksPath` left at default;
+  - **husky-chained:** `core.hooksPath` **resolves to husky** (`.husky` or `.husky/_`) **AND**
+    `.husky/pre-commit` contains the managed marker `# >>> claugentic-dev-harness tree gate`
+    **AND** `.githooks/pre-commit` is on disk. **This is a HEALTHY wiring, not a hooksPath
+    conflict** — do not report it as one.
+    **Do NOT inherit `init`'s wider detection rule as a health verdict.** Init also counts a
+    bare `.husky/` containing a `pre-commit` with `core.hooksPath` **unset** — correct for
+    deciding whether to *offer* a chain, wrong for calling a setup healthy: with hooksPath
+    unset git runs `.git/hooks/` and the marker block never executes. That is the ordinary
+    pre-`npm install` state of a fresh clone, and it is **green-looking and checking nothing**.
+
+  A non-default existing `core.hooksPath` matching none of these is **reported, never assumed
+  broken** (init never clobbers it). **Sub-flags on a husky chain — flags, not conflicts** (the
+  chain is recognized; these say what is off about it):
+  - **Marker present but UNREACHABLE** *(`[J]` — whether an `exit` above the marker is truly
+    unconditional is a control-flow reading, not a measurement)* — an **unconditional `exit`**
+    sits above the marker, so the appended block never runs. Report it as **"appended"**, never
+    as "chained" or "running".
+  - **Missing exec bit on `.husky/pre-commit`** — read the **git index mode**
+    (`git ls-files -s .husky/pre-commit` → `100755` executable, `100644` not), **never a
+    filesystem stat**: a Windows checkout reports a mode the repo does not carry. Check it
+    **unconditionally, on every husky chain** — do NOT scope it to hooks `init` created: init
+    records only `- Husky chain: <appended | declined …>`, never "created", so a
+    "did init create this?" predicate is unevaluable and would skip the *appended* case, which
+    is the common one. Under husky v8 (`core.hooksPath=.husky`) git runs that file directly and
+    **skips a non-executable hook silently**; under v9 `.husky/_` sources it and the bit is
+    irrelevant — flag it either way.
+  - **`.githooks/pre-commit` is git-ignored** — the chain depends on a file that never reaches a
+    teammate. `git check-ignore -v .githooks/pre-commit` names the offending rule; report both.
+  - **Husky present but not installed in this clone** — a `.husky/` directory (with or without
+    the marker) while `core.hooksPath` is **unset or points elsewhere**. Git is running
+    `.git/hooks/`, so husky's hooks *and* any chained gate are inert until someone runs
+    `npm install` (husky's `prepare` script). Report the state; the remedy is the repo's own
+    npm machinery, which the harness neither wires nor checks.
+
+  **Reading the record — asymmetric, deliberately.** A recorded `- Husky chain: declined` line in
+  the detected-tooling block means **known-inactive**: informational, not a finding (the user chose
+  it). An **ABSENT record proves NOTHING** — `init` records nothing by design when it refuses over
+  an ignored wrapper (so a repo that fixes its ignore rules is re-offered), and in solo mode the
+  records live in `CLAUDE.local.md`, not `CLAUDE.md`. Never read "no record" as "never offered",
+  and never as "declined".
+- **Commit-hook interpreter health** *(`[D]` at doctor-run time — read the scope note below)* —
+  the wrapper picks the interpreter every chained gate then runs on, so an interpreter it cannot
+  find leaves the gate installed and inert on that machine. **Replicate the wrapper's probe
+  EXACTLY** — `.githooks/pre-commit` is the source of truth; read it rather than paraphrasing it.
+  Iterate the candidates **in order, `python3` then `python`**, and **EXECUTE each** with
+  `-c 'import sys; sys.exit(0 if sys.version_info >= (3, 7) else 1)'`, stopping at the first that
+  exits 0. **Never `command -v` / `where` / a bare PATH lookup:** resolution-without-execution is
+  precisely the Windows-Store-stub false negative — a `python3` shim that resolves, exits
+  non-zero, and commonly sits *beside* a working `python` — that this probe exists to defeat.
+  - **Probe through `sh` where you have it** (`sh -c '…'`), because the hook's PATH view is not
+    doctor's. **"Doctor runs Python, therefore the hook has Python" is a FALSE inference** —
+    doctor's interpreter was chosen by the agent runtime, not by `sh` resolving `PATH` at commit
+    time. On a machine with no `sh`, say what the fallback can and cannot prove: it proves *an*
+    interpreter meeting the floor exists **for the shell doctor ran in**; it does **not** prove the
+    hook will find one, and it says nothing about any other teammate's machine.
+    **In that fallback, treat "command not found" as a FAILED candidate — never read a stale
+    exit code.** Measured in PowerShell: after a `CommandNotFoundException` the shell **retains
+    the previous `$LASTEXITCODE` (0)**, so an exit-code read reports a missing `python3` as
+    working. Branch on the exception/absence itself, not on the code left behind by whatever ran
+    before. A false green on the one row whose whole purpose is not lying about the interpreter
+    is the worst outcome available here.
+  - **No working candidate ⇒ report SKIPPED as a FLAG, never a WARN.** *WARN* is reserved for a
+    gate's literal `WARN:` line, and nothing here produced one. Keep the remedy in the hook's own
+    register: **"install Python 3 — the gate resumes on the next commit; no re-init needed."**
+    Never point at `/claugentic-dev-harness:init`; re-running init installs no runtime, and the
+    hook's own notice deliberately doesn't say it either (a test pins that wording).
+  - **Not a treat.** Doctor reports it and stops — installing a runtime is outside the
+    bounded-mechanical set, the same boundary the stamped-fence row draws (that set stays four).
 - **Managed-file stamps** present and **parseable** — a managed doc/tree's stamp line carries a
   parseable-semver on line 1 (the never-clobber upsert marker).
 - **Stamped fence vs the installed plugin** *(read-only — not a gate)* — compare the CLAUDE.md
@@ -152,7 +278,9 @@ Confirm the adoption wiring `init` established is still intact (the canonical co
   the adopter repo — an adopter has no `.claude-plugin/` of its own). Stamp **<** plugin =
   **skew**. **Doctor REPORTS it; the remedy is for YOU to re-run
   `/claugentic-dev-harness:init`** (its never-clobber upsert re-stamps the fence) — **this is
-  not one of doctor's applied treats** (see *Treat* — that set is exactly four, and init's
+  not one of doctor's applied treats** (see *Treat* — that set is exactly four **in count**,
+  though the re-wire treat's BOUNDARY grew in 0041 S6: it may now offer to un-ignore the
+  wrapper, an action `init` itself refuses to take. Count unchanged, scope not; and init's
   repo-wide blast radius does not meet the treat boundary). The comparison is `[D]` **only where
   both values are readable and both parse as numeric semver**; a missing fence, an unreadable
   manifest, or a non-numeric version is **N-A — never a guess and never a breach.** (The
@@ -186,12 +314,14 @@ doctor regenerates it from scratch.
 |-------|--------|--------|
 | architecture-tree gate | green / breach | `[D]` exit code |
 | version-sync gate | green / breach / **N-A** | `[D]` exit code (N-A if script absent — harness-self) |
-| doc-budgets gate | green / WARN / breach / **N-A** | `[D]` exit code (+ `WARN:` line); N-A if script absent — harness-self |
+| doc-budgets gate | green / WARN / breach / **N-A** | `[D]` exit code (+ any `WARN:` line, which arrives on **stderr**); **N-A whenever the script is not in THIS repo** — the norm outside this repo today; 0041 S7's `init` step delivers the repo-local copy. Never run the plugin's copy instead |
 | shipped-content gate | green / WARN / breach / **N-A** | `[D]` exit code (+ `WARN:` line); N-A if script absent — harness-self |
 | adopter doc-budget advisory | green / condense-soon / **N-A** | `[J] advisory (read-only — not a gate)` — `[D]` byte figure, `[J]` "condense soon"; N-A if no caps config |
 | landed plan present | flag | `[J]` classification |
 | cold / stale plan | flag | `[J]` classification |
 | init post-condition | green / flag | read-only check |
+| hook wiring (shared / solo / **husky-chained**) | green / flag | `[D]` marker presence + `core.hooksPath` + git index mode + `check-ignore`; `[J]` whether an early `exit` above the marker is *unconditional* (control-flow reading, not a measurement). A husky chain is HEALTHY only when hooksPath resolves to husky; an absent `Husky chain:` record proves nothing |
+| commit-hook interpreter | green / **flag** | `[D]` probe result **at doctor-run time** — each candidate EXECUTED against the ≥3.7 assertion, never resolved; flag = SKIPPED, and it speaks only for the shell doctor ran in |
 | stamped fence vs installed plugin | green / **skew** / **N-A** | `[D] read-only — not a gate`: stamp version vs `plugin.json` version (N-A if either is unreadable/non-numeric); remedy = you re-run `init`, not a treat |
 | Stage-9 harvest signal | flag | `[J]` soft advisory |
 
@@ -221,7 +351,14 @@ in `docs/claugentic-DECISIONS.md`; point at it, don't re-litigate it):
 
 - **Delete a landed / cold plan** — bounded, reversible (git history), no decision.
 - **Re-wire the pre-commit hook** — re-establish `.githooks/pre-commit` + `core.hooksPath`
-  (shared) or `.git/hooks/pre-commit` (solo); bounded, reversible.
+  (shared) or `.git/hooks/pre-commit` (solo); bounded, reversible. **Chain-aware: it REFUSES to
+  re-point ANY non-default `core.hooksPath` it did not itself establish** — not merely a
+  recognized-healthy chain. The narrower rule has a hole: a repo that *declined* the chain has
+  `core.hooksPath=.husky` and no marker, so it is not "recognized-healthy", and re-pointing it
+  would **silently switch off every hook that repo owns**. On any husky repo, marked or not, the
+  offer is to **CHAIN** (init's marker-guarded append), never to re-point; the treat's other
+  actions are the sub-flag repairs (mark `.husky/pre-commit` executable · un-ignore the wrapper),
+  and `core.hooksPath` is left to husky.
 - **Apply a user-approved doc-condensation diff** for an over-budget / WARN ledger — the diff is
   the one `/claugentic-dev-harness:condense` proposes (the operator that runs the ordered
   condensation procedure); this treat is its **apply path** (reused by `/condense`, not duplicated).
@@ -258,7 +395,8 @@ doctor. Route it:
 - **Not `/audit`.** Audit checks *your code* vs the standards catalog; doctor checks the *harness's
   own* wiring/ledgers/plans. They share the pipeline, not the target.
 - **Not a new gate.** Doctor **runs** the existing gates — it adds none, wires no hook, and persists
-  no fence. The only mechanical facts in its report are the gate scripts' exit codes (the tree gate
-  always; the three harness-self gates only where their script is present, else N-A).
+  no fence. The only mechanical facts in its report are the gate scripts' exit codes and the
+  interpreter probe (the tree and doc-budget gates wherever their script is present; the two
+  harness-self gates only where theirs is, else N-A).
 - **Not a silent fixer.** Every treat is on explicit approval, and substantive work goes through the
   roadmap → plan → build pipeline like any other committed item.
