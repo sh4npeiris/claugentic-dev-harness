@@ -102,7 +102,11 @@ SHIP_CLASS_DENIALS = tuple(m for m in csc.CAVEAT_MARKERS if m != "harness-self")
 # skipped. That trade is right because the alternative punishes the very copy this slice wants
 # written (say what changed, in the same breath as what it was).
 HISTORICAL_RE = re.compile(
-    r"used to be|no longer|formerly|stopped being|was stripped|until 0041",
+    # Past-tense ONLY. `until 0041` was in the first cut and is deliberately OUT: it is a
+    # FORWARD clause, and a guard whose contract is "history is not a denial" must never
+    # exempt a line that both promises the next slice and caveats the gate away today
+    # (0041 S6 land, L8 — measured: the forward form silently swallowed a live denial).
+    r"used to be|no longer|formerly|stopped being|was stripped",
     re.IGNORECASE,
 )
 
@@ -246,6 +250,17 @@ class TestStalePremisePatterns:
             "docs/y.md": (
                 "The gate used to be stripped from the release.\n"
                 "Run `scripts/check_doc_budgets.py` only here (N-A in an adopter).\n"
+            )
+        }
+        assert len(find_ship_class_denials(texts)) == 1
+
+    def test_a_forward_promise_does_not_excuse_a_live_caveat(self):
+        # L8 (0041 S6 land). A line that both promises the next slice AND wrongly caveats the
+        # gate away today is a live denial, not history — with `until 0041` in HISTORICAL_RE's
+        # alternation this was silently exempted (measured); the guard is past-tense only.
+        texts = {
+            "docs/z.md": (
+                "Run `scripts/check_doc_budgets.py` (N-A in an adopter until 0041 Slice 7).\n"
             )
         }
         assert len(find_ship_class_denials(texts)) == 1
