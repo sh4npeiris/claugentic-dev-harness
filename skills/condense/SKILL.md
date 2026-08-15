@@ -1,6 +1,6 @@
 ---
 description: >-
-  Condense a managed ledger (DECISIONS / ROADMAP / CLAUDE.md / any budgeted doc) that a doc-budget WARN or /doctor's "condense soon" advisory has flagged — the executable operator for the WORKFLOW condensation pass. It runs an ordered, guarded procedure: STEP 1 classify EVERY entry before touching anything (the anti-footgun — landed build-records are the PRIMARY target, NEVER preserve them) → absorb landed/superseded records to git history → promote must-hold constraints to their home → merge duplicative siblings → trim re-derivable locators; targets the ~80% band (rejects a diff that re-lands at or above the 90% WARN) and keeps cross-referenced 00NN anchors. It is prose-orchestrated with NO bundled agent and NO mechanical what-to-cut decider — condensation is judgment: this skill CLASSIFIES and PROPOSES a diff, and you APPROVE it. The apply is /doctor's EXISTING user-approved-diff treat-path (reused, not rebuilt) — the approval IS the decision gate. Read-only until you approve.
+  Condense a managed ledger (DECISIONS / ROADMAP / CLAUDE.md / any budgeted doc) that a doc-budget WARN or /doctor's "condense soon" advisory has flagged — two readers of the same per-repo caps config, both reachable in any repo that has written one — the executable operator for the WORKFLOW condensation pass. It runs an ordered, guarded procedure: STEP 1 classify EVERY entry before touching anything (the anti-footgun — landed build-records are the PRIMARY target, NEVER preserve them) → absorb landed/superseded records to git history → promote must-hold constraints to their home → merge duplicative siblings → trim re-derivable locators; targets the ~80% band (rejects a diff that re-lands at or above the 90% WARN) and keeps cross-referenced 00NN anchors. It is prose-orchestrated with NO bundled agent and NO mechanical what-to-cut decider — condensation is judgment: this skill CLASSIFIES and PROPOSES a diff, and you APPROVE it. The apply is /doctor's EXISTING user-approved-diff treat-path (reused, not rebuilt) — the approval IS the decision gate. Read-only until you approve.
 ---
 
 # /claugentic-dev-harness:condense
@@ -13,8 +13,11 @@ The **executable operator for the condensation pass.** Where `docs/claugentic-WO
 Definition of Done → *the condensation pass* frames the discipline in prose, this skill turns it
 into an **ordered, guarded procedure a non-expert agent can run reliably** — the same procedure,
 made hard to get wrong. It is the next step a doc-budget WARN or `/doctor`'s "condense soon"
-advisory OFFERs you. The WORKFLOW condensation pass is the single source for the *why*; this
-skill is the *how*, in order.
+advisory OFFERs you — **two readers of one cap source**: the doc-budget gate ships with the
+plugin and `/doctor`'s advisory reads the very same `.claude/claugentic-doc-budgets.json`, so
+both triggers are reachable in any repo that has written that config (with no config, neither
+speaks and your own periodic review is the cue). The WORKFLOW condensation pass is the single
+source for the *why*; this skill is the *how*, in order.
 
 ## The one rule that must not be inverted (read this FIRST)
 
@@ -137,8 +140,16 @@ After the diff is applied, **re-measure** the ledger:
   constraints to their home → a deliberate, recorded cap increase → sharding as the last resort. All
   three rungs live in `docs/claugentic-WORKFLOW.md` → the condensation pass (*The escape-valve ladder*);
   the recorded cap-increase rung raises this repo's cap in the per-repo caps config
-  (`.claude/claugentic-doc-budgets.json`) with a dated `docs/claugentic-DECISIONS.md` entry. This skill
-  references the ladder; it does not build it.
+  (`.claude/claugentic-doc-budgets.json`) with a dated `docs/claugentic-DECISIONS.md` entry.
+  **Which edit that is depends on the entry's FORM** (all three are in
+  `skills/doctor/SKILL.md` → *Adopter doc-budget advisory*, the reader-contract's one home):
+  a **plain integer** → replace the number · an **object** → edit its `"max"` and leave
+  `reportOnly` alone (that flag is a separate decision) · a **glob key** → the bump raises the
+  cap for **every** file that glob matches, because the glob is the sole cap for its matches;
+  a per-file exception beside it would be a second cap source and is deliberately not offered.
+  And when a file is over budget on **day one**, the honest instrument is the `reportOnly`
+  grace, **never** a cap sized to the file — a cap chosen at the measurement is a ceiling-raise
+  wearing another face. This skill references the ladder; it does not build it.
 
 ## What `/condense` is NOT
 
@@ -147,6 +158,7 @@ After the diff is applied, **re-measure** the ledger:
 - **Not a second apply path.** It reuses `/doctor`'s existing user-approved-diff treat — no duplicate apply
   infrastructure (DRY).
 - **Not a new gate or hook.** It runs no script and sets no exit code; the doc-budget WARN and `/doctor`'s
-  advisory are the *triggers*, this skill is the *work*.
+  advisory are the *triggers*, this skill is the *work*. (The gate that emits that WARN does ship with
+  the plugin — but it is not *this* skill, and nothing here adds a gate, a hook, or an exit code.)
 - **Not the escape valve.** When condensation genuinely can't reach the band, the escape-valve ladder (above)
   is the recourse — not more cutting into live rules.

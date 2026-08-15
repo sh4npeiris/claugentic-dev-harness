@@ -13,6 +13,27 @@ tagged `vX.Y.Z`.
 
 ### Added
 
+- **The doc-budget gate now ships with the plugin.** `scripts/check_doc_budgets.py` used to be
+  stripped from the release as harness-self tooling; its caps became per-repo data in the
+  previous change, so the script is adopter-portable and is now included. It measures **your**
+  ledgers against **your** `.claude/claugentic-doc-budgets.json`, and with **no** config it
+  exits 0 having measured nothing — the not-opted-in posture, so nothing changes for a repo
+  that has not written one. It stays a run-gate you invoke; chaining it into the pre-commit
+  hook is a later change. `/doctor` and `/condense` now describe the gate and the advisory as
+  **two readers of one caps config** rather than a harness/adopter split, and `/doctor`'s
+  reader-contract states all three cap forms (plain integer · `{"max": N, "reportOnly": true}`
+  · glob-by-key) with their exact edge semantics.
+
+- **`/doctor` gains two health rows.** A **commit-hook interpreter** probe that replicates the
+  hook's own candidate loop — each interpreter *executed* against the 3.7+ assertion, never
+  merely resolved on PATH (a resolvable-but-broken shim is exactly the case it exists to
+  catch) — reporting a dead interpreter as a flag with the hook's own remedy. And **husky-aware
+  hook wiring**: a `.husky/pre-commit` carrying the managed marker is now recognized as a
+  *healthy* third wiring shape instead of a hooksPath conflict, with sub-flags for a marker
+  made unreachable by an early `exit`, a missing exec bit on a hook `init` created, and a
+  git-ignored wrapper. The re-wire treat now refuses to re-point `core.hooksPath` away from a
+  healthy chain; the treat set is still exactly four.
+
 - **Team-friendly commit gate (warn-and-pass) + husky chaining.** The pre-commit wrapper now
   probes for a working Python (`python3` then `python`, 3.7+): a machine without one gets ONE
   plain skip-notice and the commit proceeds — infrastructure failure never blocks a commit

@@ -218,10 +218,29 @@ class TestDerivedHandListsEqualOld:
         }
     )
 
+    # The mirror image: manifest paths REMOVED since those snapshots were frozen. Same
+    # discipline as the additions — the snapshot above is never edited, the delta carries the
+    # change, and a path that leaves a snapshot without a line here still fails these pins.
+    # Mirrors `test_build_release.TestManifestMigration.POST_MIGRATION_REMOVALS` (deliberately
+    # restated, not imported); a new entry updates BOTH.
+    _REMOVED_SINCE_MIGRATION = frozenset(
+        {
+            # plan 0041 Slice 6 — the doc-budget gate SHIPS, so it leaves the `self-gate`
+            # class entirely. Consequences that ride this one line: it drops out of
+            # `HARNESS_SELF_SCRIPTS`, so Pass A.b no longer scans shipped text for its
+            # basename, and Pass D no longer counts it as a stripped NEEDS path. Nothing in
+            # `check_shipped_content.py` was hand-edited — every set re-derives.
+            "scripts/check_doc_budgets.py",
+        }
+    )
+
     def test_harness_self_scripts_derived_equals_old(self):
-        # LITERALLY equal — every `self-gate` path is exactly the old hand-list. (This set is
-        # also A.b's scan target, so literal equality is load-bearing for that pass too.)
-        assert csc.HARNESS_SELF_SCRIPTS == self._OLD_HARNESS_SELF_SCRIPTS
+        # LITERALLY equal to the old hand-list net of the declared removals — every `self-gate`
+        # path is accounted for. (This set is also A.b's scan target, so the equality is
+        # load-bearing for that pass: a script that leaves it also leaves the caveat scan.)
+        assert csc.HARNESS_SELF_SCRIPTS == (
+            self._OLD_HARNESS_SELF_SCRIPTS - self._REMOVED_SINCE_MIGRATION
+        )
 
     def test_dangle_excluded_derived_equals_old(self):
         # LITERALLY equal — every `config` path is exactly the old `_DANGLE_EXCLUDED`.
@@ -409,7 +428,10 @@ class TestGateCaveatPassAb:
 
     def test_warnings_never_become_problems(self):
         # A.b is WARN-only: an uncaveated mention must not appear in scan_dangling / namespace.
-        texts = {"docs/x.md": "python scripts/check_doc_budgets.py"}
+        # The example is a script still IN the self-gate class — a shipped script's basename
+        # is not scanned at all, which would make this pass vacuously (0041 S6).
+        texts = {"docs/x.md": "python scripts/check_versions_synced.py"}
+        assert csc.scan_gate_caveats(texts, csc.HARNESS_SELF_SCRIPTS) != []
         assert csc.scan_dangling(texts, csc.dangling_paths()) == []
         assert csc.scan_namespace(texts, VALID) == []
 
