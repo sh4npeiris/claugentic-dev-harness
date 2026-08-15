@@ -43,13 +43,20 @@ below. Run each check and record its result for the report:
 ### 1. The deterministic gates  *(exit code → status; `[D]`)*
 
 Run each via the Bash tool and classify by exit code — **run them, do not re-implement them.**
-**The rule:** the **tree gate and the doc-budget gate both ship**, so both run in any repo; the
+**The rule — payload membership and repo-local presence are TWO facts, and you run on the
+second.** The **tree gate and the doc-budget gate ship in the release payload**; the
 **harness-self gates** (version-sync, shipped-content) reason about the *plugin* rather than the
-reading repo, so the release strips them and they run **iff their script is present** — an ABSENT
-script is **N-A (harness-self — not shipped to adopters)**, never a breach and never an error.
-**Apply the presence check to EVERY gate, including the shipped ones:** it is per-script, not
-per-class, and an install predating a gate's ship simply has no script yet (N-A, not a breach).
-(Per-script presence is the adopter signal — there is no separate "am I an adopter" flag.)
+reading repo, so the release strips them. **Shipping is not delivery:** `init` copies the tree
+gate into the adopter's repo, and the repo-local copy of the budget gate **arrives with plan
+0041 Slice 7's `init` step** — so outside this repo its script is simply not there today. So:
+**run each gate iff ITS OWN script is present in THIS repo** — per-script, never per-class. An
+ABSENT script is **N-A**, never a breach and never an error. (Per-script presence is the adopter
+signal — there is no separate "am I an adopter" flag.)
+**NEVER substitute the plugin's own copy of a gate script.** Every gate anchors to its OWN
+checkout (`_repo_root()` reads `__file__`) and then measures *that* tree — run the plugin's copy
+from an adopter's project and it prints a cheerful green **about the harness's ledgers, not
+theirs**. A green about the wrong repo is worse than an honest N-A: if the script is not in this
+repo, mark N-A and stop.
 **Capture BOTH streams when you run a gate.** A gate's verdict rides **stdout** and its `WARN:`
 lines ride **stderr** (the stream contract the shared pre-commit wrapper depends on) — a
 stdout-only capture reports a WARN run as a silent green, which is the one classification error
@@ -62,15 +69,19 @@ that matters here.
   script is stripped from the release)*. **If the script is present:** exit **0 = green** · exit
   **1 = breach** (`plugin.json` ↔ `marketplace.json` version drift, or a malformed manifest).
   **If absent:** mark **N-A**, do not run.
-- **`python scripts/check_doc_budgets.py`** — *(ships with the plugin: it measures THIS repo's
-  ledgers against THIS repo's caps, so it is not harness-self)*. **If the script is present:** exit
+- **`python scripts/check_doc_budgets.py`** — *(in the release payload; the repo-local copy
+  arrives with 0041 Slice 7's `init` step. Where the script IS present it measures THAT repo's
+  own ledgers against THAT repo's own caps — it is not harness-self)*. **If present:** exit
   **0 + no `WARN:` line = green** · exit **0 + a `WARN:` line = WARN** (a ledger ≥ 90% of its
   budget — the cue to condense before it hard-breaks) · exit **1 = breach** (a ledger over budget,
   or a broken caps config). **Every cap it enforces comes from
   `.claude/claugentic-doc-budgets.json` — the script holds none of its own**, so a repo with no
   config gets exit 0 and the plain note *"doc budgets are not configured for this repo; nothing
   measured"*. Report that as **green-with-nothing-measured**, never as "budgets pass". **If
-  absent** (an install predating this gate's ship): mark **N-A**, do not run.
+  absent** — the norm outside this repo today, because no `init` step delivers it yet (0041
+  Slice 7 does that; a pre-ship plugin install is the secondary case): mark **N-A**, do not run,
+  and do **not** reach for the plugin's own copy (see *The rule* — it would report on the
+  harness's ledgers, not this repo's).
 - **`python scripts/check_shipped_content.py`** — *(harness-self — N-A in an adopter; its script is
   stripped from the release)*. Scans the SHIPPED tree's text for release/init-contract content
   breaches. **If the script is present:** exit **0 + no `WARN:` line = green** · exit **0 + a
@@ -90,8 +101,9 @@ for the caps-config reader-contract**: the gate and this advisory are two reader
 source, and this section is where that source's shape and edge semantics are defined (the gate's
 module docstring describes the gate's behavior and defers here on the schema). The difference is
 register, not data: the gate returns an exit code and can fail a run; this read **runs no script,
-sets no exit code, and blocks nothing.** Use it to answer *"how close am I?"* on demand — and in a
-repo whose install predates the gate's ship, it is the only budget signal available.
+sets no exit code, and blocks nothing.** Use it to answer *"how close am I?"* on demand — and in
+**any repo that has no repo-local gate script**, which is every repo but this one until 0041
+Slice 7's `init` step delivers one, it is the **only** budget signal available.
 
 - **The reader-contract — the caps config, stated exactly.**
   `.claude/claugentic-doc-budgets.json` is the ONE cap source per repo. Its root is a JSON
@@ -127,7 +139,9 @@ repo whose install predates the gate's ship, it is the only budget signal availa
   - **Broken** (unreadable, non-UTF-8, unparseable JSON, a non-object root, a duplicate key, a
     non-integer or non-positive cap, an unknown object key, a key shape that could only ever match
     nothing) → **report it loudly as a finding.** A typo in your own cap list must never read as a
-    free pass; the gate exits 1 on exactly these, and this read must not be softer.
+    free pass; the gate exits 1 on these **and on any other structural defect** (the list is
+    illustrative, not closed — pathological nesting and a non-boolean `reportOnly` are two more),
+    and this read must not be softer.
 - **Measuring, and the two thresholds.** For each capped file that exists, measure its byte size
   (`len(read_bytes())` — bytes, never char count) and compare to its cap:
   - **A breach is STRICTLY over** — `measured > cap`. A file sitting exactly **at** its cap is
@@ -188,24 +202,39 @@ Confirm the adoption wiring `init` established is still intact (the canonical co
 - **Pre-commit hook wired — THREE healthy shapes.** Report green on any of:
   - **shared:** `.githooks/pre-commit` present **and** `git config core.hooksPath` = `.githooks`;
   - **solo:** `.git/hooks/pre-commit` present with `core.hooksPath` left at default;
-  - **husky-chained:** husky is detected by `init`'s own rule (`core.hooksPath` is `.husky` **or**
-    `.husky/_`, **or** a `.husky/` directory exists containing a `pre-commit` — that last case
-    holds even with `core.hooksPath` unset) **AND** `.husky/pre-commit` contains the managed
-    marker `# >>> claugentic-dev-harness tree gate` **AND** `.githooks/pre-commit` is on disk.
-    **This is a HEALTHY wiring, not a hooksPath conflict** — do not report it as one.
+  - **husky-chained:** `core.hooksPath` **resolves to husky** (`.husky` or `.husky/_`) **AND**
+    `.husky/pre-commit` contains the managed marker `# >>> claugentic-dev-harness tree gate`
+    **AND** `.githooks/pre-commit` is on disk. **This is a HEALTHY wiring, not a hooksPath
+    conflict** — do not report it as one.
+    **Do NOT inherit `init`'s wider detection rule as a health verdict.** Init also counts a
+    bare `.husky/` containing a `pre-commit` with `core.hooksPath` **unset** — correct for
+    deciding whether to *offer* a chain, wrong for calling a setup healthy: with hooksPath
+    unset git runs `.git/hooks/` and the marker block never executes. That is the ordinary
+    pre-`npm install` state of a fresh clone, and it is **green-looking and checking nothing**.
 
   A non-default existing `core.hooksPath` matching none of these is **reported, never assumed
   broken** (init never clobbers it). **Sub-flags on a husky chain — flags, not conflicts** (the
   chain is recognized; these say what is off about it):
-  - **Marker present but UNREACHABLE** — an **unconditional `exit`** sits above the marker, so the
-    appended block never runs. Report it as **"appended"**, never as "chained" or "running".
-  - **Missing exec bit on a `.husky/pre-commit` that `init` CREATED** — read the **git index
-    mode** (`git ls-files -s .husky/pre-commit` → `100755` executable, `100644` not), **never a
-    filesystem stat**: a Windows checkout reports a mode the repo does not carry. Under husky v8
-    (`core.hooksPath=.husky`) git runs that file directly and **skips a non-executable hook
-    silently**; under v9 `.husky/_` sources it and the bit is irrelevant — flag it either way.
+  - **Marker present but UNREACHABLE** *(`[J]` — whether an `exit` above the marker is truly
+    unconditional is a control-flow reading, not a measurement)* — an **unconditional `exit`**
+    sits above the marker, so the appended block never runs. Report it as **"appended"**, never
+    as "chained" or "running".
+  - **Missing exec bit on `.husky/pre-commit`** — read the **git index mode**
+    (`git ls-files -s .husky/pre-commit` → `100755` executable, `100644` not), **never a
+    filesystem stat**: a Windows checkout reports a mode the repo does not carry. Check it
+    **unconditionally, on every husky chain** — do NOT scope it to hooks `init` created: init
+    records only `- Husky chain: <appended | declined …>`, never "created", so a
+    "did init create this?" predicate is unevaluable and would skip the *appended* case, which
+    is the common one. Under husky v8 (`core.hooksPath=.husky`) git runs that file directly and
+    **skips a non-executable hook silently**; under v9 `.husky/_` sources it and the bit is
+    irrelevant — flag it either way.
   - **`.githooks/pre-commit` is git-ignored** — the chain depends on a file that never reaches a
     teammate. `git check-ignore -v .githooks/pre-commit` names the offending rule; report both.
+  - **Husky present but not installed in this clone** — a `.husky/` directory (with or without
+    the marker) while `core.hooksPath` is **unset or points elsewhere**. Git is running
+    `.git/hooks/`, so husky's hooks *and* any chained gate are inert until someone runs
+    `npm install` (husky's `prepare` script). Report the state; the remedy is the repo's own
+    npm machinery, which the harness neither wires nor checks.
 
   **Reading the record — asymmetric, deliberately.** A recorded `- Husky chain: declined` line in
   the detected-tooling block means **known-inactive**: informational, not a finding (the user chose
@@ -228,6 +257,12 @@ Confirm the adoption wiring `init` established is still intact (the canonical co
     time. On a machine with no `sh`, say what the fallback can and cannot prove: it proves *an*
     interpreter meeting the floor exists **for the shell doctor ran in**; it does **not** prove the
     hook will find one, and it says nothing about any other teammate's machine.
+    **In that fallback, treat "command not found" as a FAILED candidate — never read a stale
+    exit code.** Measured in PowerShell: after a `CommandNotFoundException` the shell **retains
+    the previous `$LASTEXITCODE` (0)**, so an exit-code read reports a missing `python3` as
+    working. Branch on the exception/absence itself, not on the code left behind by whatever ran
+    before. A false green on the one row whose whole purpose is not lying about the interpreter
+    is the worst outcome available here.
   - **No working candidate ⇒ report SKIPPED as a FLAG, never a WARN.** *WARN* is reserved for a
     gate's literal `WARN:` line, and nothing here produced one. Keep the remedy in the hook's own
     register: **"install Python 3 — the gate resumes on the next commit; no re-init needed."**
@@ -243,7 +278,9 @@ Confirm the adoption wiring `init` established is still intact (the canonical co
   the adopter repo — an adopter has no `.claude-plugin/` of its own). Stamp **<** plugin =
   **skew**. **Doctor REPORTS it; the remedy is for YOU to re-run
   `/claugentic-dev-harness:init`** (its never-clobber upsert re-stamps the fence) — **this is
-  not one of doctor's applied treats** (see *Treat* — that set is exactly four, and init's
+  not one of doctor's applied treats** (see *Treat* — that set is exactly four **in count**,
+  though the re-wire treat's BOUNDARY grew in 0041 S6: it may now offer to un-ignore the
+  wrapper, an action `init` itself refuses to take. Count unchanged, scope not; and init's
   repo-wide blast radius does not meet the treat boundary). The comparison is `[D]` **only where
   both values are readable and both parse as numeric semver**; a missing fence, an unreadable
   manifest, or a non-numeric version is **N-A — never a guess and never a breach.** (The
@@ -277,13 +314,13 @@ doctor regenerates it from scratch.
 |-------|--------|--------|
 | architecture-tree gate | green / breach | `[D]` exit code |
 | version-sync gate | green / breach / **N-A** | `[D]` exit code (N-A if script absent — harness-self) |
-| doc-budgets gate | green / WARN / breach / **N-A** | `[D]` exit code (+ any `WARN:` line, which arrives on **stderr**); N-A only if the script is absent (a pre-ship install) |
+| doc-budgets gate | green / WARN / breach / **N-A** | `[D]` exit code (+ any `WARN:` line, which arrives on **stderr**); **N-A whenever the script is not in THIS repo** — the norm outside this repo today; 0041 S7's `init` step delivers the repo-local copy. Never run the plugin's copy instead |
 | shipped-content gate | green / WARN / breach / **N-A** | `[D]` exit code (+ `WARN:` line); N-A if script absent — harness-self |
 | adopter doc-budget advisory | green / condense-soon / **N-A** | `[J] advisory (read-only — not a gate)` — `[D]` byte figure, `[J]` "condense soon"; N-A if no caps config |
 | landed plan present | flag | `[J]` classification |
 | cold / stale plan | flag | `[J]` classification |
 | init post-condition | green / flag | read-only check |
-| hook wiring (shared / solo / **husky-chained**) | green / flag | `[D]` marker + `core.hooksPath` + git index mode + `check-ignore`; a husky chain is a HEALTHY shape, and an absent `Husky chain:` record proves nothing |
+| hook wiring (shared / solo / **husky-chained**) | green / flag | `[D]` marker presence + `core.hooksPath` + git index mode + `check-ignore`; `[J]` whether an early `exit` above the marker is *unconditional* (control-flow reading, not a measurement). A husky chain is HEALTHY only when hooksPath resolves to husky; an absent `Husky chain:` record proves nothing |
 | commit-hook interpreter | green / **flag** | `[D]` probe result **at doctor-run time** — each candidate EXECUTED against the ≥3.7 assertion, never resolved; flag = SKIPPED, and it speaks only for the shell doctor ran in |
 | stamped fence vs installed plugin | green / **skew** / **N-A** | `[D] read-only — not a gate`: stamp version vs `plugin.json` version (N-A if either is unreadable/non-numeric); remedy = you re-run `init`, not a treat |
 | Stage-9 harvest signal | flag | `[J]` soft advisory |
@@ -315,10 +352,13 @@ in `docs/claugentic-DECISIONS.md`; point at it, don't re-litigate it):
 - **Delete a landed / cold plan** — bounded, reversible (git history), no decision.
 - **Re-wire the pre-commit hook** — re-establish `.githooks/pre-commit` + `core.hooksPath`
   (shared) or `.git/hooks/pre-commit` (solo); bounded, reversible. **Chain-aware: it REFUSES to
-  re-point `core.hooksPath` away from a recognized-healthy husky chain** — that would switch off
-  the repo's own husky hooks in order to "fix" a wiring that already works. On a healthy chain
-  this treat offers only the sub-flag repairs (mark an init-created `.husky/pre-commit`
-  executable · un-ignore the wrapper) and leaves `core.hooksPath` to husky.
+  re-point ANY non-default `core.hooksPath` it did not itself establish** — not merely a
+  recognized-healthy chain. The narrower rule has a hole: a repo that *declined* the chain has
+  `core.hooksPath=.husky` and no marker, so it is not "recognized-healthy", and re-pointing it
+  would **silently switch off every hook that repo owns**. On any husky repo, marked or not, the
+  offer is to **CHAIN** (init's marker-guarded append), never to re-point; the treat's other
+  actions are the sub-flag repairs (mark `.husky/pre-commit` executable · un-ignore the wrapper),
+  and `core.hooksPath` is left to husky.
 - **Apply a user-approved doc-condensation diff** for an over-budget / WARN ledger — the diff is
   the one `/claugentic-dev-harness:condense` proposes (the operator that runs the ordered
   condensation procedure); this treat is its **apply path** (reused by `/condense`, not duplicated).

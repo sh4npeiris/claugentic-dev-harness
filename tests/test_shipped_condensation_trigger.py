@@ -11,20 +11,44 @@ points at an unreachable trigger, it is **stale copy that DENIES a trigger the r
 has** — "that gate is stripped", "no WARN can fire", "N-A in an adopter". That copy tells a
 reader with a caps config not to expect a signal their repo really does emit.
 
-Two scans, both over the SHIPPED text:
+Two scans, both over the SHIPPED text, both line-scoped, both skipping lines that state the
+ship-class change as HISTORY (see `HISTORICAL_RE`):
 
   * **Unreachability claims** — a sentence in doc-budget context asserting the WARN cannot
-    fire / cannot be produced / the gate is stripped. Narrow BY DESIGN (the predecessor's
-    discipline): it keys on the specific phrasings the harness's own copy used, not on any
-    mention of "stripped". Honest scope — it catches the known stale phrasings and their close
-    variants, NOT every possible way to write the same falsehood; novel wording stays
-    model-upheld, exactly as the orphaned-trigger pattern before it.
+    fire / cannot be produced / the gate is stripped.
   * **Ship-class denials** — a shipped line that names `check_doc_budgets.py` AND carries an
-    adopter-caveat marker. This one is fully mechanical and reuses the scanner's own marker
-    vocabulary (`check_shipped_content.CAVEAT_MARKERS`) rather than a second copy of it, so
-    the two stay in step: the same markers that CLEAR a Pass A.b warning for a stripped gate
-    are the ones that are now FALSE about this shipped one. Mirror-image passes over one
-    vocabulary.
+    adopter-caveat marker. Fully mechanical, and it reuses the scanner's own marker vocabulary
+    (`check_shipped_content.CAVEAT_MARKERS`) rather than a second copy: the same markers that
+    CLEAR a Pass A.b warning for a stripped gate are the ones that are now FALSE about this
+    one. Mirror-image passes over one vocabulary.
+
+HONEST SCOPE — what these two scans do NOT catch (measured, not estimated). Running the landed
+scans over the BASE shipped corpus (the exact copy this slice deleted) finds **10 candidate
+stale-claim lines and catches 4**. The residual is three whole shapes, and it is larger than a
+single edge case:
+  1. **Any claim that does not name the basename.** The denial scan is basename-gated, so
+     "the harness's internal byte-budget gate, which is stripped from the release" is invisible
+     to it, and `byte-budget` is outside `DOC_BUDGET_CONTEXT_RE` too (a real instance survives
+     in `CHANGELOG.md`'s 0.4.0 section, corrected in prose rather than by a scan).
+  2. **Every `harness-self` phrasing** — the dominant one in this repo's copy, and the reason
+     all six base-corpus misses look alike. `harness-self` is excluded from the denial
+     vocabulary for TWO independent reasons: the WORKFLOW adopter note names both gates in one
+     sentence (so it legitimately qualifies the version-sync clause on a line that also names
+     this gate), and `docs/claugentic-WORKFLOW.md`'s rung-2 byte-exact-pin clause calls that
+     pin "one harness-self extra" on a line that mentions this gate — a second, different
+     honest use. Dropping the exclusion turns both red.
+  3. **Anything wrapped across lines.** Both scans are line-scoped, so a claim split over two
+     source lines is missed by construction (the `skills/build/SKILL.md` close-out roster this
+     slice deleted was exactly that shape; a paragraph-scoped variant was measured and rejected
+     — 3 false positives at window 0, 11 at ±1, on honest copy).
+Note the asymmetry: that shared-line shape is a documented FALSE-NEGATIVE for the denial scan
+but a FALSE-POSITIVE path for the unreachability scan (measured — it returns a hit on it), which
+is why the guards are stated per-scan rather than shared.
+
+WHY THIS MATTERS MORE THAN IT LOOKS: Pass A.b stopped scanning this basename **in the same
+commit** that shipped the gate, so this file is now the SOLE mechanical custody of stale
+ship-class copy about it. Everything in the residual above is model-upheld. A rewording-survival
+rewrite (clause-scoping both scans, dropping the basename gate) is measured and ROADMAP'd.
 
 SHIP source-of-truth: this test imports `build_release` and reuses its ONE ship classifier
 (`br.classify(br._tracked_files())[0]`) — the same single source `check_shipped_content.py`
@@ -65,12 +89,22 @@ UNREACHABILITY_RE = re.compile(
 
 # The adopter-caveat markers that are now FALSE about this gate — derived from the scanner's
 # own vocabulary so a marker added there is covered here automatically (one vocabulary, two
-# mirror-image passes). `harness-self` is the ONE exclusion, and it is not a loophole: the
-# WORKFLOW adopter note names BOTH gates in a single sentence, so "harness-self" legitimately
-# qualifies its version-sync clause on a line that also mentions this gate. A stale
-# "doc-budgets is harness-self" claim on such a shared line is therefore a documented
-# false-negative of this scan — model-upheld, like the predecessor's own heuristic edges.
+# mirror-image passes). `harness-self` is the ONE exclusion; the module docstring's honest-scope
+# note states BOTH independent reasons it has to be excluded, and what that costs.
 SHIP_CLASS_DENIALS = tuple(m for m in csc.CAVEAT_MARKERS if m != "harness-self")
+
+# HISTORY IS NOT A DENIAL. A changelog entry or a superseding ledger line legitimately says what
+# the ship-class USED TO BE, in the same sentence as the correction. Both scans skip a line that
+# marks itself as a past-tense/superseded statement. Measured why this is not optional: reflowing
+# CHANGELOG's own "used to be stripped from the release" entry onto ONE line — a pure re-wrap,
+# zero wording change — turns the denial scan red on honest release history. The cost is stated
+# rather than hidden: a line that pairs a historical marker with a genuinely live false claim is
+# skipped. That trade is right because the alternative punishes the very copy this slice wants
+# written (say what changed, in the same breath as what it was).
+HISTORICAL_RE = re.compile(
+    r"used to be|no longer|formerly|stopped being|was stripped|until 0041",
+    re.IGNORECASE,
+)
 
 
 def find_unreachability_claims(texts: dict[str, str]) -> list[str]:
@@ -82,6 +116,8 @@ def find_unreachability_claims(texts: dict[str, str]) -> list[str]:
     hits: list[str] = []
     for path in sorted(texts):
         for lineno, line in enumerate(texts[path].splitlines(), start=1):
+            if HISTORICAL_RE.search(line):
+                continue
             if DOC_BUDGET_CONTEXT_RE.search(line) and UNREACHABILITY_RE.search(line):
                 hits.append(f"{path}:{lineno}: {line.strip()}")
     return hits
@@ -92,7 +128,7 @@ def find_ship_class_denials(texts: dict[str, str]) -> list[str]:
     hits: list[str] = []
     for path in sorted(texts):
         for lineno, line in enumerate(texts[path].splitlines(), start=1):
-            if GATE_NAME not in line:
+            if GATE_NAME not in line or HISTORICAL_RE.search(line):
                 continue
             lowered = line.lower()
             if any(marker in lowered for marker in SHIP_CLASS_DENIALS):
@@ -128,9 +164,11 @@ class TestThePremise:
             "the scan: with the gate stripped, the old failure mode returns."
         )
 
-    def test_the_marker_vocabulary_is_reused_not_recopied(self):
+    def test_the_marker_vocabulary_stays_in_step_with_the_scanner(self):
         # The denial vocabulary is DERIVED from the scanner's markers, minus exactly one
         # documented exclusion — so a marker added there is covered here with no edit.
+        # (Named for the property it actually pins: a hand-typed literal tuple would keep this
+        # file green, so this is "stays in step", not "is provably not recopied".)
         assert set(SHIP_CLASS_DENIALS) == set(csc.CAVEAT_MARKERS) - {"harness-self"}
         assert SHIP_CLASS_DENIALS, "the derivation emptied the vocabulary — the scan is vacuous"
 
@@ -175,6 +213,42 @@ class TestStalePremisePatterns:
     def test_an_uncaveated_mention_of_this_gate_is_clean(self):
         texts = {"docs/t.md": "run `python scripts/check_doc_budgets.py` at Verify and in CI"}
         assert find_ship_class_denials(texts) == []
+
+    def test_release_history_stating_the_OLD_ship_class_is_not_a_denial(self):
+        # THE reflow guard. This is `CHANGELOG.md`'s own Unreleased entry with its first two
+        # source lines joined — a pure re-wrap, not one word changed. Without HISTORICAL_RE the
+        # denial scan goes RED here and accuses honest release history of denying the ship
+        # (measured: the wrap is the only thing keeping the basename and the marker apart).
+        texts = {
+            "CHANGELOG.md": (
+                "- **The doc-budget gate now ships in the release payload.** "
+                "`scripts/check_doc_budgets.py` used to be stripped from the release as "
+                "harness-self tooling; its caps became per-repo data in the previous change.\n"
+            )
+        }
+        assert find_ship_class_denials(texts) == []
+        assert find_unreachability_claims(texts) == []
+
+    def test_a_superseding_ledger_line_is_not_a_denial(self):
+        # The sibling shape: a decisions entry restating a dead premise in order to kill it.
+        texts = {
+            "docs/x.md": (
+                "SUPERSEDED: the old premise held that gate is stripped, so no doc-budget WARN "
+                "can fire for an adopter — that is no longer true.\n"
+            )
+        }
+        assert find_unreachability_claims(texts) == []
+
+    def test_the_historical_guard_does_not_excuse_a_live_claim(self):
+        # Non-vacuity in the other direction: the guard is LINE-scoped, so a live denial on its
+        # own line is still caught even when history is discussed nearby.
+        texts = {
+            "docs/y.md": (
+                "The gate used to be stripped from the release.\n"
+                "Run `scripts/check_doc_budgets.py` only here (N-A in an adopter).\n"
+            )
+        }
+        assert len(find_ship_class_denials(texts)) == 1
 
     def test_a_caveat_on_a_sibling_gate_does_not_implicate_this_one(self):
         # The scan is LINE-scoped: a nearby honest caveat about a stripped gate is not a

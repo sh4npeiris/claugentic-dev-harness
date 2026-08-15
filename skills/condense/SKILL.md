@@ -1,6 +1,6 @@
 ---
 description: >-
-  Condense a managed ledger (DECISIONS / ROADMAP / CLAUDE.md / any budgeted doc) that a doc-budget WARN or /doctor's "condense soon" advisory has flagged — two readers of the same per-repo caps config, both reachable in any repo that has written one — the executable operator for the WORKFLOW condensation pass. It runs an ordered, guarded procedure: STEP 1 classify EVERY entry before touching anything (the anti-footgun — landed build-records are the PRIMARY target, NEVER preserve them) → absorb landed/superseded records to git history → promote must-hold constraints to their home → merge duplicative siblings → trim re-derivable locators; targets the ~80% band (rejects a diff that re-lands at or above the 90% WARN) and keeps cross-referenced 00NN anchors. It is prose-orchestrated with NO bundled agent and NO mechanical what-to-cut decider — condensation is judgment: this skill CLASSIFIES and PROPOSES a diff, and you APPROVE it. The apply is /doctor's EXISTING user-approved-diff treat-path (reused, not rebuilt) — the approval IS the decision gate. Read-only until you approve.
+  Condense a managed ledger (DECISIONS / ROADMAP / CLAUDE.md / any budgeted doc) that a doc-budget WARN or /doctor's "condense soon" advisory has flagged — two readers of the same per-repo caps config; the advisory is reachable in any repo, the gate's WARN only where its script is present (the repo-local copy arrives with 0041 Slice 7's init step) — the executable operator for the WORKFLOW condensation pass. It runs an ordered, guarded procedure: STEP 1 classify EVERY entry before touching anything (the anti-footgun — landed build-records are the PRIMARY target, NEVER preserve them) → absorb landed/superseded records to git history → promote must-hold constraints to their home → merge duplicative siblings → trim re-derivable locators; targets the ~80% band (rejects a diff that re-lands at or above the 90% WARN) and keeps cross-referenced 00NN anchors. It is prose-orchestrated with NO bundled agent and NO mechanical what-to-cut decider — condensation is judgment: this skill CLASSIFIES and PROPOSES a diff, and you APPROVE it. The apply is /doctor's EXISTING user-approved-diff treat-path (reused, not rebuilt) — the approval IS the decision gate. Read-only until you approve.
 ---
 
 # /claugentic-dev-harness:condense
@@ -13,11 +13,13 @@ The **executable operator for the condensation pass.** Where `docs/claugentic-WO
 Definition of Done → *the condensation pass* frames the discipline in prose, this skill turns it
 into an **ordered, guarded procedure a non-expert agent can run reliably** — the same procedure,
 made hard to get wrong. It is the next step a doc-budget WARN or `/doctor`'s "condense soon"
-advisory OFFERs you — **two readers of one cap source**: the doc-budget gate ships with the
-plugin and `/doctor`'s advisory reads the very same `.claude/claugentic-doc-budgets.json`, so
-both triggers are reachable in any repo that has written that config (with no config, neither
-speaks and your own periodic review is the cue). The WORKFLOW condensation pass is the single
-source for the *why*; this skill is the *how*, in order.
+advisory OFFERs you — **two readers of one cap source**, reachable in different places. Both read
+`.claude/claugentic-doc-budgets.json`, and with **no** config neither speaks (your own periodic
+review is the cue). `/doctor`'s advisory runs **anywhere**. The **gate's** WARN needs the gate
+script to be present in the repo being measured: it is in the release payload, but the
+repo-local copy **arrives with 0041 Slice 7's `init` step**, so until then that trigger fires in
+the harness's own repo and the advisory is the adopter-side one. The WORKFLOW condensation pass
+is the single source for the *why*; this skill is the *how*, in order.
 
 ## The one rule that must not be inverted (read this FIRST)
 

@@ -362,6 +362,29 @@ class TestClosurePassD:
         init_skill = (Path(__file__).resolve().parent.parent / "skills" / "init" / "SKILL.md")
         assert ".claude/claugentic-doc-budgets.json" in init_skill.read_text(encoding="utf-8")
 
+    @pytest.mark.xfail(
+        strict=True,
+        reason="plan 0041 Slice 7 DELIVERS the gate script into an adopter repo; this flips RED "
+        "the moment it lands, forcing the presence-scoped copy in doctor/condense/WORKFLOW/"
+        "CHANGELOG out of the future tense. If S7 drops delivery, do not delete this quietly: "
+        "reword those sites to say the gate is harness-run-only and say why.",
+    )
+    def test_init_delivers_the_budget_gate_script(self):
+        # THE TRIPWIRE for the OTHER forward promise 0041 S6 wrote — and they are different
+        # capabilities, which is exactly why one tripwire cannot cover both. The sibling above
+        # pins CONFIG SEEDING (init writes `.claude/claugentic-doc-budgets.json`); this pins
+        # SCRIPT DELIVERY (init puts the gate itself in the adopter's repo). S6 shipped the
+        # script into the release PAYLOAD, which is not the same as putting it in a reading
+        # repo: measured in a scratch adopter repo, `python scripts/check_doc_budgets.py` exits
+        # 2 (no such file), and the plugin's own copy anchors to its own checkout and prints a
+        # green about the HARNESS's ledgers. So every shipped sentence about running this gate
+        # is presence-scoped and says the repo-local copy "arrives with 0041 Slice 7's init
+        # step" — a forward promise, and this is its falsifier.
+        # NOTE: this test only READS init's SKILL. It must never edit it — the two tripwires
+        # above/below are armed on that file's current content.
+        init_skill = (Path(__file__).resolve().parent.parent / "skills" / "init" / "SKILL.md")
+        assert "check_doc_budgets" in init_skill.read_text(encoding="utf-8")
+
     def test_recreate_on_demand_is_accepted_by_the_class_not_init(self, at_repo_root):
         # The plan-gate's taxonomy fix: recreate-on-demand members (INVARIANTS/PRODUCT/
         # PRODUCT_SPEC) are BY DESIGN not init-produced — the closure accepts them via the class
