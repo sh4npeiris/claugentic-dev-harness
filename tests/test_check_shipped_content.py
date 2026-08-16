@@ -218,10 +218,29 @@ class TestDerivedHandListsEqualOld:
         }
     )
 
+    # The mirror image: manifest paths REMOVED since those snapshots were frozen. Same
+    # discipline as the additions — the snapshot above is never edited, the delta carries the
+    # change, and a path that leaves a snapshot without a line here still fails these pins.
+    # Mirrors `test_build_release.TestManifestMigration.POST_MIGRATION_REMOVALS` (deliberately
+    # restated, not imported); a new entry updates BOTH.
+    _REMOVED_SINCE_MIGRATION = frozenset(
+        {
+            # plan 0041 Slice 6 — the doc-budget gate SHIPS, so it leaves the `self-gate`
+            # class entirely. Consequences that ride this one line: it drops out of
+            # `HARNESS_SELF_SCRIPTS`, so Pass A.b no longer scans shipped text for its
+            # basename, and Pass D no longer counts it as a stripped NEEDS path. Nothing in
+            # `check_shipped_content.py` was hand-edited — every set re-derives.
+            "scripts/check_doc_budgets.py",
+        }
+    )
+
     def test_harness_self_scripts_derived_equals_old(self):
-        # LITERALLY equal — every `self-gate` path is exactly the old hand-list. (This set is
-        # also A.b's scan target, so literal equality is load-bearing for that pass too.)
-        assert csc.HARNESS_SELF_SCRIPTS == self._OLD_HARNESS_SELF_SCRIPTS
+        # LITERALLY equal to the old hand-list net of the declared removals — every `self-gate`
+        # path is accounted for. (This set is also A.b's scan target, so the equality is
+        # load-bearing for that pass: a script that leaves it also leaves the caveat scan.)
+        assert csc.HARNESS_SELF_SCRIPTS == (
+            self._OLD_HARNESS_SELF_SCRIPTS - self._REMOVED_SINCE_MIGRATION
+        )
 
     def test_dangle_excluded_derived_equals_old(self):
         # LITERALLY equal — every `config` path is exactly the old `_DANGLE_EXCLUDED`.
@@ -343,6 +362,36 @@ class TestClosurePassD:
         init_skill = (Path(__file__).resolve().parent.parent / "skills" / "init" / "SKILL.md")
         assert ".claude/claugentic-doc-budgets.json" in init_skill.read_text(encoding="utf-8")
 
+    @pytest.mark.xfail(
+        strict=True,
+        reason="plan 0041 Slice 7 DELIVERS the gate script into an adopter repo; this flips RED "
+        "the moment it lands, forcing the presence-scoped copy in doctor/condense/WORKFLOW/"
+        "CHANGELOG out of the future tense. If S7 drops delivery, do not delete this quietly: "
+        "reword those sites to say the gate is harness-run-only and say why.",
+    )
+    def test_init_delivers_the_budget_gate_script(self):
+        # THE TRIPWIRE for the OTHER forward promise 0041 S6 wrote — and they are different
+        # capabilities, which is exactly why one tripwire cannot cover both. The sibling above
+        # pins CONFIG SEEDING (init writes `.claude/claugentic-doc-budgets.json`); this pins
+        # SCRIPT DELIVERY (init puts the gate itself in the adopter's repo). S6 shipped the
+        # script into the release PAYLOAD, which is not the same as putting it in a reading
+        # repo: measured in a scratch adopter repo, `python scripts/check_doc_budgets.py` exits
+        # 2 (no such file), and the plugin's own copy anchors to its own checkout — its verdict
+        # is about the plugin clone's tree (from an install, a not-configured no-op; from a dev
+        # checkout, the harness's green), never the adopter's. So every shipped sentence about
+        # running this gate is presence-scoped and says the repo-local copy "arrives with 0041
+        # Slice 7's init step" — a forward promise, and this is its falsifier.
+        # THE PREDICATE MEASURES DELIVERY, NOT MENTION (S6 code-review F7): it keys on the
+        # DELIVERED destination path — born-prefixed per the recorded decision
+        # (release-contract → ship-class != delivery) — so a passing mention of the gate in
+        # init's prose ("arrives in Slice 7", or a seeding-only S7 naming the reader) cannot
+        # flip it. WHEN THIS FLIPS at S7: sweep the shipped invocation copy to the delivered
+        # path (doctor's probe row · WORKFLOW gate 4 + adopter note) as well as the tense.
+        # NOTE: this test only READS init's SKILL. It must never edit it — the two tripwires
+        # above/below are armed on that file's current content.
+        init_skill = (Path(__file__).resolve().parent.parent / "skills" / "init" / "SKILL.md")
+        assert "scripts/claugentic-check_doc_budgets.py" in init_skill.read_text(encoding="utf-8")
+
     def test_recreate_on_demand_is_accepted_by_the_class_not_init(self, at_repo_root):
         # The plan-gate's taxonomy fix: recreate-on-demand members (INVARIANTS/PRODUCT/
         # PRODUCT_SPEC) are BY DESIGN not init-produced — the closure accepts them via the class
@@ -409,7 +458,10 @@ class TestGateCaveatPassAb:
 
     def test_warnings_never_become_problems(self):
         # A.b is WARN-only: an uncaveated mention must not appear in scan_dangling / namespace.
-        texts = {"docs/x.md": "python scripts/check_doc_budgets.py"}
+        # The example is a script still IN the self-gate class — a shipped script's basename
+        # is not scanned at all, which would make this pass vacuously (0041 S6).
+        texts = {"docs/x.md": "python scripts/check_versions_synced.py"}
+        assert csc.scan_gate_caveats(texts, csc.HARNESS_SELF_SCRIPTS) != []
         assert csc.scan_dangling(texts, csc.dangling_paths()) == []
         assert csc.scan_namespace(texts, VALID) == []
 

@@ -13,6 +13,36 @@ tagged `vX.Y.Z`.
 
 ### Added
 
+- **The doc-budget gate now ships in the release payload.** `scripts/check_doc_budgets.py` used
+  to be stripped from the release as harness-self tooling; its caps became per-repo data in the
+  previous change, so the script is adopter-portable and is now part of what you install.
+  **Shipping is not delivery, and the difference matters here:** nothing copies the script into
+  *your* repo yet — that `init` step is a later change — so for now `python
+  scripts/check_doc_budgets.py` will not resolve in your project, and `/doctor`'s budget
+  advisory stays your budget signal. Do **not** substitute the plugin's own copy: every gate
+  script anchors to its own checkout, so run from your project its verdict is about the plugin
+  clone, not yours — from an install (whose caps config is stripped) a "not configured" no-op;
+  from a harness dev checkout, a green about the *harness's* ledgers. Where the script IS present it measures that repo's
+  ledgers against that repo's `.claude/claugentic-doc-budgets.json`, and with **no** config it
+  exits 0 having measured nothing — the not-opted-in posture, so nothing changes for a repo
+  that has not written one. It stays a run-gate you invoke; chaining it into the pre-commit
+  hook is a later change. `/doctor` and `/condense` now describe the gate and the advisory as
+  **two readers of one caps config** rather than a harness/adopter split, and `/doctor`'s
+  reader-contract states all three cap forms (plain integer · `{"max": N, "reportOnly": true}`
+  · glob-by-key) with their exact edge semantics.
+
+- **`/doctor` gains two health rows.** A **commit-hook interpreter** probe that replicates the
+  hook's own candidate loop — each interpreter *executed* against the 3.7+ assertion, never
+  merely resolved on PATH (a resolvable-but-broken shim is exactly the case it exists to
+  catch) — reporting a dead interpreter as a flag with the hook's own remedy. And **husky-aware
+  hook wiring**: a `.husky/pre-commit` carrying the managed marker is now recognized as a
+  *healthy* third wiring shape instead of a hooksPath conflict, with sub-flags for a marker
+  made unreachable by an early `exit`, a missing exec bit on the chained hook (git index mode,
+  checked unconditionally — never conditioned on who created the file), and a
+  git-ignored wrapper. The re-wire treat now refuses to re-point `core.hooksPath` away from a
+  healthy chain; the treat **count** is still exactly four, though that treat's **boundary** grew
+  — it may now offer to un-ignore the wrapper, an action `init` itself refuses to take.
+
 - **Team-friendly commit gate (warn-and-pass) + husky chaining.** The pre-commit wrapper now
   probes for a working Python (`python3` then `python`, 3.7+): a machine without one gets ONE
   plain skip-notice and the commit proceeds — infrastructure failure never blocks a commit
@@ -170,7 +200,12 @@ doc-budget story for adopters and a single-command release flow for maintainers.
   byte-budget gate, which is stripped from the release and never runs in an
   adopter repo. The advisory is exactly that -- an advisory, not a hook or a
   gate; `/condense` classifies every ledger entry first, then proposes a diff
-  you approve before anything is written.
+  you approve before anything is written. *(Correction 2026-08-14, kept here
+  rather than rewritten: the "stripped from the release and never runs in an
+  adopter repo" half is now dated -- the byte-budget gate joined the release
+  payload in the ship-class change under Unreleased. The rest still holds: a
+  repo-local copy needs an `init` delivery step that does not exist yet, so the
+  advisory remains the adopter-side signal.)*
 - **One-command release (maintainer-facing).** `build_release.py --apply --bump
   <version>` -- a harness-self tool, not shipped to adopters -- now runs the full
   flow in one step: bump both manifests from one value, refuse a build whose

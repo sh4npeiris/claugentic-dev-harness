@@ -622,6 +622,20 @@ class TestTemplateParity:
             assert "Python 3.7+" in text, gate
         assert "(3, 7)" in HOOK.read_text(encoding="utf-8")
 
+    def test_doctors_restated_probe_stays_in_step_with_the_hook(self):
+        # F5 (0041 S6 code-review): doctor's SKILL restates the hook's candidate order, probe
+        # expression, and floor as SECOND copies while naming the hook the source of truth —
+        # this pin is what makes its "test-pinned to the hook" claim true. When the hook's
+        # floor moves (S7 chains a second gate), this turns red until doctor's section moves
+        # in the same change.
+        hook = HOOK.read_text(encoding="utf-8")
+        doctor = (REPO_ROOT / "skills" / "doctor" / "SKILL.md").read_text(encoding="utf-8")
+        floor = re.search(r"sys\.version_info >= \((\d+), (\d+)\)", hook)
+        assert floor, "the hook must state its floor as a version tuple"
+        assert f"sys.version_info >= ({floor.group(1)}, {floor.group(2)})" in doctor
+        assert re.search(r"for cand in python3 python", hook), "candidate order is the hook's"
+        assert "`python3` then `python`" in doctor
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 # The husky-chain block — its GUARD semantics (run through sh) and the SKILL's own rule
@@ -765,6 +779,7 @@ class TestHuskyChainRuleIsStatedInTheSkill:
             "git check-ignore -v .githooks/pre-commit",  # the wrapper must be trackable before a tracked file depends on it
             "A failed read STOPS",  # unreadable != "marker absent"
             "unconditional `exit`",  # reachability before calling it live
+            "mark it executable",  # a created hook without the bit is one git silently never runs
         ):
             assert required in section, required
 

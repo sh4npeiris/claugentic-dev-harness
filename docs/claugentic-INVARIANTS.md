@@ -97,7 +97,7 @@ Each entry: **the invariant** · **why** (what breaks if violated) · **enforcem
 - **Invariant —** whatever `scripts/build_release.py` strips that the workflow needs in ANY repo
   (Class-B: DECISIONS/ROADMAP/ARCHITECTURE_TREE/INVARIANTS, the plan & product-spec templates,
   PRODUCT*), `init` must (re)create or manage; and no SHIPPED file may reference a stripped-uncreated
-  file, nor run a harness-self gate (Class-A: version-sync, doc-budgets), without adopter-awareness
+  file, nor run a harness-self gate (Class-A: version-sync, shipped-content), without adopter-awareness
   (a caveat / an N-A path).
 - **Why —** a release built by stripping the dev tree otherwise ships a harness that points an adopter
   at a file that isn't there, or runs a gate that errors in their repo — the harness fails in the
@@ -106,19 +106,20 @@ Each entry: **the invariant** · **why** (what breaks if violated) · **enforcem
   plan is "structured by `TEMPLATE.md`" while `.claude/plans/` (the template's home) is stripped
   wholesale (a degraded dangling ref); and the stronger (2) `check_doc_budgets.py` shipped and — new at
   0.3.0, after plan 0024 added the `INVARIANTS.md` budget row — **fail-louded on the lazily-created
-  `INVARIANTS.md`**, a hard error a fresh 0.3.0 adopter would hit. Live gate:
+  `INVARIANTS.md`**, a hard error a fresh 0.3.0 adopter would hit. (Ships again from 0041 S6 —
+  absent CONFIG = quiet no-op; a cap on an ABSENT file still exits 1 even under `reportOnly`,
+  so S7's seeder caps only files it creates.) Live gate:
   `tests/test_build_release.py::TestReleaseInitContract` (membership) + `scripts/check_shipped_content.py`
-  (a **run-gate, NOT hook-enforced**; 0028 S3, closure pass 0034 S3 — run by CI on every push to `main`
-  since 0028 S3, and **since 0041 S2 also at the tagged commit** before anything publishes) — the latter
+  (a **run-gate, NOT hook-enforced**; 0028 S3, closure pass 0034 S3 — run by CI on every push to `main`,
+  and **since 0041 S2 also at the tagged commit** before anything publishes) — the latter
   now mechanically pins the **exact-literal** cases: a dangling stripped-uncreated path reference
   (Pass A.a, hard), a stranded
   `claugentic-dev-harness:<token>` namespace literal (Pass B, hard), and — 0034 Slice 3 — the
   **referential closure `NEEDS ⊆ HAS`** (Pass D, hard): every stripped adopter-relevant path is
   **producible by `init` OR the workflow's lazy/templated/agent authoring** — `init-seed` (its `_X.md`
-  seed ships) · `init-gen` (a known init generator output) · `recreate-on-demand` (workflow-lazy /
-  agent-authored / user-authored — accepted VIA the class, **NOT** claimed init-produced) · `self-gate`
-  (a stripped harness-self script, self-consistent). This **mechanizes the "strips ⇒ recreates ⇒ nothing
-  dangles" arrow** that was prose-only here — a missing seed / unregistered generator now fails the gate.
+  seed ships) · `init-gen` (a known init generator output) · `recreate-on-demand` (accepted VIA the
+  class, **NOT** claimed init-produced) · `self-gate` (a stripped harness-self script,
+  self-consistent). A missing seed / unregistered generator now fails the gate.
   Its uncaveated-gate-mention pass (A.b) is **WARN-heuristic**, not a hard gate. **Dir-swept blind
   spot (2026-07-30, plan 0040):** a `DEV_ONLY_DIRS` subtree carries **no recreate-class**, so Pass
   A.a/D structurally cannot see it — for a dir-swept path (e.g. `docs/claugentic-decisions/`) the
@@ -180,7 +181,7 @@ Each entry: **the invariant** · **why** (what breaks if violated) · **enforcem
 - **Invariant —** A repo's ledger byte caps live in exactly one place: its caps config (`.claude/claugentic-doc-budgets.json`). The gate only **reads** it — it holds no caps of its own. Where a glob entry covers a set of files, that glob is the **sole** cap for the set; per-file entries beside it are forbidden. And the config file must stay **tracked by version control**.
 - **Why —** two cap homes means every file is measured twice (one breach prints two messages) and the number has two hand-maintained copies that drift — the exact defect a plan-gate round prescribed and the next round had to retract. And because an **absent** config is a deliberate quiet no-op ("this repo has not opted in"), an untracked config is indistinguishable from an uncapped repo: the gate passes green on the author's machine and measures **nothing** in CI or in any fresh clone, with no error anywhere.
 - **Enforcement, stated exactly —** **Test-pinned:** the config is tracked (asserted through `git ls-files --error-unmatch`, never through the ignore rules' wording) · the five cap values are pinned byte-exactly (deliberate drift-detection — this pin is a harness-self extra, so a cap bump here touches the config *and* the pin) · every configured key resolves to something real · key shapes are validated (`**` refused; `*` only in the final path component; duplicate keys fatal) · shard **existence** is the two-direction index↔shards agreement test, not a second cap. **Model-upheld:** that no *second* cap list is introduced anywhere — nothing greps for one; and that any future file added under the deny-by-default `.claude/` directory gets its own un-ignore line.
-- **Provenance —** 2026-08-13, plan 0041 Slice 4. Established when the caps moved from a hardcoded dict into the config; the tracked half comes from a near-miss the implementer caught mid-slice (the new config was invisible to git by default, which would have disarmed the gate everywhere but locally). The general class is in the standards catalog (`reliability-resilience` → *Opt-in by absence*); this entry is this repo's instance and the exact enforcement split. Slice 6 extends the one-cap-source contract to adopters.
+- **Provenance —** 2026-08-13, plan 0041 Slice 4, when the caps moved from a hardcoded dict into the config; the tracked half came from a mid-slice near-miss (the new config was git-invisible by default — the gate would have measured nothing outside the author's machine). General class: `reliability-resilience` → *Opt-in by absence*; this entry is this repo's instance and the exact enforcement split. **0041 S6:** the gate joined the release payload; it binds an adopter's repo once S7 delivers a copy there.
 ---
 
 ## A chained gate's advisory output rides stderr — the wrapper eats stdout
@@ -189,3 +190,12 @@ Each entry: **the invariant** · **why** (what breaks if violated) · **enforcem
 - **Why —** the wrapper's contract is quiet-when-clean: stdout is the verdict channel (shown only on failure), stderr the advisory channel (always flows through). A gate that warns on stdout looks compliant, passes green, and its early-warning signal never reaches a human — the exact hole (R6) plan 0041 S5 exists to close.
 - **Enforcement, stated exactly —** **Test-pinned (wrapper half):** `tests/test_precommit_wrapper.py` pins that stderr survives a passing gate and stdout is discarded. **Model-upheld (per-gate half):** nothing scans a gate's source for stdout-WARNs; as of 0041 S5 both WARN-emitting gates (`check_doc_budgets.py`, `check_shipped_content.py`) conform — zero known non-conformers.
 - **Provenance —** 2026-08-14, plan 0041 S5 (the R6 residual). Established with the stream contract; the sibling sweep that moved `check_shipped_content.py`'s WARN to stderr landed in the same slice so this entry names no violator.
+
+---
+
+## The wrapper's Python floor and the hook-wired gates' syntax move together
+
+- **Invariant —** The floor the pre-commit wrapper's probe demands (`>= (3, 7)`) is the SAME floor every **hook-wired** gate is written to. Raise the wrapper's floor only when a hook-wired gate raises its own; never let a hook-wired gate use syntax above it (walrus, `match`).
+- **Why —** the probe picks the interpreter the gates then run on. Too low, and the wrapper hands the commit to one that dies on a `SyntaxError` — infrastructure blocking a commit, the exact failure warn-and-pass exists to remove.
+- **Enforcement, stated exactly —** **Test-pinned:** the wrapper's floor against the `# Python 3.7+` marker each hook-wired gate records for itself (numeric drift either side turns red). **Model-upheld:** that no hook-wired gate's *syntax* exceeds it — nothing parses the sources; the 2026-08-14 evidence is a hand-read (both hook-wired gates parse clean at 3.7; the one repo script that does not is never hook-wired). An `ast.parse(src, feature_version=<floor>)` check over that set is routed to the slice that chains the second gate (0041 S7); until then this half is a read, not a proof.
+- **Provenance —** 2026-08-14, plan 0041 S5. The floor was a Verify correction: the panel prescribed `(3, 8)`, the gates' own recorded requirement was 3.7. The hook-wired SET grows when the budget gate is chained in — that is when the blast radius widens.

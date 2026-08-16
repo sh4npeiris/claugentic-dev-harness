@@ -85,6 +85,9 @@ class TestClassify:
             "engine/audit.js",
             ".claude/agents/synthesizer-gate.md",
             "scripts/claugentic-check_architecture_tree.py",
+            # plan 0041 Slice 6 — the doc-budget gate is adopter-portable now (config-driven
+            # caps, absent config = quiet no-op), so it SHIPS alongside the tree gate.
+            "scripts/check_doc_budgets.py",
             ".claude-plugin/plugin.json",
             ".claude-plugin/marketplace.json",
             "README.md",
@@ -109,17 +112,17 @@ class TestClassify:
         assert len(strip) == 5
 
     def test_release_tool_and_self_gates_are_stripped(self):
-        # build_release.py (this tool) and the harness-self gates (version-sync +
-        # doc-budgets) never ship — they're about the plugin itself, not the adopter's code.
+        # build_release.py (this tool) and version-sync never ship — they reason about the
+        # PLUGIN itself, not about the adopter's code. (doc-budgets left this list in plan
+        # 0041 Slice 6; `test_managed_docs_and_runtime_files_ship` now pins it shipping.)
         ship, strip = br.classify(
             [
                 "scripts/build_release.py",
                 "scripts/check_versions_synced.py",
-                "scripts/check_doc_budgets.py",
             ]
         )
         assert ship == []
-        assert len(strip) == 3
+        assert len(strip) == 2
 
     def test_repo_config_is_stripped_but_agents_dir_ships(self):
         ship, strip = br.classify(
@@ -189,6 +192,24 @@ class TestManifestMigration:
         }
     )
 
+    # The mirror image of the additions above: paths DELIBERATELY REMOVED from the manifest
+    # since the snapshot, each with the change that removed it. Same discipline — the frozen
+    # snapshot is never edited, the delta carries the change, and a path that leaves the
+    # manifest without a line here still fails loud.
+    # SIBLING: `test_check_shipped_content.TestDerivedHandListsEqualOld._REMOVED_SINCE_MIGRATION`
+    # carries the same delta for that module's frozen hand-lists — deliberately restated rather
+    # than imported (each is local build-history), so a new entry updates BOTH.
+    POST_MIGRATION_REMOVALS = frozenset(
+        {
+            # plan 0041 Slice 6 — the doc-budget gate SHIPS. Its `self-gate` rationale
+            # ("budgets the harness's OWN harness-tuned caps") died in Slice 4, when the caps
+            # became per-repo data the script only reads; an adopter with no caps config gets
+            # a quiet exit-0 no-op. Under default-include the REMOVAL of the manifest line is
+            # what ships it — there is no "ships" class to switch to.
+            "scripts/check_doc_budgets.py",
+        }
+    )
+
     # The SIX classes — every dev-only FILE maps to exactly one (dirs stay out of the classes).
     SIX_CLASSES = frozenset(
         {"init-seed", "init-gen", "recreate-on-demand", "self-gate", "config", "dangle"}
@@ -196,20 +217,30 @@ class TestManifestMigration:
 
     def test_dict_keys_match_pre_migration_membership(self):
         # frozenset -> dict-keys is membership-preserving: the manifest keys are the prior
-        # hand-authored `DEV_ONLY_FILES` frozenset plus the explicitly-declared additions.
-        expected = self.PRE_MIGRATION_DEV_ONLY_FILES | self.POST_MIGRATION_ADDITIONS
+        # hand-authored `DEV_ONLY_FILES` frozenset, plus the explicitly-declared additions,
+        # minus the explicitly-declared removals.
+        expected = (
+            self.PRE_MIGRATION_DEV_ONLY_FILES | self.POST_MIGRATION_ADDITIONS
+        ) - self.POST_MIGRATION_REMOVALS
         assert set(br.DEV_ONLY_PATH_CLASSES) == expected
-        # ...and the historical membership is still pinned in full on its own — no path that
-        # shipped/stripped before the migration may quietly leave the manifest.
-        assert self.PRE_MIGRATION_DEV_ONLY_FILES <= set(br.DEV_ONLY_PATH_CLASSES)
+        # ...and the historical membership is still pinned in full, net of the declared
+        # removals — no path that stripped before the migration may quietly leave the manifest
+        # without its own removals-delta line.
+        assert (
+            self.PRE_MIGRATION_DEV_ONLY_FILES - self.POST_MIGRATION_REMOVALS
+            <= set(br.DEV_ONLY_PATH_CLASSES)
+        )
         # The back-compat alias is derived from the dict keys — same membership.
         assert br.DEV_ONLY_FILES == expected
 
     def test_shipped_set_is_byte_identical_across_the_migration(self):
-        # THE load-bearing check: for the pre-migration membership fed through the (unchanged)
-        # dir-sweep + `is_dev_only` logic, the ship/strip split is identical to what the current
-        # `classify()` produces. `classify` is pure over a path list, so this reconstructs the
-        # exact pre-change classifier and asserts equality — no shipped file moved.
+        # THE load-bearing check: for the pre-migration membership — net of the DECLARED
+        # removals — fed through the (unchanged) dir-sweep + `is_dev_only` logic, the ship/strip
+        # split is identical to what the current `classify()` produces. `classify` is pure over
+        # a path list, so this reconstructs the pre-change classifier and asserts equality: no
+        # file moved across the ship/strip line except the ones a delta above accounts for.
+        # (The tracked list deliberately still contains the moved path, so the reconstruction
+        # exercises the move rather than hiding it.)
         tracked = sorted(self.PRE_MIGRATION_DEV_ONLY_FILES | {
             "README.md",
             "LICENSE",
@@ -226,8 +257,10 @@ class TestManifestMigration:
             ".claude/plans/0034-release-consolidation.md",
         })
 
+        reconstructed = self.PRE_MIGRATION_DEV_ONLY_FILES - self.POST_MIGRATION_REMOVALS
+
         def pre_migration_is_dev_only(path: str) -> bool:
-            return path in self.PRE_MIGRATION_DEV_ONLY_FILES or any(
+            return path in reconstructed or any(
                 path.startswith(d) for d in br.DEV_ONLY_DIRS
             )
 
@@ -260,6 +293,11 @@ class TestManifestMigration:
     def test_recreate_class_is_none_for_shipped_and_dir_swept_paths(self):
         # A shipped path has no class.
         assert br.recreate_class("README.md") is None
+        # plan 0041 Slice 6 — the same seam for the gate that LEFT the manifest. Pinned
+        # explicitly because it is the failure mode a "rename the class" fix would create:
+        # any class value keeps the path stripped, and an unrecognized one falls through to
+        # the dangling-basename scan. `None` is what "this file ships" looks like here.
+        assert br.recreate_class("scripts/check_doc_budgets.py") is None
         # Dirs stay OUT of the classes: a file stripped only via DEV_ONLY_DIRS is NOT in the
         # per-file manifest, so it has no class (the closure gate reasons over file-level
         # classes only — this is the intended `None`).
@@ -278,9 +316,9 @@ class TestReleaseInitContract:
     here (a ROADMAP candidate; the S1/S2 manual grep + this membership pin are the contract).
     Asserts via the pure `is_dev_only()` (no git), and is the single greppable home for the
     contract — the broader membership is also covered by `TestClassify`
-    (`test_managed_docs_and_runtime_files_ship` pins PLAN_TEMPLATE ships;
-    `test_release_tool_and_self_gates_are_stripped` pins the three .py gates strip), not
-    re-litigated here.
+    (`test_managed_docs_and_runtime_files_ship` pins PLAN_TEMPLATE and the doc-budget gate
+    ship; `test_release_tool_and_self_gates_are_stripped` pins the release builder and
+    version-sync strip), not re-litigated here.
     """
 
     def test_plan_template_ships_init_manages_it(self):
@@ -289,13 +327,25 @@ class TestReleaseInitContract:
         assert br.is_dev_only("docs/claugentic-PLAN_TEMPLATE.md") is False
 
     def test_harness_self_gates_strip(self):
-        # Harness-self tooling never reaches an adopter: doc-budgets (S2 strip), version-sync,
-        # the shipped-content scanner (0028 S3), and the release builder itself.
+        # Harness-self tooling never reaches an adopter: version-sync, the shipped-content
+        # scanner (0028 S3), and the release builder itself. Each reasons about the PLUGIN
+        # (its manifests, its shipped tree, its release build), so none has adopter meaning;
         # doctor/WORKFLOW/implementer treat them adopter-aware.
-        assert br.is_dev_only("scripts/check_doc_budgets.py") is True
         assert br.is_dev_only("scripts/check_versions_synced.py") is True
         assert br.is_dev_only("scripts/check_shipped_content.py") is True
         assert br.is_dev_only("scripts/build_release.py") is True
+
+    def test_the_doc_budget_gate_ships(self):
+        # plan 0041 Slice 6 — the counter-pin to the trio above, and the one the ship-class
+        # change turns on. doc-budgets reasons about the READING repo's own ledgers against
+        # that repo's own caps config, so it is adopter-portable: shipped, and a quiet exit-0
+        # no-op wherever no config opts in.
+        assert br.is_dev_only("scripts/check_doc_budgets.py") is False
+        ship, strip = br.classify(
+            ["scripts/check_doc_budgets.py", "scripts/check_versions_synced.py"]
+        )
+        assert ship == ["scripts/check_doc_budgets.py"]
+        assert strip == ["scripts/check_versions_synced.py"]
 
     def test_harness_own_plans_strip_cleanly(self):
         # The template move (S1) left `.claude/plans/` holding only the harness's OWN plans —
