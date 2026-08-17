@@ -10,6 +10,7 @@ exit-code tests, including the fail-loud-on-git-error case.
 
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -356,8 +357,18 @@ class TestClosurePassD:
         # makes that vouching true rather than promised: delete the seeding step from init's
         # SKILL and this goes red, which is exactly when the class would have to become
         # `recreate-on-demand`. Never delete or invert it.
+        # REGION-SCOPED, not a whole-file substring: the config path now appears in several
+        # places in that skill (the solo exclude list, the escape-valve prose, the report
+        # group), so a bare `in text` would stay green with the SEEDING STEP deleted. Anchor on
+        # the step-7b heading, asserted UNIQUE so it can never be satisfied by an ordinal.
         init_skill = (Path(__file__).resolve().parent.parent / "skills" / "init" / "SKILL.md")
-        assert ".claude/claugentic-doc-budgets.json" in init_skill.read_text(encoding="utf-8")
+        text = init_skill.read_text(encoding="utf-8")
+        heading = "**(b) Seed the doc-budget caps config"
+        assert text.count(heading) == 1, "init's step-7b seeding heading is missing or doubled"
+        assert ".claude/claugentic-doc-budgets.json" in text.split(heading, 1)[1], (
+            "the step-7b SEEDING step is what generates the adopter's caps — a mention of the "
+            "path elsewhere in the skill is not a writer, and Pass D vouches for a writer."
+        )
 
     def test_init_delivers_the_budget_gate_script(self):
         # WAS THE TRIPWIRE for the OTHER forward promise 0041 S6 wrote — DELIVERY, a different
@@ -370,9 +381,20 @@ class TestClosurePassD:
         # NOT delivery: before S7, a scratch adopter repo running the shipped command got exit
         # 2 (no such file), and the plugin's own copy anchors to its own checkout — a verdict
         # about the plugin clone, never the reader's repo.
+        # REGION-SCOPED (Stage-7 R3, measured): a whole-file substring went VACUOUS the moment
+        # S7's own prose started naming the delivered path — 8 occurrences, so deleting the
+        # managed-set ROW left the whole suite green. Delivery lives in exactly one place: a
+        # row in the step-3 table. Anchored by UNIQUENESS of the table's own delimiters, never
+        # by line number or ordinal.
         # NOTE: this test only READS init's SKILL. It must never edit it.
         init_skill = (Path(__file__).resolve().parent.parent / "skills" / "init" / "SKILL.md")
-        assert "scripts/claugentic-check_doc_budgets.py" in init_skill.read_text(encoding="utf-8")
+        text = init_skill.read_text(encoding="utf-8")
+        assert text.count("The managed set is exactly:") == 1
+        table = text.split("The managed set is exactly:", 1)[1].split("**Per file", 1)[0]
+        assert re.search(r"^\|\s*`scripts/claugentic-check_doc_budgets\.py`\s*\|", table, re.M), (
+            "the step-3 managed-set row is what DELIVERS the gate into an adopter repo — a "
+            "mention of the path anywhere else in the skill is not delivery."
+        )
 
     def test_recreate_on_demand_is_accepted_by_the_class_not_init(self, at_repo_root):
         # The plan-gate's taxonomy fix: recreate-on-demand members (INVARIANTS/PRODUCT/

@@ -602,36 +602,54 @@ then stays model-upheld via the CLAUDE.md authority anchor.
   `.githooks`.** When both hold, **skip** (write nothing, set nothing) and report
   "pre-commit hook already wired" — a re-run is a no-op on this. Read `core.hooksPath` with
   `git config --get core.hooksPath` before setting it.
-  - **The ONE bounded reconciliation (an existing wrapper predates the doc-budget chain).**
-    "Already wired" is keyed on **presence**, so a repo `init`'d before the budget gate was
-    chained keeps a one-gate wrapper forever and never gets the budget signal at commit time.
-    Exactly one shape is repaired, and only that one:
-    - **Compare RUN LOGIC, not bytes.** Take the on-disk wrapper's executable lines (drop
-      blank lines and whole-line comments — comment headers legitimately differ between the
-      two homes) and compare them to the template above **minus its
-      `run_gate scripts/claugentic-check_doc_budgets.py || rc=1` line**, which is exactly the
-      PRIOR shipped shape.
-    - **Exactly equal → REFRESH IN PLACE.** The file is an unmodified harness wrapper, so
-      rewrite it with the current template (comments and all) and report **"wrapper: refreshed
-      (chained the budget gate)"**.
-    - **ANY other difference → NEVER CLOBBER.** The adopter (or a newer/older harness
-      version) has edited that file; a rewrite would destroy their work. Write nothing, and
-      report the exact one-line fix: *"add `run_gate scripts/claugentic-check_doc_budgets.py
-      || rc=1` immediately after the tree-gate line in `.githooks/pre-commit`"* — with no args,
-      because that gate reads none. Same stop-if-ambiguous posture as step 3.
+  - **The ONE bounded reconciliation (an existing wrapper does not carry the budget chain).**
+    "Already wired" is keyed on **presence**, so without this a repo that already has a wrapper
+    keeps whatever it has forever and never gets the budget signal at commit time. **Compare
+    RUN LOGIC, not bytes** — take the on-disk wrapper's executable lines (drop blank lines and
+    whole-line comments; comment headers legitimately differ between the two homes) and compare
+    them to the template above. **Three branches, in this order:**
+    - **(1) Run logic equals the current template → ALREADY CHAINED.** Write nothing, set
+      nothing, report **"pre-commit hook already wired (budget gate chained)"**. This is the
+      normal state of every settled re-run, and it must be enumerated first: without it a
+      re-`init` would fall through to branch (3) and tell the user to add a line that is
+      already there — applying which would run the gate twice.
+    - **(2) Run logic equals THIS VERSION'S SHAPE WITHOUT the budget-gate line → REFRESH IN
+      PLACE.** Rewrite it with the current template (comments and all) and report **"wrapper:
+      refreshed (chained the budget gate)"**. **Scope it honestly in the report — this is not
+      "the previously shipped wrapper".** No released version has ever shipped this shape; a
+      wrapper matching it came from a development checkout of the harness.
+    - **(3) Anything else → NEVER CLOBBER, and never assert authorship.** Report: *"the
+      on-disk run logic is not this version's shape — it may be an older harness wrapper or
+      your own edit; either way it is never rewritten."* Then give a **SHAPE-AWARE** remedy,
+      because the wrong one is destructive:
+      - **The wrapper defines a `run_gate` function** → report the one-line addition: *"add
+        `run_gate scripts/claugentic-check_doc_budgets.py || rc=1` immediately after the
+        tree-gate line"* — no args, because that gate reads none.
+      - **It does NOT** → report instead: *"your wrapper predates the `run_gate` shape (v0.5.1
+        and earlier) — that one-line addition does not apply to it and **must not be pasted
+        in**: `run_gate` is undefined there, and the inserted line's exit status can mask the
+        tree gate's own (measured — a red tree gate exits 0). The safe repair is to move the
+        wrapper aside and re-run `init`, or to replace it with the template above after
+        diffing your own changes in."* **Never print a remediation line you have not checked
+        against the wrapper the reader actually has.**
     - **A repo with NO wrapper gets NO chain, and that is reported, not silently skipped** —
       gate-off (Keep-mine-gate-off) repos have no `.githooks/pre-commit` to chain into, so
       they get **no commit-time budget signal at all**; the budget gate is still delivered and
       still runs when invoked, and `/doctor`'s advisory still reads the same caps config.
-    - **Solo mode:** identical rule against `.git/hooks/pre-commit`.
+    - **Solo mode:** identical three-branch rule against `.git/hooks/pre-commit`.
 - **Never-clobber `core.hooksPath`.** If `core.hooksPath` is already set to **something
   other than `.githooks`**, the adopter has their own hook directory — **do NOT overwrite
   it.** Report the conflict (e.g. "core.hooksPath is set to `<value>`; the tree gate's
   `.githooks/pre-commit` was written but not activated — point `core.hooksPath` at it or
-  chain it from your own hooks") and **continue** (write `.githooks/pre-commit` so the
-  wrapper is on disk, but leave their config untouched). This is the same fail-loud,
+  chain it from your own hooks") and **continue** (put the wrapper on disk at
+  `.githooks/pre-commit`, but leave their config untouched). This is the same fail-loud,
   stop-if-ambiguous posture as the rest of `init` — never silently clobber the adopter's
-  hook config.
+  hook config. **"Put it on disk" is create-or-reconcile, never a blind write:** if
+  `.githooks/pre-commit` already exists, run the **same three-branch compare** as the
+  idempotency bullet above (already-chained → write nothing · this version's shape minus the
+  budget line → refresh · anything else → leave it and report the shape-aware remedy). This
+  branch is the one a **husky** repo takes, so the file it would overwrite is exactly the
+  wrapper a pre-existing adopter is relying on.
 - **Husky repos — OFFER to chain (otherwise the gate is written-but-inactive).** Husky points
   `core.hooksPath` away from `.githooks`, so the never-clobber branch above leaves the wrapper
   on disk and **dead**. This is an **ordered procedure — each step is a precondition of the
@@ -958,7 +976,8 @@ no config it is a quiet exit-0 no-op — and it is the same file `/doctor`'s bud
   }
   ```
   **Why exactly these five keys — the rule is "cap only what this same run guarantees
-  exists":** `CLAUDE.md` comes from step 6; `DECISIONS.md`, `ROADMAP.md` and `CHARTER.md` come
+  exists":** `CLAUDE.md` comes from step 6 **in shared mode** (solo writes `CLAUDE.local.md`
+  instead — see the anchoring bullet below); `DECISIONS.md`, `ROADMAP.md` and `CHARTER.md` come
   from the seeds above; the `docs/claugentic-decisions/*.md` glob is a **shape**, not a file, and
   a glob matching nothing is skipped silently — so it is safe from day one and needs no edit when
   the ledger is later sharded. (It also structurally excludes the managed full-copy docs: they
@@ -967,15 +986,31 @@ no config it is a quiet exit-0 no-op — and it is the same file `/doctor`'s bud
   breach — *even under `reportOnly`*, which graces the size verdict only — and
   `docs/claugentic-INVARIANTS.md` is created **lazily, on demand** by the workflow, not by
   `init`. **Do not copy the harness's own config**: it caps `INVARIANTS.md` because this repo
-  has one, and its numbers are this repo's load profile.
-- **The numbers are recommendations from this repo's load profile, not telemetry** (there is
-  none, by design — the harness collects nothing). They encode load: `CLAUDE.md` is tight
+  has one, and its numbers are that repo's load profile.
+- **Anchor every key to what THIS run actually leaves on disk — the mode matters.** In **solo
+  mode** the harness anchor is **`CLAUDE.local.md`** (solo divergence (d)) and the committed
+  `CLAUDE.md` is left byte-untouched — in a repo that has none, it stays absent. So in solo
+  mode **seed `CLAUDE.local.md` in place of the `CLAUDE.md` key**, at the same cap. (The three
+  step-7a ledger seeds are written to disk in both modes — divergence (a) only excludes them
+  from git — so they need no substitution.) **General safety clause, applied last:** before
+  writing, **drop any non-glob key whose target does not exist on disk at the end of this
+  run.** A cap on an absent file is a hard exit 1 that `reportOnly` cannot grace, and with the
+  gate chained into the hook that blocks **every commit** — a fresh adopter's first one
+  included. A glob key is exempt: it declares a shape, and zero matches is a silent skip.
+- **The numbers are the HARNESS's own load-profile recommendations — not measurements of your
+  repo, and not telemetry (there is none, by design — the harness collects nothing).** Say it
+  that way in the report: an agent writing from inside the adopter's repo must not imply the
+  caps were derived from *their* ledgers. They encode load: `CLAUDE.md` is tight
   because it is always loaded; a sharded decisions ledger caps the routing index far tighter
   than a shard; `CHARTER.md` is an on-demand per-work-type record that should stay skimmable.
   Say so in the report, and say that tuning them is a one-line edit plus a dated
   `docs/claugentic-DECISIONS.md` line (`docs/claugentic-WORKFLOW.md` → the escape-valve ladder).
 - **Day-one-over — the grace flag, NEVER a bigger number.** Before writing, **measure** each
-  seeded path that already exists (`len(read_bytes())` — bytes, not characters). For any file
+  seeded path that already exists (`len(read_bytes())` — bytes, not characters) — **and for
+  the glob entry, expand it and measure EVERY match**, because the cap applies per matched
+  file: an adopter who sharded their decisions ledger before adopting would otherwise take a
+  strict breach on their first commit, the exact hard block this rule exists to prevent. Any
+  match over cap ⇒ seed **that entry** `reportOnly`. For any file
   already **over** its recommended cap, write that entry in the object form
   `{"max": <the recommended number>, "reportOnly": true}` — the cap stays honest and the breach
   is reported loudly at every run while passing. **Never seed a cap raised to fit** the current
@@ -1246,10 +1281,14 @@ Then emit the clear summary, grouped:
   `--staged`, then the doc-budget check with no args), named **per mode**: **shared** →
   `.githooks/pre-commit` written + `core.hooksPath=.githooks` set (gate ON); **solo** →
   `.git/hooks/pre-commit` written (gate ON, local + untracked, no `core.hooksPath` change);
-  "pre-commit hook already wired" (idempotent re-run) — and when an existing wrapper predates
-  the budget chain, the reconciliation outcome: **"wrapper: refreshed (chained the budget
-  gate)"** when its run logic was the unmodified prior shape, or the **never-clobber** report
-  naming the exact one-line addition when it had been edited. **Gate OFF ⇒ no wrapper ⇒ no
+  "pre-commit hook already wired (budget gate chained)" (the settled re-run) — and when an
+  existing wrapper does not carry the chain, whichever of the other two reconciliation
+  outcomes applies: **"wrapper: refreshed (chained the budget gate)"** when its run logic was
+  this version's shape without the budget line, or the **never-clobber** report — which names
+  neither the adopter nor an author, and whose remedy is **shape-aware** (the one-line
+  addition only for a `run_gate` wrapper; for a v0.5.1-or-earlier wrapper, the
+  move-aside-and-re-init instruction instead — pasting the line there disarms the tree gate).
+  **Gate OFF ⇒ no wrapper ⇒ no
   commit-time budget signal** — say that plainly rather than leaving it unsaid; the gate is
   still on disk and still runs when invoked. Also flag a `core.hooksPath` **conflict**
   (the adopter has their own hooks path — see step 5b, both modes), or **"tree-gate OFF — no
@@ -1329,9 +1368,10 @@ At a fixed installed version it holds because:
   re-run case.
 - The **pre-commit hook** is "already wired" when `.githooks/pre-commit` exists AND
   `core.hooksPath` is `.githooks` → a re-run writes nothing and sets nothing. **The one bounded
-  exception is convergent, not repeating:** a wrapper whose run logic is exactly the PRIOR
-  shipped shape is refreshed once to chain the budget gate, after which it matches the current
-  template and every later run is a no-op again (any other divergence is never touched at all).
+  exception is convergent, not repeating:** a wrapper whose run logic is this version's shape
+  without the budget line is refreshed once to chain the gate, after which it equals the
+  current template and every later run takes the already-chained branch — a no-op (any other
+  shape is never touched at all, so it is a no-op too, with a report).
   **Gate-off
   wires no hook, so there is nothing to write on a re-run** (the recorded `keep-gate-off`
   suppresses re-wiring). The **`.claude/settings.json` plugin self-reference** merge is keyed
@@ -1371,11 +1411,12 @@ dirties the repo, an idempotency guard is missing — that is a bug, not expecte
 - It does **not** generally reconcile the pre-commit wrapper **contents** when the shipped
   wrapper changes between versions — idempotency keys on the hook's presence (+
   `core.hooksPath=.githooks` in shared mode; the `.git/hooks/pre-commit` presence in solo
-  mode). **Exactly one shape is repaired** (step 5b): a wrapper whose run logic is
-  byte-for-byte the PRIOR shipped shape gets the doc-budget chain line. Anything else — an
-  adopter-edited wrapper, an older or newer unknown shape — is **never rewritten**; you get the
-  one-line fix in the report instead (general version-to-version reconciliation stays on the
-  roadmap).
+  mode). **Exactly one shape is repaired** (step 5b): a wrapper whose run logic is this
+  version's shape without the budget line gets the chain line added. Anything else — a wrapper
+  from **v0.5.1 or earlier** (which no `init` re-run will auto-chain), or one you edited — is
+  **never rewritten**; you get a shape-aware report instead. General version-to-version
+  wrapper reconciliation, including an upgrade path for released-era wrappers, stays on the
+  roadmap.
 - **In solo / local-only mode it does NOT** declare the plugin for teammates, edit your
   committed `.gitignore`, or set any shared git config — solo adoption is invisible to
   teammates by design (everything lives on this clone via `.git/info/exclude`,

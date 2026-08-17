@@ -104,7 +104,7 @@ Each entry: **the invariant** · **why** (what breaks if violated) · **enforcem
   adopter's context though every harness-self test was green.
 - **Provenance —** 2026-06-25 (plan 0027): two instances — (1) shipped WORKFLOW / build-SKILL said a
   plan is "structured by `TEMPLATE.md`" while `.claude/plans/` (the template's home) is stripped
-  wholesale (a degraded dangling ref); and the stronger (2) `check_doc_budgets.py` shipped and — new at
+  wholesale (a degraded dangling ref); and the stronger (2) the doc-budget gate shipped and — new at
   0.3.0, after plan 0024 added the `INVARIANTS.md` budget row — **fail-louded on the lazily-created
   `INVARIANTS.md`**, a hard error a fresh 0.3.0 adopter would hit. (Ships again from 0041 S6 —
   absent CONFIG = quiet no-op; a cap on an ABSENT file still exits 1 even under `reportOnly`,

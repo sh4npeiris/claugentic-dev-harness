@@ -68,6 +68,11 @@ BUDGET_GATE_REL = "scripts/claugentic-check_doc_budgets.py"
 SKIP_NOTICE = "claugentic gates SKIPPED"
 MISSING_GATE_NOTICE = "claugentic gate SKIPPED"
 
+# ...and that disjointness is ASSERTED, not assumed: two cases below are written as
+# `X not in stderr`, which would pass vacuously the moment one notice became a substring of
+# the other (they are one character apart — "gates" vs "gate").
+assert SKIP_NOTICE not in MISSING_GATE_NOTICE and MISSING_GATE_NOTICE not in SKIP_NOTICE
+
 # A silent, passing gate — planted as the SECOND gate in every case that is really about the
 # first one. Repairing the single-gate assumptions this way (rather than by loosening
 # `stderr == ""` / "exactly one line" / "no missing-gate notice") is deliberate: those three
@@ -585,10 +590,12 @@ class TestTheSecondChainedGate:
     def test_a_red_first_gate_does_not_stop_the_second_and_both_reports_survive(
         self, sh, hook_repo
     ):
-        # RUN-BOTH-AND-REPORT, the whole reason the chain is `|| rc=1` rather than `&&`: drop
-        # the `|| rc=1` (or short-circuit on the first failure) and one of these two messages
-        # disappears, which is how a repo learns about its tree breach and its budget breach one
-        # commit apart instead of together.
+        # RUN-BOTH-AND-REPORT, the whole reason the chain is `|| rc=1` rather than `&&`.
+        # MEASURED, so the comment states the right failure: dropping `|| rc=1` from the FIRST
+        # line does not lose its message — the wrapper still prints it — it loses the EXIT
+        # CODE, so a red tree gate would let the commit through as long as the budget gate
+        # passed. Short-circuiting (`&&`) is the variant that loses the second gate's message
+        # entirely. This case pins both halves at once: rc, and both reports.
         hook_repo.gate(_SENTINEL_WRITE + "print('tree is stale')\nraise SystemExit(1)\n")
         hook_repo.budget_gate(
             _BUDGET_SENTINEL_WRITE + "print('LEDGER over budget')\nraise SystemExit(1)\n"
@@ -718,6 +725,10 @@ def _run_logic(script: str) -> list[str]:
 
 
 RUN_GATE_CALL_RE = re.compile(r"^run_gate\s+(scripts/\S+)")
+# The hook's Python floor, as IT states it. Module-level so the two readers below — the
+# ast/floor pin and doctor's restated-probe pin — genuinely share one spelling of "where
+# the floor lives"; a second inline copy is what the comment used to claim was absent.
+FLOOR_RE = re.compile(r"sys\.version_info >= \((\d+), (\d+)\)")
 
 
 def _chained_gates(script: str) -> list[str]:
@@ -751,9 +762,9 @@ class TestTheHookWiredSetParsesAtTheWrapperFloor:
 
     @staticmethod
     def _floor() -> tuple[int, int]:
-        # The same regex `test_doctors_restated_probe_stays_in_step_with_the_hook` reads the
-        # floor with — one spelling of "where the floor lives", not two.
-        match = re.search(r"sys\.version_info >= \((\d+), (\d+)\)", HOOK.read_text(encoding="utf-8"))
+        # Module-level `FLOOR_RE` — the SAME object
+        # `test_doctors_restated_probe_stays_in_step_with_the_hook` reads the floor with.
+        match = FLOOR_RE.search(HOOK.read_text(encoding="utf-8"))
         assert match, "the hook must state its floor as a version tuple"
         return (int(match.group(1)), int(match.group(2)))
 
@@ -818,6 +829,39 @@ class TestTemplateParity:
         assert any(SKIP_NOTICE in line for line in logic)
         assert any(MISSING_GATE_NOTICE in line for line in logic)
 
+    def test_the_prose_remediation_quotes_the_real_chain_line(self):
+        # `init`'s never-clobber branch PRINTS a line for an adopter to paste by hand. If that
+        # prose drifts from the template's actual chain line, the harness hands out an
+        # instruction that does not reproduce what it would have written itself.
+        # WHITESPACE-NORMALIZED, never line-scoped: the SKILL hard-wraps that sentence
+        # mid-line, so a raw substring search would go green on a wrap and prove nothing.
+        chain = next(
+            line for line in _run_logic(_wrapper_template())
+            if line.endswith(f"{BUDGET_GATE_REL} || rc=1")
+        )
+        prose = " ".join(_init_skill_text().split())
+        assert " ".join(chain.split()) in prose, chain
+
+    def test_the_reconciliation_states_all_three_branches(self):
+        # The three-branch rule is PROSE (init is a prose skill), so deleting a branch is
+        # invisible to every other pin — and each branch guards a different real repo:
+        # already-chained (the settled re-run), refresh (a dev-checkout-shaped wrapper), and
+        # never-clobber (everything else, including every RELEASED wrapper). The shape-aware
+        # half is pinned too: a v0.5.1-era wrapper has no `run_gate`, and pasting the chain
+        # line into one masks the tree gate's exit status (measured at Stage 7).
+        prose = " ".join(_init_skill_text().split())
+        for required in (
+            "ALREADY CHAINED",                      # branch 1
+            "pre-commit hook already wired (budget gate chained)",
+            "REFRESH IN PLACE",                     # branch 2
+            "NEVER CLOBBER, and never assert authorship",  # branch 3
+            "SHAPE-AWARE",
+            "it may be an older harness wrapper or your own edit",
+            "predates the `run_gate` shape (v0.5.1 and earlier)",
+            "must not be pasted in",
+        ):
+            assert required in prose, required
+
     def test_neither_home_merges_stderr_into_the_captured_stream(self):
         # The stream contract at the text level: the GATE invocation must carry no redirection.
         # (`2>&1` is legitimate on the probe line, which deliberately discards both streams —
@@ -846,7 +890,7 @@ class TestTemplateParity:
         # in the same change.
         hook = HOOK.read_text(encoding="utf-8")
         doctor = (REPO_ROOT / "skills" / "doctor" / "SKILL.md").read_text(encoding="utf-8")
-        floor = re.search(r"sys\.version_info >= \((\d+), (\d+)\)", hook)
+        floor = FLOOR_RE.search(hook)
         assert floor, "the hook must state its floor as a version tuple"
         assert f"sys.version_info >= ({floor.group(1)}, {floor.group(2)})" in doctor
         assert re.search(r"for cand in python3 python", hook), "candidate order is the hook's"
@@ -1101,7 +1145,15 @@ class TestTheRealChainEndToEnd:
         root = tmp_path / "adopter"
         root.mkdir()
         subprocess.run(["git", "init", "-q", str(root)], check=True, capture_output=True)
-        for key, value in (("user.name", "Harness Test"), ("user.email", "test@example.invalid")):
+        for key, value in (
+            ("user.name", "Harness Test"),
+            ("user.email", "test@example.invalid"),
+            # Repo-local beats a hostile global. A contributor with `commit.gpgsign=true` in
+            # their global config would otherwise see this — the suite's only real `git
+            # commit` — fail at `returncode 128, gpg: signing failed`, a false RED on the one
+            # test that proves the chain reaches a human's terminal.
+            ("commit.gpgsign", "false"),
+        ):
             subprocess.run(["git", "-C", str(root), "config", key, value], check=True)
         # The wrapper, as init writes it, activated the way init activates it.
         subprocess.run(

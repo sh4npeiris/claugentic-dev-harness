@@ -46,9 +46,13 @@ tagged `vX.Y.Z`.
   ever clears that flag (`/claugentic-dev-harness:condense` does the work, you delete the flag).
   **Where it does NOT apply, stated plainly:** a repo that chose "keep my own tree, gate off"
   has no pre-commit wrapper, so it gets no commit-time budget signal — the gate is still on disk
-  and `/doctor` still runs it. An existing wrapper is only rewritten when it is byte-for-byte
-  the previously shipped one; if you have edited yours, `init` refuses to touch it and reports
-  the exact one-line addition instead. A machine with no working Python still commits, with one
+  and `/doctor` still runs it. **An existing wrapper is only rewritten when its RUN LOGIC —
+  comments and blank lines ignored, so a comment-only edit of yours can be rewritten — matches
+  this version's wrapper without the chain line.** Anything else is left alone and reported,
+  and that includes a wrapper installed by **v0.5.1 or earlier: those are never auto-chained**,
+  because they predate this wrapper shape entirely. For those `init` prints how to adopt the
+  new wrapper (move yours aside and re-run, or diff and replace) — deliberately **not** a
+  one-line paste, which would not work there. A machine with no working Python still commits, with one
   skip notice covering both gates. **The two mechanically-enforced gates are now the
   architecture-tree check and the doc-budget check** — everything else the harness claims stays
   model-upheld, and the docs say which is which.

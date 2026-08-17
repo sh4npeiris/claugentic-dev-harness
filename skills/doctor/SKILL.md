@@ -322,7 +322,7 @@ doctor regenerates it from scratch.
 |-------|--------|--------|
 | architecture-tree gate | green / breach | `[D]` exit code |
 | version-sync gate | green / breach / **N-A** | `[D]` exit code (N-A if script absent — harness-self) |
-| doc-budgets gate | green / WARN / breach / **N-A** | `[D]` exit code (+ any `WARN:` line, which arrives on **stderr**); **N-A whenever the script is not in THIS repo** — `init` delivers the repo-local copy, so N-A means init has not run here. Never run the plugin's copy instead |
+| doc-budgets gate | green / WARN / breach / **N-A** | `[D]` exit code (+ any `WARN:` line, which arrives on **stderr**); **N-A whenever the script is not in THIS repo** — `init` delivers the repo-local copy, so N-A means init has not run here, or the repo was adopted before the delivery step existed. Never run the plugin's copy instead |
 | shipped-content gate | green / WARN / breach / **N-A** | `[D]` exit code (+ `WARN:` line); N-A if script absent — harness-self |
 | adopter doc-budget advisory | green / condense-soon / **N-A** | `[J] advisory (read-only — not a gate)` — `[D]` byte figure, `[J]` "condense soon"; N-A if no caps config |
 | landed plan present | flag | `[J]` classification |

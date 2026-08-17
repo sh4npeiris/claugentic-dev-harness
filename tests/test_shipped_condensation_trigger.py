@@ -16,16 +16,16 @@ ship-class change as HISTORY (see `HISTORICAL_RE`):
 
   * **Unreachability claims** — a sentence in doc-budget context asserting the WARN cannot
     fire / cannot be produced / the gate is stripped.
-THE GATE WAS RENAMED IN 0041 S7 (`scripts/claugentic-check_doc_budgets.py`, born-prefixed so
-`init` can deliver it), and both scans deliberately keep matching the BARE `check_doc_budgets.py`
-token: released CHANGELOG history spells the old path and is never edited, while the prefixed
-basename contains the bare one — one token, both spellings, zero coverage lost. See `GATE_NAME`.
-
   * **Ship-class denials** — a shipped line that names `check_doc_budgets.py` AND carries an
     adopter-caveat marker. Fully mechanical, and it reuses the scanner's own marker vocabulary
     (`check_shipped_content.CAVEAT_MARKERS`) rather than a second copy: the same markers that
     CLEAR a Pass A.b warning for a stripped gate are the ones that are now FALSE about this
     one. Mirror-image passes over one vocabulary.
+
+THE GATE WAS RENAMED IN 0041 S7 (`scripts/claugentic-check_doc_budgets.py`, born-prefixed so
+`init` can deliver it), and both scans deliberately keep matching the BARE `check_doc_budgets.py`
+token: released CHANGELOG history spells the old path and is never edited, while the prefixed
+basename contains the bare one — one token, both spellings, zero coverage lost. See `GATE_NAME`.
 
 HONEST SCOPE — what these two scans do NOT catch (measured, not estimated). Running the landed
 scans over the BASE shipped corpus (the exact copy this slice deleted) finds **10 candidate

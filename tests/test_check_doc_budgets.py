@@ -1271,7 +1271,11 @@ class TestTheInitSeedBlock:
 
     def test_the_seed_caps_exactly_what_that_init_run_creates(self, tmp_path):
         # The positive half of the same rule, spelled out so a future key has to justify itself:
-        # CLAUDE.md (step 6) + the three step-7a ledger seeds + the zero-match-safe shard glob.
+        # CLAUDE.md (step 6 — in SHARED mode; solo writes `CLAUDE.local.md` and the skill's
+        # anchoring bullet substitutes the key, which is why this literal block is the shared
+        # shape and the mode-awareness lives in prose) + the three step-7a ledger seeds + the
+        # zero-match-safe shard glob. Measured at Stage 7: a cap on a file the run never
+        # creates blocks EVERY commit, and `reportOnly` cannot grace it.
         assert set(self._seed(tmp_path)) == {
             "CLAUDE.md",
             "docs/claugentic-DECISIONS.md",
@@ -1306,6 +1310,11 @@ class TestTheInitSeedBlock:
         assert '{"max": <the recommended number>, "reportOnly": true}' in text
         assert "Never seed a cap raised to fit" in text
         assert "nothing mechanical ever clears a `reportOnly` flag" in text
+        # ...and the MODE-AWARE anchoring rule, which the five-key literal above cannot carry.
+        # Measured at Stage 7: without it a fresh SOLO adopter's very first commit is refused
+        # forever, because solo writes `CLAUDE.local.md` and never creates `CLAUDE.md`.
+        assert "CLAUDE.local.md" in text
+        assert "drop any non-glob key whose target does not exist on disk" in text
 
 
 class TestInvokedFromASubdirectory:
