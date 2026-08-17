@@ -23,7 +23,7 @@ Evaluate against the **Stage-3 gate**:
 4. **Right path** — full-pipeline vs lightweight was chosen correctly (Stage 0).
 5. **Risks & test strategy** are explicit and adequate (incl. regression/snapshot tests where existing behavior or output could change).
 6. **Over-engineering (YAGNI)** — call out speculative abstraction or scope creep; simpler-that-works beats clever.
-7. **Harness impact** — does this imply a new STANDARD, agent, or doc update (Stage 9)? Name it.
+7. **Harness impact** — does this imply a new STANDARD, agent, or doc update (Stage 9)? Name it, and name where it LANDS: those homes are plugin-side, so in an adopter repo the edit is staged locally and sent upstream (`docs/claugentic-WORKFLOW.md` → *The learning loop* branches the destinations by repo type).
 8. **Architecture & holistic fit** — for substantial work, is the plan's *Architecture & holistic fit* section **genuinely reasoned, not hand-waved and not gold-plated**? Codebase fit is real (not boilerplate), the quality dimensions are mapped to actual `docs/claugentic-standards/` modules, YAGNI respected. A trivial/lightweight change may give it a one-liner or skip it.
 
 Be specific and cite `file:line`. Prefer a few high-impact findings over a long list of nits. If a slice is fine, say so — don't invent problems.

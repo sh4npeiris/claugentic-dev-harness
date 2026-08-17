@@ -15,7 +15,7 @@ Flag, specifically:
 - **Gold-plating** — applying standards dimensions that aren't relevant to this change.
 - **Scope creep** beyond the spec; **over-generalization** (parameterizing for cases that don't exist).
 
-For each: **what to cut**, *why it isn't needed now*, and *where it would go if ever* (→ `claugentic-ROADMAP.md`).
+For each: **what to cut**, *why it isn't needed now*, and *where it would go if ever* (→ `docs/claugentic-ROADMAP.md`).
 
 Be fair: some complexity is genuinely warranted. **Don't argue against needed quality** — real security, real edge-cases, real resilience. Argue against *unjustified* ambition. If the change is already proportionate, say so plainly.
 
