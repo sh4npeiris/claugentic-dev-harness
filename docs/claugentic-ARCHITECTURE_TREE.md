@@ -80,7 +80,7 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 
 ## .claude-plugin/ — plugin manifest (makes this repo installable)
 
-- `.claude-plugin/plugin.json` — open to change the manifest: name/version/metadata; exposes the 8 agents via `agents` → `.claude/agents/*` (DRY); skills under `skills/`; ships ONE bundled hook (the SessionStart advisor).
+- `.claude-plugin/plugin.json` — open to change the manifest: name/version/metadata; exposes the bundled agents via `agents` → `.claude/agents/*` (DRY — the manifest IS the roster, no count restated here); skills under `skills/`; ships ONE bundled hook (the SessionStart advisor).
 - `.claude-plugin/marketplace.json` — single-plugin marketplace (`name: sh4npeiris`) so `/plugin marketplace add sh4npeiris/claugentic-dev-harness` → `/plugin install claugentic-dev-harness@sh4npeiris` works.
 
 ## skills/ — harness entry points (the `/claugentic-dev-harness:*` family)

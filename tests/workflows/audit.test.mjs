@@ -39,7 +39,7 @@ const EXPECTED_TERMINAL_SIGNAL =
   "Sound on the audited dimensions -- what remains is optional polish; you don't need to keep re-auditing.";
 
 const EXPECTED_GO_BUTTON =
-  "To start anything -- a backlog item or a brand-new project -- just tell the agent in plain English what you want (e.g. 'Let's do Tier-1 item 1' or 'I want to build X'). It will ask you questions (Discuss), then write a plan and spec for you to approve before any code. For a backlog item, the go-button is **`/claugentic-dev-harness:build`** -- point it at one item ('build Tier-1 item 1') and it drives the whole reviewed pipeline for you, pausing only at the spec (before any code) and before anything irreversible.";
+  "To start anything -- a backlog item or a brand-new project -- just tell the agent in plain English what you want (e.g. 'Let's do Tier-1 item 1' or 'I want to build X'). It will ask you questions (Discuss), then write a plan and spec for you to approve before any code. For a backlog item, the go-button is **`/claugentic-dev-harness:build`** -- point it at one item ('build Tier-1 item 1') and it drives the whole reviewed pipeline for you, pausing only at the spec (before any code) and before anything irreversible (pause points the engine enforces; judging \"irreversible\" is model-upheld).";
 
 const DEFERRED_PHRASE = "(! not yet verified -- re-run to confirm)";
 
