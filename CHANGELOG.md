@@ -137,6 +137,23 @@ tagged `vX.Y.Z`.
   its register (model-upheld, never a mechanical gate), matching the guardrail in the skill body.
   No mechanics changed in this entry: only the claims about them.
 
+- **The Stage-9 learning loop now has destinations that exist in YOUR repo — and says where a
+  lesson goes upstream.** The harvest destinations used to read as harness-self: "fold it into
+  the `.claude/agents/` role file", "edit this `WORKFLOW.md`", "promote to STANDARDS" — none of
+  which an adopter can do (the specialist agents live in the plugin install, and your standards
+  catalog and WORKFLOW are managed copies a re-`init` replaces). Those destinations now **branch
+  by repo type** where they are stated as a checklist (`docs/claugentic-WORKFLOW.md` → *The learning
+  loop*, and the `retrospect-harvester` role that points at it): a *universal* lesson is staged
+  in `docs/claugentic-standards/CANDIDATES.md` and sent **upstream**, a *repo-specific* one goes
+  to a home you already own. And "promote it upstream" finally says **where** — an issue or a
+  pull request at the plugin's own repo, written in prose exactly once so it cannot drift.
+  Two reviewer roles (`honesty-reviewer`, `product-designer`) also stop pointing at a
+  `CLAUDE.md` → "Honesty positioning" section that neither your `CLAUDE.md` nor the harness's own carries;
+  each states its premise **inline** instead. The **adopter note** — how WORKFLOW's references
+  resolve inside your project — moves from the middle of `WORKFLOW.md` to its **intro**, so you
+  read it before the references it corrects rather than a hundred-odd lines later. Nothing new is
+  enforced here: this is copy, plus three regression pins that keep it from rotting back.
+
 ### Not changed (by design)
 
 - **The eval-drift check stays model-upheld.** CI does not run `eval/BASELINE.md`; nothing
