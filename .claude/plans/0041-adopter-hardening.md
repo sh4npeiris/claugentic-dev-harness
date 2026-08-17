@@ -1307,3 +1307,73 @@ _Grounded 2026-08-15 by direct reads at `main` 3dcf073 (a four-site copy slice �
 - **Acceptance criteria:** full battery green both cwds · validate green · repo-wide grep finds zero remaining instances of the four over-claim phrasings in live copy (released CHANGELOG history exempt) · both manifests changed together · the Verify panel is **right-sized: honesty-reviewer + docs-traceability lens → synthesizer verdict** (three agents — the slice is pure trust-copy; the effort dial exists for exactly this).
 - **Sizing:** 4 content files + CHANGELOG — the plan's smallest slice; one session, no split.
 - **Pre-registered land obligations (from the S7 Stage-9 harvest, 2026-08-17 — ID'd per the new synthesizer-gate rule):** **S8-L1** — the `pre-merge-commit` gating-gap Bug entry lands in ROADMAP's Bugs section WITH its paired condensation (the harvest names the levers: the *Multi-charter* and *Restrict pushes to `release`* entries hold ~224 B; the merged file must stay under the 12,600 WARN, measured on the MERGE tree per the new Land rule). The durable rule already landed (Silent-disarm's merge-path shape + WORKFLOW's Land merge-tree bullet, harvest/0041-s7); S8-L1 is the WORK-ITEM filing. **S8-L2** — one-clause precision candidate flagged by the harvest: the swept "mechanically enforced … where wired" register is marginally over-scoped (merge commits are not hook-gated); a one-clause scope on the WORKFLOW/honesty-reviewer sentences ONLY (never CLAUDE.md — 36 B headroom), adjudicated by the S8 verify panel.
+
+### Slice 8 — Verify verdict (Stage 7)
+
+RUNNING AS: Fable 5 (`claude-fable-5`) — the session model, overriding the agent definition's opus pin (529 Overloaded at launch). Same family as the builder and both panel lenses: this is a clean-context role-independent pass, **not** a model-independent one — tag it a same-model run. (Both panel lenses ran the same override and state it in their reports.)
+
+# Stage-7 verdict — plan 0041 Slice 8 (copy honesty pass) · `feat/0041-s8-copy-honesty` @ `2df0279` (base `0a5eea7`)
+
+## VERDICT: CHANGES REQUIRED — four bounded edits (R2-a…R2-d); the next round is a **diff confirmation, not a re-gate**
+
+## What I re-executed (scratch worktree at `2df0279`, removed after)
+
+| Check | Result |
+|---|---|
+| Normalized wrap-tolerant scan, four over-claim classes, full branch tree | **[D]** C1/C2/C3 → ZERO in live copy (survivors: CHANGELOG past-tense + plan file, both exempt per spec). C4 survivors: the registered frontmatter `skills/build/SKILL.md:3` + the DECISIONS line quoting it. Matches both lenses. |
+| Trigger-scan cores + shipped-content | **[D]** `scripts/check_shipped_content.py` exit 0, zero WARN; `tests/test_shipped_condensation_trigger.py` + `tests/test_frontmatter_parses.py` → 54 passed. |
+| Both commit gates | **[D]** tree gate exit 0 · doc-budget gate exit 0, **zero WARN confirmed with stderr visible**. Note for the record: my briefing's "caps" (5,400 / 12,600 / 18,000) are the **90% WARN bands**; the repo's actual caps are 6,000 / 14,000-per-shard / 14,000 / 20,000. |
+| YAML/JSON parse | **[D]** both manifests `json.tool`-clean, versions untouched at 0.5.1; build-SKILL frontmatter `yaml.safe_load`-clean with the register present in `description`. |
+| Full pytest battery | **[D]** 640 passed in the worktree (one cwd; the both-cwds + 372-node claims re-run in round 2 anyway, see R2-c). |
+| "rc accumulator" trace | **[D]** `.githooks/pre-commit` ends `rc=0; run_gate …tree… || rc=1; run_gate …budgets… || rc=1; exit $rc` — both gates always run; the README clause is true. |
+| "wired by init" trace | **[D]** init SKILL step 5 writes the wrapper with **both** gates chained; gate-off writes no hook and no `core.hooksPath`. The manifests' phrasing is the honest attribution. |
+| Merge-commit gap | **[D]** `.githooks/` contains **only** `pre-commit` — no `pre-merge-commit`; the commit a clean `git merge` creates is not gated, and `--no-verify` bypasses. The S8-L2 fact base holds. |
+| Land-merge losslessness | **[D]** `git merge-tree --write-tree feat/0041-s8-copy-honesty harvest/0041-s7` → clean (tree `434a402`), rc 0; the two branches touch **disjoint** file sets. Merge-tree byte measures: CLAUDE.md 5,364 · deterministic-gates 12,506 · ROADMAP 12,452 · release-contract 12,449 · INVARIANTS 17,976 · honesty shard 4,001 — all at stated baselines, all zero-WARN. |
+| Pin exposure of the round-2 edits | **[D]** no test pins "run on every commit"; the `engine/audit.js:125` pitch is pinned verbatim exactly once (`tests/workflows/audit.test.mjs:42`); `CAVEAT_MARKERS` is a fixed six-phrase set and the denial scan is gate-basename-gated — every prescribed edit below is scan-safe. |
+
+## Required changes (fix-in-this-pass; round 2 = confirm these four diffs + re-run the named batteries)
+
+- **R2-a — `README.md:57`: "run on every commit" → "run at commit time".** Both lenses found the same real, measured gap; they prescribed different fixes, and I adopt the honesty lens's minimal form **in my own name, with the measurement**: (1) the fact base is the unwired `pre-merge-commit` + `--no-verify`, confirmed above; (2) the manifests' "commit-time gates" was adjudicated honest this very round on the ground that *commit-time names when, not coverage* — R2-a puts the README bullet in the same register, one front-door voice; (3) the docs-traceability lens's explicit ~55 B merge caveat would create exactly the drift it warned about — one surface saying "every commit" beside another saying "every non-merge commit" — across the sibling quantifier sites (`skills/init/SKILL.md:597`, `:740`, `:998`, `docs/claugentic-WORKFLOW.md:173`, init wrapper spec ~`:499`) that S8-L2's pre-registered scope does **not** sweep. Removing the quantifier creates no drift: a non-quantified surface cannot contradict a scoped one. The explicit caveat lands where S8-L2 put it plus the S8-L1 Bug entry. Deletion-safe, no pin needed (removing a claim cannot over-claim).
+- **R2-b — same bullet, honesty lens's nit, folded because the line is already open:** "the one-line bootstrap `init` prints" → "the one-line bootstrap `init` leaves in your CLAUDE.md". **[D]** init *writes* the check-first block into the committed CLAUDE.md fence; the teammate's reach-path is the file, not a transcript.
+- **R2-c — `engine/audit.js:125` + its verbatim pin `tests/workflows/audit.test.mjs:42`: register the rendered pitch's irreversible claim.** Found by the docs lens via the reverse-absorption rule: the engine's rendered pitch ("…pausing only at the spec (before any code) and before anything irreversible") is the last unregistered **asserting** member of the class in adopter-facing copy — the new DECISIONS doctrine's "do not re-sweep" fence covers commitments/imperatives, not this. I **upgrade the lens's "follow-up note" to fix-in-this-pass, in my own name**: the round is reopening anyway, the edit is bounded to one string + its lockstep pin, and a copy-honesty slice leaving the loudest surviving member of its own class live is the auditability failure this plan exists to close. **Wording constraint the lens's draft misses:** in engine mode the pause *points* are mechanical (engine returns — `skills/build/SKILL.md:82`); only the *detection* of "irreversible" is model judgment — the register must credit the first while marking the second (ASCII-only, e.g. `(pause points the engine enforces; judging "irreversible" is model-upheld)`), because a blanket model-upheld register would under-claim the engine's real returns and this repo's bar cuts both ways. Update the pin in the same commit; re-run the node workflows suite + `check_shipped_content.py`.
+- **R2-d — `README.md:71` under-inclusion, docs lens's fold-now, endorsed:** "Requires … Python 3 (for the codebase-map check; …)" credits one member of the pair line 57 just registered as two; the doc-budget check equally needs Python and equally skip-degrades **[D]**. One clause: "(for the two commit-time checks; without them the agent maintains the map by hand and the caps go unchecked)". Scan-safe, README uncapped.
+
+**Round-2 battery:** pytest both cwds · node workflows suite · `claude plugin validate --strict` · `check_shipped_content.py` · both gates · the four-class scan. Nothing else may drift.
+
+## Spec amendment (F1 — the finding refutes the spec, not the diff)
+
+- **As spec'd** (site 4): register "consistent with the body's existing **'Honest about its limits' framing**" — implying a body section. **Corrected:** the phrase exists **only in the frontmatter** (**[D]** grep: `skills/build/SKILL.md:3`, nowhere in the body); the register was correctly attached at the frontmatter claim + the body's authoritative Guardrails guardrail, whose WORKFLOW anchor resolves (**[D]**). Both lenses adjudicated the implementer correct; recorded as **S8-L3**.
+
+## Flag adjudications
+
+- **F1 — implementer CORRECT** (spec amended, S8-L3 records it). **F2 — CORRECT, both lenses concur, I concur** — the commitment/imperative sites enact rather than assert; the class's one genuinely *asserting* stray is `engine/audit.js:125` → R2-c; the rest are D-1/D-2. **F3 — CORRECT** (no unapproved file; test-first audit conditional and not triggered). **The should-fix — upheld, resolved as R2-a.**
+
+## Dispositions (numbered; discharge BY NAME at Land)
+
+**Fix-in-this-pass:** R2-a · R2-b · R2-c · R2-d.
+
+**Land obligations (owner: orchestrator):**
+- **S8-L1** (pre-registered) — ROADMAP Bug entry for the `pre-merge-commit` gating gap, **with its paired condensation, measured on the MERGE tree** (merge-tree ROADMAP = 12,452 B, WARN 12,600 → 148 B headroom; the ~224 B condensation levers at *Multi-charter* / *Restrict-pushes* are **load-bearing, not optional** — execute first, then measure). The Bug entry carries **one clause** naming the sibling "every commit" quantifier sites (init SKILL:597/:740/:998 · WORKFLOW:173 · init wrapper spec ~:499) so the eventual hook-fix sweep is findable; budget its bytes in the same measurement.
+- **S8-L2** (pre-registered, **adjudicated: LAND IT**) — the one-clause merge-commit scope on the WORKFLOW/honesty-reviewer "mechanically enforced … where wired" sentences **only**; never CLAUDE.md (**[D]** 36 B to WARN). Neither target is budget-managed. The README's inheritance is discharged by R2-a, not this.
+- **S8-L3** (new) — one line in the plan's S8 section recording the F1 spec amendment.
+
+**Explicitly dropped, with reasons:** **D-1** `PRODUCT.md:230-231` · `PRODUCT_SPEC.md:96` (design docs stating *intended* behavior — weakest assert-class, internal surfaces). **D-2** `PLAYBOOK.md:48` (commitment class, referent registered; sweeping would violate the slice's own DECISIONS fence). **D-3** `README.md:64` "9 specialist sub-agents" — **currently true [D]**; enumeration is the pitch's value; the count-restatement defect this slice fixed was in the *index*, where DRY forbids it. Known drift risk, accepted. **D-4** the bullet's benign understatements (the omitted glob-drift check; the `reportOnly` grace) — understatement is not over-claim.
+
+## Definition of Done
+
+| Gate | Status |
+|---|---|
+| AC: four-class grep zero in live copy | **Met [D]** (re-executed, wrap-tolerant) |
+| AC: both manifests one commit, JSON valid, versions untouched | **Met [D]** |
+| AC: battery green | **Met [D]** as re-executed; node + validate re-confirmed in round 2 |
+| AC: right-sized panel | **Met** |
+| Honesty | **Met after R2-a/R2-b** — everything else traced true against the wiring |
+| Docs-traceability | **Met after R2-c/R2-d + S8-L3** — deictics, reach facts, tree-locator fix, DECISIONS filing, CHANGELOG register all verified |
+| No new debt | **Met once R2-a…d land** — every defer carries an ID |
+| Land-merge with `harvest/0041-s7` | **Clean [D]** — conflict-free, disjoint files, all ledgers at baseline zero-WARN on the merge tree |
+
+## Plain English
+
+This slice is a large net honesty gain: three of the four rewritten front-door sentences now say exactly what the harness does — I traced every clause to the hook, the two gate scripts, and init's wiring myself, and they hold. Two things must change before it merges. First, the new README bullet promises the gates run on *every* commit, but a merge commit git creates on its own skips the hook entirely — a reader could trust a merged tree the gates never saw; deleting the quantifier ("run at commit time") fixes it without burying the front door in caveats, and the detailed gap gets its permanent homes at land. Second, the audit skill's closing pitch — rendered to real adopters — still asserts the pipeline "pauses before anything irreversible" with no register, the exact sentence-shape this slice exists to retire; one string plus its test pin fixes it. Two more one-clause touch-ups ride along in the already-open file. Worst case if shipped as-is: an adopter extends slightly more trust to merges and to unwatched pauses than the machinery warrants — small, but this slice's entire product is trust.
+
+**Bounded next round:** confirm the four R2 diffs line-by-line, re-run the named battery, verify nothing else moved — then PASS with S8-L1/S8-L2/S8-L3 discharged by name at Land. No third gate round.
