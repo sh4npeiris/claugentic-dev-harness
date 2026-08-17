@@ -16,13 +16,17 @@ pointer regressions are pinned here, each one a real defect this slice fixed:
      were reaching for now sits INLINE in each role file. Premise prose that merely
      mentions honesty positioning stays legal -- what is pinned is the POINTER FORM.
   2. **The adopter note's position.** `docs/claugentic-WORKFLOW.md` explains how its own
-     references resolve inside an adopter repo. That explanation is only useful BEFORE the
-     references it corrects, so it must precede the first stage heading (`## 0.`).
+     references resolve inside an adopter repo. That explanation belongs in the intro, so
+     the pin anchors on exactly that: the note precedes the first stage heading (`## 0.`).
+     Note the anchor is the INTRO boundary, not "every reference it corrects" -- the
+     greeting blockquote above the note names two plugin-resident paths of its own, and
+     placing the note above the greeting was rejected (0041 S9 Stage-7 amendment A1).
   3. **The named upstream channel.** WORKFLOW is the ONE canonical home for the
      contribution channel (the learning loop's "promote upstream" step). A condensation
      pass that drops the URL silently re-opens the loop this slice closed, so the URL --
-     read from the plugin manifest, never re-typed -- is pinned present, and pinned to
-     exactly one home (one canonical home per lesson; every other mention is a pointer).
+     read from the plugin manifest, never re-typed -- is pinned present, pinned to a single
+     occurrence within WORKFLOW, and pinned as the only shipped `.md` prose that carries it
+     (one canonical home per lesson; every other mention is a pointer).
 
 HONEST SCOPE. Pin 1 is a **proximity heuristic**, not a semantic check: it fires on
 `CLAUDE.md` and "honesty positioning" within 40 characters of each other with no sentence
@@ -185,9 +189,9 @@ class TestWorkflowAdopterNoteComesFirst:
         assert note and first_stage  # covered with a better message by the test above
         assert note.start() < first_stage.start(), (
             f"{WORKFLOW_PATH.name}: the adopter note sits at offset {note.start()}, AFTER "
-            f"the first stage heading at {first_stage.start()}. It explains how the "
-            "references BELOW it resolve inside an adopter repo, so a reader who meets "
-            "those references first has already been misled. Keep it in the intro."
+            f"the first stage heading at {first_stage.start()}. It explains how this doc's "
+            "references resolve inside an adopter repo, so a reader who reaches the stages "
+            "first has already been misled. Keep it in the intro."
         )
 
 
@@ -226,4 +230,30 @@ class TestWorkflowNamesTheUpstreamChannel:
             f"{WORKFLOW_PATH.name}: names {url} {count} times. The channel has ONE "
             "canonical home; point at it from anywhere else rather than repeating a URL "
             "that then drifts."
+        )
+
+    def test_no_other_shipped_prose_repeats_the_url(self) -> None:
+        # The other half of "one canonical home": WORKFLOW holds it once (above) AND no
+        # other shipped markdown carries a second copy. `.claude/plans/` is excluded
+        # deliberately -- a plan quotes the channel while specifying it, and plans are
+        # stripped from the release; `tests/` is this file's own quoting of it.
+        url = _plugin_repo_url()
+        excluded_prefixes = (".claude/plans/", "tests/", "node_modules/", ".git/")
+        candidates = [
+            (rel, p)
+            for p in REPO_ROOT.rglob("*.md")
+            for rel in [p.relative_to(REPO_ROOT).as_posix()]
+            if not rel.startswith(excluded_prefixes)
+        ]
+        assert len(candidates) >= 20, (
+            f"only {len(candidates)} markdown files in scope -- the exclusion prefixes "
+            "have swallowed the corpus and this scan would pass vacuously."
+        )
+        offenders = sorted(
+            rel for rel, p in candidates if url in p.read_text(encoding="utf-8")
+        )
+        assert offenders == [WORKFLOW_PATH.relative_to(REPO_ROOT).as_posix()], (
+            f"the channel URL must appear in exactly one shipped markdown file "
+            f"({WORKFLOW_PATH.name}); found it in: {offenders}. A second prose copy is a "
+            "second home that drifts -- point at the learning loop instead."
         )

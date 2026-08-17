@@ -142,14 +142,14 @@ tagged `vX.Y.Z`.
   the `.claude/agents/` role file", "edit this `WORKFLOW.md`", "promote to STANDARDS" — none of
   which an adopter can do (the specialist agents live in the plugin install, and your standards
   catalog and WORKFLOW are managed copies a re-`init` replaces). Those destinations now **branch
-  by repo type** in both places that state them (`docs/claugentic-WORKFLOW.md` → *The learning
+  by repo type** where they are stated as a checklist (`docs/claugentic-WORKFLOW.md` → *The learning
   loop*, and the `retrospect-harvester` role that points at it): a *universal* lesson is staged
   in `docs/claugentic-standards/CANDIDATES.md` and sent **upstream**, a *repo-specific* one goes
   to a home you already own. And "promote it upstream" finally says **where** — an issue or a
   pull request at the plugin's own repo, written in prose exactly once so it cannot drift.
   Two reviewer roles (`honesty-reviewer`, `product-designer`) also stop pointing at a
-  `CLAUDE.md` → "Honesty positioning" section that exists in neither your repo nor the harness's;
-  each states its premise **inline** instead. The **adopter note** — how this doc's references
+  `CLAUDE.md` → "Honesty positioning" section that neither your `CLAUDE.md` nor the harness's own carries;
+  each states its premise **inline** instead. The **adopter note** — how WORKFLOW's references
   resolve inside your project — moves from the middle of `WORKFLOW.md` to its **intro**, so you
   read it before the references it corrects rather than a hundred-odd lines later. Nothing new is
   enforced here: this is copy, plus three regression pins that keep it from rotting back.
