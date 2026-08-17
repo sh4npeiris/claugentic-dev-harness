@@ -94,10 +94,20 @@ for durable structural/domain context. Then the ledger entry becomes a **one-lin
 home, or is dropped entirely. **Promoting into INVARIANTS / CLAUDE.md respects THEIR caps too** — do
 not simply relocate the bloat; promote the distilled constraint, not the narrative.
 
-## STEP 4 — Merge duplicative sibling entries
+## STEP 4 — Merge duplicative siblings — ENTRIES, and the prose around them
 
 Collapse several dated one-liners about one subsystem into **a single dense current-state line** — the
 newest truth, not the diff that produced it. One subsystem, one current-state entry.
+
+**Sweep the NON-entry prose too — preamble, how-this-file-works blurbs, section-heading suffixes,
+repeated contract restatements.** A ledger accretes explanation the same way it accretes entries, and
+boilerplate duplicates across *kinds* of surface where an entry-only read never looks: one rule stated
+in the preamble, again under a heading, again inside an entry. State each contract **once**, in the one
+place a reader meets it first, and delete the echoes. **This lever is the whole pass on a ledger with no
+landed-records to absorb** — a forward backlog (a ROADMAP) holds live work by definition, so STEP 2's
+usual primary target is simply absent and STEPS 4-5 carry the reduction. *(0041 S9, measured: a ROADMAP
+condensation's single largest win — ~850 B of ~790 net — was one fence contract stated three times in
+the preamble and twice more in heading suffixes.)*
 
 ## STEP 5 — Trim re-derivable locators
 
