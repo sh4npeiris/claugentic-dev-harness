@@ -11,7 +11,8 @@
     only via `docs/claugentic-DECISIONS.md`"), so it is invisible in practice.
 
 This test pins both. It REPLACES the hand-maintained `REQUIRED_SHARDS` tuple that used to
-live in `scripts/check_doc_budgets.py` (plan 0041 Slice 4, absorbing the 0040-banked
+live in the doc-budget gate (`scripts/claugentic-check_doc_budgets.py` — renamed in Slice 7,
+unprefixed when the tuple was there) (plan 0041 Slice 4, absorbing the 0040-banked
 "index↔shards agreement test" item): that list guarded one direction only, and only for the
 shards someone remembered to type into it. A set relation derived from the two real
 artifacts guards both directions and needs no maintenance — which is also why the budget

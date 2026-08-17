@@ -46,9 +46,9 @@ Run each via the Bash tool and classify by exit code — **run them, do not re-i
 **The rule — payload membership and repo-local presence are TWO facts, and you run on the
 second.** The **tree gate and the doc-budget gate ship in the release payload**; the
 **harness-self gates** (version-sync, shipped-content) reason about the *plugin* rather than the
-reading repo, so the release strips them. **Shipping is not delivery:** `init` copies the tree
-gate into the adopter's repo, and the repo-local copy of the budget gate **arrives with plan
-0041 Slice 7's `init` step** — so outside this repo its script is simply not there today. So:
+reading repo, so the release strips them. **Shipping is not delivery:** `init` is what copies a
+gate into the adopter's repo, and it delivers **both** of these — but a repo `init` has never
+run in still has neither, and that is a presence fact, not a failure. So:
 **run each gate iff ITS OWN script is present in THIS repo** — per-script, never per-class. An
 ABSENT script is **N-A**, never a breach and never an error. (Per-script presence is the adopter
 signal — there is no separate "am I an adopter" flag.)
@@ -65,16 +65,16 @@ stdout-only capture reports a WARN run as a silent green, which is the one class
 that matters here.
 
 - **`python scripts/claugentic-check_architecture_tree.py`** — exit **0 = green** · exit **1
-  = breach** (a missing/stale entry or a zero-coverage glob-drift). The tree gate is the one
-  hook-enforced gate; here doctor just runs it ad-hoc and reports. **Always present, always run.**
+  = breach** (a missing/stale entry or a zero-coverage glob-drift). It is one of the two
+  hook-enforced gates (the doc-budget check is the other) in a repo whose pre-commit wrapper is
+  wired; here doctor just runs it ad-hoc and reports. **Always present, always run.**
 - **`python scripts/check_versions_synced.py`** — *(harness-self — N-A in an adopter; its
   script is stripped from the release)*. **If the script is present:** exit **0 = green** · exit
   **1 = breach** (`plugin.json` ↔ `marketplace.json` version drift, or a malformed manifest).
   **If absent:** mark **N-A**, do not run.
-- **`python scripts/check_doc_budgets.py`** — *(in the release payload; the repo-local copy
-  arrives with 0041 Slice 7's `init` step — under the managed prefix, per the recorded delivery
-  decision (`scripts/claugentic-check_doc_budgets.py`), so probe for **whichever of the two
-  names is present**: unprefixed in this repo, prefixed in a delivered adopter copy. Where the script IS present it measures THAT repo's
+- **`python scripts/claugentic-check_doc_budgets.py`** — *(in the release payload AND delivered
+  into an adopter repo by `init` — one path everywhere, under the managed prefix. Where the
+  script IS present it measures THAT repo's
   own ledgers against THAT repo's own caps — it is not harness-self)*. **If present:** exit
   **0 + no `WARN:` line = green** · exit **0 + a `WARN:` line = WARN** (a ledger ≥ 90% of its
   budget — the cue to condense before it hard-breaks) · exit **1 = breach** (a ledger over budget,
@@ -82,8 +82,8 @@ that matters here.
   `.claude/claugentic-doc-budgets.json` — the script holds none of its own**, so a repo with no
   config gets exit 0 and the plain note *"doc budgets are not configured for this repo; nothing
   measured"*. Report that as **green-with-nothing-measured**, never as "budgets pass". **If
-  absent** — the norm outside this repo today, because no `init` step delivers it yet (0041
-  Slice 7 does that; a pre-ship plugin install is the secondary case): mark **N-A**, do not run,
+  absent** — a repo `init` has not run in, or one adopted before the delivery step existed:
+  mark **N-A**, do not run, say that re-running `/claugentic-dev-harness:init` delivers it,
   and do **not** reach for the plugin's own copy (see *The rule* — its verdict is about the
   plugin clone's tree, never this repo's).
 - **`python scripts/check_shipped_content.py`** — *(harness-self — N-A in an adopter; its script is
@@ -106,8 +106,8 @@ source, and this section is where that source's shape and edge semantics are def
 module docstring describes the gate's behavior and defers here on the schema). The difference is
 register, not data: the gate returns an exit code and can fail a run; this read **runs no script,
 sets no exit code, and blocks nothing.** Use it to answer *"how close am I?"* on demand — and in
-**any repo that has no repo-local gate script**, which is every repo but this one until 0041
-Slice 7's `init` step delivers one, it is the **only** budget signal available.
+**any repo that has no repo-local gate script** (one `init` has never run in), it is the **only**
+budget signal available.
 
 - **The reader-contract — the caps config, stated exactly.**
   `.claude/claugentic-doc-budgets.json` is the ONE cap source per repo. Its root is a JSON
@@ -322,7 +322,7 @@ doctor regenerates it from scratch.
 |-------|--------|--------|
 | architecture-tree gate | green / breach | `[D]` exit code |
 | version-sync gate | green / breach / **N-A** | `[D]` exit code (N-A if script absent — harness-self) |
-| doc-budgets gate | green / WARN / breach / **N-A** | `[D]` exit code (+ any `WARN:` line, which arrives on **stderr**); **N-A whenever the script is not in THIS repo** — the norm outside this repo today; 0041 S7's `init` step delivers the repo-local copy. Never run the plugin's copy instead |
+| doc-budgets gate | green / WARN / breach / **N-A** | `[D]` exit code (+ any `WARN:` line, which arrives on **stderr**); **N-A whenever the script is not in THIS repo** — `init` delivers the repo-local copy, so N-A means init has not run here, or the repo was adopted before the delivery step existed. Never run the plugin's copy instead |
 | shipped-content gate | green / WARN / breach / **N-A** | `[D]` exit code (+ `WARN:` line); N-A if script absent — harness-self |
 | adopter doc-budget advisory | green / condense-soon / **N-A** | `[J] advisory (read-only — not a gate)` — `[D]` byte figure, `[J]` "condense soon"; N-A if no caps config |
 | landed plan present | flag | `[J]` classification |

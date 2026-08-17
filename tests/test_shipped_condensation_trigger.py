@@ -22,6 +22,11 @@ ship-class change as HISTORY (see `HISTORICAL_RE`):
     CLEAR a Pass A.b warning for a stripped gate are the ones that are now FALSE about this
     one. Mirror-image passes over one vocabulary.
 
+THE GATE WAS RENAMED IN 0041 S7 (`scripts/claugentic-check_doc_budgets.py`, born-prefixed so
+`init` can deliver it), and both scans deliberately keep matching the BARE `check_doc_budgets.py`
+token: released CHANGELOG history spells the old path and is never edited, while the prefixed
+basename contains the bare one — one token, both spellings, zero coverage lost. See `GATE_NAME`.
+
 HONEST SCOPE — what these two scans do NOT catch (measured, not estimated). Running the landed
 scans over the BASE shipped corpus (the exact copy this slice deleted) finds **10 candidate
 stale-claim lines and catches 4**. The residual is three whole shapes, and it is larger than a
@@ -67,9 +72,21 @@ import pytest
 import build_release as br  # the SINGLE ship classifier — see check_shipped_content.py
 import check_shipped_content as csc  # reuse its shipped-text reader + caveat vocabulary
 
-# The gate whose ship-class this file's whole premise rests on.
-GATE_PATH = "scripts/check_doc_budgets.py"
-GATE_NAME = Path(GATE_PATH).name
+# The gate whose ship-class this file's whole premise rests on. Born-prefixed at 0041 S7,
+# when `init` began DELIVERING it into adopter repos (the managed-file naming rule).
+GATE_PATH = "scripts/claugentic-check_doc_budgets.py"
+
+# THE SCAN TOKEN IS THE BARE BASENAME, DELIBERATELY — never `Path(GATE_PATH).name`. Released
+# CHANGELOG sections (never edited — they are history) name the gate at its OLD unprefixed
+# path, and stale ship-class copy about it is exactly what this file exists to catch; the
+# prefixed basename CONTAINS the bare one, so ONE bare token matches both spellings and the
+# scan loses nothing by the rename. Deriving it (rather than typing a literal) keeps the pin
+# on the rename: strip the managed prefix off the real path, so a second rename cannot leave
+# the token pointing at a file that no longer exists.
+# `TestTheScanTokenSpansBothSpellings` pins both directions.
+MANAGED_PREFIX = "claugentic-"
+GATE_NAME = Path(GATE_PATH).name[len(MANAGED_PREFIX):]
+LEGACY_GATE_PATH = str(Path(GATE_PATH).parent / GATE_NAME).replace("\\", "/")
 
 # Scope guard: only lines that are ABOUT doc budgets are candidates for an unreachability
 # claim. Without it, "the gate is stripped" would fire on legitimate copy about version-sync
@@ -172,6 +189,13 @@ class TestThePremise:
             "guard this file replaced (git history, plan 0038 Slice 1) rather than deleting "
             "the scan: with the gate stripped, the old failure mode returns."
         )
+
+    def test_the_scan_token_is_the_bare_basename_of_the_real_path(self):
+        # The derivation, pinned: GATE_NAME is GATE_PATH's basename minus the managed prefix.
+        # A hand-typed literal would survive a second rename silently; this does not.
+        assert GATE_PATH == f"scripts/{MANAGED_PREFIX}{GATE_NAME}"
+        assert GATE_NAME == "check_doc_budgets.py"
+        assert LEGACY_GATE_PATH == "scripts/check_doc_budgets.py"
 
     def test_the_marker_vocabulary_stays_in_step_with_the_scanner(self):
         # The denial vocabulary is DERIVED from the scanner's markers, minus exactly one
@@ -297,6 +321,40 @@ class TestStalePremisePatterns:
             )
         }
         assert find_ship_class_denials(texts) == []
+
+
+class TestTheScanTokenSpansBothSpellings:
+    """0041 S7: the gate was renamed, and the scans must still see BOTH spellings.
+
+    The bare token is what makes that true, and it is the kind of narrowing that fails
+    SILENTLY — a `Path(GATE_PATH).name` token would keep every existing case green (they all
+    use the prefixed path) while quietly ceasing to scan released history, the one corpus this
+    file can never fix by editing. Both directions are pinned: each spelling is CAUGHT when it
+    carries a live caveat, and neither is caught when the line is honest.
+    """
+
+    def test_a_caveated_mention_at_the_OLD_path_is_still_caught(self):
+        texts = {"CHANGELOG.md": f"run `python {LEGACY_GATE_PATH}` (N-A in an adopter)"}
+        assert len(find_ship_class_denials(texts)) == 1
+
+    def test_a_caveated_mention_at_the_NEW_path_is_caught(self):
+        texts = {"docs/d.md": f"run `python {GATE_PATH}` (N-A in an adopter)"}
+        assert len(find_ship_class_denials(texts)) == 1
+
+    def test_neither_spelling_is_flagged_when_the_line_is_honest(self):
+        texts = {
+            "docs/e.md": (
+                f"`{LEGACY_GATE_PATH}` was its name before the rename; run "
+                f"`{GATE_PATH}` wherever init delivered it.\n"
+            )
+        }
+        assert find_ship_class_denials(texts) == []
+
+    def test_the_context_guard_admits_both_spellings(self):
+        # The unreachability scan's scope guard is regex-based, not basename-based — assert it
+        # covers both spellings too, or half the corpus would fall out of THAT scan instead.
+        assert DOC_BUDGET_CONTEXT_RE.search(LEGACY_GATE_PATH)
+        assert DOC_BUDGET_CONTEXT_RE.search(GATE_PATH)
 
 
 class TestScanVocabularyIsExercised:

@@ -39,8 +39,9 @@ managed docs lean** — and **never claims more certainty than it has.**
 Above every feature sits one invariant the whole harness is built to keep: **it never claims more
 certainty than it has.** Every judged run (audit · verify · QA · build) reports its cross-model
 outcome, computed in code from the judges' own self-reports. The honest split is stated plainly
-and never blurred: the architecture-tree check is the **one hook-enforced gate**; version-sync,
-the doc-budget check, and the test suite are **deterministic when run**; everything else —
+and never blurred: the architecture-tree and doc-budget checks are the **hook-enforced pair,
+where the commit hook is wired**; version-sync, the shipped-content scan and the test suite are
+**deterministic when run**; everything else —
 reviewer sign-offs, the audit's re-checks, build's pauses, and the session advisor — is
 **model-upheld and said so.** The advisor *advises*; it is never a gate. This is the spine every
 feature below honors, and it is checkable as **PS-5**. **What good feels like** — "the harness

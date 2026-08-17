@@ -117,18 +117,18 @@ DEV_ONLY_PATH_CLASSES = {
     # why it is `init-gen` and NOT `config` — the `config` class's contract is "no shipped doc
     # points an adopter AT them", which is false here. Stripping it keeps the HARNESS's caps (a
     # 3,500 B DECISIONS *index* cap, harness-tuned) out of adopter repos.
-    # HONEST STATUS: the init step that writes an adopter's copy is plan 0041 Slice 7 and is
-    # NOT WIRED YET — `skills/init/SKILL.md` mentions no budgets today. The class states the
-    # intended recreation mechanism, not an implemented one; the same note (with the fallback
-    # and its tripwire) lives on the matching `check_shipped_content.INIT_GEN_OUTPUTS` entry.
+    # `init` seeds the adopter's own caps beside its step-7 ledger seeds (0041 S7,
+    # create-if-absent — an existing config is adopter-owned data and is never rewritten).
     ".claude/claugentic-doc-budgets.json": "init-gen",
     # Harness-self tooling (an install doesn't need them).
-    # NOT here (deliberate, plan 0041 Slice 6): `scripts/check_doc_budgets.py` SHIPS. Its old
-    # `self-gate` rationale ("budgets the harness's OWN harness-tuned caps") died in Slice 4 —
-    # the caps became per-repo DATA in `.claude/claugentic-doc-budgets.json` and the script only
-    # reads it, so it is adopter-portable (absent config = quiet no-op, exit 0). Do not re-add an
-    # entry for it: by default-include, the ABSENCE of a line is what ships it, and any class
-    # value here would strip it again.
+    # NOT here (deliberate, plan 0041 Slice 6): `scripts/claugentic-check_doc_budgets.py` SHIPS
+    # — and since Slice 7 `init` DELIVERS a copy of it into the adopter's repo, which is why it
+    # is born-prefixed like every other managed file. Its old `self-gate` rationale ("budgets
+    # the harness's OWN harness-tuned caps") died in Slice 4 — the caps became per-repo DATA in
+    # `.claude/claugentic-doc-budgets.json` and the script only reads it, so it is
+    # adopter-portable (absent config = quiet no-op, exit 0). Do not re-add an entry for it: by
+    # default-include, the ABSENCE of a line is what ships it, and any class value here would
+    # strip it again.
     "scripts/check_versions_synced.py": "self-gate",   # checks the plugin's two manifests — irrelevant to adopters
     "scripts/check_shipped_content.py": "self-gate",   # scans the SHIPPED tree's text — harness-self, reasons about the release, never ships
     "scripts/build_release.py": "self-gate",           # this script

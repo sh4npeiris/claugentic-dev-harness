@@ -3,13 +3,14 @@
 
 A monotonic-ledger trip-wire: a managed ledger grows only — it never shrinks on its own
 — so this gate FLAGS (never edits) when one balloons past a sane TOTAL byte budget and
-names the remediation (a compaction pass: merge superseded entries to git history). It is
-a run-gate in the same register as the harness-self `scripts/check_versions_synced.py`
-(that one stays stripped from the release; THIS gate SHIPS as of plan 0041 Slice 6, because
-its caps are per-repo data rather than harness-tuned code) — **mechanical-when-run** (plain
-messages, no model judgement), run in the Definition-of-Done gate suite at Verify/Land and
-in CI, but **NOT hook-wired**: chaining it into the shared pre-commit wrapper is plan 0041
-Slice 7, and until that lands the one hook-enforced gate stays the architecture-tree check.
+names the remediation (a compaction pass: merge superseded entries to git history). It
+SHIPS in the release payload and `init` DELIVERS a copy into the adopter's repo, because its
+caps are per-repo data rather than harness-tuned code — unlike the harness-self
+`scripts/check_versions_synced.py`, which stays stripped. **Mechanical-when-run** (plain
+messages, no model judgement): it runs in the Definition-of-Done gate suite at Verify/Land, in
+CI, and at COMMIT TIME wherever the shared pre-commit wrapper is wired, chained after the
+architecture-tree check. Those two are the hook-chained pair; a repo with no wrapper (the
+tree-gate-off case) still runs this gate on demand.
 See docs/claugentic-WORKFLOW.md -> Definition of Done.
 
 CONFIG-DRIVEN — the caps are DATA, not code. Every cap this gate enforces is read from
@@ -125,16 +126,17 @@ lines that earned the exit 1), stderr is the ADVISORY channel (every `WARN:` lin
 band, a report-only breach, an unsurveyable subtree). The split exists because a caller that
 must stay quiet on a clean pass has to be able to discard the verdict WITHOUT discarding the
 advisory: the shared `.githooks/pre-commit` wrapper captures a gate's stdout (so a passing
-commit prints nothing at all) and lets stderr flow straight through — so that, ONCE THIS GATE
-IS CHAINED INTO THAT WRAPPER (plan 0041 Slice 7; today it is a run-gate only, and nothing
-chains it), a report-only breach will be visible at every commit. Merged streams make those
+commit prints nothing at all) and lets stderr flow straight through — and THIS GATE IS CHAINED
+INTO THAT WRAPPER, so a report-only breach is visible at every commit in a repo whose wrapper
+is wired. Merged streams make those
 two requirements contradictory — the grace flag would be a silent no-op. Consequences, stated
 honestly: CI logs interleave both (nothing is lost), and anyone running this gate with
 `2>/dev/null` now hides its warnings. Exit codes are unchanged — a WARN is still exit 0.
 
-Modes:
-    python scripts/check_doc_budgets.py    # human/CI: exit 0 OK / exit 1 on any problem
-                                           # verdict -> stdout, WARN -> stderr (see above)
+Modes (run it wherever THIS script is present — it measures the repo it sits in, never
+another; the pre-commit wrapper runs it for you where one is wired):
+    python scripts/claugentic-check_doc_budgets.py   # human/CI: exit 0 OK / exit 1 on a problem
+                                                     # verdict -> stdout, WARN -> stderr (above)
 """
 
 from __future__ import annotations
@@ -474,7 +476,11 @@ def _check_one(rel_path: str, max_bytes: int) -> tuple[str, str] | None:
     """
     path = Path(rel_path)
     if not path.exists():
-        return ("error", f"{rel_path} is missing — a budgeted ledger must exist (cannot measure it).")
+        return (
+            "error",
+            f"{rel_path} is missing — a budgeted ledger must exist (cannot measure it). "
+            f"If you removed it deliberately, delete its entry from {CONFIG_PATH}.",
+        )
     try:
         measured = len(path.read_bytes())
     except OSError as exc:
@@ -592,9 +598,9 @@ def main(argv: list[str]) -> int:
     os.chdir(_repo_root())
     problems, warnings, summary = evaluate()
     # THE STREAM CONTRACT (see the module docstring): advisory -> stderr, verdict -> stdout.
-    # The pre-commit wrapper captures stdout to stay silent on a clean pass, so once this gate
-    # is chained in (plan 0041 Slice 7) a WARN printed there would be swallowed and the
-    # report-only grace would signal nothing.
+    # The pre-commit wrapper captures stdout to stay silent on a clean pass, and this gate is
+    # chained into it — a WARN printed on stdout would be swallowed there
+    # and the report-only grace would signal nothing.
     for w in warnings:
         print(f"WARN: {w}", file=sys.stderr)
     if problems:

@@ -1,6 +1,6 @@
 """Characterization + fail-loud tests for the ledger byte-budget gate.
 
-The gate (`scripts/check_doc_budgets.py`) reads its caps from a per-repo config, flags
+The gate (`scripts/claugentic-check_doc_budgets.py`) reads its caps from a per-repo config, flags
 (never edits) when a budgeted ledger outgrows its byte budget, names the compaction
 remediation, and fails loud on a missing/unreadable budgeted file or a broken config.
 These tests lock that behaviour — especially the fail-LOUD set and the independent-read
@@ -34,8 +34,10 @@ from __future__ import annotations
 
 import inspect
 import json
+import re
 import subprocess
 import sys
+import textwrap
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -1209,6 +1211,112 @@ class TestProductionConfig:
         assert not any(rule["report_only"] for rule in rules.values())
 
 
+class TestTheInitSeedBlock:
+    """`init` step 7b seeds an adopter's caps from a literal JSON block in its SKILL — so that
+    block is CONFIG SOURCE CODE for every adopter repo, validated by nothing until now.
+
+    It is validated HERE, through the gate's own reader (`_load_config` / `_parse_rule`), because
+    a seed that this gate refuses is a repo that cannot commit: the wrapper runs the gate on
+    every commit, and a malformed or fail-open cap list is a boundary error at exit 1. Reading
+    it out of the skill (rather than restating it) is what keeps ONE source of truth — a copy
+    here would drift silently and pin nothing.
+    """
+
+    INIT_SKILL = REPO_ROOT / "skills" / "init" / "SKILL.md"
+
+    @classmethod
+    def _seed_text(cls) -> str:
+        """The one ```json fence in init's SKILL — asserted UNIQUE, never taken by ordinal."""
+        blocks = re.findall(
+            r"^[ \t]*```json[ \t]*\n(.*?)^[ \t]*```[ \t]*$",
+            cls.INIT_SKILL.read_text(encoding="utf-8"),
+            re.MULTILINE | re.DOTALL,
+        )
+        assert len(blocks) == 1, f"expected exactly one json seed block, found {len(blocks)}"
+        return textwrap.dedent(blocks[0])
+
+    def _seed(self, tmp_path: Path) -> dict:
+        """Load the seed through the GATE'S OWN reader — not `json.loads`, which would miss
+        every rule the gate enforces (duplicate keys, `**`, a non-positive cap, a stray key)."""
+        path = tmp_path / "seed.json"
+        path.write_text(self._seed_text(), encoding="utf-8")
+        rules = cdb._load_config(path)
+        assert rules is not None
+        return rules
+
+    def test_the_seed_loads_through_the_gates_own_reader(self, tmp_path):
+        rules = self._seed(tmp_path)
+        assert rules, "the seed declares no entries — an adopter would opt in to nothing"
+        assert all(set(rule) == {"max_bytes", "report_only"} for rule in rules.values())
+
+    def test_every_seeded_key_is_a_shape_the_gate_accepts(self, tmp_path):
+        # `_parse_rule` is the boundary; running each key through it is what makes "the seed is
+        # valid" a measurement instead of a reading. A `**` glob or a `*` outside the final
+        # component would raise here — both are fail-open shapes that measure nothing.
+        for key, rule in self._seed(tmp_path).items():
+            assert cdb._parse_rule(key, rule["max_bytes"]) == {
+                "max_bytes": rule["max_bytes"],
+                "report_only": False,
+            }
+
+    def test_the_seed_never_caps_a_file_init_does_not_create(self, tmp_path):
+        # THE load-bearing exclusion (0041 S6 reliability verdict): a cap on an ABSENT file is
+        # a hard exit 1 — even under `reportOnly`, which graces the SIZE verdict only. So the
+        # seed may name only files the same `init` run guarantees exist. INVARIANTS is
+        # recreate-on-demand (the workflow lazily creates it) and WORKFLOW is a managed
+        # full-copy doc; either key would hand an adopter a repo that cannot commit.
+        keys = set(self._seed(tmp_path))
+        assert not [k for k in keys if "INVARIANTS" in k], keys
+        assert not [k for k in keys if "WORKFLOW" in k], keys
+
+    def test_the_seed_caps_exactly_what_that_init_run_creates(self, tmp_path):
+        # The positive half of the same rule, spelled out so a future key has to justify itself:
+        # CLAUDE.md (step 6 — in SHARED mode; solo writes `CLAUDE.local.md` and the skill's
+        # anchoring bullet substitutes the key, which is why this literal block is the shared
+        # shape and the mode-awareness lives in prose) + the three step-7a ledger seeds + the
+        # zero-match-safe shard glob. Measured at Stage 7: a cap on a file the run never
+        # creates blocks EVERY commit, and `reportOnly` cannot grace it.
+        assert set(self._seed(tmp_path)) == {
+            "CLAUDE.md",
+            "docs/claugentic-DECISIONS.md",
+            "docs/claugentic-decisions/*.md",
+            "docs/claugentic-ROADMAP.md",
+            "docs/claugentic-CHARTER.md",
+        }
+
+    def test_the_only_glob_is_zero_match_safe(self, tmp_path):
+        # A glob is a SHAPE, not a file: `init` never creates `docs/claugentic-decisions/`, so
+        # the seed is only safe because a zero-match glob is a silent skip. Measured against an
+        # empty tree rather than asserted from the docstring.
+        empty = tmp_path / "empty-repo"
+        empty.mkdir()
+        for key in self._seed(tmp_path):
+            if "*" in key:
+                assert cdb._resolve_targets(str(empty / key)) == []
+
+    def test_the_seed_ships_no_grace_flags(self, tmp_path):
+        # `reportOnly` is a DAY-ONE MEASUREMENT, never a seeded default: init sets it only for a
+        # file it measured over cap in that run. A flag baked into the literal block would grace
+        # every adopter's ledger silently, forever.
+        assert not any(rule["report_only"] for rule in self._seed(tmp_path).values())
+
+    def test_the_skill_states_the_grace_rule_and_the_never_raise_rule(self):
+        # The two halves that live only in prose (init is a prose skill): the object form is the
+        # day-one-over answer, and raising the number is the rung-2 ceiling-raise it forbids.
+        # WHITESPACE-NORMALIZED, not line-scoped: the skill hard-wraps its prose, so a raw
+        # substring search would silently miss a sentence that merely broke across two lines —
+        # the false GREEN a "the rule is stated" pin can least afford.
+        text = " ".join(self.INIT_SKILL.read_text(encoding="utf-8").split())
+        assert '{"max": <the recommended number>, "reportOnly": true}' in text
+        assert "Never seed a cap raised to fit" in text
+        assert "nothing mechanical ever clears a `reportOnly` flag" in text
+        # ...and the MODE-AWARE anchoring rule, which the five-key literal above cannot carry.
+        # Measured at Stage 7: without it a fresh SOLO adopter's very first commit is refused
+        # forever, because solo writes `CLAUDE.local.md` and never creates `CLAUDE.md`.
+        assert "CLAUDE.local.md" in text
+        assert "drop any non-glob key whose target does not exist on disk" in text
+
+
 class TestInvokedFromASubdirectory:
     """CWD-independence, end to end (0040-banked). The gate is a subprocess here on purpose:
     the process working directory is the thing under test, so it cannot be faked in-process."""
@@ -1216,7 +1324,7 @@ class TestInvokedFromASubdirectory:
     @staticmethod
     def _run(cwd: Path) -> subprocess.CompletedProcess:
         return subprocess.run(
-            [sys.executable, str(REPO_ROOT / "scripts" / "check_doc_budgets.py")],
+            [sys.executable, str(REPO_ROOT / "scripts" / "claugentic-check_doc_budgets.py")],
             capture_output=True,
             text=True,
             encoding="utf-8",

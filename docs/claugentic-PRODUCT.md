@@ -24,7 +24,8 @@ lost the thread, and never claim more than was actually checked. Full driver fra
   reads first; technical detail sits beneath, to verify against, never to decode.
 - **Honest by construction.** Separate **measured** (deterministic/`[D]`) from **asserted**
   (judgment/`[J]`). Never launder a model's claim into apparent fact. Only the
-  architecture-tree gate is mechanically enforced — say so where it matters.
+  architecture-tree and doc-budget gates are mechanically enforced, and only where the commit
+  hook is wired — say so where it matters.
 - **In control, never surprised.** The user steers the decisions that matter; nothing
   irreversible happens without an explicit, plain-English ask.
 - **Calm progress, no fake ETAs.** Long work narrates **completed beats**, never an estimate
@@ -242,8 +243,9 @@ The four experience qualities, in priority order:
 
 ## Honesty surface — where the UX must NOT over-claim
 
-Build mode rides on the audit's **model-upheld** verification — only the architecture-tree gate
-is mechanically enforced — and is **checkpoint-only-live**. Four user-facing surfaces are the
+Build mode rides on the audit's **model-upheld** verification — only the architecture-tree and
+doc-budget gates are mechanically enforced, and only where the commit hook is wired — and is
+**checkpoint-only-live**. Four user-facing surfaces are the
 over-claim hotspots; the exact honest wording for each is owned by its source of truth, not
 restated here:
 

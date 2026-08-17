@@ -86,8 +86,9 @@ class TestClassify:
             ".claude/agents/synthesizer-gate.md",
             "scripts/claugentic-check_architecture_tree.py",
             # plan 0041 Slice 6 — the doc-budget gate is adopter-portable now (config-driven
-            # caps, absent config = quiet no-op), so it SHIPS alongside the tree gate.
-            "scripts/check_doc_budgets.py",
+            # caps, absent config = quiet no-op), so it SHIPS alongside the tree gate. Its
+            # path is born-prefixed since S7 delivers a copy into adopter repos.
+            "scripts/claugentic-check_doc_budgets.py",
             ".claude-plugin/plugin.json",
             ".claude-plugin/marketplace.json",
             "README.md",
@@ -205,7 +206,11 @@ class TestManifestMigration:
             # ("budgets the harness's OWN harness-tuned caps") died in Slice 4, when the caps
             # became per-repo data the script only reads; an adopter with no caps config gets
             # a quiet exit-0 no-op. Under default-include the REMOVAL of the manifest line is
-            # what ships it — there is no "ships" class to switch to.
+            # what ships it — there is no "ships" class to switch to. The path is spelled AS
+            # IT WAS IN THE MANIFEST: Slice 7 renamed the script to
+            # `scripts/claugentic-check_doc_budgets.py` (born-prefixed for delivery), but this
+            # delta is set arithmetic against a frozen historical snapshot, so respelling it
+            # would break the subtraction rather than update a fact.
             "scripts/check_doc_budgets.py",
         }
     )
@@ -297,7 +302,7 @@ class TestManifestMigration:
         # explicitly because it is the failure mode a "rename the class" fix would create:
         # any class value keeps the path stripped, and an unrecognized one falls through to
         # the dangling-basename scan. `None` is what "this file ships" looks like here.
-        assert br.recreate_class("scripts/check_doc_budgets.py") is None
+        assert br.recreate_class("scripts/claugentic-check_doc_budgets.py") is None
         # Dirs stay OUT of the classes: a file stripped only via DEV_ONLY_DIRS is NOT in the
         # per-file manifest, so it has no class (the closure gate reasons over file-level
         # classes only — this is the intended `None`).
@@ -340,11 +345,11 @@ class TestReleaseInitContract:
         # change turns on. doc-budgets reasons about the READING repo's own ledgers against
         # that repo's own caps config, so it is adopter-portable: shipped, and a quiet exit-0
         # no-op wherever no config opts in.
-        assert br.is_dev_only("scripts/check_doc_budgets.py") is False
+        assert br.is_dev_only("scripts/claugentic-check_doc_budgets.py") is False
         ship, strip = br.classify(
-            ["scripts/check_doc_budgets.py", "scripts/check_versions_synced.py"]
+            ["scripts/claugentic-check_doc_budgets.py", "scripts/check_versions_synced.py"]
         )
-        assert ship == ["scripts/check_doc_budgets.py"]
+        assert ship == ["scripts/claugentic-check_doc_budgets.py"]
         assert strip == ["scripts/check_versions_synced.py"]
 
     def test_harness_own_plans_strip_cleanly(self):

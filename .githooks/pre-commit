@@ -28,7 +28,7 @@ for cand in python3 python; do
   fi
 done
 if [ -z "$PY" ]; then
-  printf '%s\n' "claugentic tree gate SKIPPED: no working Python 3.7+ on PATH (tried python3, python) - install Python 3 and the gate resumes on your next commit (no re-init needed)" >&2
+  printf '%s\n' "claugentic gates SKIPPED: no working Python 3.7+ on PATH (tried python3, python) - install Python 3 and the gates resume on your next commit (no re-init needed)" >&2
   exit 0
 fi
 # Run ONE gate with the args given. A gate script that is not in this checkout is a skip, not a
@@ -36,9 +36,9 @@ fi
 # pass prints nothing at all — no per-commit noise); stderr FLOWS THROUGH untouched. Exit 0 ->
 # return 0 and discard the captured stdout; non-zero -> print the captured report and return 1.
 # GATE-SIDE OBLIGATION: a gate chained here reports advisory lines on STDERR — whatever it
-# writes to stdout is discarded when it passes. Today's chained gate (the tree check) prints
-# only its verdict, so this channel is normally silent; it exists for a gate that reports while
-# passing — a byte-budget WARN band, a report-only breach.
+# writes to stdout is discarded when it passes. Today's chained gates are the tree check, which
+# prints only its verdict, and the doc-budget check, which uses this channel for exactly what it
+# is for — a byte-budget WARN band, a report-only breach — while still passing.
 # Chaining another gate is one more `run_gate <script> [args] || rc=1` line, and `rc` is what
 # makes it run-both-and-report: a later gate's failure never masks an earlier gate's message.
 run_gate() {
@@ -58,4 +58,5 @@ run_gate() {
 }
 rc=0
 run_gate scripts/claugentic-check_architecture_tree.py --staged || rc=1
+run_gate scripts/claugentic-check_doc_budgets.py || rc=1
 exit $rc

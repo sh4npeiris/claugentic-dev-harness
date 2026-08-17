@@ -76,6 +76,6 @@ jobs:
       - name: Plugin-version sync check
         run: python scripts/check_versions_synced.py
       - name: Managed-ledger byte-budget check
-        run: python scripts/check_doc_budgets.py
+        run: python scripts/claugentic-check_doc_budgets.py
       - name: Shipped-content scan (stranded namespace tokens / dangling stripped-path refs)
         run: python scripts/check_shipped_content.py
