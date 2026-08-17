@@ -2,12 +2,13 @@
 
 `check_versions_synced.py` keeps a plain module name, so adding `scripts/` to `sys.path`
 lets `import check_versions_synced` resolve it. The `claugentic-`-prefixed scripts (the
-architecture-tree gate and the SessionStart advisor — uniform managed-file naming, see
-`docs/claugentic-DECISIONS.md` → Plugin identity) carry a hyphen that is not a valid Python
-module identifier, so a bare `import` cannot find them: `_load_hyphenated` loads each by
-FILE PATH via `importlib` and registers it under a stable bare logical name
-(`check_architecture_tree`, `advisor`) in `sys.modules`. Tests keep `import
-check_architecture_tree as cat` / `import advisor` / `import check_versions_synced as cvs`
+architecture-tree gate, the doc-budget gate, and the SessionStart advisor — uniform
+managed-file naming, see `docs/claugentic-DECISIONS.md` → Plugin identity) carry a hyphen
+that is not a valid Python module identifier, so a bare `import` cannot find them:
+`_load_hyphenated` loads each by FILE PATH via `importlib` and registers it under a stable
+bare logical name (`check_architecture_tree`, `check_doc_budgets`, `advisor`) in
+`sys.modules`. Tests keep `import check_architecture_tree as cat` / `import
+check_doc_budgets as cdb` / `import advisor` / `import check_versions_synced as cvs`
 unchanged; the hyphenated-filename handling lives in exactly one place (this conftest).
 """
 
@@ -40,7 +41,10 @@ def _load_hyphenated(module_name: str, filename: str) -> None:
     spec.loader.exec_module(module)
 
 
-# The architecture-tree gate (`import check_architecture_tree as cat`) and the
-# SessionStart advisor (`import advisor`) both carry the `claugentic-` filename prefix.
+# The architecture-tree gate (`import check_architecture_tree as cat`), the doc-budget gate
+# (`import check_doc_budgets as cdb` — born-prefixed at 0041 S7, when `init` began delivering
+# it into adopter repos) and the SessionStart advisor (`import advisor`) all carry the
+# `claugentic-` filename prefix.
 _load_hyphenated("check_architecture_tree", "claugentic-check_architecture_tree.py")
+_load_hyphenated("check_doc_budgets", "claugentic-check_doc_budgets.py")
 _load_hyphenated("advisor", "claugentic-session-advisor.py")

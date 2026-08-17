@@ -19,6 +19,11 @@ Four properties are under test, all load-bearing for a team (plan 0041 Slice 5):
   4. TEMPLATE PARITY — `skills/init/SKILL.md` claims the wrapper it tells an adopter to write is
      "run-logic identical" to the shipped one. `TestTemplateParity` makes that claim mechanical:
      drift in EITHER home turns it red.
+  5. THE CHAIN (plan 0041 Slice 7) — TWO gates are wired, so run-both-and-report, the
+     call-site-args rule and the derived hook-wired SET (its Python-floor obligation included)
+     all become testable. `TestTheRealChainEndToEnd` closes the loop the fakes cannot: a REAL
+     `git commit`, through the REAL wrapper, running the REAL doc-budget gate over a REAL
+     report-only config — the only way to prove the R6 signal reaches a human's terminal.
 
 Environment guard (anti-vacuity): `sh` is located with `shutil.which` and resolved through
 `_shell_or_fail`, which is a PURE function precisely so both of its branches can be unit-tested
@@ -32,6 +37,8 @@ wrong reason, and a stub the shell refuses to execute would silently become the 
 
 from __future__ import annotations
 
+import ast
+import json
 import os
 import re
 import shutil
@@ -46,14 +53,39 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 HOOK = REPO_ROOT / ".githooks" / "pre-commit"
 INIT_SKILL = REPO_ROOT / "skills" / "init" / "SKILL.md"
 
-# The gate path the wrapper hardcodes — a fake script is planted HERE so the real wrapper runs
-# unmodified (never a rewritten copy: the file under test must be the shipped one).
+# The gate paths the wrapper hardcodes — fake scripts are planted HERE so the real wrapper runs
+# unmodified (never a rewritten copy: the file under test must be the shipped one). TWO gates
+# are chained since 0041 Slice 7, and the second one is not decoration: every case below runs
+# against the two-gate wrapper, because a wrapper that only ever sees one gate cannot show that
+# a later gate still runs after an earlier one failed.
 GATE_REL = "scripts/claugentic-check_architecture_tree.py"
+BUDGET_GATE_REL = "scripts/claugentic-check_doc_budgets.py"
 
 # The wrapper's two skip lines. Asserted as substrings so the remedy wording can be reworded
-# without a false red, while the identifying half stays pinned.
-SKIP_NOTICE = "claugentic tree gate SKIPPED"
+# without a false red, while the identifying half stays pinned. They must stay DISTINGUISHABLE:
+# the interpreter notice speaks for every chained gate at once ("gates"), the missing-script
+# notice for exactly one ("gate: <path>"), and neither is a substring of the other.
+SKIP_NOTICE = "claugentic gates SKIPPED"
 MISSING_GATE_NOTICE = "claugentic gate SKIPPED"
+
+# ...and that disjointness is ASSERTED, not assumed: two cases below are written as
+# `X not in stderr`, which would pass vacuously the moment one notice became a substring of
+# the other (they are one character apart — "gates" vs "gate").
+assert SKIP_NOTICE not in MISSING_GATE_NOTICE and MISSING_GATE_NOTICE not in SKIP_NOTICE
+
+# A silent, passing gate — planted as the SECOND gate in every case that is really about the
+# first one. Repairing the single-gate assumptions this way (rather than by loosening
+# `stderr == ""` / "exactly one line" / "no missing-gate notice") is deliberate: those three
+# assertions are the stream contract, and weakening them to accommodate a second gate would
+# have retired the pins instead of extending them.
+SILENT_PASS = "raise SystemExit(0)\n"
+
+# The two boundaries of `init`'s never-clobber branch (3) in step 5b — the region whose PROSE
+# hands an adopter a remediation. Scoping to it is load-bearing: the skill also carries the
+# wrapper template itself, so an unscoped search finds the real chain line no matter what the
+# remedy says. Content-anchored and asserted unique at the assertion site, never by ordinal.
+NEVER_CLOBBER_ANCHOR = "**(3) Anything else → NEVER CLOBBER"
+NO_WRAPPER_ANCHOR = "**A repo with NO wrapper gets NO chain"
 
 # The husky-chain block's markers (the idempotency contract in `init`'s husky offer).
 HUSKY_OPEN_MARKER = "# >>> claugentic-dev-harness tree gate"
@@ -62,10 +94,18 @@ HUSKY_CLOSE_MARKER = "# <<< claugentic-dev-harness tree gate"
 # A fake gate that records the fact it ran, anchored on its OWN location (never the cwd) so the
 # sentinel lands in the scratch repo root whatever directory the hook was invoked from.
 GATE_SENTINEL = "gate-ran.txt"
-_SENTINEL_WRITE = (
-    "import pathlib\n"
-    f"(pathlib.Path(__file__).resolve().parent.parent / {GATE_SENTINEL!r}).write_text('ran')\n"
-)
+BUDGET_SENTINEL = "budget-gate-ran.txt"
+
+
+def _sentinel_write(name: str) -> str:
+    return (
+        "import pathlib\n"
+        f"(pathlib.Path(__file__).resolve().parent.parent / {name!r}).write_text('ran')\n"
+    )
+
+
+_SENTINEL_WRITE = _sentinel_write(GATE_SENTINEL)
+_BUDGET_SENTINEL_WRITE = _sentinel_write(BUDGET_SENTINEL)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -222,11 +262,19 @@ def stub_python3_beside_working_python(sh, env_without_python, tmp_path) -> Simp
 
 @pytest.fixture
 def hook_repo(tmp_path) -> SimpleNamespace:
-    """A scratch git repo carrying the REAL wrapper and a plantable fake gate.
+    """A scratch git repo carrying the REAL wrapper and two plantable fake gates.
 
-    The wrapper is COPIED, never re-authored, so every case exercises the shipped bytes. The
+    The wrapper is COPIED, never re-authored, so every case exercises the shipped bytes. Each
     fake gate sits at the exact path the wrapper invokes, which is what lets a test drive an
     arbitrary (exit code, stdout, stderr) triple through the real control flow.
+
+    THE SECOND GATE IS PLANTED BENIGN BY DEFAULT (0041 Slice 7). Chaining a second `run_gate`
+    line would otherwise have made three existing assertions unsatisfiable for a reason that
+    has nothing to do with what they pin — a clean pass would carry a missing-script notice on
+    stderr, the "exactly one line" counts would read two, and the cwd-anchor case would see a
+    notice it asserts is absent. Planting a silent passer keeps every one of those assertions
+    EXACTLY as strict as it was; a case that is about the budget gate overwrites it, and
+    `budget_gate(None)` removes it for the missing-script case.
     """
     root = tmp_path / "repo"
     root.mkdir()
@@ -234,14 +282,32 @@ def hook_repo(tmp_path) -> SimpleNamespace:
     (root / ".githooks").mkdir()
     shutil.copy(HOOK, root / ".githooks" / "pre-commit")
     (root / "scripts").mkdir()
+    (root / BUDGET_GATE_REL).write_text(SILENT_PASS, encoding="utf-8")
 
     def gate(body: str) -> None:
         (root / GATE_REL).write_text(body, encoding="utf-8")
 
+    def budget_gate(body: str | None) -> None:
+        """Overwrite the second gate — or REMOVE it (`None`) for the missing-script case."""
+        target = root / BUDGET_GATE_REL
+        if body is None:
+            target.unlink(missing_ok=True)
+            return
+        target.write_text(body, encoding="utf-8")
+
     def gate_ran() -> bool:
         return (root / GATE_SENTINEL).exists()
 
-    return SimpleNamespace(root=root, gate=gate, gate_ran=gate_ran)
+    def budget_gate_ran() -> bool:
+        return (root / BUDGET_SENTINEL).exists()
+
+    return SimpleNamespace(
+        root=root,
+        gate=gate,
+        budget_gate=budget_gate,
+        gate_ran=gate_ran,
+        budget_gate_ran=budget_gate_ran,
+    )
 
 
 def _run_hook(
@@ -299,9 +365,11 @@ class TestTheAntiVacuityGuard:
 # ─────────────────────────────────────────────────────────────────────────────
 class TestUnreachableInfrastructurePasses:
     def test_no_usable_interpreter_skips_loudly_and_passes(self, sh, hook_repo, env_without_python):
-        # NON-VACUOUS: the planted gate would exit 1 (blocking the commit) if it ever ran, so a
-        # green here can only mean the wrapper skipped BEFORE running it.
+        # NON-VACUOUS: BOTH planted gates would exit 1 (blocking the commit) if either ever
+        # ran, so a green here can only mean the wrapper skipped before reaching the chain —
+        # the notice speaks for every chained gate at once, which is why it is worded that way.
         hook_repo.gate("raise SystemExit(1)")
+        hook_repo.budget_gate("raise SystemExit(1)")
         result = _run_hook(sh, hook_repo.root, env_without_python)
         assert result.returncode == 0
         assert SKIP_NOTICE in result.stderr
@@ -322,6 +390,7 @@ class TestUnreachableInfrastructurePasses:
         # does not work. The log is the proof the probe reached the stub — without it, a mutant
         # that never tries `python3` passes this case while the test name claims otherwise.
         hook_repo.gate("raise SystemExit(1)")
+        hook_repo.budget_gate("raise SystemExit(1)")  # neither gate may run — see the sibling
         result = _run_hook(sh, hook_repo.root, stub_python3_only.env)
         assert result.returncode == 0
         assert SKIP_NOTICE in result.stderr
@@ -350,13 +419,31 @@ class TestUnreachableInfrastructurePasses:
         # The gate-cannot-START boundary (Stage-7 R-2, reproduced): before the guard this was
         # rc 1 with a raw `can't open file` on stderr and an empty stdout — a commit rejected by
         # infrastructure, with the interpreter's error as its only explanation.
-        result = _run_hook(sh, hook_repo.root)  # no gate planted at all
+        # The TREE gate is the missing one here (the budget gate is the fixture's benign
+        # passer), so the one-line count still pins "one plain line per unreachable gate".
+        result = _run_hook(sh, hook_repo.root)  # tree gate never planted
         assert result.returncode == 0
         assert MISSING_GATE_NOTICE in result.stderr
         assert GATE_REL in result.stderr  # names WHICH gate is missing
         assert len(result.stderr.splitlines()) == 1, result.stderr
         assert result.stdout == ""
         assert not hook_repo.gate_ran()
+
+    def test_a_missing_budget_gate_skips_loudly_and_the_tree_gate_still_runs(
+        self, sh, hook_repo
+    ):
+        # The same boundary at the SECOND call site, which is the one that could regress
+        # unnoticed: a delivery that never happened (or an adopter who deleted the script)
+        # must cost a notice, not a commit — and must not take the tree gate down with it.
+        hook_repo.gate(_SENTINEL_WRITE)
+        hook_repo.budget_gate(None)
+        result = _run_hook(sh, hook_repo.root)
+        assert result.returncode == 0
+        assert MISSING_GATE_NOTICE in result.stderr
+        assert BUDGET_GATE_REL in result.stderr  # the EXACT chained path, not a class name
+        assert len(result.stderr.splitlines()) == 1, result.stderr
+        assert result.stdout == ""
+        assert hook_repo.gate_ran(), "a missing second gate must not skip the first"
 
     def test_a_failing_git_passes_SILENTLY(self, sh, tmp_path):
         # `git rev-parse --show-toplevel` fails outside a repo — the same branch a broken/absent
@@ -480,7 +567,79 @@ class TestGateOutcomes:
         assert result.returncode == 1, result.stdout + result.stderr
         assert "tree is stale" in result.stdout
         assert hook_repo.gate_ran()
+        # Unchanged in strength, and now covering BOTH call sites: `$root` is resolved once and
+        # every chained gate rides it, so a cwd-anchored mutant would strand the second gate
+        # too — the fixture's benign budget gate is present, so any notice here is a real one.
         assert MISSING_GATE_NOTICE not in result.stderr
+
+
+class TestTheSecondChainedGate:
+    """The doc-budget gate at the SECOND `run_gate` call site (0041 Slice 7).
+
+    Everything the first call site already pins is re-pinned here on purpose: a chained gate is
+    not covered by its neighbour's tests. The properties that only a SECOND gate can show are
+    run-both-and-report (an earlier failure never short-circuits a later gate, and a later
+    failure never masks an earlier gate's message) and the call-site-args rule (a gate that
+    reads no argv is handed none).
+    """
+
+    def test_a_budget_breach_aborts_the_commit(self, sh, hook_repo):
+        hook_repo.gate(_SENTINEL_WRITE)
+        hook_repo.budget_gate(
+            _BUDGET_SENTINEL_WRITE
+            + "print('docs/LEDGER.md: 15000 bytes vs budget 14000')\nraise SystemExit(1)\n"
+        )
+        result = _run_hook(sh, hook_repo.root)
+        assert result.returncode == 1
+        assert "vs budget 14000" in result.stdout  # its report is shown, not swallowed
+        assert hook_repo.gate_ran() and hook_repo.budget_gate_ran()
+
+    def test_a_red_first_gate_does_not_stop_the_second_and_both_reports_survive(
+        self, sh, hook_repo
+    ):
+        # RUN-BOTH-AND-REPORT, the whole reason the chain is `|| rc=1` rather than `&&`.
+        # MEASURED, so the comment states the right failure: dropping `|| rc=1` from the FIRST
+        # line does not lose its message — the wrapper still prints it — it loses the EXIT
+        # CODE, so a red tree gate would let the commit through as long as the budget gate
+        # passed. Short-circuiting (`&&`) is the variant that loses the second gate's message
+        # entirely. This case pins both halves at once: rc, and both reports.
+        hook_repo.gate(_SENTINEL_WRITE + "print('tree is stale')\nraise SystemExit(1)\n")
+        hook_repo.budget_gate(
+            _BUDGET_SENTINEL_WRITE + "print('LEDGER over budget')\nraise SystemExit(1)\n"
+        )
+        result = _run_hook(sh, hook_repo.root)
+        assert result.returncode == 1
+        assert hook_repo.budget_gate_ran(), "the first gate's failure short-circuited the chain"
+        assert "tree is stale" in result.stdout
+        assert "LEDGER over budget" in result.stdout
+
+    def test_a_warning_from_the_passing_budget_gate_reaches_the_terminal(self, sh, hook_repo):
+        # THE R6 CASE at the second call site — the one the whole grace posture rests on. A
+        # report-only breach passes (exit 0) and says so on stderr; the wrapper discards a
+        # passing gate's stdout, so if this line rode stdout the flag would be a silent no-op.
+        hook_repo.gate(_SENTINEL_WRITE)
+        hook_repo.budget_gate(
+            "import sys\n"
+            "print('OK: 1 report-only breach(es) NOT within budget (see WARN above)')\n"
+            "print('WARN: [report-only] docs/LEDGER.md: 15000 bytes vs budget 14000', "
+            "file=sys.stderr)\n"
+        )
+        result = _run_hook(sh, hook_repo.root)
+        assert result.returncode == 0
+        assert "WARN: [report-only] docs/LEDGER.md" in result.stderr
+        assert result.stdout == ""  # the passing verdict stays quiet
+
+    def test_the_budget_gate_is_handed_no_arguments(self, sh, hook_repo):
+        # The call-site-args rule, in the direction that matters here: this gate reads no argv,
+        # so cargo-culting `--staged` onto its line would make the wrapper header's own scoping
+        # claim false and hand a flag to a gate that would ignore it.
+        hook_repo.gate(_SENTINEL_WRITE)
+        hook_repo.budget_gate(
+            "import sys\nprint('argv=[' + ' '.join(sys.argv[1:]) + ']')\nraise SystemExit(1)\n"
+        )
+        result = _run_hook(sh, hook_repo.root)
+        assert result.returncode == 1
+        assert "argv=[]" in result.stdout, result.stdout
 
 
 class TestWrapperIsWired:
@@ -496,17 +655,11 @@ class TestWrapperIsWired:
         ).stdout.split()
         assert mode and mode[0] == "100755", f"expected mode 100755, got {mode[:1]}"
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "plan 0041 Slice 7 chains the doc-budget gate into this wrapper; this flips RED the "
-            "moment it lands, forcing the stream-contract copy in check_doc_budgets.py (and the "
-            "wrapper header's 'today's chained gate is the tree check') out of the future tense. "
-            "If Slice 7 is ever ABANDONED, do not delete this marker quietly: re-register the "
-            "stream contract as tree-gate-only and reword both homes to match."
-        ),
-    )
     def test_the_budget_gate_is_chained_into_the_wrapper(self):
+        # WAS the strict-xfail tripwire on the stream contract's forward promise; DISCHARGED at
+        # 0041 Slice 7, which chained the gate in, and kept as a permanent POSITIVE pin — the
+        # stream contract in the gate's docstring and the wrapper header's "today's chained
+        # gates" are only true while this holds. Never delete or invert it.
         assert "check_doc_budgets" in HOOK.read_text(encoding="utf-8")
 
 
@@ -578,6 +731,81 @@ def _run_logic(script: str) -> list[str]:
     ]
 
 
+RUN_GATE_CALL_RE = re.compile(r"^run_gate\s+(scripts/\S+)")
+# The hook's Python floor, as IT states it. Module-level so the two readers below — the
+# ast/floor pin and doctor's restated-probe pin — genuinely share one spelling of "where
+# the floor lives"; a second inline copy is what the comment used to claim was absent.
+FLOOR_RE = re.compile(r"sys\.version_info >= \((\d+), (\d+)\)")
+
+
+def _chained_gates(script: str) -> list[str]:
+    """The gate scripts the wrapper actually invokes — DERIVED from its `run_gate` call sites.
+
+    Never a hand-listed set: the hook is the single source of "what is hook-wired", so a gate
+    chained in without its pins turns the derived-set assertions below red on the same commit
+    instead of joining silently. Reads `_run_logic` output, so a commented-out call site (or a
+    call site inside the prose header) is not mistaken for a live one.
+    """
+    gates = [
+        match.group(1)
+        for line in _run_logic(script)
+        if (match := RUN_GATE_CALL_RE.match(line))
+    ]
+    assert gates, "no `run_gate scripts/...` call site found — the wrapper or this regex moved"
+    return gates
+
+
+class TestTheHookWiredSetParsesAtTheWrapperFloor:
+    """`docs/claugentic-INVARIANTS.md` → *The wrapper's Python floor and the hook-wired gates'
+    syntax move together*, mechanized (0041 S5 routed it here, S7 lands it with the second gate).
+
+    Until now that invariant's second half was a hand-read: nothing parsed the sources, so a
+    hook-wired gate could quietly adopt walrus/`match` syntax and the wrapper would hand a
+    commit to an interpreter that dies on a SyntaxError — infrastructure blocking a commit,
+    the exact failure warn-and-pass exists to remove. Both inputs are DERIVED (the gate set from
+    the hook's call sites, the floor from the hook's own probe expression), so this cannot rot
+    into a check of two literals nobody updates.
+    """
+
+    @staticmethod
+    def _floor() -> tuple[int, int]:
+        # Module-level `FLOOR_RE` — the SAME object
+        # `test_doctors_restated_probe_stays_in_step_with_the_hook` reads the floor with.
+        match = FLOOR_RE.search(HOOK.read_text(encoding="utf-8"))
+        assert match, "the hook must state its floor as a version tuple"
+        return (int(match.group(1)), int(match.group(2)))
+
+    def test_every_chained_gate_parses_at_the_floor(self):
+        floor = self._floor()
+        for gate in _chained_gates(HOOK.read_text(encoding="utf-8")):
+            source = (REPO_ROOT / gate).read_text(encoding="utf-8")
+            ast.parse(source, filename=gate, feature_version=floor)  # SyntaxError = red
+
+    def test_the_chained_set_is_exactly_the_two_gates(self):
+        # The scoping IS the contract: this invariant binds HOOK-WIRED gates only, and the
+        # repo's one 3.8-syntax script is deliberately not one of them. Pinning the set is what
+        # keeps the exemption honest — a third gate chained in must be measured, not assumed.
+        assert _chained_gates(HOOK.read_text(encoding="utf-8")) == [GATE_REL, BUDGET_GATE_REL]
+        assert "scripts/check_shipped_content.py" not in _chained_gates(
+            HOOK.read_text(encoding="utf-8")
+        )
+
+    def test_the_floor_check_has_teeth_on_the_one_excluded_script(self):
+        # NON-VACUITY, in the direction that matters: if `feature_version` were ignored (or the
+        # floor drifted up to 3.8+), the loop above would pass over anything. The repo's
+        # walrus-carrying run-gate is the live proof that the parse really refuses — which is
+        # also precisely why it must never be chained without raising the wrapper's floor.
+        source = (REPO_ROOT / "scripts" / "check_shipped_content.py").read_text(encoding="utf-8")
+        with pytest.raises(SyntaxError):
+            ast.parse(source, feature_version=self._floor())
+
+    def test_the_floor_is_the_one_the_gates_record_for_themselves(self):
+        # Moving the floor in EITHER direction is a red: down, and a gate's recorded `# Python
+        # 3.7+` requirement outruns the probe; up, and the wrapper false-skips working
+        # interpreters (and doctor's restated probe goes stale — its own pin catches that half).
+        assert self._floor() == (3, 7)
+
+
 class TestTemplateParity:
     """`init` claims its template is run-logic identical to the shipped wrapper. Prove it."""
 
@@ -601,8 +829,54 @@ class TestTemplateParity:
         assert any("run_gate()" in line for line in logic)
         assert any('[ ! -f "$root/$gate" ]' in line for line in logic)
         assert any(line.endswith("--staged || rc=1") for line in logic)
+        # ...and its sibling: the SECOND chain line, with no args and the same `|| rc=1`.
+        # Without this the parity equality above would happily agree on two homes that had
+        # BOTH lost the budget gate.
+        assert any(line.endswith(f"{BUDGET_GATE_REL} || rc=1") for line in logic)
         assert any(SKIP_NOTICE in line for line in logic)
         assert any(MISSING_GATE_NOTICE in line for line in logic)
+
+    def test_the_prose_remediation_quotes_the_real_chain_line(self):
+        # `init`'s never-clobber branch PRINTS a line for an adopter to paste by hand. If that
+        # prose drifts from the template's actual chain line, the harness hands out an
+        # instruction that does not reproduce what it would have written itself.
+        # WHITESPACE-NORMALIZED, never line-scoped: the SKILL hard-wraps that sentence
+        # mid-line, so a raw substring search would go green on a wrap and prove nothing.
+        chain = next(
+            line for line in _run_logic(_wrapper_template())
+            if line.endswith(f"{BUDGET_GATE_REL} || rc=1")
+        )
+        # REGION-SCOPED to branch (3)'s remedy. Measured vacuous otherwise (Stage-7 round 2):
+        # the WHOLE skill contains the wrapper template fence, so an unscoped search is
+        # satisfied by the template's OWN chain line — deleting the quote from the remedy, or
+        # drifting it to `--staged || rc=1`, left the suite green. Both anchors are asserted
+        # UNIQUE so the region can never be picked by ordinal.
+        skill = _init_skill_text()
+        assert skill.count(NEVER_CLOBBER_ANCHOR) == 1 and skill.count(NO_WRAPPER_ANCHOR) == 1
+        prose = " ".join(
+            skill.split(NEVER_CLOBBER_ANCHOR, 1)[1].split(NO_WRAPPER_ANCHOR, 1)[0].split()
+        )
+        assert " ".join(chain.split()) in prose, chain
+
+    def test_the_reconciliation_states_all_three_branches(self):
+        # The three-branch rule is PROSE (init is a prose skill), so deleting a branch is
+        # invisible to every other pin — and each branch guards a different real repo:
+        # already-chained (the settled re-run), refresh (a dev-checkout-shaped wrapper), and
+        # never-clobber (everything else, including every RELEASED wrapper). The shape-aware
+        # half is pinned too: a v0.5.1-era wrapper has no `run_gate`, and pasting the chain
+        # line into one masks the tree gate's exit status (measured at Stage 7).
+        prose = " ".join(_init_skill_text().split())
+        for required in (
+            "ALREADY CHAINED",                      # branch 1
+            "pre-commit hook already wired (budget gate chained)",
+            "REFRESH IN PLACE",                     # branch 2
+            "NEVER CLOBBER, and never assert authorship",  # branch 3
+            "SHAPE-AWARE",
+            "it may be an older harness wrapper or your own edit",
+            "predates the `run_gate` shape (v0.5.1 and earlier)",
+            "must not be pasted in",
+        ):
+            assert required in prose, required
 
     def test_neither_home_merges_stderr_into_the_captured_stream(self):
         # The stream contract at the text level: the GATE invocation must carry no redirection.
@@ -616,9 +890,11 @@ class TestTemplateParity:
     def test_the_version_floor_matches_what_the_gate_scripts_record(self):
         # The floor is a SECOND statement of a requirement the gate scripts already record for
         # themselves (`# Python 3.7+`). Pinning them together is what stops the wrapper drifting
-        # into a floor no gate asked for — a false skip on a working interpreter.
-        for gate in ("claugentic-check_architecture_tree.py", "check_doc_budgets.py"):
-            text = (REPO_ROOT / "scripts" / gate).read_text(encoding="utf-8")
+        # into a floor no gate asked for — a false skip on a working interpreter. The gate set
+        # is DERIVED from the hook's own call sites, so chaining a third gate brings it in here
+        # automatically instead of silently leaving it unpinned.
+        for gate in _chained_gates(HOOK.read_text(encoding="utf-8")):
+            text = (REPO_ROOT / gate).read_text(encoding="utf-8")
             assert "Python 3.7+" in text, gate
         assert "(3, 7)" in HOOK.read_text(encoding="utf-8")
 
@@ -630,7 +906,7 @@ class TestTemplateParity:
         # in the same change.
         hook = HOOK.read_text(encoding="utf-8")
         doctor = (REPO_ROOT / "skills" / "doctor" / "SKILL.md").read_text(encoding="utf-8")
-        floor = re.search(r"sys\.version_info >= \((\d+), (\d+)\)", hook)
+        floor = FLOOR_RE.search(hook)
         assert floor, "the hook must state its floor as a version tuple"
         assert f"sys.version_info >= ({floor.group(1)}, {floor.group(2)})" in doctor
         assert re.search(r"for cand in python3 python", hook), "candidate order is the hook's"
@@ -733,6 +1009,45 @@ class TestHuskyChainSemantics:
         result = _run_hook(sh, husky_repo.root, hook=".husky/pre-commit")
         assert result.returncode == 0
 
+    def test_the_real_two_gate_wrapper_reaches_the_terminal_through_husky(self, sh, husky_repo):
+        # The husky path is a SECOND way a commit reaches the wrapper, and the R6 signal has to
+        # survive it too: husky runs `sh "$hook"` as the hook's last statement, so a passing
+        # gate's advisory line has one more hop to make. Runs the REAL wrapper with both gates
+        # planted, not a stub — the stub cases above cannot see a chain regression at all.
+        target = husky_repo.root / ".githooks" / "pre-commit"
+        target.parent.mkdir(exist_ok=True)
+        shutil.copy(HOOK, target)
+        target.chmod(0o755)
+        (husky_repo.root / "scripts").mkdir(exist_ok=True)
+        (husky_repo.root / GATE_REL).write_text(SILENT_PASS, encoding="utf-8")
+        (husky_repo.root / BUDGET_GATE_REL).write_text(
+            "import sys\n"
+            "print('OK: 1 report-only breach(es) NOT within budget (see WARN above)')\n"
+            "print('WARN: [report-only] docs/LEDGER.md: 15000 bytes vs budget 14000', "
+            "file=sys.stderr)\n",
+            encoding="utf-8",
+        )
+        result = _run_hook(sh, husky_repo.root, hook=".husky/pre-commit")
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "WARN: [report-only] docs/LEDGER.md" in result.stderr
+
+    def test_a_budget_breach_blocks_the_commit_through_husky(self, sh, husky_repo):
+        # ...and the other half: `|| exit 1` in the chained block is what keeps a RED second
+        # gate blocking, exactly as it does for the first.
+        target = husky_repo.root / ".githooks" / "pre-commit"
+        target.parent.mkdir(exist_ok=True)
+        shutil.copy(HOOK, target)
+        target.chmod(0o755)
+        (husky_repo.root / "scripts").mkdir(exist_ok=True)
+        (husky_repo.root / GATE_REL).write_text(SILENT_PASS, encoding="utf-8")
+        (husky_repo.root / BUDGET_GATE_REL).write_text(
+            "print('docs/LEDGER.md: 15000 bytes vs budget 14000')\nraise SystemExit(1)\n",
+            encoding="utf-8",
+        )
+        result = _run_hook(sh, husky_repo.root, hook=".husky/pre-commit")
+        assert result.returncode == 1
+        assert "vs budget 14000" in result.stdout
+
     def test_the_adopters_own_hook_still_runs(self, sh, husky_repo):
         # The append must not shadow what was already there — the block is additive.
         husky_repo.hook.write_text(
@@ -815,3 +1130,113 @@ class TestHuskyChainIsIdempotent:
         block = _husky_block()
         twice = chain_without_guard(chain_without_guard(husky_hook.read_text(encoding="utf-8"), block), block)
         assert twice.count(HUSKY_OPEN_MARKER) == 2  # the defect the marker guard prevents
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# The chain, end to end: a REAL `git commit` running the REAL doc-budget gate
+# ─────────────────────────────────────────────────────────────────────────────
+REAL_BUDGET_GATE = REPO_ROOT / BUDGET_GATE_REL
+
+
+@pytest.mark.integration
+class TestTheRealChainEndToEnd:
+    """THE R6 CLOSER — the one case with no fakes on the path that matters.
+
+    Every other case here plants a fake gate, which proves the wrapper's control flow but says
+    nothing about whether a real adopter, typing `git commit`, actually SEES a report-only
+    breach. That claim spans four things at once: git invoking the hook, the wrapper's stream
+    contract, the real gate's `WARN:`-to-stderr choice, and the delivered script resolving at
+    the path the chain line names. Fake any one of them and the assertion stops meaning what it
+    says — which is exactly how the grace flag could have shipped as a silent no-op.
+
+    HONEST SCOPE: this exercises the ARTIFACTS `init` writes (wrapper + delivered gate + a
+    seeded config), never `init` itself — `init` is a prose skill and pytest cannot run it. The
+    scratch repo is assembled by hand to the shape init describes; that assembly is the part a
+    human verifies at Stage 7, and it is stated here rather than implied.
+    """
+
+    @pytest.fixture
+    def adopter_repo(self, tmp_path) -> Path:
+        """A scratch repo wired the way `init` leaves one: hook + delivered gate + caps."""
+        root = tmp_path / "adopter"
+        root.mkdir()
+        subprocess.run(["git", "init", "-q", str(root)], check=True, capture_output=True)
+        for key, value in (
+            ("user.name", "Harness Test"),
+            ("user.email", "test@example.invalid"),
+            # Repo-local beats a hostile global. A contributor with `commit.gpgsign=true` in
+            # their global config would otherwise see this — the suite's only real `git
+            # commit` — fail at `returncode 128, gpg: signing failed`, a false RED on the one
+            # test that proves the chain reaches a human's terminal.
+            ("commit.gpgsign", "false"),
+        ):
+            subprocess.run(["git", "-C", str(root), "config", key, value], check=True)
+        # The wrapper, as init writes it, activated the way init activates it.
+        subprocess.run(
+            ["git", "-C", str(root), "config", "core.hooksPath", ".githooks"], check=True
+        )
+        (root / ".githooks").mkdir()
+        _write_executable(root / ".githooks" / "pre-commit", HOOK.read_text(encoding="utf-8"))
+        (root / "scripts").mkdir()
+        # The TREE gate is stubbed silent-passing on purpose: this repo has no architecture
+        # tree, and the case under test is the SECOND link in the chain. The budget gate is the
+        # REAL delivered bytes — that one may not be faked or the assertion proves nothing.
+        (root / GATE_REL).write_text(SILENT_PASS, encoding="utf-8")
+        shutil.copy(REAL_BUDGET_GATE, root / BUDGET_GATE_REL)
+        # A ledger already over its cap on day one — the shape init seeds `reportOnly` for.
+        (root / "LEDGER.md").write_text("x" * 400, encoding="utf-8")
+        (root / ".claude").mkdir()
+        (root / ".claude" / "claugentic-doc-budgets.json").write_text(
+            json.dumps({"LEDGER.md": {"max": 100, "reportOnly": True}}), encoding="utf-8"
+        )
+        return root
+
+    @staticmethod
+    def _commit(root: Path, message: str) -> subprocess.CompletedProcess:
+        subprocess.run(["git", "-C", str(root), "add", "-A"], check=True, capture_output=True)
+        return subprocess.run(
+            ["git", "-C", str(root), "commit", "-m", message],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",  # the gate's messages carry em-dashes; a locale decode mangles them
+        )
+
+    @staticmethod
+    def _head(root: Path) -> str | None:
+        proc = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+        return proc.stdout.strip() if proc.returncode == 0 else None
+
+    def test_a_report_only_breach_is_visible_in_real_commit_output_and_the_commit_lands(
+        self, sh, adopter_repo
+    ):
+        assert self._head(adopter_repo) is None, "precondition: nothing committed yet"
+        result = self._commit(adopter_repo, "first commit")
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert self._head(adopter_repo), "the commit did not land — the grace must not block"
+        # The whole point: the breach is on screen, at exit 0, in a real commit's output.
+        # WHICH STREAM, stated exactly rather than over-read: git forwards a hook's output to
+        # its OWN stderr, so at THIS boundary both of the wrapper's streams arrive there. The
+        # stdout/stderr split is what decides whether the line is emitted AT ALL (the wrapper
+        # captures and discards a passing gate's stdout) — that half is pinned on the wrapper
+        # in `TestTheSecondChainedGate`; what is proved here is that the line survives the
+        # whole real path to a human's terminal.
+        assert "WARN: [report-only]" in result.stderr, result.stderr
+        assert "vs budget" in result.stderr, result.stderr
+
+    def test_a_strict_breach_blocks_the_commit(self, sh, adopter_repo):
+        # NON-VACUITY for the case above: with the grace removed, the SAME repo is refused —
+        # so the green there is the flag doing its job, not the gate failing to measure.
+        (adopter_repo / ".claude" / "claugentic-doc-budgets.json").write_text(
+            json.dumps({"LEDGER.md": 100}), encoding="utf-8"
+        )
+        result = self._commit(adopter_repo, "first commit")
+        assert result.returncode != 0
+        assert self._head(adopter_repo) is None, "a blocked commit must not land"
+        # The report the wrapper printed on ITS stdout arrives on git's stderr (see the sibling
+        # above) — the refusal is useless without the reason, so assert the reason is there.
+        assert "vs budget 100" in result.stderr, result.stdout + result.stderr

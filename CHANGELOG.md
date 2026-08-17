@@ -13,23 +13,49 @@ tagged `vX.Y.Z`.
 
 ### Added
 
-- **The doc-budget gate now ships in the release payload.** `scripts/check_doc_budgets.py` used
+- **The doc-budget gate now ships in the release payload — and `init` puts it in your repo.**
+  `scripts/claugentic-check_doc_budgets.py` used
   to be stripped from the release as harness-self tooling; its caps became per-repo data in the
   previous change, so the script is adopter-portable and is now part of what you install.
-  **Shipping is not delivery, and the difference matters here:** nothing copies the script into
-  *your* repo yet — that `init` step is a later change — so for now `python
-  scripts/check_doc_budgets.py` will not resolve in your project, and `/doctor`'s budget
-  advisory stays your budget signal. Do **not** substitute the plugin's own copy: every gate
+  **Shipping is not delivery, and both halves are here:** `init` copies the script into your
+  `scripts/` (born under the managed `claugentic-` prefix — one path in every repo), seeds a
+  caps config, and chains the gate into your pre-commit hook. Do **not** substitute the
+  plugin's own copy: every gate
   script anchors to its own checkout, so run from your project its verdict is about the plugin
   clone, not yours — from an install (whose caps config is stripped) a "not configured" no-op;
   from a harness dev checkout, a green about the *harness's* ledgers. Where the script IS present it measures that repo's
   ledgers against that repo's `.claude/claugentic-doc-budgets.json`, and with **no** config it
   exits 0 having measured nothing — the not-opted-in posture, so nothing changes for a repo
-  that has not written one. It stays a run-gate you invoke; chaining it into the pre-commit
-  hook is a later change. `/doctor` and `/condense` now describe the gate and the advisory as
+  that has not written one. `/doctor` and `/condense` describe the gate and the advisory as
   **two readers of one caps config** rather than a harness/adopter split, and `/doctor`'s
   reader-contract states all three cap forms (plain integer · `{"max": N, "reportOnly": true}`
   · glob-by-key) with their exact edge semantics.
+
+- **Your ledgers get a commit-time budget signal (`init` delivers, seeds, and chains).** Running
+  `/claugentic-dev-harness:init` now (1) copies the doc-budget gate into `scripts/`, (2) seeds
+  `.claude/claugentic-doc-budgets.json` with recommended caps for the files that same run
+  creates — `CLAUDE.md`, the DECISIONS index and its shard glob, ROADMAP, CHARTER — and (3)
+  chains the gate into the shared pre-commit hook right after the architecture-tree check. So a
+  ledger drifting past 90% of its cap now says so **at every commit** instead of never, and one
+  over its cap blocks the commit with the remediation named. **Both gates run every time**, and
+  a failure in one never hides the other's message. **The caps are yours from the moment they
+  are written:** the seed is create-if-absent only — a re-run never touches tuned caps, and
+  deleting the file is how you opt out. A file that is **already over** its recommended cap on
+  day one is seeded `{"max": N, "reportOnly": true}` — the honest cap with the breach reported
+  loudly at every commit while it still passes — never a cap raised to fit; nothing mechanical
+  ever clears that flag (`/claugentic-dev-harness:condense` does the work, you delete the flag).
+  **Where it does NOT apply, stated plainly:** a repo that chose "keep my own tree, gate off"
+  has no pre-commit wrapper, so it gets no commit-time budget signal — the gate is still on disk
+  and `/doctor` still runs it. **An existing wrapper is only rewritten when its RUN LOGIC —
+  comments and blank lines ignored, so a comment-only edit of yours can be rewritten — matches
+  this version's wrapper without the chain line.** Anything else is left alone and reported,
+  and that includes a wrapper installed by **v0.5.1 or earlier: those are never auto-chained**,
+  because they predate this wrapper shape entirely. For those `init` prints how to adopt the
+  new wrapper (move yours aside and re-run, or diff and replace) — deliberately **not** a
+  one-line paste, which would not work there. A machine with no working Python still commits, with one
+  skip notice covering both gates. **The two mechanically-enforced gates are now the
+  architecture-tree check and the doc-budget check** — everything else the harness claims stays
+  model-upheld, and the docs say which is which.
 
 - **`/doctor` gains two health rows.** A **commit-hook interpreter** probe that replicates the
   hook's own candidate loop — each interpreter *executed* against the 3.7+ assertion, never

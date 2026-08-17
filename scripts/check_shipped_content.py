@@ -90,7 +90,7 @@ testable without git; the manifest pass (Pass D) is pure over `build_release`'s 
     marker appears within a bounded window (same line ± a few lines). This is honestly
     HEURISTIC — it can false-positive (a caveat phrased outside the window / with novel
     wording) and false-negative (a caveat near an UNcaveated second mention) — so it sits
-    in the WARN band (printed, exit 0), like check_doc_budgets, NEVER a hard fail. An
+    in the WARN band (printed, exit 0), like the doc-budget gate, NEVER a hard fail. An
     uncaveated gate-script PATH is routed here (WARN), not to Pass A.a (hard): the plan-0028
     decision is that gate-script mentions are heuristic/WARN, because they have legitimate
     caveated shipped uses (running the gate with a "skip in an adopter" note), unlike a true
@@ -100,8 +100,9 @@ HONESTY (the #1 rule): this gate mechanically pins the EXACT cases (A.a dangling
 B stranded roster + C non-ASCII engine codepoints — C is an exact codepoint check, the
 strongest/most mechanical of the passes — + D referential closure `NEEDS ⊆ HAS`, an exact
 set-containment check over the manifest classes). A.b is WARN-heuristic. The gate is a
-RUN-GATE (CI + the Definition-of-Done suite), NOT hook-wired — the one hook-enforced gate
-stays the architecture-tree check. It does NOT make the release/init contract "fully
+RUN-GATE (CI + the Definition-of-Done suite), NOT hook-wired — the hook-chained pair is the
+architecture-tree and doc-budget gates, in whichever repos the wrapper is wired. It does NOT
+make the release/init contract "fully
 mechanically content-enforced": Pass D pins the referential-closure INVARIANT (every
 stripped adopter-relevant path is recreatable via its class's HAS source — "producible by
 init OR the workflow's lazy/templated/agent authoring", never "producible by init" flatly),
@@ -290,18 +291,8 @@ INIT_GEN_OUTPUTS = frozenset(
         "docs/claugentic-ARCHITECTURE_TREE.md",  # init step 4 generates the adopter's file map
         # The adopter's OWN doc-budget caps, generated from THEIR ledgers — never the harness's
         # harness-tuned numbers (which is exactly why the harness's own config is stripped).
-        # HONEST STATUS — registered AHEAD of its writer: the caps config is classed `init-gen`
-        # by plan 0041 Slice 4 (the slice that creates and strips the harness's own config),
-        # while the `init` step that writes an adopter's copy is Slice 7 of the SAME plan. No
-        # release is PLANNED between them — that is plan ORDER, model-upheld; nothing here
-        # gates it and Pass D accepts this entry unconditionally. Until Slice 7 lands, this
-        # entry states the INTENDED HAS source rather than an implemented one.
-        # If that promise is not kept — Slice 7 abandoned, OR a release cut before it lands —
-        # the honest fix is to re-annotate the class as `recreate-on-demand` (the shipped docs
-        # already tell an adopter how to author the file by hand), never to leave this claim
-        # standing. `test_init_documents_the_caps_config` (strict xfail) is the tripwire: it
-        # turns the suite RED the moment init learns to write the config, forcing this note and
-        # its sibling in `build_release.py` to be removed rather than quietly outliving it.
+        # `init` seeds it create-if-absent beside its ledger seeds (0041 S7);
+        # `test_init_documents_the_caps_config` pins that the writer is really there.
         ".claude/claugentic-doc-budgets.json",
     }
 )
@@ -646,7 +637,7 @@ def main(argv: list[str]) -> int:
             file=sys.stderr,
         )
         return 1
-    # THE STREAM CONTRACT (the sibling rule — `check_doc_budgets.py`'s module docstring states
+    # THE STREAM CONTRACT (the sibling rule — `claugentic-check_doc_budgets.py`'s module docstring states
     # it in full): advisory `WARN:` lines ride STDERR, the verdict (problem lines / the OK
     # summary) rides STDOUT. This gate is not hook-wired, but the contract is a GATE-FAMILY
     # obligation, not a per-script choice: the pre-commit wrapper discards a passing gate's
