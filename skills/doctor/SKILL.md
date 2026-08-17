@@ -301,7 +301,9 @@ Confirm the adoption wiring `init` established is still intact (the canonical co
 ### 5. The Stage-9 harvest signal  *(REPORT-ONLY · `[J]` · soft advisory)*
 
 Flag a **recent landed plan whose land window touched no learning surface** — no
-`docs/claugentic-standards/`, no `CLAUDE.md`, no `.claude/agents/`, no
+`docs/claugentic-standards/` (**including a `CANDIDATES.md` staging entry** — in an adopter repo
+that is where a universal lesson lands, and it must not read as "skipped"), no `CLAUDE.md`, no
+`.claude/agents/` (*harness-self* — the harness's roles are plugin-resident; an adopter's own project agents still count), no
 `docs/claugentic-WORKFLOW.md` / `DECISIONS.md` / `INVARIANTS.md` edit — as **"harvest likely
 skipped"** (Stage-9 is a manual discipline the orchestrator runs at Land; see
 `docs/claugentic-WORKFLOW.md` → *The learning loop*). This is a **soft, model-upheld advisory** —
