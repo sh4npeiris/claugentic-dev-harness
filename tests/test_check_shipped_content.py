@@ -229,7 +229,10 @@ class TestDerivedHandListsEqualOld:
             # class entirely. Consequences that ride this one line: it drops out of
             # `HARNESS_SELF_SCRIPTS`, so Pass A.b no longer scans shipped text for its
             # basename, and Pass D no longer counts it as a stripped NEEDS path. Nothing in
-            # `check_shipped_content.py` was hand-edited — every set re-derives.
+            # `check_shipped_content.py` was hand-edited — every set re-derives. Spelled AS IT
+            # WAS IN THE MANIFEST (Slice 7 renamed the script to
+            # `scripts/claugentic-check_doc_budgets.py`): this is set arithmetic against a
+            # frozen snapshot, so respelling it would break the subtraction.
             "scripts/check_doc_budgets.py",
         }
     )
@@ -345,50 +348,29 @@ class TestClosurePassD:
         for path in csc._paths_in_classes("init-gen"):
             assert path in csc.INIT_GEN_OUTPUTS
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="plan 0041 Slice 7 writes the init step; this flips RED the moment it lands",
-    )
     def test_init_documents_the_caps_config(self):
-        # THE TRIPWIRE for the one forward registration in `INIT_GEN_OUTPUTS`. Pass D vouches
-        # for `.claude/claugentic-doc-budgets.json` on the PROMISE that init will generate an
-        # adopter's own — a promise nothing gates, so if Slice 7 were dropped the gate would
-        # keep passing on it forever and the registration's own written instruction ("if
-        # Slice 7 is ever abandoned, re-annotate as `recreate-on-demand`") would have no
-        # mechanism behind it. `strict=True` makes this the mechanism in both directions: it
-        # is RED today (xfail, as expected) and turns the SUITE red the instant init learns
-        # to write the config — forcing whoever lands Slice 7 to delete this marker and the
-        # HONEST STATUS comments that go with it.
+        # WAS THE TRIPWIRE for the one forward registration in `INIT_GEN_OUTPUTS`; DISCHARGED
+        # at 0041 Slice 7, which wrote the seeding step (`init` step 7b) and so flipped this
+        # from strict-xfail to a permanent POSITIVE pin. Pass D vouches for
+        # `.claude/claugentic-doc-budgets.json` via the `init-gen` class, and this is what
+        # makes that vouching true rather than promised: delete the seeding step from init's
+        # SKILL and this goes red, which is exactly when the class would have to become
+        # `recreate-on-demand`. Never delete or invert it.
         init_skill = (Path(__file__).resolve().parent.parent / "skills" / "init" / "SKILL.md")
         assert ".claude/claugentic-doc-budgets.json" in init_skill.read_text(encoding="utf-8")
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason="plan 0041 Slice 7 DELIVERS the gate script into an adopter repo; this flips RED "
-        "the moment it lands, forcing the presence-scoped copy in doctor/condense/WORKFLOW/"
-        "CHANGELOG out of the future tense. If S7 drops delivery, do not delete this quietly: "
-        "reword those sites to say the gate is harness-run-only and say why.",
-    )
     def test_init_delivers_the_budget_gate_script(self):
-        # THE TRIPWIRE for the OTHER forward promise 0041 S6 wrote — and they are different
-        # capabilities, which is exactly why one tripwire cannot cover both. The sibling above
-        # pins CONFIG SEEDING (init writes `.claude/claugentic-doc-budgets.json`); this pins
-        # SCRIPT DELIVERY (init puts the gate itself in the adopter's repo). S6 shipped the
-        # script into the release PAYLOAD, which is not the same as putting it in a reading
-        # repo: measured in a scratch adopter repo, `python scripts/check_doc_budgets.py` exits
-        # 2 (no such file), and the plugin's own copy anchors to its own checkout — its verdict
-        # is about the plugin clone's tree (from an install, a not-configured no-op; from a dev
-        # checkout, the harness's green), never the adopter's. So every shipped sentence about
-        # running this gate is presence-scoped and says the repo-local copy "arrives with 0041
-        # Slice 7's init step" — a forward promise, and this is its falsifier.
+        # WAS THE TRIPWIRE for the OTHER forward promise 0041 S6 wrote — DELIVERY, a different
+        # capability from the sibling above (CONFIG SEEDING), which is why one tripwire could
+        # never cover both. DISCHARGED at Slice 7 and kept as a permanent POSITIVE pin.
         # THE PREDICATE MEASURES DELIVERY, NOT MENTION (S6 code-review F7): it keys on the
         # DELIVERED destination path — born-prefixed per the recorded decision
-        # (release-contract → ship-class != delivery) — so a passing mention of the gate in
-        # init's prose ("arrives in Slice 7", or a seeding-only S7 naming the reader) cannot
-        # flip it. WHEN THIS FLIPS at S7: sweep the shipped invocation copy to the delivered
-        # path (doctor's probe row · WORKFLOW gate 4 + adopter note) as well as the tense.
-        # NOTE: this test only READS init's SKILL. It must never edit it — the two tripwires
-        # above/below are armed on that file's current content.
+        # (release-contract → ship-class != delivery) — so prose that merely discusses the gate
+        # cannot satisfy it; init's step-3 managed-set row is what does. Payload membership is
+        # NOT delivery: before S7, a scratch adopter repo running the shipped command got exit
+        # 2 (no such file), and the plugin's own copy anchors to its own checkout — a verdict
+        # about the plugin clone, never the reader's repo.
+        # NOTE: this test only READS init's SKILL. It must never edit it.
         init_skill = (Path(__file__).resolve().parent.parent / "skills" / "init" / "SKILL.md")
         assert "scripts/claugentic-check_doc_budgets.py" in init_skill.read_text(encoding="utf-8")
 

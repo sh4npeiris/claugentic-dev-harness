@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This repo builds the **`claugentic-dev-harness`** Claude Code plugin (a reusable, self-improving dev harness) and **dogfoods its own harness** — the workflow and roles below govern its own development. Standards and SOLID are **mandated and reviewed** (model-upheld: mandated here, audited by the architect/lens reviewers); the one **mechanically enforced** gate is the architecture-tree check (file-index presence + staleness).
+This repo builds the **`claugentic-dev-harness`** Claude Code plugin (a reusable, self-improving dev harness) and **dogfoods its own harness** — the workflow and roles below govern its own development. Standards and SOLID are **mandated and reviewed** (model-upheld: mandated here, audited by the architect/lens reviewers); the **mechanically enforced** gates are the two the pre-commit wrapper chains where wired — the architecture-tree check and the doc-budget check (per-repo caps; no config = no-op).
 
 ## Engineering Principles (non-negotiable, in priority order)
 

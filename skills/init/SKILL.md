@@ -1,5 +1,5 @@
 ---
-description: Scaffold the claugentic-dev-harness into the current repo — upsert the managed harness set (standards catalog, workflow, playbook, tree-check) to the installed plugin version, generate docs/claugentic-ARCHITECTURE_TREE.md, set the tree-check globs, wire the pre-commit hook, declares the plugin for teammates (seeds the harness's plugin self-reference into the committed .claude/settings.json so a cloned adopter repo prompts teammates to install it), git-init if needed, seed ROADMAP/DECISIONS, refresh the CLAUDE.md harness fence, and compose with existing lint/type-check/test tooling. Asks Shared (default — committed for the team) vs Solo / local-only (this clone alone via .git/info/exclude + .git/hooks/pre-commit + CLAUDE.local.md, leaving git status clean and the committed .gitignore untouched). Re-running converges the repo to the installed version and never clobbers user content; a true no-op only when already at the installed version.
+description: Scaffold the claugentic-dev-harness into the current repo — upsert the managed harness set (standards catalog, workflow, playbook, tree-check, doc-budget gate) to the installed plugin version, generate docs/claugentic-ARCHITECTURE_TREE.md, set the tree-check globs, wire the pre-commit hook with both gates chained into it, declares the plugin for teammates (seeds the harness's plugin self-reference into the committed .claude/settings.json so a cloned adopter repo prompts teammates to install it), git-init if needed, seed ROADMAP/DECISIONS/CHARTER and the doc-budget caps config (create-if-absent, never clobbering tuned caps), refresh the CLAUDE.md harness fence, and compose with existing lint/type-check/test tooling. Asks Shared (default — committed for the team) vs Solo / local-only (this clone alone via .git/info/exclude + .git/hooks/pre-commit + CLAUDE.local.md, leaving git status clean and the committed .gitignore untouched). Re-running converges the repo to the installed version and never clobbers user content; a true no-op only when already at the installed version.
 ---
 
 # /claugentic-dev-harness:init
@@ -83,10 +83,11 @@ Run these in order. Each is **detect → upsert-to-installed / refresh-in-fence 
   running **from this harness's own repo in dev** (not installed), treat **the repo root**
   as the source. State which you're using in the report.
 - **Confirm the target repo root** (the adopter's `${CLAUDE_PROJECT_DIR}` / current repo).
-- **Verify Python is available** (the tree-check gate needs it). Detect the interpreter —
+- **Verify Python is available** (both commit-time gates — the tree check and the doc-budget
+  check — need it). Detect the interpreter —
   `python`, `python3`, or `py` (try `--version` on each). **Record which one works**; it's
   written into the hook command in step 5. If **none** is found, **report it and continue**
-  — note that the tree-check hook won't run until Python is installed, and that the agent
+  — note that the commit-time gates won't run until Python is installed, and that the agent
   can fall back to **`Glob`** to generate/maintain the tree. (Report + continue — a missing
   interpreter is not fatal to scaffolding.)
 - **Resolve the harness mode — Shared (default) or Solo / local-only.** This one choice
@@ -143,6 +144,7 @@ line** with the managed-stamp (convention 1). The managed set is exactly:
 | `docs/claugentic-PRODUCT_SPEC_TEMPLATE.md` | the product-spec contract template (pure verbatim copy; the filled `docs/claugentic-PRODUCT_SPEC.md` is user-owned, never managed) |
 | `docs/claugentic-PLAN_TEMPLATE.md` | the plan-file contract template (verbatim copy; adopters copy one per plan into their own .claude/plans/) |
 | `scripts/claugentic-check_architecture_tree.py` | the deterministic architecture-tree gate |
+| `scripts/claugentic-check_doc_budgets.py` | the deterministic doc-budget gate — **delivery, not just payload membership**: the plugin carrying a script is not the same as your repo having one, and this row is what puts it in *your* `scripts/`. Same stamped-Python treatment as the tree gate (stamp line 1, `#!/usr/bin/env python3` line 2); **no exec bit** — the pre-commit wrapper invokes it as `"$PY" "$root/$gate"`, never directly. It reads the caps config the seeding step writes; with no config it is a quiet exit-0 no-op |
 
 **Per file, decide one of four verdicts (this is `init`'s judgment, rule-bound — there is
 no oracle):**
@@ -190,11 +192,11 @@ stop-if-ambiguous rule **is** the never-clobber safety net here.
 
 **The body compare (the off-by-one + CRLF traps — get this exactly right):**
 - **Asymmetric, unambiguous:** `target body = target minus line 1` (the stamp); `source
-  body = the pristine source as-is` (sources carry **no** stamp). For
-  `claugentic-check_architecture_tree.py`, strip **only line 1** (the stamp) — the
-  `#!/usr/bin/env python3` shebang on line 2 **stays in the body** (it is part of the
-  pristine source). Stripping the shebang too would misalign every Python compare by one
-  line and false-REFRESH it.
+  body = the pristine source as-is` (sources carry **no** stamp). For **either Python
+  script** (`claugentic-check_architecture_tree.py`, `claugentic-check_doc_budgets.py`),
+  strip **only line 1** (the stamp) — the `#!/usr/bin/env python3` shebang on line 2 **stays
+  in the body** (it is part of the pristine source). Stripping the shebang too would
+  misalign every Python compare by one line and false-REFRESH it.
 - **Newline-insensitive:** compare **normalized for line endings** (LF/CRLF equivalent +
   trailing-newline insensitive) so an adopter's checkout settings (Windows `autocrlf` →
   CRLF) never trigger a false REFRESH. This repo's `.gitattributes` does **not** reach an
@@ -208,9 +210,10 @@ stop-if-ambiguous rule **is** the never-clobber safety net here.
   After that migration the file is in the current full form and re-reads `CURRENT`.
 
 **The one hybrid managed file — `claugentic-check_architecture_tree.py`'s `INCLUDE_GLOBS` (the named
-exception to "managed files carry zero user content").** Four of the five managed files are
-pure verbatim copies, but `scripts/claugentic-check_architecture_tree.py` carries **one per-repo
-region**: its `INCLUDE_GLOBS = [ … ]` assignment (the **only** per-repo knob — `init`
+exception to "managed files carry zero user content").** Every other file in the managed set
+above is a pure verbatim copy — the doc-budget gate included, since its caps are DATA in a
+separate config and the script itself carries none. Only `scripts/claugentic-check_architecture_tree.py`
+carries **one per-repo region**: its `INCLUDE_GLOBS = [ … ]` assignment (the **only** per-repo knob — `init`
 itself writes it per-adopter in step 5a, re-derives it on glob-drift, and **invites the
 user to refine it**). A correctly-configured adopter's globs therefore differ from this
 repo's source value, so without a carve-out the file would **always** read REFRESH and the
@@ -266,7 +269,8 @@ Rules:
 
 > **Solo divergence (a) — managed paths → `.git/info/exclude`, NEVER the committed
 > `.gitignore`.** In **solo mode**, every managed file `init` writes to disk (the managed
-> set above, plus the generated tree from step 4 and the copied tree script from step 5a) is
+> set above — the two delivered gate scripts included — plus the generated tree from step 4
+> and the caps config the step-7 seeding step writes) is
 > written **exactly as in shared mode** — but its path/path-pattern is then **appended to
 > `.git/info/exclude`** so `git status` shows it as ignored (nothing to commit). `.git/info/exclude`
 > is **per-clone and inherently untracked** (`.git/` is never tracked) — it does the same job as
@@ -275,7 +279,9 @@ Rules:
 > breaks the solo invariant). Append the patterns that cover what `init` actually wrote:
 > `docs/claugentic-*` (the managed docs + tree + DECISIONS/ROADMAP/CHARTER seeds — the `docs/claugentic-*`
 > glob auto-routes the copied `CHARTER.md` local in solo, no new divergence needed), `docs/claugentic-standards/`,
-> `scripts/claugentic-check_architecture_tree.py`, and `CLAUDE.local.md` (step 6). **Append-if-absent**
+> `scripts/claugentic-check_architecture_tree.py`, `scripts/claugentic-check_doc_budgets.py`,
+> `.claude/claugentic-doc-budgets.json` (the seeded caps — solo's tracked-path invariant covers
+> data files exactly as it covers scripts), and `CLAUDE.local.md` (step 6). **Append-if-absent**
 > (keyed on each pattern line — never duplicate a line on a re-run) so a re-`init` is a no-op on
 > `.git/info/exclude`. In **shared mode** none of this runs — managed paths commit normally and the
 > committed `.gitignore` is the only ignore surface (step 5c manages its negation).
@@ -467,10 +473,12 @@ then stays model-upheld via the CLAUDE.md authority anchor.
   1. **Write `.githooks/pre-commit`** — the same wrapper logic this harness ships in its
      own `.githooks/pre-commit`: it resolves the repo root via `git rev-parse
      --show-toplevel` (worktree-safe), **probes each interpreter candidate** (`python3`
-     then `python`) for a working Python 3.7+, runs
-     `scripts/claugentic-check_architecture_tree.py --staged`, and **exit 1 aborts the
-     commit**. Three properties make it safe on a real team, and none of them may be
-     dropped when you write the file:
+     then `python`) for a working Python 3.7+, runs **both chained gates** —
+     `scripts/claugentic-check_architecture_tree.py --staged` and
+     `scripts/claugentic-check_doc_budgets.py` (no args — it reads none; step 3 delivered
+     it and the step-7 seeding step wrote the caps it reads) — and **exit 1 from either
+     aborts the commit**. Four properties make it safe on a real team, and none of them may
+     be dropped when you write the file:
      - **Infrastructure that cannot be REACHED never blocks a commit** — a broken git, no
        working Python 3.7+, or a gate script that is not in this checkout. Each skips and
        the commit proceeds. Two registers, deliberately different: a **broken git passes
@@ -494,11 +502,13 @@ then stays model-upheld via the CLAUDE.md authority anchor.
        `>/dev/null 2>&1` is a different thing: it discards the *probe's* noise, not a gate's.)
        This is a **two-sided contract**: a gate chained here must print advisory lines on
        **stderr**, because what it writes to stdout is discarded whenever it passes.
-     - **One gate per line, with its own args.** The `run_gate` function is the seam: a
-       second commit-time check is one more `run_gate <script> [args] || rc=1` line, and
-       `rc` is what makes it run-both-and-report (a later gate's failure never masks an
-       earlier gate's message). Scope flags live at the **call site**, so a gate that does
-       not read `--staged` is never handed it.
+     - **One gate per line, with its own args.** The `run_gate` function is the seam: each
+       commit-time check is one `run_gate <script> [args] || rc=1` line, and `rc` is what
+       makes it run-both-and-report (a later gate's failure never masks an earlier gate's
+       message — both gates run, both report, every time). Scope flags live at the **call
+       site**, so the doc-budget gate, which reads no argv at all, is never handed
+       `--staged` — copying the tree gate's flag onto its line would be a cargo-cult that
+       makes the header's own scoping claim false.
 
      Wrapper (**run-logic identical** to the shipped hook — copy it verbatim; only the comment
      header is adopter-appropriate, since a fresh adopter has no per-action hooks to "replace"):
@@ -535,7 +545,7 @@ then stays model-upheld via the CLAUDE.md authority anchor.
        fi
      done
      if [ -z "$PY" ]; then
-       printf '%s\n' "claugentic tree gate SKIPPED: no working Python 3.7+ on PATH (tried python3, python) - install Python 3 and the gate resumes on your next commit (no re-init needed)" >&2
+       printf '%s\n' "claugentic gates SKIPPED: no working Python 3.7+ on PATH (tried python3, python) - install Python 3 and the gates resume on your next commit (no re-init needed)" >&2
        exit 0
      fi
      # Run ONE gate with the args given. A gate script that is not in this checkout is a skip,
@@ -544,9 +554,9 @@ then stays model-upheld via the CLAUDE.md authority anchor.
      # untouched. Exit 0 -> return 0 and discard the captured stdout; non-zero -> print the
      # captured report and return 1.
      # GATE-SIDE OBLIGATION: a gate chained here reports advisory lines on STDERR — whatever it
-     # writes to stdout is discarded when it passes. Today's chained gate (the tree check)
-     # prints only its verdict, so this channel is normally silent; it exists for a gate that
-     # reports while passing — a byte-budget WARN band, a report-only breach.
+     # writes to stdout is discarded when it passes. Today's chained gates are the tree check,
+     # which prints only its verdict, and the doc-budget check, which uses this channel for
+     # exactly what it is for — a byte-budget WARN band, a report-only breach — while passing.
      # Chaining another gate is one more `run_gate <script> [args] || rc=1` line, and `rc` is
      # what makes it run-both-and-report: a later gate's failure never masks an earlier one's.
      run_gate() {
@@ -566,6 +576,7 @@ then stays model-upheld via the CLAUDE.md authority anchor.
      }
      rc=0
      run_gate scripts/claugentic-check_architecture_tree.py --staged || rc=1
+     run_gate scripts/claugentic-check_doc_budgets.py || rc=1
      exit $rc
      ```
      **Make it executable** — set the file's exec bit (`chmod +x .githooks/pre-commit`;
@@ -591,6 +602,28 @@ then stays model-upheld via the CLAUDE.md authority anchor.
   `.githooks`.** When both hold, **skip** (write nothing, set nothing) and report
   "pre-commit hook already wired" — a re-run is a no-op on this. Read `core.hooksPath` with
   `git config --get core.hooksPath` before setting it.
+  - **The ONE bounded reconciliation (an existing wrapper predates the doc-budget chain).**
+    "Already wired" is keyed on **presence**, so a repo `init`'d before the budget gate was
+    chained keeps a one-gate wrapper forever and never gets the budget signal at commit time.
+    Exactly one shape is repaired, and only that one:
+    - **Compare RUN LOGIC, not bytes.** Take the on-disk wrapper's executable lines (drop
+      blank lines and whole-line comments — comment headers legitimately differ between the
+      two homes) and compare them to the template above **minus its
+      `run_gate scripts/claugentic-check_doc_budgets.py || rc=1` line**, which is exactly the
+      PRIOR shipped shape.
+    - **Exactly equal → REFRESH IN PLACE.** The file is an unmodified harness wrapper, so
+      rewrite it with the current template (comments and all) and report **"wrapper: refreshed
+      (chained the budget gate)"**.
+    - **ANY other difference → NEVER CLOBBER.** The adopter (or a newer/older harness
+      version) has edited that file; a rewrite would destroy their work. Write nothing, and
+      report the exact one-line fix: *"add `run_gate scripts/claugentic-check_doc_budgets.py
+      || rc=1` immediately after the tree-gate line in `.githooks/pre-commit`"* — with no args,
+      because that gate reads none. Same stop-if-ambiguous posture as step 3.
+    - **A repo with NO wrapper gets NO chain, and that is reported, not silently skipped** —
+      gate-off (Keep-mine-gate-off) repos have no `.githooks/pre-commit` to chain into, so
+      they get **no commit-time budget signal at all**; the budget gate is still delivered and
+      still runs when invoked, and `/doctor`'s advisory still reads the same caps config.
+    - **Solo mode:** identical rule against `.git/hooks/pre-commit`.
 - **Never-clobber `core.hooksPath`.** If `core.hooksPath` is already set to **something
   other than `.githooks`**, the adopter has their own hook directory — **do NOT overwrite
   it.** Report the conflict (e.g. "core.hooksPath is set to `<value>`; the tree gate's
@@ -625,9 +658,10 @@ then stays model-upheld via the CLAUDE.md authority anchor.
      This mirrors what `init` already does for its own `.claude/settings.json` (make it
      trackable *before* wiring it) and the `git check-ignore` guard in the solo block.
   5. **Ask** (`AskUserQuestion`, **default: chain**) — *Chain (default):* "run the harness's
-     tree check from your existing husky `pre-commit`; your hook keeps working exactly as it
-     does today" · *Don't chain:* "leave husky untouched — the wrapper stays on disk but
-     inactive, and the tree stays model-upheld."
+     commit-time checks (the architecture tree and your doc budgets) from your existing husky
+     `pre-commit`; your hook keeps working exactly as it does today" · *Don't chain:* "leave
+     husky untouched — the wrapper stays on disk but inactive, and both checks stay
+     model-upheld / on-demand."
   6. **On chain, READ `.husky/pre-commit` first** (create it only if it is **absent**; never
      write into `.husky/_`, which husky generates):
      - **A failed read STOPS the chain.** If the file exists but cannot be read, **stop and
@@ -803,8 +837,9 @@ volatile content** so a re-write is byte-identical:
   and the optional engineering charter → `docs/claugentic-CHARTER.md` (the living per-work-type
   methodology record — empty ≡ the harness's default behavior). A stable pointer line, byte-identical every run.
   - A **static adoption-notes pointer**: `docs/claugentic-PLAYBOOK.md` covers how to drive the
-    harness plus adoption notes — including that the architecture-tree check runs at commit time,
-    not while you edit. One fixed line, byte-identical every run (no volatile content).
+    harness plus adoption notes — including that the architecture-tree and doc-budget checks run
+    at commit time, not while you edit. One fixed line, byte-identical every run (no volatile
+    content).
   - **The teammate bootstrap block** (shared mode only — see the solo note below). Git
     **never activates hooks on clone**, by design, so a teammate's fresh clone commits with no
     gate at all until one command is run — the single most common way team wiring silently
@@ -858,9 +893,9 @@ volatile content** so a re-write is byte-identical:
   **rewritten in place only on on-disk disagreement** (e.g. the tree was deleted between runs)
   and is otherwise left untouched (a settled re-run is byte-identical).
 
-### 7. Seed `docs/claugentic-ROADMAP.md` + `docs/claugentic-DECISIONS.md` + `docs/claugentic-CHARTER.md` if absent (the one-time-seed kind)
+### 7. Seed the create-if-absent files: (a) `docs/claugentic-ROADMAP.md` + `docs/claugentic-DECISIONS.md` + `docs/claugentic-CHARTER.md` · (b) the doc-budget caps config
 
-These three are the **one-time-seed** managed-file kind (the third kind in the WORKFLOW
+**(a) The ledger seeds.** These three are the **one-time-seed** managed-file kind (the third kind in the WORKFLOW
 Adopter-note's three-kinds taxonomy). The seed bytes are **shipped pristine `_X.md` files** in
 the plugin — `init` **copies them, stripping the leading underscore**:
 
@@ -896,6 +931,78 @@ repo root in dev — the same source the step-3 managed-copy uses.)
 - The seeded `ROADMAP.md` carries **no** `harness-audit:*` / `harness-product:backlog` fences —
   `/claugentic-dev-harness:audit` and `/claugentic-dev-harness:product` gap mode **self-create**
   their own fences on first run, so the seed correctly omits them.
+
+**(b) Seed the doc-budget caps config `.claude/claugentic-doc-budgets.json` — create-if-absent
+only.** Same never-refresh posture as the three ledger seeds above, for the same reason: once
+written, the caps are **the adopter's own tuned data**, and a re-`init` that rewrote them would
+undo every deliberate bump. This is what makes the gate delivered in step 3 *do* anything — with
+no config it is a quiet exit-0 no-op — and it is the same file `/doctor`'s budget advisory and
+`/condense` read (**one cap source per repo, two readers**).
+
+- **Write it only when it is ABSENT.** Present → **skip byte-untouched**, report
+  `skipped (present)`. Never merge, never add a key to an existing config, never "fix" a cap.
+- **Read the `- Doc budgets:` record BEFORE seeding** (the same read-the-record discipline as
+  step 4's tree choice and step 5b's husky offer). Record present *and* config absent = **the
+  adopter deleted it on purpose** (removing the file is the documented way to opt out) → **do
+  not re-seed**; report `skipped (removed by you — the record says init already seeded one;
+  delete the record line to be offered a fresh seed)`. Without this reader the record would be
+  write-only and every re-run would resurrect a config the user threw away.
+- **The seed — exactly this, and nothing else:**
+  ```json
+  {
+    "CLAUDE.md": 6000,
+    "docs/claugentic-DECISIONS.md": 3500,
+    "docs/claugentic-decisions/*.md": 14000,
+    "docs/claugentic-ROADMAP.md": 14000,
+    "docs/claugentic-CHARTER.md": 8000
+  }
+  ```
+  **Why exactly these five keys — the rule is "cap only what this same run guarantees
+  exists":** `CLAUDE.md` comes from step 6; `DECISIONS.md`, `ROADMAP.md` and `CHARTER.md` come
+  from the seeds above; the `docs/claugentic-decisions/*.md` glob is a **shape**, not a file, and
+  a glob matching nothing is skipped silently — so it is safe from day one and needs no edit when
+  the ledger is later sharded. (It also structurally excludes the managed full-copy docs: they
+  live in `docs/` and `docs/claugentic-standards/`, not in `docs/claugentic-decisions/`.)
+  **NEVER add an `INVARIANTS` or `WORKFLOW` key.** A cap on an **absent** file is a hard exit-1
+  breach — *even under `reportOnly`*, which graces the size verdict only — and
+  `docs/claugentic-INVARIANTS.md` is created **lazily, on demand** by the workflow, not by
+  `init`. **Do not copy the harness's own config**: it caps `INVARIANTS.md` because this repo
+  has one, and its numbers are this repo's load profile.
+- **The numbers are recommendations from this repo's load profile, not telemetry** (there is
+  none, by design — the harness collects nothing). They encode load: `CLAUDE.md` is tight
+  because it is always loaded; a sharded decisions ledger caps the routing index far tighter
+  than a shard; `CHARTER.md` is an on-demand per-work-type record that should stay skimmable.
+  Say so in the report, and say that tuning them is a one-line edit plus a dated
+  `docs/claugentic-DECISIONS.md` line (`docs/claugentic-WORKFLOW.md` → the escape-valve ladder).
+- **Day-one-over — the grace flag, NEVER a bigger number.** Before writing, **measure** each
+  seeded path that already exists (`len(read_bytes())` — bytes, not characters). For any file
+  already **over** its recommended cap, write that entry in the object form
+  `{"max": <the recommended number>, "reportOnly": true}` — the cap stays honest and the breach
+  is reported loudly at every run while passing. **Never seed a cap raised to fit** the current
+  size: that is the mechanical ceiling-raise the escape-valve ladder's rung-2 forbids (a raise is
+  a recorded human decision, never an init default). State plainly in the report that **nothing
+  mechanical ever clears a `reportOnly` flag** — `/condense` does the work and you delete the
+  flag when the file is genuinely under cap.
+- **Trackability (shared mode) — the config must be committed or it measures nothing.** An
+  ignored config is indistinguishable from an un-configured repo: green on the author's machine,
+  silent everywhere else. So mirror step 5c's settings.json precedent — read `.gitignore`, and if
+  it ignores `.claude/` or `.claude/*`, **append a `!.claude/claugentic-doc-budgets.json`
+  negation AFTER the broad ignore line** (append-if-line-absent, keyed on that exact line; a
+  negation placed before its ignore does nothing). Then **verify** with
+  `git check-ignore -v .claude/claugentic-doc-budgets.json`: if it is STILL ignored (a rule the
+  harness must not fight — e.g. a global excludes file, or a later broader pattern), **REFUSE**
+  — write nothing, record nothing, and report the ignore rule `check-ignore` printed plus the
+  one-line fix. Recording nothing is deliberate: a repo that fixes its ignore rules is seeded on
+  the next run. **Solo mode:** no `.gitignore` edit at all — the path goes into
+  `.git/info/exclude` per solo divergence (a), where being untracked is the point.
+- **Record it:** `- Doc budgets: <seeded | skipped (present)>` in the detected-tooling block
+  (step 8), **keyed on the `Doc budgets:` label**, append-if-line-absent and never rewritten —
+  the line this step's own reader consumes above. The **refused** (ignored-path) case writes **no
+  line**, exactly like the husky refusal.
+- **Stays OUT of the step-3 managed-set table**, deliberately and for the same reason as the
+  ledger seeds: a REFRESH verdict would clobber tuned adopter data. Two guards keep it safe —
+  this step is create-if-absent, and a path outside the managed set can never satisfy the
+  genuine-managed predicate (step 3, leg 1). Do not add a row for it.
 
 ### 8. Detect + record existing tooling (never reconfigure)
 
@@ -961,6 +1068,13 @@ repo root in dev — the same source the step-3 managed-copy uses.)
   husky (nothing was chosen), solo mode (the offer is skipped), and the **refused** case where
   `.githooks/pre-commit` is git-ignored — that one deliberately stays unrecorded so a repo that
   fixes its ignore rules is offered the chain again.
+- **Record the doc-budget seeding (step 7b's contract).** Write `- Doc budgets: <seeded |
+  skipped (present)>` into this same block, **keyed on the `Doc budgets:` label**,
+  append-if-line-absent and **never rewritten** (like `Husky chain:`). **Step 7b reads it before
+  seeding** — a record with no config on disk means the adopter deleted the config deliberately,
+  and re-seeding it would override an opt-out. The **refused** case (the config path is
+  git-ignored and cannot be made trackable) writes **no line**, so a repo that fixes its ignore
+  rules is seeded on the next run.
 
 **(detect a competing way-of-work doc — non-destructive; never delete).** Adopting onto a
 repo that carries an *obvious* rival way-of-work / agent-instruction doc can mislead agents.
@@ -1053,15 +1167,19 @@ branched on step 4's outcome (each is honest about what was created/overwritten/
 
 Then tell the user the **setup is live** — honestly, so no restart is implied where none is
 needed (a skill **cannot** restart a session; don't pretend otherwise):
-- **When the tree-gate is ON:** the **tree gate runs at commit time** — a git **pre-commit
-  hook** checks the tree once per `git commit` (no restart, no per-action overhead); a missing
-  entry aborts that commit until you add it. Name the **hook path per mode**: **shared** →
+- **When the tree-gate is ON:** **two gates run at commit time** — a git **pre-commit hook**
+  checks the tree and the doc budgets once per `git commit` (no restart, no per-action
+  overhead); a missing tree entry, or a ledger over its cap, aborts that commit until you fix
+  it, and a ledger at ≥90% of its cap prints a WARN and lets the commit through. Name the
+  **hook path per mode**: **shared** →
   `.githooks/pre-commit` via `core.hooksPath=.githooks` (travels with the repo); **solo** →
   `.git/hooks/pre-commit` (local to this clone, untracked — `core.hooksPath` left at its
-  default). **When the tree-gate is OFF (Keep-mine-gate-off):** say so plainly — *no* tree
-  hook was wired; run `python scripts/claugentic-check_architecture_tree.py` manually only if
-  you ever want a one-off check (it would flag a non-backtick tree, which is why the gate is
-  off).
+  default). **When the tree-gate is OFF (Keep-mine-gate-off):** say so plainly — **no
+  pre-commit hook was wired at all, so neither gate runs at commit time here**; run `python
+  scripts/claugentic-check_architecture_tree.py` manually only if you ever want a one-off check
+  (it would flag a non-backtick tree, which is why the gate is off), and `python
+  scripts/claugentic-check_doc_budgets.py` whenever you want the budget verdict — both scripts
+  are on disk either way, and `/claugentic-dev-harness:doctor` runs them for you.
 - **You (the agent) have adopted the harness workflow for the rest of this session** — you just
   scaffolded it and follow `docs/claugentic-WORKFLOW.md` from here, so work continues immediately.
 - **Suggest `/clear` or `/compact`** (quick — not a whole new chat) for the cleanest standing
@@ -1108,7 +1226,12 @@ step 5:
 
 Then emit the clear summary, grouped:
 - **Created** — files written from scratch (e.g. `claugentic-ARCHITECTURE_TREE.md`, `claugentic-ROADMAP.md`) +
-  the managed files that were absent and copied + stamped. For the tree, name **which mode**
+  the managed files that were absent and copied + stamped. **Name the doc-budget caps config
+  here** (`.claude/claugentic-doc-budgets.json` — `seeded` with the five recommended caps, or
+  `skipped (present)`, or the refused/opted-out cases), and when any entry was seeded
+  `reportOnly` because the file is already over its recommended cap, **say which files and that
+  nothing mechanical clears the flag** — `/claugentic-dev-harness:condense` does the work and you
+  delete the flag. For the tree, name **which mode**
   produced it: minimal (fresh), cheap-complete skeleton (mature-no-tree), or
   **replaced-by-skeleton** (mature-with-tree → Replace — the user-file overwrite above); or
   **kept-untouched, gate off** (Keep-mine-gate-off — not created, left as the user's).
@@ -1119,10 +1242,16 @@ Then emit the clear summary, grouped:
   source (left byte-untouched, even if the stamp semver was older).
 - **Skipped (user file / unrecognized stamp)** — present files that are not genuine managed
   copies; left untouched, reported so the user can reconcile.
-- **Wired** — the tree-gate **pre-commit hook**, named **per mode**: **shared** →
+- **Wired** — the **pre-commit hook** and the **two gates chained into it** (the tree check
+  `--staged`, then the doc-budget check with no args), named **per mode**: **shared** →
   `.githooks/pre-commit` written + `core.hooksPath=.githooks` set (gate ON); **solo** →
   `.git/hooks/pre-commit` written (gate ON, local + untracked, no `core.hooksPath` change);
-  "pre-commit hook already wired" (idempotent re-run), a `core.hooksPath` **conflict** flagged
+  "pre-commit hook already wired" (idempotent re-run) — and when an existing wrapper predates
+  the budget chain, the reconciliation outcome: **"wrapper: refreshed (chained the budget
+  gate)"** when its run logic was the unmodified prior shape, or the **never-clobber** report
+  naming the exact one-line addition when it had been edited. **Gate OFF ⇒ no wrapper ⇒ no
+  commit-time budget signal** — say that plainly rather than leaving it unsaid; the gate is
+  still on disk and still runs when invoked. Also flag a `core.hooksPath` **conflict**
   (the adopter has their own hooks path — see step 5b, both modes), or **"tree-gate OFF — no
   pre-commit hook wired"** (Keep-mine-gate-off). **When husky was detected** (step 5b), name
   the chain outcome too — **"appended", never "chained"** (whether it runs is step 6's
@@ -1140,8 +1269,9 @@ Then emit the clear summary, grouped:
   omitted** — step 5c is skipped, so `.claude/settings.json` and the committed `.gitignore`
   are untouched (report that explicitly under the solo honesty block above).
 - **Locally excluded (solo mode only)** — the solo-written paths appended to
-  `.git/info/exclude` (managed docs/tree/tree-script + `CLAUDE.local.md`), each confirmed
-  ignored via `git check-ignore` (per the guard above). Omitted in shared mode.
+  `.git/info/exclude` (managed docs/tree + both delivered gate scripts + the seeded caps config
+  + `CLAUDE.local.md`), each confirmed ignored via `git check-ignore` (per the guard above).
+  Omitted in shared mode.
 - **Detected** — the ecosystem, the interpreter, the existing tooling, the recorded
   **harness mode** (`Harness mode:` line — shared/solo) and **architecture-tree choice**
   (`Architecture tree:` line — gate on/off), and any **competing way-of-work doc** found: name
@@ -1185,8 +1315,10 @@ At a fixed installed version it holds because:
   identical body **and a current-form stamp** → `CURRENT` (byte-untouched); a drifted body
   **or an old-format stamp** → `REFRESH` once to the installed version (the stamp is
   migrated to the current full form), after which a re-run reads `CURRENT`.
-- Every **create-if-absent** target — the tree (generated), and the ROADMAP/DECISIONS seeds
-  (copied from `_X.md`, underscore stripped, step 7) — is **user-owned, never refreshed.**
+- Every **create-if-absent** target — the tree (generated), the ROADMAP/DECISIONS/CHARTER seeds
+  (copied from `_X.md`, underscore stripped, step 7a), and the doc-budget caps config (step 7b)
+  — is **user-owned, never refreshed.** A present caps config is skipped byte-untouched, and a
+  recorded `- Doc budgets:` line with the config deleted stays skipped (the opt-out reader).
 - The **architecture-tree scenario decision is recorded** (`Architecture tree:` line in the
   detected-tooling block — append-if-line-absent, then rewritten in place only on on-disk
   disagreement) and **read before any prompt**, so a re-`init` on a settled repo **honors the
@@ -1196,7 +1328,11 @@ At a fixed installed version it holds because:
   match) only when it diverges (the user deleted the tree), which is not the byte-identical
   re-run case.
 - The **pre-commit hook** is "already wired" when `.githooks/pre-commit` exists AND
-  `core.hooksPath` is `.githooks` → a re-run writes nothing and sets nothing. **Gate-off
+  `core.hooksPath` is `.githooks` → a re-run writes nothing and sets nothing. **The one bounded
+  exception is convergent, not repeating:** a wrapper whose run logic is exactly the PRIOR
+  shipped shape is refreshed once to chain the budget gate, after which it matches the current
+  template and every later run is a no-op again (any other divergence is never touched at all).
+  **Gate-off
   wires no hook, so there is nothing to write on a re-run** (the recorded `keep-gate-off`
   suppresses re-wiring). The **`.claude/settings.json` plugin self-reference** merge is keyed
   on the `sh4npeiris` marketplace + `claugentic-dev-harness@sh4npeiris` plugin keys (both
@@ -1224,17 +1360,22 @@ dirties the repo, an idempotency guard is missing — that is a bug, not expecte
 - It does **not** install or reconfigure your linters/test runner — it **detects and
   records** them (step 8) so the workflow composes with them.
 - It does **not** refresh your **user-owned** files — `docs/claugentic-ARCHITECTURE_TREE.md`,
-  `docs/claugentic-ROADMAP.md`, and `docs/claugentic-DECISIONS.md` are seeded create-if-absent and then left to
-  you (they carry your content, not managed content).
+  `docs/claugentic-ROADMAP.md`, `docs/claugentic-DECISIONS.md`, `docs/claugentic-CHARTER.md` and
+  `.claude/claugentic-doc-budgets.json` are seeded create-if-absent and then left to
+  you (they carry your content, not managed content — your tuned caps included).
 - It does **not** 3-way-merge a user-edited **managed** file — managed files are marked
   *do not edit* and carry no user content by contract (sole exception: the
   `claugentic-check_architecture_tree.py` `INCLUDE_GLOBS` knob, preserved per step 3); on a genuine
   drift the installed version wins (reported by path) and **git is the review/recovery
   net** for content you committed (an uncommitted edit isn't recoverable — see the roadmap).
-- It does **not** reconcile the pre-commit wrapper **contents** if the shipped wrapper
-  changes between versions — idempotency keys only on the hook's presence (+
+- It does **not** generally reconcile the pre-commit wrapper **contents** when the shipped
+  wrapper changes between versions — idempotency keys on the hook's presence (+
   `core.hooksPath=.githooks` in shared mode; the `.git/hooks/pre-commit` presence in solo
-  mode) (out of scope; tracked on the roadmap).
+  mode). **Exactly one shape is repaired** (step 5b): a wrapper whose run logic is
+  byte-for-byte the PRIOR shipped shape gets the doc-budget chain line. Anything else — an
+  adopter-edited wrapper, an older or newer unknown shape — is **never rewritten**; you get the
+  one-line fix in the report instead (general version-to-version reconciliation stays on the
+  roadmap).
 - **In solo / local-only mode it does NOT** declare the plugin for teammates, edit your
   committed `.gitignore`, or set any shared git config — solo adoption is invisible to
   teammates by design (everything lives on this clone via `.git/info/exclude`,

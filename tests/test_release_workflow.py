@@ -206,7 +206,7 @@ class TestGateParity:
         {
             "scripts/claugentic-check_architecture_tree.py",
             "scripts/check_versions_synced.py",
-            "scripts/check_doc_budgets.py",
+            "scripts/claugentic-check_doc_budgets.py",
             "scripts/check_shipped_content.py",
         }
     )
