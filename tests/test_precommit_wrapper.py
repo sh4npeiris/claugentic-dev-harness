@@ -80,6 +80,13 @@ assert SKIP_NOTICE not in MISSING_GATE_NOTICE and MISSING_GATE_NOTICE not in SKI
 # have retired the pins instead of extending them.
 SILENT_PASS = "raise SystemExit(0)\n"
 
+# The two boundaries of `init`'s never-clobber branch (3) in step 5b — the region whose PROSE
+# hands an adopter a remediation. Scoping to it is load-bearing: the skill also carries the
+# wrapper template itself, so an unscoped search finds the real chain line no matter what the
+# remedy says. Content-anchored and asserted unique at the assertion site, never by ordinal.
+NEVER_CLOBBER_ANCHOR = "**(3) Anything else → NEVER CLOBBER"
+NO_WRAPPER_ANCHOR = "**A repo with NO wrapper gets NO chain"
+
 # The husky-chain block's markers (the idempotency contract in `init`'s husky offer).
 HUSKY_OPEN_MARKER = "# >>> claugentic-dev-harness tree gate"
 HUSKY_CLOSE_MARKER = "# <<< claugentic-dev-harness tree gate"
@@ -839,7 +846,16 @@ class TestTemplateParity:
             line for line in _run_logic(_wrapper_template())
             if line.endswith(f"{BUDGET_GATE_REL} || rc=1")
         )
-        prose = " ".join(_init_skill_text().split())
+        # REGION-SCOPED to branch (3)'s remedy. Measured vacuous otherwise (Stage-7 round 2):
+        # the WHOLE skill contains the wrapper template fence, so an unscoped search is
+        # satisfied by the template's OWN chain line — deleting the quote from the remedy, or
+        # drifting it to `--staged || rc=1`, left the suite green. Both anchors are asserted
+        # UNIQUE so the region can never be picked by ordinal.
+        skill = _init_skill_text()
+        assert skill.count(NEVER_CLOBBER_ANCHOR) == 1 and skill.count(NO_WRAPPER_ANCHOR) == 1
+        prose = " ".join(
+            skill.split(NEVER_CLOBBER_ANCHOR, 1)[1].split(NO_WRAPPER_ANCHOR, 1)[0].split()
+        )
         assert " ".join(chain.split()) in prose, chain
 
     def test_the_reconciliation_states_all_three_branches(self):
