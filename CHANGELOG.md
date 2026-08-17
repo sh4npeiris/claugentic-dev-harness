@@ -123,6 +123,19 @@ tagged `vX.Y.Z`.
   there is now one place to add a test dependency.
 - CI action pins moved off the deprecated Node-20 action runtime (checkout / setup-python /
   setup-node at v7, which run on node24).
+- **Four front-door sentences now say what the harness actually does.** The README headline
+  claimed it "never changes your code without your sign-off" — true of the full pipeline's
+  approval gate, not of the lightweight path small local fixes take, so the claim is now scoped
+  to substantial changes and the lightweight path is named. The README's mechanical-gate bullet
+  said a hook "blocks *done* until *every file* is documented"; it blocks a **commit**, it covers
+  the paths its globs watch, and it is a **pair** now (codebase-map + doc budgets) that is a gate
+  only wherever `init` wired the hook — with the no-config and no-Python cases stated. Both
+  plugin manifests advertised "deterministic architecture enforcement", which read as always-on
+  and architecture-only; they now say "deterministic commit-time gates (the codebase-map and
+  doc-budget checks, wired by init)". And `/build`'s description asserted "it stops before
+  anything irreversible" as bare fact — the discipline is real and instructed, so it now carries
+  its register (model-upheld, never a mechanical gate), matching the guardrail in the skill body.
+  No mechanics changed in this entry: only the claims about them.
 
 ### Not changed (by design)
 

@@ -1,6 +1,6 @@
 # claugentic-dev-harness
 
-A Claude Code plugin that turns AI coding into a disciplined, reviewable process — it plans, reviews its own work, and **never changes your code without your sign-off.**
+A Claude Code plugin that turns AI coding into a disciplined, reviewable process — it plans, reviews its own work, and **puts your sign-off before the build on every substantial change** (small, local fixes take a lightweight path: still reviewed, not sign-off-gated).
 
 ## Install
 
@@ -54,7 +54,7 @@ Then re-run **`/claugentic-dev-harness:init`** in each repo — it's version-awa
 
 The harness's whole pitch is honesty, so here's the straight version:
 
-- **Mechanical (a real gate):** the codebase-map check `init` installs — a deterministic, no-LLM hook that blocks "done" until every file is documented. It checks that files are *documented*, **not** that the code is *good*, and it composes with your own linters and tests rather than replacing them.
+- **Mechanical (two real gates):** the two checks `init` chains into your pre-commit hook — deterministic, no-LLM, run on every commit, and a failure in one never hides the other's message. The **codebase-map check** blocks the commit when a file in the map's scope (the globs `init` picks for your languages — not literally every file on disk) is missing from the map, or the map still lists one that's gone. The **doc-budget check** blocks it when a managed doc outgrows its byte cap in your repo's own `.claude/claugentic-doc-budgets.json` — `init` seeds that file with recommended caps, tuning or deleting them is yours, and with no file at all it measures nothing and exits quietly, so it gates only where a repo opted in. Both are gates **only wherever `init` wired that hook**: a repo that keeps its own tooling with the gate off has neither, git never activates hooks on clone (each teammate runs the one-line bootstrap `init` prints), and a machine with no working Python still commits, with one loud skip notice. They check that files are *documented* and docs stay *bounded*, **not** that the code is *good*, and they compose with your own linters and tests rather than replacing them.
 - **Model-upheld (judgment, not a guarantee):** every review and the audit's double-checks. A skeptical reviewer is a **separate specialist agent with a clean context** — it never sees the builder's reasoning, so it can't rubber-stamp it. A reduction of rubber-stamping risk, **not** independence (it runs the same capable model, so model blind spots aren't independent). The audit *tries to refute* each finding and tags what came back; it never presents judgment as proof.
 - **Not built yet:** the mechanical trust-gates that would make a fully-unwatched run safe (a land-gate that blocks a bad commit, a secret-scan). So an unwatched "build-to-green" run is offered only where a repo has earned it (CI, a test baseline, an approved spec) — and otherwise declines honestly, naming what's missing.
 
