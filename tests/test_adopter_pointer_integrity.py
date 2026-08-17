@@ -45,6 +45,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -234,16 +235,27 @@ class TestWorkflowNamesTheUpstreamChannel:
 
     def test_no_other_shipped_prose_repeats_the_url(self) -> None:
         # The other half of "one canonical home": WORKFLOW holds it once (above) AND no
-        # other shipped markdown carries a second copy. `.claude/plans/` is excluded
-        # deliberately -- a plan quotes the channel while specifying it, and plans are
-        # stripped from the release; `tests/` is this file's own quoting of it.
+        # other shipped markdown carries a second copy. Enumerate via `git ls-files` --
+        # the repo's convention for corpus scans (check_shipped_content.py,
+        # build_release.py, claugentic-check_architecture_tree.py all use it), and the
+        # only enumeration anchored to the TRACKED tree. Do NOT revert this to rglob: an
+        # rglob walk also descends into untracked on-disk material -- notably the linked
+        # worktrees this repo keeps under the gitignored `.claude/worktrees/`, each with
+        # its own copy of WORKFLOW.md -- so it passes in a worktree and in CI, and FAILS
+        # in the main checkout at Land. `.claude/plans/` is excluded deliberately (a plan
+        # quotes the channel while specifying it, and plans are stripped from the
+        # release); `tests/` is this file's own quoting of it.
         url = _plugin_repo_url()
-        excluded_prefixes = (".claude/plans/", "tests/", "node_modules/", ".git/")
+        excluded_prefixes = (".claude/plans/", "tests/")
+        tracked = subprocess.run(
+            ["git", "-C", str(REPO_ROOT), "ls-files", "*.md"],
+            capture_output=True, text=True, encoding="utf-8", check=True,
+        ).stdout
         candidates = [
-            (rel, p)
-            for p in REPO_ROOT.rglob("*.md")
-            for rel in [p.relative_to(REPO_ROOT).as_posix()]
-            if not rel.startswith(excluded_prefixes)
+            (rel, REPO_ROOT / rel)
+            for line in tracked.splitlines()
+            for rel in [line.replace("\\", "/").strip()]
+            if rel and not rel.startswith(excluded_prefixes)
         ]
         assert len(candidates) >= 20, (
             f"only {len(candidates)} markdown files in scope -- the exclusion prefixes "
