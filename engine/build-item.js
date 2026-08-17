@@ -468,10 +468,17 @@ function foldResidual(gates, verifyResult, qa) {
 // different-family judge; otherwise the verbatim same-model tag. A child that did not run (e.g.
 // QA skipped with no criteria) contributes no judge report and never blocks a confirmation on its
 // own -- only a present-but-same/unresolved report does. PURE.
+//
+// ABSENCE is a SHORTER ARRAY, never a null ENTRY. Every entry is a signal from a child that ran:
+// the three call sites below push an explicit `null` to mean "ran, did NOT confirm a different
+// family", and sameModelTag() already maps that to the conservative floor. Filtering entries out
+// here conflated the two, so one confirming family beside a deliberate non-confirming null read as
+// `confirmed` -- the run over-reported cross-model review on the honesty surface. Do not re-add a
+// filter (0041 S10a, D2).
 function crossModelClaim(builderFamily, judgeFamilies) {
-  const reports = (Array.isArray(judgeFamilies) ? judgeFamilies : []).filter((j) => j != null && j !== "");
+  const reports = Array.isArray(judgeFamilies) ? judgeFamilies : [];
   if (reports.length === 0) {
-    return SAME_MODEL_TAG; // no confirming report at all -> never claim cross-model
+    return SAME_MODEL_TAG; // no child reported at all -> never claim cross-model
   }
   for (const j of reports) {
     if (sameModelTag(builderFamily, j) !== null) {
@@ -602,6 +609,49 @@ function gatesPrompt(repo, branch, worktreePath, gatesTimeoutSec) {
     `~30 lines of its output, REQUIRED when exitCode != 0 so the fix step has evidence) }. Do not interpret or ` +
     `summarize pass/fail -- only the exit codes decide.`
   );
+}
+
+// The verify panel's dimension set when the item names none -- the ONE named source (a re-inlined
+// literal at the call site is what this replaced). Configurable here, never at a call site.
+const DEFAULT_VERIFY_DIMENSIONS = ["maintainability-structure", "testing"];
+
+// Build the verify.js child-workflow args (a PURE builder, extracted from the inline call so the
+// threading is unit-testable -- the qaChildArgs shape below). Returns `{ args, defaulted }`, where
+// `defaulted` names every field this builder SUBSTITUTED for the item's own value.
+//
+// The substitutions were inline ternaries at the workflow() call site and were applied SILENTLY:
+// an item naming no dimensions got a two-dimension panel while the run reported nothing about the
+// narrowed coverage, and a non-boolean `trustSurface` was coerced to false -- and that flag is what
+// decides whether the trust-surface lens spawns at all. The VALUES are unchanged (trustSurface
+// stays fail-closed on a bad value); what changed is that the call site now logs them
+// (0041 S10a, D5). `builderFamily` arrives already resolved by the caller, matching qaChildArgs.
+function verifyChildArgs(item, diffRef, builderFamily) {
+  const named = Array.isArray(item.dimensions) ? item.dimensions : [];
+  const defaulted = [];
+  let dimensions;
+  if (named.length > 0) {
+    dimensions = named;
+  } else {
+    dimensions = DEFAULT_VERIFY_DIMENSIONS.slice();
+    defaulted.push(
+      `dimensions -- the item named none, so the panel audits only the default set (${DEFAULT_VERIFY_DIMENSIONS.join(", ")})`,
+    );
+  }
+  if (item.trustSurface !== undefined && typeof item.trustSurface !== "boolean") {
+    defaulted.push(
+      `trustSurface -- the item's value is a ${typeof item.trustSurface}, not a boolean; treated as false, so the trust-surface lens does NOT spawn`,
+    );
+  }
+  return {
+    args: {
+      diffRef,
+      specPath: item.planPath || "(spec provided inline)",
+      dimensions,
+      trustSurface: item.trustSurface === true,
+      builderFamily,
+    },
+    defaulted,
+  };
 }
 
 // Build the qa.js child-workflow args (a PURE builder, extracted from the inline call so the
@@ -781,17 +831,14 @@ for (let iteration = 1; iteration <= maxIterations; iteration++) {
   //    The builder family is the implementer's self-report, falling back to args.builderFamily.
   phase(`iteration-${iteration}-verify`);
   let verifyResult = null;
+  const verifyChild = verifyChildArgs(item, `${repo.baseBranch}...${branch}`, implementerFamily || builderFamily);
+  // Every value the builder substituted for the item's own is REPORTED here -- a narrowed panel or
+  // a disarmed trust-surface lens must never be a silent default (0041 S10a, D5).
+  for (const note of verifyChild.defaulted) {
+    log(`build-item: verify args defaulted -- ${note}`);
+  }
   try {
-    verifyResult = await workflow(
-      { scriptPath: verifyScript },
-      {
-        diffRef: `${repo.baseBranch}...${branch}`,
-        specPath: item.planPath || "(spec provided inline)",
-        dimensions: Array.isArray(item.dimensions) && item.dimensions.length > 0 ? item.dimensions : ["maintainability-structure", "testing"],
-        trustSurface: item.trustSurface === true,
-        builderFamily: implementerFamily || builderFamily,
-      },
-    );
+    verifyResult = await workflow({ scriptPath: verifyScript }, verifyChild.args);
   } catch (e) {
     log(`build-item: verify child workflow threw on iteration ${iteration}: ${e && e.message ? e.message : e}`);
     verifyResult = null;
