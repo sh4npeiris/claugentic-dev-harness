@@ -595,6 +595,45 @@ function controlFlowOf(scriptPath) {
   return src.slice(src.search(/^\/\/ --- end helpers ---$/m));
 }
 
+// Load a BELOW-the-block wrapper by evaluating the SHIPPED bytes with the tool primitives
+// INJECTED as parameters. The spec called these wrappers "not extractable" because they close
+// over agent()/log() -- true for `loadHelpersFrom`, whose Function body sees only the global
+// scope, but the closure is over a NAME, and a name can be bound. So: eval the real helpers
+// block (bareAgentType / namespaceFallbackNotice / guardFailure / judgeOutcome / MODELS are the
+// real ones, never stubs), append the real wrapper sources, and bind `agent`/`log` to spies.
+// That turns "the source looks right" into "the catch arm was DRIVEN and its effect asserted"
+// -- the failure-path bar in docs/claugentic-standards/reliability-resilience.md.
+function loadWrappers(names, { agent, log }) {
+  const src = readFileSync(SCRIPT_PATH, "utf8");
+  const start = src.search(/^\/\/ --- helpers ---$/m);
+  const end = src.search(/^\/\/ --- end helpers ---$/m);
+  assert.ok(start >= 0 && end > start, "helpers block markers not found");
+  const block = src.slice(start, end);
+  const flow = src.slice(end);
+  const bodies = names.map((name) => {
+    const m = flow.match(new RegExp(`^async function ${name}\\([\\s\\S]*?^\\}`, "m"));
+    assert.ok(m, `wrapper '${name}' not found below the helpers block`);
+    return m[0];
+  });
+  const factory = new Function(
+    "agent",
+    "log",
+    `${block}\n${bodies.join("\n")}\n; return { ${names.join(", ")} };`,
+  );
+  return factory(agent, log);
+}
+
+// A spy pair: records every agent() call's (prompt, opts) and every log() line.
+function spies(agentImpl) {
+  const calls = [];
+  const logs = [];
+  const agent = async (prompt, opts) => {
+    calls.push({ prompt, opts });
+    return agentImpl(calls.length, opts);
+  };
+  return { calls, logs, agent, log: (line) => logs.push(line) };
+}
+
 // The file header: everything ABOVE `export const meta` (where the script's own claims live).
 function headerOf(scriptPath) {
   const src = readFileSync(scriptPath, "utf8");
@@ -949,4 +988,187 @@ test("verify.js header: the 'no loops' / roster-bounded claim is corrected (hone
   // What replaces it must name the REAL bound and its source.
   assert.match(header, /KNOWN_MODULES\.length/, "the corrected header must name the catalog bound");
   assert.match(header, /de-duplicated/, "the corrected header must name what makes the bound real");
+});
+
+// -----------------------------------------------------------------------------
+// D4/D6 -- BEHAVIORAL tests: the wrappers' shipped bytes, DRIVEN, with agent()/log()
+// injected. Every catch arm below is entered by a real throw and its effect asserted.
+// -----------------------------------------------------------------------------
+const NS_LENS = "claugentic-dev-harness:lens-reviewer";
+
+test("fallback (driven): a namespaced spawn that SUCCEEDS is one call, no retry, no log", async () => {
+  const s = spies(() => ({ verdict: "CLEAN" }));
+  const { agentWithNamespaceFallback } = loadWrappers(["agentWithNamespaceFallback"], s);
+  const out = await agentWithNamespaceFallback("p", { agentType: NS_LENS, label: "lens:x" });
+  assert.deepEqual(out, { verdict: "CLEAN" });
+  assert.equal(s.calls.length, 1);
+  assert.deepEqual(s.logs, []);
+});
+
+test("fallback (driven): a THROWN namespaced spawn retries ONCE bare, keeping the model pin", async () => {
+  const s = spies((n) => {
+    if (n === 1) throw new Error("agent type not found");
+    return { verdict: "CLEAN" };
+  });
+  const { agentWithNamespaceFallback } = loadWrappers(["agentWithNamespaceFallback"], s);
+  const out = await agentWithNamespaceFallback("p", {
+    agentType: NS_LENS,
+    model: "opus",
+    schema: { type: "object" },
+    label: "lens:x",
+  });
+  assert.deepEqual(out, { verdict: "CLEAN" });
+  assert.equal(s.calls.length, 2, "exactly ONE retry");
+  const retry = s.calls[1].opts;
+  assert.equal(retry.agentType, "lens-reviewer", "the retry uses the DERIVED bare name");
+  assert.equal(retry.model, "opus", "the judge model: pin must survive the retry");
+  assert.deepEqual(retry.schema, { type: "object" }, "the schema must survive the retry");
+  assert.equal(retry.label, "lens:x:ns-fallback", "the retry carries its own distinguishable label");
+  assert.ok(!/:respawn/.test(retry.label), "a namespace retry must never wear the model-respawn label");
+  assert.equal(s.logs.length, 1, "the retry is announced exactly once");
+  assert.match(s.logs[0], /not a model respawn/i);
+});
+
+test("fallback (driven): a NULL return is passed through -- no retry (a legitimate agent outcome)", async () => {
+  const s = spies(() => null);
+  const { agentWithNamespaceFallback } = loadWrappers(["agentWithNamespaceFallback"], s);
+  const out = await agentWithNamespaceFallback("p", { agentType: NS_LENS, label: "lens:x" });
+  assert.equal(out, null);
+  assert.equal(
+    s.calls.length,
+    1,
+    "a null return must NOT be retried -- that would double every genuine agent failure",
+  );
+  assert.deepEqual(s.logs, []);
+});
+
+test("fallback (driven): a BUILT-IN spawn rethrows the ORIGINAL error -- never a same-id respawn", async () => {
+  const s = spies(() => {
+    throw new Error("boot agent exploded");
+  });
+  const { agentWithNamespaceFallback } = loadWrappers(["agentWithNamespaceFallback"], s);
+  await assert.rejects(
+    () => agentWithNamespaceFallback("p", { agentType: "general-purpose", label: "boot" }),
+    /boot agent exploded/,
+  );
+  assert.equal(s.calls.length, 1, "there is no fallback for a bare id -- do not spawn it twice");
+  assert.deepEqual(s.logs, [], "nothing to announce when no retry happened");
+});
+
+test("fallback (driven): a doubly-namespaced id strips BOTH prefixes (never half-stripped)", async () => {
+  const s = spies((n) => {
+    if (n === 1) throw new Error("nope");
+    return "ok";
+  });
+  const { agentWithNamespaceFallback } = loadWrappers(["agentWithNamespaceFallback"], s);
+  await agentWithNamespaceFallback("p", {
+    agentType: "claugentic-dev-harness:claugentic-dev-harness:lens-reviewer",
+    label: "lens:x",
+  });
+  assert.equal(s.calls[1].opts.agentType, "lens-reviewer");
+});
+
+test("fallback (driven): when the bare retry ALSO fails, the error propagates to the caller's guard", async () => {
+  const s = spies((n) => {
+    throw new Error(n === 1 ? "first" : "second");
+  });
+  const { agentWithNamespaceFallback } = loadWrappers(["agentWithNamespaceFallback"], s);
+  await assert.rejects(
+    () => agentWithNamespaceFallback("p", { agentType: NS_LENS, label: "lens:x" }),
+    /second/,
+  );
+  assert.equal(s.calls.length, 2);
+});
+
+test("panel guard (driven): a throwing thunk degrades to null IN POSITION and is LOGGED", async () => {
+  // A BUILT-IN id isolates the guard: no namespace to strip, so the fallback rethrows without a
+  // word and the guard's own notice is the only line.
+  const s = spies(() => {
+    throw new Error("lens spawn exploded");
+  });
+  const { guardedPanelAgent } = loadWrappers(["agentWithNamespaceFallback", "guardedPanelAgent"], s);
+  const out = await guardedPanelAgent("p", { agentType: "general-purpose", label: "lens:testing.md" });
+  assert.equal(out, null, "the guard degrades to null -- never to a substitute value");
+  assert.equal(s.logs.length, 1, "the swallowed failure must reach the run log");
+  assert.match(s.logs[0], /lens:testing\.md/);
+  assert.match(s.logs[0], /lens spawn exploded/);
+  assert.match(s.logs[0], /null IN POSITION/);
+});
+
+test("panel guard (driven): the guard catches an EXHAUSTED namespace fallback, and both lines are logged", async () => {
+  // The layering, driven end to end: namespaced spawn throws -> the fallback announces and
+  // retries bare -> that throws too -> the guard degrades to null. Two lines, in that order --
+  // so a reader of the run log can tell "the agent id never resolved" from "the agent failed".
+  const s = spies(() => {
+    throw new Error("agent type not found");
+  });
+  const { guardedPanelAgent } = loadWrappers(["agentWithNamespaceFallback", "guardedPanelAgent"], s);
+  const out = await guardedPanelAgent("p", { agentType: NS_LENS, label: "lens:testing.md" });
+  assert.equal(out, null);
+  assert.equal(s.calls.length, 2, "namespaced, then bare");
+  assert.equal(s.logs.length, 2);
+  assert.match(s.logs[0], /NAMESPACE retry, not a model respawn/);
+  assert.match(s.logs[1], /null IN POSITION/);
+});
+
+test("panel guard (driven): success and a null return pass straight through, unlogged", async () => {
+  const ok = spies(() => ({ verdict: "CLEAN", findings: [] }));
+  const G1 = loadWrappers(["agentWithNamespaceFallback", "guardedPanelAgent"], ok);
+  assert.deepEqual(await G1.guardedPanelAgent("p", { agentType: NS_LENS, label: "l" }), {
+    verdict: "CLEAN",
+    findings: [],
+  });
+  assert.deepEqual(ok.logs, []);
+
+  const nul = spies(() => null);
+  const G2 = loadWrappers(["agentWithNamespaceFallback", "guardedPanelAgent"], nul);
+  assert.equal(await G2.guardedPanelAgent("p", { agentType: NS_LENS, label: "l" }), null);
+  assert.deepEqual(nul.logs, [], "a null return is the agent's own outcome, not a guarded failure");
+});
+
+test("spawnJudge (driven): a namespace fallback does NOT force same-model and does NOT burn the respawn", async () => {
+  // THE trust-surface acceptance criterion, proven by execution rather than by pattern-match.
+  const s = spies((n) => {
+    if (n === 1) throw new Error("agent type not found");
+    return { reported_model_family: "Opus 5", verdict: "CLEAN" };
+  });
+  const { spawnJudge } = loadWrappers(
+    ["agentWithNamespaceFallback", "guardedPanelAgent", "spawnJudge"],
+    s,
+  );
+  const decision = await spawnJudge("honesty", NS_LENS, "prompt", { type: "object" });
+  assert.equal(
+    decision.forcedSameModel,
+    false,
+    "a NAMESPACE retry must never read as a model-forced respawn",
+  );
+  assert.deepEqual(decision.out, { reported_model_family: "Opus 5", verdict: "CLEAN" });
+  assert.equal(s.calls.length, 2, "the fallback resolved INSIDE the first attempt");
+  assert.equal(s.calls[0].opts.model, "opus", "attempt 1 carries the cross-model pin");
+  assert.equal(s.calls[1].opts.model, "opus", "so does its namespace fallback -- the pin is not dropped");
+  assert.equal(s.calls[1].opts.label, "honesty:ns-fallback");
+  assert.ok(
+    !s.calls.some((c) => c.opts.label === "honesty:respawn"),
+    "the one respawn must remain UNSPENT -- a genuine model failure still gets its retry",
+  );
+});
+
+test("spawnJudge (driven): the respawn is still there for a real failure, and two failures still THROW", async () => {
+  // The namespace fallback must not have eaten the state machine it sits inside.
+  const s = spies((n) => (n === 1 ? null : { verdict: "CLEAN" }));
+  const { spawnJudge } = loadWrappers(
+    ["agentWithNamespaceFallback", "guardedPanelAgent", "spawnJudge"],
+    s,
+  );
+  const decision = await spawnJudge("synthesis", NS_LENS, "prompt", { type: "object" });
+  assert.equal(decision.forcedSameModel, true, "a real respawn still force-tags same-model");
+  assert.equal(s.calls[1].opts.label, "synthesis:respawn");
+  assert.equal(s.calls[1].opts.model, undefined, "the respawn still drops the model pin");
+
+  const dead = spies(() => null);
+  const D = loadWrappers(["agentWithNamespaceFallback", "guardedPanelAgent", "spawnJudge"], dead);
+  await assert.rejects(
+    () => D.spawnJudge("honesty", NS_LENS, "prompt", { type: "object" }),
+    /failed twice.*Never a silent partial PASS/s,
+  );
 });
