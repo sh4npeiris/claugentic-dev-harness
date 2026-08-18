@@ -92,7 +92,7 @@ For each **must-hold**: move it to where load-bearing truth lives — `docs/clau
 for a "what must stay true or something breaks" invariant, or the relevant `CLAUDE.md` harness block
 for durable structural/domain context. Then the ledger entry becomes a **one-line pointer** to that
 home, or is dropped entirely. **Promoting into INVARIANTS / CLAUDE.md respects THEIR caps too** — do
-not simply relocate the bloat; promote the distilled constraint, not the narrative.
+not simply relocate the bloat; promote the distilled constraint, not the narrative. **The home list is not closed — the home is whichever doc already OWNS the topic:** a release/runbook step to the release runbook, a review rule to the standards module for its dimension, a role's bar to that role's file. Re-homing to the owner is rung 1 of the escape-valve ladder done properly, and it is what turns an un-cuttable live item into a real reduction. **And where a Stage-9 harvest has already promoted an entry's incident into one of those homes, the ledger's retelling is now a duplicate** — leave a pointer and absorb the story. *(0041 S10b-L8, measured: a ROADMAP needing +631 B against 95 B of levers absorbed the routing with **no** shave — one item re-homed to the release runbook, three retold incidents that recent harvests had promoted into standards modules cut to pointers.)*
 
 ## STEP 4 — Merge duplicative siblings — ENTRIES, and the prose around them
 
