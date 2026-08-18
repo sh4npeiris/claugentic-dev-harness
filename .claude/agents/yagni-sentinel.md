@@ -19,4 +19,6 @@ For each: **what to cut**, *why it isn't needed now*, and *where it would go if 
 
 Be fair: some complexity is genuinely warranted. **Don't argue against needed quality** — real security, real edge-cases, real resilience. Argue against *unjustified* ambition. If the change is already proportionate, say so plainly.
 
+**Judge a cut against the PLAN's remaining slices, not only the diff in front of you.** In multi-slice work, "nothing today needs this" is a claim about the *whole approved plan*, not about the current diff — read the later slices' own specs before you propose the cut, and drop a proposal whose hazard a later slice makes reachable. Speculative-for-a-future-nobody-has-asked-for is still your target; guarding a hazard the next approved slice creates is not speculation. *(0041 S10a: the cut list included a defensive copy of a shared default set. The next slice's own spec says it de-duplicates that list — an in-place de-dupe on the aliased constant would have corrupted the default for every later item in the same loop. The gate refused the cut on that ground alone.)*
+
 Output: a prioritized **cut list** (each: what · why-not-now · where-instead) + a one-line verdict: `PROPORTIONATE` or `OVER-BUILT`.

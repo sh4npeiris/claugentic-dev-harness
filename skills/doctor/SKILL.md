@@ -307,7 +307,7 @@ that is where a universal lesson lands, and it must not read as "skipped"), no `
 `docs/claugentic-WORKFLOW.md` / `DECISIONS.md` / `INVARIANTS.md` edit — as **"harvest likely
 skipped"** (Stage-9 is a manual discipline the orchestrator runs at Land; see
 `docs/claugentic-WORKFLOW.md` → *The learning loop*). This is a **soft, model-upheld advisory** —
-a *might-have-missed*, not a fact.
+a *might-have-missed*, not a fact. **Weight the surfaces — a `DECISIONS.md`-only touch is the WEAK signal, not a clear.** Filing dated decision lines is *also* a **Stage-8 Land** obligation, so a diligent land that skipped Stage-9 entirely is byte-indistinguishable from a fired harvest under a flat any-surface test. Treat a `docs/claugentic-standards/` (or `CANDIDATES.md`), `.claude/agents/`, `CLAUDE.md` or `docs/claugentic-WORKFLOW.md` touch as harvest-shaped and clear the flag; treat **DECISIONS/INVARIANTS alone** as *still worth the soft flag*, worded as such — *"the land filed decisions but touched no standards, role or workflow surface; the harvest may have been folded into Land bookkeeping."* *(Provenance: plan 0041 Slice 10a, 2026-08-17 — that land filed four decision lines at Land and its harvest ran separately afterwards; under the flat test the signal would have read clean either way.)*
 
 > **Doctor only REPORTS this signal — it does not run the harvest.** The active retrospect /
 > harvest is owned by the `retrospect-harvester` agent (plan 0026 §C5b). Doctor surfaces the flag;
