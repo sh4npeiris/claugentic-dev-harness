@@ -50,10 +50,47 @@ export const meta = {
 // so the copied block is whole (no partial-copy drift).
 const MODELS = { judge: "opus" };
 
-// Bundled agents resolve only as `claugentic-dev-harness:<agent>` for an installed adopter
-// (bare names resolve only when dogfooded with project-local .claude/agents/). Namespace every
-// custom-agent spawn; built-ins (general-purpose, ...) stay bare. Pure -> unit-tested.
-const nsAgent = (name) => `claugentic-dev-harness:${name}`;
+// The bundled-agent namespace prefix -- the ONE source both nsAgent (which adds it) and
+// bareAgentType (which strips it) read, so the two can never disagree about what a namespaced id
+// looks like. Copied byte-identical across the workflow scripts (cross-script drift pin).
+const AGENT_NAMESPACE = "claugentic-dev-harness";
+
+// Bundled agents resolve as `<AGENT_NAMESPACE>:<agent>` for an installed adopter (bare names
+// resolve only when dogfooded with project-local .claude/agents/). Namespace every custom-agent
+// spawn; built-ins (general-purpose, ...) stay bare. Namespaced stays what the engine WRITES --
+// the spawn wrapper below the helpers block retries bare ONCE on a thrown spawn failure, and
+// DERIVES that bare name rather than storing it. Pure -> unit-tested.
+const nsAgent = (name) => `${AGENT_NAMESPACE}:${name}`;
+
+// Strip EVERY leading `<AGENT_NAMESPACE>:` prefix from an agent id, yielding the bare name a
+// project-local .claude/agents/ dir resolves -- the D6 fallback target, DERIVED at runtime so no
+// bare agent name is ever written as a literal in engine source. Total and IDEMPOTENT
+// (bareAgentType(bareAgentType(x)) === bareAgentType(x)), so a doubly-namespaced id can never be
+// half-stripped. An id with no prefix comes back UNCHANGED, and "unchanged" IS the "no fallback
+// exists" signal the caller tests by comparison -- a built-in like general-purpose, or another
+// plugin's namespace, which is not ours to strip; a non-string maps to "". Copied byte-identical
+// across the workflow scripts (cross-script drift pin).
+function bareAgentType(agentType) {
+  const prefix = `${AGENT_NAMESPACE}:`;
+  let bare = typeof agentType === "string" ? agentType : "";
+  while (bare.startsWith(prefix)) {
+    bare = bare.slice(prefix.length);
+  }
+  return bare;
+}
+
+// The one-line notice a namespace fallback logs before its single bare retry. Pure (message only
+// -- the caller owns log() and the retry), so the wording is unit-pinnable from the helpers
+// block. It states the trust boundary in the run log itself: a namespace retry is NOT a model
+// respawn. Copied byte-identical across the workflow scripts (cross-script drift pin).
+function namespaceFallbackNotice(agentType, bare, err) {
+  const detail = err && err.message ? err.message : String(err);
+  return (
+    `agent spawn '${agentType}' failed (${detail}) -- retrying ONCE as the bare name '${bare}' ` +
+    `(project-local .claude/agents/ resolution). This is a NAMESPACE retry, not a model respawn: ` +
+    `it consumes no respawn budget, keeps the same model options, and changes no cross-model claim.`
+  );
+}
 
 // The verbatim same-model disclosure tag. Defined once; never reconstructed by hand at a call
 // site, so the wording cannot drift (honesty trust surface). Copied verbatim from verify.js.
@@ -809,6 +846,33 @@ function driverPrompt(runConfig, criterion, runLabel, artifactDir) {
 
 // --- end helpers ---
 
+// The D6 namespace fallback -- the ONE spawn seam every namespaced agent call goes through.
+// Bundled agents resolve as `<AGENT_NAMESPACE>:<agent>` for an installed adopter and only as BARE
+// names in a project-local dogfood session; this sandbox cannot detect which world it is in (no
+// imports, no filesystem, no env), so try-namespaced-then-retry-bare is the only implementable
+// form. It fires ONLY on a THROWN spawn failure: a null return is a legitimate agent outcome (a
+// skip or terminal error) and is passed through untouched, never retried. The retry spreads the
+// ORIGINAL opts, so a judge's `model:` pin survives it.
+//
+// DO NOT thread this through a judge's one-respawn state machine (0041 S10b, D6). A namespace
+// retry must never consume the respawn budget, never set forcedSameModel (that flag feeds the
+// same-model disclosure), never swallow a two-failure throw, and never reuse the `:respawn`
+// label -- it carries its own `:ns-fallback` label so the run log can tell the two apart.
+// Copied byte-identical across the workflow scripts (cross-script drift pin).
+async function agentWithNamespaceFallback(prompt, opts) {
+  try {
+    return await agent(prompt, opts);
+  } catch (e) {
+    const agentType = opts && typeof opts.agentType === "string" ? opts.agentType : "";
+    const bare = bareAgentType(agentType);
+    if (bare === agentType) {
+      throw e; // nothing to strip (a built-in or an already-bare id) -- there is no fallback
+    }
+    log(namespaceFallbackNotice(agentType, bare, e));
+    return await agent(prompt, { ...opts, agentType: bare, label: `${opts.label || agentType}:ns-fallback` });
+  }
+}
+
 // Build the boot agent's prompt from the validated run config + the bounded readiness plan. The
 // agent (not the script) has Bash: it starts the command detached and probes the URL. When
 // `runLabel` is null the agent ALSO stamps one (`qa-<timestamp>`) -- the script has no clock, so
@@ -889,12 +953,14 @@ function verifierPrompt(finding) {
 // Spawn one finding-verifier with the cross-model `model:` pin; one no-override respawn on failure
 // (the result then can't confirm a different family -> the run carries the same-model tag); a
 // second failure returns null (the finding is then marked deferred -- never a silent skip). Copied
-// in spirit from audit.js's spawnVerifier (runtime-shaped).
+// in spirit from audit.js's spawnVerifier (runtime-shaped). Each attempt routes through the
+// namespace fallback, which resolves INSIDE one attempt -- a bare retry therefore consumes none
+// of the one respawn and cannot influence the same-model tag (0041 S10b, D6).
 async function spawnVerifier(finding) {
   const prompt = verifierPrompt(finding);
   const attempt = async (opts) => {
     try {
-      return { out: await agent(prompt, opts) };
+      return { out: await agentWithNamespaceFallback(prompt, opts) };
     } catch (e) {
       return { out: null, err: e && e.message ? e.message : String(e) };
     }
@@ -1063,7 +1129,7 @@ try {
     for (const criterion of drivable) {
       let report = null;
       try {
-        report = await agent(driverPrompt(runConfig, criterion, runLabel, artifactDir), {
+        report = await agentWithNamespaceFallback(driverPrompt(runConfig, criterion, runLabel, artifactDir), {
           agentType: nsAgent("runtime-qa"),
           schema: DRIVER_SCHEMA,
           label: `qa:drive:${criterion.id}`,

@@ -8,9 +8,14 @@
 //
 // Workflow-script constraints (the tool runs this inside its sandbox): NO imports, NO
 // filesystem APIs, NO wall-clock / randomness (the orchestrator stamps times after the
-// run). Only the tool primitives `agent()`/`parallel()`/`phase()`/`log()`/`args`. Call
-// count is structurally bounded by the roster -- no loops. Pure decision logic lives in the
-// marked `// --- helpers ---` block and is unit-tested by tests/workflows/verify.test.mjs
+// run). Only the tool primitives `agent()`/`parallel()`/`phase()`/`log()`/`args`. The lens
+// fan-out IS a loop (one `.map()` over the in-scope modules), and the roster is built from
+// caller-supplied `dimensions` -- so the bound comes from the standards CATALOG, not from the
+// caller: `dimensions` is validated for membership and de-duplicated, capping the panel at
+// KNOWN_MODULES.length lenses + yagni + the trust-surface honesty judge + synthesis. Agent
+// CALLS are a small constant multiple of that (each judge may respawn once; any spawn may
+// retry once bare via the namespace fallback). Pure decision logic lives in the marked
+// `// --- helpers ---` block and is unit-tested by tests/workflows/verify.test.mjs
 // (extract-and-eval), so the prose->script move tests the judgment, not just inspects it.
 
 export const meta = {
@@ -28,10 +33,47 @@ export const meta = {
 // uphold; the same-model TAG (below) stays the per-run honesty guard.
 const MODELS = { judge: "opus" };
 
-// Bundled agents resolve only as `claugentic-dev-harness:<agent>` for an installed adopter
-// (bare names resolve only when dogfooded with project-local .claude/agents/). Namespace every
-// custom-agent spawn; built-ins (general-purpose, ...) stay bare. Pure -> unit-tested.
-const nsAgent = (name) => `claugentic-dev-harness:${name}`;
+// The bundled-agent namespace prefix -- the ONE source both nsAgent (which adds it) and
+// bareAgentType (which strips it) read, so the two can never disagree about what a namespaced id
+// looks like. Copied byte-identical across the workflow scripts (cross-script drift pin).
+const AGENT_NAMESPACE = "claugentic-dev-harness";
+
+// Bundled agents resolve as `<AGENT_NAMESPACE>:<agent>` for an installed adopter (bare names
+// resolve only when dogfooded with project-local .claude/agents/). Namespace every custom-agent
+// spawn; built-ins (general-purpose, ...) stay bare. Namespaced stays what the engine WRITES --
+// the spawn wrapper below the helpers block retries bare ONCE on a thrown spawn failure, and
+// DERIVES that bare name rather than storing it. Pure -> unit-tested.
+const nsAgent = (name) => `${AGENT_NAMESPACE}:${name}`;
+
+// Strip EVERY leading `<AGENT_NAMESPACE>:` prefix from an agent id, yielding the bare name a
+// project-local .claude/agents/ dir resolves -- the D6 fallback target, DERIVED at runtime so no
+// bare agent name is ever written as a literal in engine source. Total and IDEMPOTENT
+// (bareAgentType(bareAgentType(x)) === bareAgentType(x)), so a doubly-namespaced id can never be
+// half-stripped. An id with no prefix comes back UNCHANGED, and "unchanged" IS the "no fallback
+// exists" signal the caller tests by comparison -- a built-in like general-purpose, or another
+// plugin's namespace, which is not ours to strip; a non-string maps to "". Copied byte-identical
+// across the workflow scripts (cross-script drift pin).
+function bareAgentType(agentType) {
+  const prefix = `${AGENT_NAMESPACE}:`;
+  let bare = typeof agentType === "string" ? agentType : "";
+  while (bare.startsWith(prefix)) {
+    bare = bare.slice(prefix.length);
+  }
+  return bare;
+}
+
+// The one-line notice a namespace fallback logs before its single bare retry. Pure (message only
+// -- the caller owns log() and the retry), so the wording is unit-pinnable from the helpers
+// block. It states the trust boundary in the run log itself: a namespace retry is NOT a model
+// respawn. Copied byte-identical across the workflow scripts (cross-script drift pin).
+function namespaceFallbackNotice(agentType, bare, err) {
+  const detail = err && err.message ? err.message : String(err);
+  return (
+    `agent spawn '${agentType}' failed (${detail}) -- retrying ONCE as the bare name '${bare}' ` +
+    `(project-local .claude/agents/ resolution). This is a NAMESPACE retry, not a model respawn: ` +
+    `it consumes no respawn budget, keeps the same model options, and changes no cross-model claim.`
+  );
+}
 
 // The verbatim same-model disclosure tag. Defined once; never reconstructed by hand at a
 // call site, so the wording cannot drift (honesty trust surface).
@@ -120,7 +162,7 @@ function validateArgs(args) {
   if (!Array.isArray(args.dimensions) || args.dimensions.length === 0) {
     errors.push("dimensions is required (non-empty array of in-scope module slugs)");
   } else {
-    for (const dim of args.dimensions) {
+    for (const dim of new Set(args.dimensions)) {
       if (!KNOWN_MODULES.includes(dim)) {
         errors.push(`unknown dimension '${dim}' -- not a docs/claugentic-standards/ module slug`);
       }
@@ -149,6 +191,22 @@ function validateArgs(args) {
 // Map validated dimension slugs to their module doc paths (assumes validated input).
 function modulesFor(dimensions) {
   return dimensions.map((slug) => `docs/claugentic-standards/${slug}.md`);
+}
+
+// De-duplicate the caller's dimension list, preserving first-seen order. validateArgs checks
+// dimension MEMBERSHIP only -- it is a pure predicate and must stay one -- so without this the
+// lens fan-out is sized by the CALLER's array: `dimensions: Array(200).fill("security")`
+// validates clean and spawns 200 lens agents over one module. After it, the fan-out is bounded
+// by the catalog (at most KNOWN_MODULES.length lenses), which is what makes the header's bound
+// claim true. NON-MUTATING, and it returns a NEW array even when there is nothing to drop:
+// build-item.js's verifyChildArgs passes its `named` branch through with NO copy, so an in-place
+// dedupe would mutate the caller's item across build-to-green iterations. Applied ONCE at the
+// boundary and fed to BOTH consumers -- panelRoster and modulesAudited derive independently from
+// `dimensions`, and deduping one only would break the lensReturns[i] <-> modulesAudited[i]
+// pairing coverageGaps relies on. IDEMPOTENT: dedupeDimensions(dedupeDimensions(x)) deep-equals
+// dedupeDimensions(x). (0041 S10b, D4)
+function dedupeDimensions(dimensions) {
+  return Array.isArray(dimensions) ? [...new Set(dimensions)] : [];
 }
 
 // Normalize a self-reported model family to a canonical lowercase token. First KNOWN_FAMILIES
@@ -299,6 +357,22 @@ function judgeOutcome(role, agentType, first, second) {
   );
 }
 
+// The one-line notice the panel guard logs before degrading a failed thunk to null. PURE
+// (message only -- the caller owns log() and the null return), because the guard itself closes
+// over agent()/log() and lives below this block where no test can reach it; extracting the
+// wording is what makes the degradation contract unit-pinnable at all. It names both consumers
+// honestly: an unrun LENS becomes a deterministic coverage gap and forces CHANGES_REQUIRED (via
+// coverageGaps -> finalVerdict), while an unrun YAGNI only marks the panel degraded.
+// (0041 S10b, D4)
+function guardFailure(err, label) {
+  const detail = err && err.message ? err.message : String(err);
+  return (
+    `verify panel: thunk '${label || "(unlabeled)"}' failed -- ${detail}. Degrading to null IN ` +
+    `POSITION (parallel() arity preserved): an unrun lens becomes a deterministic coverage gap ` +
+    `and forces CHANGES_REQUIRED; an unrun yagni leaves the panel degraded. Never a crashed run.`
+  );
+}
+
 // Panel-coverage honesty: a lens that returned null/unusable output (skipped or errored) must
 // surface as an explicit could-not-run GAP -- an unrun review must never read as a clean
 // dimension. Returns one deterministic gap finding per unrun module; empty when all ran.
@@ -443,12 +517,67 @@ const SYNTHESIS_SCHEMA = {
 };
 // --- end helpers ---
 
+// The D6 namespace fallback -- the ONE spawn seam every namespaced agent call goes through.
+// Bundled agents resolve as `<AGENT_NAMESPACE>:<agent>` for an installed adopter and only as BARE
+// names in a project-local dogfood session; this sandbox cannot detect which world it is in (no
+// imports, no filesystem, no env), so try-namespaced-then-retry-bare is the only implementable
+// form. It fires ONLY on a THROWN spawn failure: a null return is a legitimate agent outcome (a
+// skip or terminal error) and is passed through untouched, never retried. The retry spreads the
+// ORIGINAL opts, so a judge's `model:` pin survives it.
+//
+// DO NOT thread this through a judge's one-respawn state machine (0041 S10b, D6). A namespace
+// retry must never consume the respawn budget, never set forcedSameModel (that flag feeds the
+// same-model disclosure), never swallow a two-failure throw, and never reuse the `:respawn`
+// label -- it carries its own `:ns-fallback` label so the run log can tell the two apart.
+// Copied byte-identical across the workflow scripts (cross-script drift pin).
+async function agentWithNamespaceFallback(prompt, opts) {
+  try {
+    return await agent(prompt, opts);
+  } catch (e) {
+    const agentType = opts && typeof opts.agentType === "string" ? opts.agentType : "";
+    const bare = bareAgentType(agentType);
+    if (bare === agentType) {
+      throw e; // nothing to strip (a built-in or an already-bare id) -- there is no fallback
+    }
+    log(namespaceFallbackNotice(agentType, bare, e));
+    return await agent(prompt, { ...opts, agentType: bare, label: `${opts.label || agentType}:ns-fallback` });
+  }
+}
+
+// Panel-phase guard, for the LENS and YAGNI thunks ONLY. The platform's parallel() already
+// resolves a throwing thunk to null (it never rejects) -- this wrapper makes the never-crash-the
+// -run property LOCAL and auditable instead of resting on an out-of-repo tool contract, and it
+// LOGS the failure the platform would otherwise swallow without a word. It returns null IN
+// POSITION, preserving parallel()'s arity: splitPanelResults slices by INDEX and coverageGaps
+// pairs lensReturns[i] with modulesAudited[i], so any guard that filtered, compacted, chunked or
+// reshaped the results would misalign the pairing and name the WRONG module as unrun.
+//
+// NEVER apply this to the honesty thunk, and never blanket-map it over panelTasks (0041 S10b,
+// D4): honesty is a spawnJudge call in the SAME parallel(), and guardFailure's message is FALSE
+// for it -- coverageGaps walks lensReturns only, so an unrun honesty judge yields no coverage gap
+// and no forced CHANGES_REQUIRED. That is the reason, and it is NOT "so the throw stays loud".
+// MEASURED 2026-08-17: parallel() swallows judgeOutcome's two-failure throw with or without a
+// guard -- a twice-failed honesty judge already returns honesty: null, panelDegraded: false and an
+// unchanged verdict, with no log line; a guard would only ADD one. Unguarded is NOT loud. Making
+// it visible, and deciding whether it degrades or blocks, moves finalVerdict/panelDegraded
+// semantics -- routed, not fixed here (docs/claugentic-ROADMAP.md, 0041 S10b).
+async function guardedPanelAgent(prompt, opts) {
+  try {
+    return await agentWithNamespaceFallback(prompt, opts);
+  } catch (e) {
+    log(guardFailure(e, opts && opts.label));
+    return null;
+  }
+}
+
 // Spawn a judge with the cross-model `model:` pin; one respawn without it on failure
-// (force-tagged same-model); the decision logic lives in the PURE judgeOutcome helper.
+// (force-tagged same-model); the decision logic lives in the PURE judgeOutcome helper. The
+// attempt routes through the namespace fallback, which resolves INSIDE one attempt: a bare retry
+// therefore consumes no respawn budget and cannot influence forcedSameModel (0041 S10b, D6).
 async function spawnJudge(role, agentType, prompt, schema) {
   const attempt = async (opts) => {
     try {
-      return { out: await agent(prompt, opts) };
+      return { out: await agentWithNamespaceFallback(prompt, opts) };
     } catch (e) {
       return { out: null, err: e && e.message ? e.message : String(e) };
     }
@@ -473,8 +602,22 @@ const input = parseArgs(args);
   }
 }
 
-const roster = panelRoster(input);
-const modulesAudited = modulesFor(input.dimensions);
+// De-duplicate ONCE, at the boundary, and feed BOTH consumers from the SAME array. The roster and
+// modulesAudited derive independently, and coverageGaps pairs them by index -- deduping one only
+// would name the wrong module as unrun (0041 S10b, D4). Do not move this into validateArgs: that
+// is a pure predicate, and mutating the caller's array would corrupt build-item.js's item across
+// build-to-green iterations.
+const dimensions = dedupeDimensions(input.dimensions);
+if (dimensions.length !== input.dimensions.length) {
+  // A narrowed panel is never a silent default: say what the caller asked for and what ran.
+  log(
+    `verify: dimensions de-duplicated -- ${input.dimensions.length} requested, ${dimensions.length} ` +
+      `distinct module(s) audited. The lens fan-out is bounded by the standards catalog, never by ` +
+      `the length of the caller's array.`,
+  );
+}
+const roster = panelRoster({ ...input, dimensions });
+const modulesAudited = modulesFor(dimensions);
 log(`verify panel roster (${roster.length} roles): ${roster.map((r) => r.role).join(", ")}`);
 
 const diffScope = input.diffRef ? `diffRef=${input.diffRef}` : `files=${JSON.stringify(input.files)}`;
@@ -482,7 +625,7 @@ const diffScope = input.diffRef ? `diffRef=${input.diffRef}` : `files=${JSON.str
 // --- Panel phase: one lens per module + yagni + (trust-surface) honesty, in parallel. ---
 phase("Panel");
 const lensTasks = modulesAudited.map((modulePath) => () =>
-  agent(
+  guardedPanelAgent(
     `Verify-diff mode. Your lens is the standards module: ${modulePath}. ` +
       `Audit the change against that module's dimensions only. ` +
       `Locate the implementing code via docs/claugentic-ARCHITECTURE_TREE.md (the file index) ` +
@@ -493,10 +636,13 @@ const lensTasks = modulesAudited.map((modulePath) => () =>
   ),
 );
 
+// The lens and yagni thunks are guarded (null in position, logged); the honesty thunk below is
+// NOT -- guardFailure's wording is false for a judge (see the guard). That does NOT make its
+// two-failure throw loud: parallel() swallows it either way (0041 S10b, D4, trap 1; ROADMAP).
 const panelTasks = [
   ...lensTasks,
   () =>
-    agent(
+    guardedPanelAgent(
       `Argue this change is too much. Diff scope: ${diffScope}. ` +
         `Spec: ${input.specPath}. Return a cut-list of over-build with where-instead.`,
       { agentType: nsAgent("yagni-sentinel"), schema: YAGNI_SCHEMA, label: "yagni", phase: "Panel" },
