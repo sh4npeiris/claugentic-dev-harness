@@ -158,15 +158,15 @@ tagged `vX.Y.Z`.
   `WORKFLOW.md`'s Definition of Done carried a second copy of it, several passages word for word
   with the skill: the keep/drop buckets, the merge-siblings rule, the "landed build-records are
   the primary target" anti-footgun, the lever order and the ~80% band. That copy is **deleted**
-  (6,037 bytes), leaving one line that says what the Definition of Done is actually for — a
+  (5,785 bytes net), leaving one line that says what the Definition of Done is actually for — a
   budget WARN is a **do-it-now signal, not a deferral**, discharged inside the current slice —
   and points at `/claugentic-dev-harness:condense` as the operator that owns the steps. **No rule
   changed and nothing moved out of reach:** the **escape-valve ladder stays in `WORKFLOW.md`**,
   where `/condense`, `/doctor` and `init` already point at it. A stale bullet telling you to
-  create the caps config by hand also went: `init` has seeded one for you since the previous
-  change, and `/doctor` states the config's schema. Every pointer that named the deleted text —
-  in `CLAUDE.md`, both decisions-ledger headers, `/doctor` and `/condense` itself — now names the
-  skill.
+  create the caps config by hand also went: `init` has seeded one for you since the doc-budget
+  gate shipped (see *Added*, above), and `/doctor` states the config's schema. Every pointer that
+  named the deleted text — in `CLAUDE.md`, both decisions-ledger headers, `/doctor` and
+  `/condense` itself — now names the skill.
 
 ### Fixed
 
