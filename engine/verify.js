@@ -560,7 +560,7 @@ async function agentWithNamespaceFallback(prompt, opts) {
 // guard -- a twice-failed honesty judge already returns honesty: null, panelDegraded: false and an
 // unchanged verdict, with no log line; a guard would only ADD one. Unguarded is NOT loud. Making
 // it visible, and deciding whether it degrades or blocks, moves finalVerdict/panelDegraded
-// semantics -- routed, not fixed here (docs/claugentic-ROADMAP.md, 0041 S10b).
+// semantics -- routed to the harness's own backlog, not fixed here (0041 S10b).
 async function guardedPanelAgent(prompt, opts) {
   try {
     return await agentWithNamespaceFallback(prompt, opts);
