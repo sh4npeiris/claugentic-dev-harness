@@ -23,9 +23,10 @@ SOURCE (`eval/fixture-defects/app/*.py`) from self-labelling its own planted def
 the code reads as ordinary sloppy code. This file enforces it one directory OUT: no
 tracked file anywhere in the repo may name a seed id except the small set that
 legitimately records the answers. Different corpus, different vocabulary, same contract.
-`test_eval_manifest.py` also owns the answer key's SHAPE (ten rows, two per module,
-unique ids, every file:line real) — no count from it is restated here; this file derives
-its vocabulary from the same table and asserts only that the derivation is non-empty.
+`test_eval_manifest.py` OWNS the answer key's shape (the row count, the per-module split,
+id uniqueness, file:line reality). This file derives its vocabulary from the same table and
+IMPORTS that file's row count rather than restating it, so a row whose id cell stops parsing
+here fails loudly instead of silently shrinking the vocabulary the scan below runs on.
 
 Enumeration: `git ls-files` with `check=True`, the repo's one corpus convention (see
 `scripts/build_release.py` `_tracked_files`, `scripts/claugentic-check_architecture_tree.py`,
@@ -35,10 +36,19 @@ worktrees this repo parks under a gitignored `.claude/worktrees/` — it would p
 worktree and in CI and fail only in the checkout a release is cut from (plan 0041 Slice 9).
 
 Files are matched as BYTES, so every tracked file is in scope — including the ones no
-text decoder should be pointed at (`.png`) — with no decode branch to get wrong. Recorded
-residual: an id stored in a non-ASCII-superset encoding (UTF-16/32) would evade the byte
-match. No tracked file in this repo uses one, and the leak this pin exists to catch is
-prose an agent reads, which is UTF-8 here.
+text decoder should be pointed at (`.png`) — with no decode branch to get wrong.
+
+**What this pin does NOT catch — measured 2026-08-18 (plan 0041 S11).** It matches the id
+TOKEN, ASCII, exactly. Evaded by: a typographic hyphen inside an id (U+2011/U+2013), a
+mid-token line wrap, a lower-cased id, a non-ASCII-superset encoding (UTF-16/32). None
+occurs in this repo today and no formatter here can introduce one, so the pattern is
+deliberately NOT widened — an accidental leak is typed, and typed ids carry a plain
+hyphen. The residual that matters is larger and unclosable: **a PARAPHRASE republishes the
+answer and stays green** — an entry naming a planted defect's nature and the file it lives
+in, without its id, hands over the same thing with every test in this file passing. That
+half is MODEL-UPHELD; its only guard is the do-not-revert note in the tree's `eval/`
+section, and `test_the_tree_carries_the_do_not_revert_note` below is what stops that note
+being deleted silently.
 """
 
 from __future__ import annotations
@@ -47,9 +57,13 @@ import re
 import subprocess
 from pathlib import Path
 
+from test_eval_manifest import EXPECTED_ROWS
+
 REPO_ROOT = Path(__file__).resolve().parent.parent
 MANIFEST_REL = "eval/fixture-defects/SEED_MANIFEST.md"
 MANIFEST = REPO_ROOT / MANIFEST_REL
+TREE_REL = "docs/claugentic-ARCHITECTURE_TREE.md"
+TREE_NOTE_ANCHOR = "Do not revert the `fixture-defects/` entries below to defect-level detail."
 
 # The first cell of an answer-key table row, when it is a seed id. The table's shape is
 # `test_eval_manifest.py`'s contract; all this needs is the id column's vocabulary.
@@ -64,16 +78,24 @@ ALLOWLIST: dict[str, str] = {
     # exemption — this file is also the one the contamination canary lives in.
     MANIFEST_REL: "the answer key — it defines the seed ids",
     # Measured 2026-08-18: both recorded baseline entries carry a full per-seed
-    # `Seed <-> finding mapping` table (10 ids each) plus per-seed scoring notes, and the
-    # file's own "no-peeking contract" section already declares itself an answer-carrying
-    # document outside the measurement run's scope. Recording per-seed recall is the
-    # file's job; it cannot do it without the ids.
+    # `Seed <-> finding mapping` table (one row per manifest seed) plus per-seed scoring
+    # notes, and the file's own "no-peeking contract" section already declares itself an
+    # answer-carrying document outside the measurement run's scope. Recording per-seed
+    # recall is the file's job; it cannot do it without the ids.
+    # RESIDUAL this exemption knowingly admits: the measurement procedure a runner is told
+    # to open lives in the SAME file, above two complete answer keys -- the
+    # read-the-procedure / stop-before-the-entries split is model-upheld, not enforced.
+    # KILLABLE HALF: split this file so the procedure and the per-seed entries are separate
+    # documents and the one a runner opens carries no ids (out of scope here; routed at
+    # land, plan 0041 S11).
     "eval/BASELINE.md": "records per-seed recall — the mapping tables ARE the results",
 }
 
-# Measured 2026-08-18: 118 tracked files, 116 of them scanned (118 minus the allowlist).
-# A floor well under that catches an enumeration or exclusion mistake that silently
-# empties the sweep, without churning on ordinary file adds/removes.
+# The corpus is every tracked file minus the allowlist; `git ls-files` owns the count, so
+# no absolute is restated here. The floor sits well under it: an enumeration or exclusion
+# mistake that silently EMPTIES the sweep fails loudly, without churning on ordinary file
+# adds. Its slack is real and measured (2026-08-18, plan 0041 S11): dropping `docs/` from
+# the corpus trips it, dropping `.claude/` does not.
 CORPUS_FLOOR = 90
 
 
@@ -125,8 +147,12 @@ def test_seed_id_vocabulary_is_derived_and_non_empty() -> None:
         "changed and every containment assertion in this file would pass vacuously. "
         "See tests/test_eval_manifest.py, which owns that table's shape."
     )
-    bad = [i for i in ids if not re.fullmatch(r"[A-Z]+-\d+", i)]
-    assert not bad, f"malformed seed ids parsed from the answer key: {bad}"
+    assert len(ids) == EXPECTED_ROWS, (
+        f"parsed {len(ids)} seed ids out of the answer key's {EXPECTED_ROWS} rows -- a row "
+        "whose id cell stopped matching _ID_CELL_RE (bolded, footnoted, renamed) silently "
+        "DROPS that id from the containment vocabulary and it becomes freely leakable, "
+        "with this file and tests/test_eval_manifest.py both green."
+    )
 
 
 def test_corpus_is_the_tracked_tree_and_meets_its_floor() -> None:
@@ -188,16 +214,52 @@ def test_the_scan_fires_on_a_planted_id(tmp_path: Path) -> None:
     )
 
 
-def test_the_scan_lets_an_allowlisted_path_keep_its_ids(tmp_path: Path) -> None:
-    """Non-vacuity, direction 2: the same planted id in an allowlisted path stays green."""
+def test_the_scan_spares_the_allowlist_and_only_the_allowlist(tmp_path: Path) -> None:
+    """Non-vacuity, direction 2: the SAME id in an allowlisted path and in a scanned one.
+
+    The allowlisted side is DERIVED from ALLOWLIST, never hand-listed, so a new exemption is
+    exercised the moment it is added. `testing.md` -> *Exemptions and allowlists inside a
+    scan are themselves under test*: positive-only coverage proves the vocabulary is live;
+    only the negative fixture -- the same token riding a violation that must STILL be
+    caught -- proves the exemption is narrow.
+    """
     planted = _seed_ids()[0]
-    allowed_rel = MANIFEST_REL
-    allowed = tmp_path / allowed_rel
-    allowed.parent.mkdir(parents=True)
-    allowed.write_text(f"| {planted} | security | app/x.py | 1 | ... |\n", encoding="utf-8")
-    scanned = [rel for rel in [allowed_rel] if rel not in ALLOWLIST]
-    offenders = _files_naming_seed_ids(tmp_path, scanned, _seed_id_pattern(_seed_ids()))
-    assert offenders == [], (
-        f"the allowlist did not admit {allowed_rel} (got {offenders}) -- the answer key "
-        "itself would be reported as a leak."
+    leak_rel = "docs/some-other-doc.md"
+    corpus = [*ALLOWLIST, leak_rel]
+    for rel in corpus:
+        f = tmp_path / rel
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(f"| {planted} | security | app/x.py | 1 |", encoding="utf-8")
+    pattern = _seed_id_pattern(_seed_ids())
+    assert all(pattern.search((tmp_path / rel).read_bytes()) for rel in corpus), (
+        "a fixture does not carry the planted id -- this test would pass for the wrong reason."
+    )
+    offenders = _files_naming_seed_ids(
+        tmp_path, [rel for rel in corpus if rel not in ALLOWLIST], pattern
+    )
+    assert offenders == [leak_rel], (
+        f"expected only {leak_rel} reported (got {offenders}) -- the allowlist must spare "
+        "its own members and nothing else."
+    )
+
+
+def test_the_tree_carries_the_do_not_revert_note() -> None:
+    """The paraphrase half is model-upheld -- pin the note that upholds it.
+
+    A tree entry spelling out a planted defect's nature and its file WITHOUT naming the id
+    republishes the answer and every other test here stays green (measured, plan 0041 S11).
+    The note is the only thing standing in front of that, and a note nothing asserts is one
+    a condensation pass drops silently -- which is how this leak got in.
+    """
+    tree = (REPO_ROOT / TREE_REL).read_text(encoding="utf-8")
+    assert tree.count(TREE_NOTE_ANCHOR) == 1, (
+        f"{TREE_REL} must carry the do-not-revert note exactly once (found "
+        f"{tree.count(TREE_NOTE_ANCHOR)}): {TREE_NOTE_ANCHOR!r}. It is the ONLY guard "
+        "against republishing a seed's defect nature in paraphrase, which the id scan in "
+        "this file cannot see."
+    )
+    para = tree.split(TREE_NOTE_ANCHOR, 1)[1].split("\n\n", 1)[0]
+    assert "tests/test_eval_key_containment.py" in para, (
+        "the do-not-revert note no longer points back at this pin -- a reader who reverts an "
+        "entry is then told nothing about what goes red."
     )

@@ -19,8 +19,8 @@ markers = [
 # re-takes (eval/fixture-defects/) plus measurement fixtures. Linting it would flag the
 # PLANTED defects by design (every such hit is part of the answer key, not cruft) and a
 # per-line noqa would betray the fixture's no-self-labels contract (see
-# tests/test_eval_manifest.py). Naming one here would publish an answer outside the
-# manifest, which tests/test_eval_key_containment.py forbids — describe the class, never
-# the seed. It is dev-only (stripped from the release,
-# scripts/build_release.py) and already out of pytest's testpaths; exclude it from ruff too.
+# tests/test_eval_manifest.py). Describe the class, never the seed — naming one here is a
+# leak, and tests/test_eval_key_containment.py fails on it. It is dev-only (stripped from
+# the release, scripts/build_release.py) and already out of pytest's testpaths; exclude it
+# from ruff too.
 extend-exclude = ["eval"]
