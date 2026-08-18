@@ -6,6 +6,8 @@
 
 Releases are also gated by the **Definition of Done** in [`docs/claugentic-WORKFLOW.md`](claugentic-WORKFLOW.md#definition-of-done) — run the deterministic gates **and** the reviewer sign-offs there; this file does not restate them.
 
+**Step 0 — what a release actually reaches.** Nothing merged to `main` reaches an **existing** adopter until this version **publishes** AND they **re-run `init`** in their own repo — neither precondition is automatic. Say so wherever you announce the change; a payload edit alone changes nothing in a repo that has not re-run `init`.
+
 ## The release — four steps
 
 1. **Fetch + anchor on the live tip, then run the one prepare command.** `git fetch origin && git checkout main && git pull --ff-only origin main` (the `--ff-only` refuses if your local `main` diverged — you're not on the live tip), then:

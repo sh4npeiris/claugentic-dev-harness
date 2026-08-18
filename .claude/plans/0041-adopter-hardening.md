@@ -2050,9 +2050,16 @@ So `build_release.py` needs **no** change (a tracked dir ships by default-includ
    - **★ FIX THE ROSTER WHILE COMPRESSING IT — it is already stale.** `.claude/agents/` holds **9**
      agents; WORKFLOW's Roles section names only **7**. `retrospect-harvester` and `runtime-qa` are
      absent **entirely**. Compressing without fixing would silently ratify the omission in the
-     section the ledger calls canonical. *(Note: an earlier grounding pass attributed a "Roster = 9
-     agents" phrase to `roles-review.md:10`; that phrase does not exist — the line says "Roster maps
-     to distinct FUNCTIONS/POSTURES". The canonical-home claim is real; the quoted count was not.)*
+     section the ledger calls canonical. *(**Correction, recorded at Stage 6.** An earlier orchestrator note in this
+     spec claimed `roles-review.md:10` does **not** contain the phrase "Roster = 9 agents". **It
+     does** — verbatim, as `Roster = **9 agents**`, alongside the canonical-home claim. The
+     grounding pass was right and the correction was wrong: the refuting grep was
+     `Roster = [0-9]+ agents`, which cannot match across the markdown bold, run against a line
+     already truncated by `cut -c1-300`. **An absence asserted from a search that could not have
+     found it is not a measurement** — the same defect class as this plan's own
+     *Quantities in prose* dimension, applied to vocabulary instead of arithmetic. The restated
+     count is still the right thing to remove, but because a restated value is an ungated second
+     source of truth — replace it with a locator to the derived pin, not because it was absent.)*
 
 2. **NO cap for WORKFLOW.** `.claude/claugentic-doc-budgets.json` stays **byte-untouched** (hard AC,
    same as 12a). Record why in the ledger rather than reaching for a number:
@@ -2127,3 +2134,111 @@ plan number?).
   size. Grep the diff for it and say so explicitly.
 - **S12b-L3 — the plan-file delete is LAST**, after the closing pass and after the residual sweep is
   verified by name. A deleted plan whose residuals were never migrated is the failure mode.
+
+---
+
+#### Slice 12b — Stage-7 verdict (round 1)
+
+> **Independence disclosure.** Synthesizer ran as **Opus 5 (1M context)** — the builder and all four
+> panelists are also Opus-family. **Clean-context, separate-role: a reduction of rubber-stamping
+> risk, never model-family independence.** It re-derived D1, D2, D4, D5, M-SF2, PC-1, U1, U4 and the
+> advisor dogfood itself, and re-ran all nine gates at HEAD (all exit 0, doc-budgets zero WARN,
+> caps config byte-untouched).
+
+**VERDICT: CHANGES REQUIRED.** The diff is sound, the rung-3 decision is correctly reasoned, the two
+sanctioned cuts land clean (−3,022 B ≥ the 3,000 floor), all nine gates are green, and both hard ACs
+hold. **What fails is the closing ceremony, not the code:** two BLOCKING traceability defects, a
+five-site counting class the repo already has a written rule against, and four whole-feature
+obligations whose only copy lives in the file this slice proposes to delete. **Plan 0041 may close —
+but not in this round, and not before the ordered sequence below.**
+
+##### Dispositions
+
+| # | Finding | Source | Disposition | ID |
+|---|---|---|---|---|
+| D2 | 0042's pin list omits `TestTheRolesRosterIsComplete` — the pin **this slice created** — under a "MEASURED — do not re-derive" header | docs-trace (BLOCKING) | **FIX-NOW** | — |
+| D4 | The false-absence rationale survives at a third site, `deterministic-gates.md:13` | docs-trace (BLOCKING) | **FIX-NOW** | — |
+| D1 | `122 / 37` reproduces under no principled rule | 3 lenses | **FIX-NOW** (one sweep) | — |
+| D3 | The Bugs-entry rewrite traded line numbers for a **count**, and the count is wrong | docs-trace / honesty | **FIX-NOW** (same sweep) | — |
+| D5 | `ARCHITECTURE_TREE.md:131` enumerates three pins; the file holds four | docs-trace | **FIX-NOW** | — |
+| D6 | `doc-lifecycle.md:7`'s shed→landing decomposition does not evaluate | docs-trace | **FIX-NOW** (0 B) | — |
+| M-SF1 | `doc-lifecycle.md:8`'s `reportOnly` refusal reads absolute, collides with `:7` | maintainability | **FIX-NOW** *(partial concession)* | — |
+| M-SF2 | `deterministic-gates.md` at its WARN floor with no backlog record | maintainability | **ACCEPTED-AS-IS** — resolved by D4's paired trim (→ 99 B usable). The deleted ROADMAP clause was **never true**: `git log -S` on all four cap numbers returns **0 commits**. | — |
+| M-N2 | 0042's section table sums to 87,216 vs stated 87,215 | maintainability | **FIX-NOW** | — |
+| M-N3a | `ROSTER_ENTRY_RE` is prose-anchored | maintainability | **DEFER** | **S12b-D1** |
+| M-N3b | `_tracked_agent_names()` called twice | maintainability | **ACCEPTED-AS-IS** — test-path, sub-ms, KISS | — |
+| H-F3 | `doc-lifecycle.md:8` states index-only routing as DECIDED; 0042 reserves it as CONTESTED | honesty | **FIX-NOW** | — |
+| H-F5 | `init/SKILL.md:990` "refreshed on **every** re-`init`" | honesty | **FIX-NOW** (one word) | — |
+| H-F6 | 0042 scopes its draft caveat **by position** | honesty | **FIX-NOW** | — |
+| H-F7 | 0042's index/shard decomposition does not close | honesty | **FIX-NOW** | — |
+| H-F8 | "~3,050–3,250 B ceiling" on no landed surface, no method | honesty `[J]` | **ACCEPTED-AS-IS, conditionally** — must **not** reach the land record without its lever-set, or it is struck | — |
+| U1 | The job-to-be-done has **no home outside the file being deleted** | closing pass | **FIX-NOW** | — |
+| U2a | Plan `:2`/`:6`/`:7` stale; the advisor republishes `:6` into `additionalContext` | closing pass | **ACCEPTED-AS-IS** — resolved *by* the delete, provided the delete is in this sequence | — |
+| U2b | The **class**: a hand-maintained field feeding an automatic surface with no falsifier | closing pass | **FIX-NOW** (rule) + **DEFER** (the gate) | **S12b-D2** |
+| U3 | The delivery precondition exists only in the file being deleted | closing pass | **FIX-NOW** *(partial concession on destination)* | — |
+| U4 | Slice 12b's Stage-9 harvest has not run | closing pass | **FIX-NOW** | — |
+| U5 | 0042 sizes its caps off a static snapshot | closing pass | **FIX-NOW** | — |
+| PC-1 | WORKFLOW ends **+3,832 B** larger than at plan start; corpus **+30.0%**; the leanness gate and the learning loop write to **disjoint file sets** | closing pass | **FIX-NOW — must be recorded durably before 0041 closes** | — |
+| PC-2 | `skills/init/SKILL.md` = **113,686 B**, larger than WORKFLOW, also uncapped | closing pass | **FIX-NOW** (folded into PC-1's entry) | — |
+| — | ROADMAP fence self-contradiction (`:12` "feature-complete for v1") | plan Flags | **ACCEPTED-AS-IS** — inside a **generated fence** (hand-editing forbidden by the file's own header); ROADMAP is `DEV_ONLY`, so no adopter reads it | — |
+| — | "A naive tag BURNS the version" | plan Flags | **ACCEPTED-AS-IS** — does **not** die with the plan: `docs/RELEASE_CHECKLIST.md:23` states it and `build_release.py:595-597,813` detects it fail-loud **before** the tag | — |
+| — | ROADMAP can take no further gate item (26 B usable after P4) | this gate | **DEFER** | **S12b-D3** |
+
+##### The two adjudications settled at the gate
+
+**D4 — CONFIRMED, and it is the worst of the three sites because it is the one an agent consults
+before re-litigating.** `deterministic-gates.md:13` is self-refuting inside its own clause: *"capping
+ONLY the files that same run creates"* **admits** WORKFLOW (`skills/init/SKILL.md:141` delivers it),
+so the absence premise cannot carry the WORKFLOW half of the conclusion.
+
+**M-SF1 — the lens is right on substance; its framing is narrowed (partial concession, clean win for
+neither side).** `:8`'s operative clause is already scoped (*"to bless a current measurement"*) and is
+faithful to the approved spec. But the **bolded headline** *"`reportOnly` is not a third way"* is
+unscoped, sits in a do-not-re-propose entry, and lands two bullets below `:7` **prescribing** the
+graced shape. `check_doc_budgets.py:97-108` settles it: `{"max": N, "reportOnly": true}` is
+*sanctioned* — renders `OVER budget`, carries `REPORT_ONLY_TAG`, changes the headline away from
+"within budget", re-prints every run, never cleared mechanically. The distinction
+(**cap-at-current-size + grace** = forbidden; **honest sub-file cap + grace** = the designed adopter
+path) is **real but unstated**. One added sentence, not a rewrite. The "over-reaches"
+characterisation of the argument itself is **not** accepted.
+
+##### The counting findings — ONE sweep, and two are best fixed by DELETING the number
+
+D1, D2's "four", D3's "3 sites" and plan `:2018`'s "118" are a single class the repo already owns
+(*a class, not a count* · *Quantities in prose*).
+**D2 → delete the count** (a second restated count goes stale on the next pin) · **D3 → delete the
+count** (true value is 4 under `every commit`, 5 under `every time` — *both right under different
+patterns, which is the point*) · **D1 → delete the unreproducible figure, keep the one that
+reproduces** (`98 / 36` measured exactly; `122/37` is all-tracked minus this slice's own new plan
+file only — an exclusion with no rule behind it, the same shape as S12a's `6,037`) · **plan
+`:2018`'s "118" → no action**, it dies with the plan.
+
+##### PC-1 — what it obligates
+
+**A durable record, and 0041 must not close without one.** PC-1 is not a slice defect and no
+per-slice diff could have seen it; it is a **measured property of the whole feature**, it exists only
+in a report that dies with the session, and it is the finding most likely to be repeated — **0042 is
+being sized against the same static snapshot that made 0041's target unreachable.** Three records,
+split **by FIT, not by free space** (`doc-lifecycle.md:9`):
+
+1. **The over-claim half → `honesty.md`** (P3): *a leanness mechanism bounds only what it MEASURES.*
+2. **The cap-sizing half → `doc-lifecycle.md:7`** (P2): size against **growth rate**, not today's bytes.
+3. **The sizing input → `0042:18`** (P8), so the next plan neither re-derives nor repeats it.
+
+##### Definition of Done
+
+- **ACs:** caps config byte-untouched ✅ · WORKFLOW −3,022 ≥ 3,000 ✅ · Roles names all 9 ✅ ·
+  taxonomy zero inbound ✅ · no new cap, zero WARN ✅ · closing pass **ran** ✅.
+  **UNMET:** *"correct the source line if it still reads 'lean and current'"* — `:64` still reads it.
+  Correcting a line in a file about to be deleted is churn; the AC's **intent** is discharged by U1's
+  durable home (P6), and this verdict **records the substitution rather than claiming the criterion
+  was met**. **UNMET:** the by-name residual sweep (steps 4/6).
+- **Dimensions:** `docs-traceability` **GAP** · `honesty` **GAP** (the four hard admissions survived
+  adversarial reading and are the strongest artifact in the plan) · `maintainability-structure`
+  **MET** — the 0042 seam is right and **arithmetically forced** (96,907 smallest non-WARNing cap =
+  11.1% above the file it would govern; 109,019 = the do-not-re-propose ceiling-raise; **no cap is
+  simultaneously non-WARNing and not a ceiling-raise**).
+- **Missing from the spec:** no dimension for **whole-feature outcome accounting**. PC-1 was reachable
+  only because the closing pass ran, and nothing obliged it to be *recorded*. That omission is why
+  PC-1 currently lives in a report.
+- **New tech debt:** none introduced by the diff. The debt is **omitted records**.

@@ -103,6 +103,11 @@ CLAUDE_MD_PATH = Path("CLAUDE.md")
 # installed under `${CLAUDE_PLUGIN_ROOT}` (see the manifest's SessionStart hook command).
 # Anchoring on the CWD would read the ADOPTER repo, which has no `.claude-plugin/` at
 # all — a category error, not merely a miss.
+# DO NOT DROP THE `.resolve()` at import time (proposed and DECLINED, 0041 S3 GAP-5): the
+# shipped hook command is `${CLAUDE_PLUGIN_ROOT}`-rooted, so `__file__` is already absolute
+# and `.resolve()` never consults the CWD (and `strict=False` does not raise on a missing
+# component). Removing it would RE-INTRODUCE the CWD-dependence this constant exists to
+# prevent. Re-open only if that hook command ever becomes relative.
 PLUGIN_MANIFEST_PATH = Path(__file__).resolve().parent.parent / ".claude-plugin" / "plugin.json"
 
 # ─────────────────────────────────────────────────────────────────────────────

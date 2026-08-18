@@ -1263,8 +1263,12 @@ class TestTheInitSeedBlock:
         # THE load-bearing exclusion (0041 S6 reliability verdict): a cap on an ABSENT file is
         # a hard exit 1 — even under `reportOnly`, which graces the SIZE verdict only. So the
         # seed may name only files the same `init` run guarantees exist. INVARIANTS is
-        # recreate-on-demand (the workflow lazily creates it) and WORKFLOW is a managed
-        # full-copy doc; either key would hand an adopter a repo that cannot commit.
+        # recreate-on-demand (the workflow lazily creates it), so an INVARIANTS key would hand
+        # an adopter a repo that cannot commit — the method this test's name describes.
+        # WORKFLOW is asserted here for a DIFFERENT reason (corrected 0041 S12b): `init` DOES
+        # deliver it, so it is PRESENT and absence is not its story. It is a managed full-copy
+        # doc the adopter does not author, so a cap on it fires their gate on harness-authored
+        # bytes they cannot condense — and a re-`init` refresh could breach it unaided.
         keys = set(self._seed(tmp_path))
         assert not [k for k in keys if "INVARIANTS" in k], keys
         assert not [k for k in keys if "WORKFLOW" in k], keys

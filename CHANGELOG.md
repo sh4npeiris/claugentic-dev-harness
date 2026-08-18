@@ -11,6 +11,16 @@ tagged `vX.Y.Z`.
 
 ## Unreleased
 
+**What this release is for, and what it does not do.** The through-line is that
+an adopter's harness stays **lean, current, and honest without being asked** — the
+byte-cap gate below is the *lean* half, and it is shipped, delivered, seeded and
+chained for the **five adopter-authored ledgers** only. Its limit, stated plainly:
+it **bounds growth; it never shrinks anything** — a ledger over its cap reports the
+breach at every commit and keeps passing until a human runs
+`/claugentic-dev-harness:condense`. And two preconditions are **manual, neither
+automatic**: nothing here reaches an existing adopter until **v0.5.2 publishes**
+and they **re-run `init`** in their own repo.
+
 ### Added
 
 - **The doc-budget gate now ships in the release payload — and `init` puts it in your repo.**
