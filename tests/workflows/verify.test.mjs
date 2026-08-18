@@ -798,6 +798,34 @@ test("verify.js control flow: the LENS and YAGNI thunks go through the panel gua
   assert.match(panelTasks[0], /guardedPanelAgent\(/, "the yagni thunk must be guarded");
 });
 
+test("verify.js control flow: the panel guard LOGS the failure it swallows (the effect, not the vocabulary)", () => {
+  // 10a's lesson, re-applied: pinning guardFailure's WORDING while nothing asserts the guard
+  // calls log() lets a mutant delete the only observability the wrapper adds -- and a silently
+  // swallowed spawn failure is indistinguishable from a lens that simply had nothing to say.
+  const flow = controlFlowOf(SCRIPT_PATH);
+  const guard = flow.match(/^async function guardedPanelAgent\([\s\S]*?^\}/m);
+  assert.ok(guard, "could not locate guardedPanelAgent in the control flow");
+  const catchArm = guard[0].match(/catch \(e\) \{([\s\S]*?)\n  \}/);
+  assert.ok(catchArm, "guardedPanelAgent must have a catch arm");
+  assert.match(
+    catchArm[1],
+    /log\(guardFailure\(e, opts && opts\.label\)\);/,
+    "the swallowed failure must reach the run log through guardFailure -- a guard that logs nothing is a silent swallow",
+  );
+  assert.match(catchArm[1], /return null;/, "the guard must degrade to null, never to a substitute value");
+});
+
+test("verify.js: the namespace fallback LOGS its retry (the effect, not the vocabulary)", () => {
+  const flow = controlFlowOf(SCRIPT_PATH);
+  const wrapper = flow.match(/^async function agentWithNamespaceFallback\([\s\S]*?^\}/m);
+  assert.ok(wrapper, "could not locate agentWithNamespaceFallback in the control flow");
+  assert.match(
+    wrapper[0],
+    /log\(namespaceFallbackNotice\(agentType, bare, e\)\);/,
+    "an unannounced bare retry is exactly the run-log ambiguity the notice exists to prevent",
+  );
+});
+
 test("verify.js control flow: the HONESTY thunk is NOT guarded -- the two-failure throw must survive", () => {
   const flow = controlFlowOf(SCRIPT_PATH);
   // Trap 1: honesty is a spawnJudge call in the SAME parallel(). judgeOutcome deliberately
