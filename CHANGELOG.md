@@ -9,14 +9,14 @@ plugin is versioned with [SemVer](https://semver.org/). The authoritative
 version is `plugin.json`; each release is published on the `release` branch and
 tagged `vX.Y.Z`.
 
-## Unreleased
+## 0.5.2
 
 **What this release is for, and what it does not do.** The through-line is that
 an adopter's harness stays **lean, current, and honest without being asked** — the
 byte-cap gate below is the *lean* half, and it is shipped, delivered, seeded and
 chained for the **five adopter-authored ledgers** only. Its limit, stated plainly:
 it **bounds growth; it never shrinks anything** — a ledger over its cap reports the
-breach at every commit and keeps passing until a human runs
+breach on every commit the hook sees and keeps passing until a human runs
 `/claugentic-dev-harness:condense`. And two preconditions are **manual, neither
 automatic**: nothing here reaches an existing adopter until **v0.5.2 publishes**
 and they **re-run `init`** in their own repo.
@@ -46,13 +46,16 @@ and they **re-run `init`** in their own repo.
   `.claude/claugentic-doc-budgets.json` with recommended caps for the files that same run
   creates — `CLAUDE.md`, the DECISIONS index and its shard glob, ROADMAP, CHARTER — and (3)
   chains the gate into the shared pre-commit hook right after the architecture-tree check. So a
-  ledger drifting past 90% of its cap now says so **at every commit** instead of never, and one
-  over its cap blocks the commit with the remediation named. **Both gates run every time**, and
-  a failure in one never hides the other's message. **The caps are yours from the moment they
+  ledger drifting past 90% of its cap now says so **on every commit the hook sees** instead of
+  never, and one over its cap blocks the commit with the remediation named. **Both gates run every
+  time the hook fires**, and a failure in one never hides the other's message. **The gap, stated
+  plainly:** the wrapper is a `pre-commit` hook, and a conflict-free `git merge` fires
+  `pre-merge-commit` instead — which nothing wires — so **neither gate runs on a merge result**;
+  a server-side PR merge runs no local hook at all. **The caps are yours from the moment they
   are written:** the seed is create-if-absent only — a re-run never touches tuned caps, and
   deleting the file is how you opt out. A file that is **already over** its recommended cap on
   day one is seeded `{"max": N, "reportOnly": true}` — the honest cap with the breach reported
-  loudly at every commit while it still passes — never a cap raised to fit; nothing mechanical
+  loudly on every commit the hook sees while it still passes — never a cap raised to fit; nothing mechanical
   ever clears that flag (`/claugentic-dev-harness:condense` does the work, you delete the flag).
   **Where it does NOT apply, stated plainly:** a repo that chose "keep my own tree, gate off"
   has no pre-commit wrapper, so it gets no commit-time budget signal — the gate is still on disk

@@ -594,7 +594,7 @@ then stays model-upheld via the CLAUDE.md authority anchor.
        forbids editing it) and the solo hook lives at `.git/hooks/pre-commit`, which git
        never normalizes.
   2. **Run `git config core.hooksPath .githooks`** — points git at the tracked hook
-     directory so the hook fires on every commit in this clone.
+     directory so the hook fires on every commit in this clone (**not** on a conflict-free `git merge`, which fires the unwired `pre-merge-commit`).
 - **Gate OFF (Keep-mine-gate-off) →** wire **no** pre-commit hook: do **not** write
   `.githooks/pre-commit` and do **not** set `core.hooksPath`. (Record the gate-off choice
   via step 4's `Architecture tree:` line as before.)
@@ -737,7 +737,7 @@ then stays model-upheld via the CLAUDE.md authority anchor.
 > file** and needs **no shared git config** — therefore **do NOT run `git config core.hooksPath
 > .githooks`** and **do NOT create a tracked `.githooks/` directory** in solo mode (`.githooks/`
 > would be a tracked path — a solo-invariant violation). `core.hooksPath` stays at its git default,
-> so `.git/hooks/pre-commit` fires on every commit in this clone. **Never-clobber:** if
+> so `.git/hooks/pre-commit` fires on every commit in this clone (**not** on a conflict-free `git merge` — that fires `pre-merge-commit`, which nothing wires). **Never-clobber:** if
 > `core.hooksPath` is already set to a **non-default** value, `.git/hooks/` would **not** run — so
 > the hook wouldn't fire. Mirroring the shared branch, **REPORT the conflict** ("core.hooksPath is
 > set to `<value>`; in solo mode the tree gate's `.git/hooks/pre-commit` was written but won't fire
