@@ -1,6 +1,6 @@
 ---
 description: >-
-  Condense a managed ledger (DECISIONS / ROADMAP / CLAUDE.md / any budgeted doc) that a doc-budget WARN or /doctor's "condense soon" advisory has flagged — two readers of the same per-repo caps config; the advisory is reachable in any repo, the gate's WARN only where its script is present (init delivers a copy, and chains it into your pre-commit wrapper where one is wired) — the executable operator for the WORKFLOW condensation pass. It runs an ordered, guarded procedure: STEP 1 classify EVERY entry before touching anything (the anti-footgun — landed build-records are the PRIMARY target, NEVER preserve them) → absorb landed/superseded records to git history → promote must-hold constraints to their home → merge duplicative siblings → trim re-derivable locators; targets the ~80% band (rejects a diff that re-lands at or above the 90% WARN) and keeps cross-referenced 00NN anchors. It is prose-orchestrated with NO bundled agent and NO mechanical what-to-cut decider — condensation is judgment: this skill CLASSIFIES and PROPOSES a diff, and you APPROVE it. The apply is /doctor's EXISTING user-approved-diff treat-path (reused, not rebuilt) — the approval IS the decision gate. Read-only until you approve.
+  Condense a managed ledger (DECISIONS / ROADMAP / CLAUDE.md / any budgeted doc) that a doc-budget WARN or /doctor's "condense soon" advisory has flagged — two readers of the same per-repo caps config; the advisory is reachable in any repo, the gate's WARN only where its script is present (init delivers a copy, and chains it into your pre-commit wrapper where one is wired) — the canonical home of the condensation procedure that WORKFLOW's Definition of Done points at. It runs an ordered, guarded procedure: STEP 1 classify EVERY entry before touching anything (the anti-footgun — landed build-records are the PRIMARY target, NEVER preserve them) → absorb landed/superseded records to git history → promote must-hold constraints to their home → merge duplicative siblings → trim re-derivable locators; targets the ~80% band (rejects a diff that re-lands at or above the 90% WARN) and keeps cross-referenced 00NN anchors. It is prose-orchestrated with NO bundled agent and NO mechanical what-to-cut decider — condensation is judgment: this skill CLASSIFIES and PROPOSES a diff, and you APPROVE it. The apply is /doctor's EXISTING user-approved-diff treat-path (reused, not rebuilt) — the approval IS the decision gate. Read-only until you approve.
 ---
 
 # /claugentic-dev-harness:condense
@@ -9,10 +9,11 @@ description: >-
 > no `/condense` sub-agent and no mechanical cut-decider — the classification and the proposed
 > diff are model-upheld judgment, and the human approval is the decision gate.
 
-The **executable operator for the condensation pass.** Where `docs/claugentic-WORKFLOW.md` →
-Definition of Done → *the condensation pass* frames the discipline in prose, this skill turns it
-into an **ordered, guarded procedure a non-expert agent can run reliably** — the same procedure,
-made hard to get wrong. It is the next step a doc-budget WARN or `/doctor`'s "condense soon"
+The **executable operator for the condensation pass — and the one canonical home of its procedure.**
+`docs/claugentic-WORKFLOW.md` → Definition of Done carries the *obligation* (a budget WARN is a
+do-it-now signal, discharged inside the current slice) and points here; the procedure itself lives
+in this skill, as an **ordered, guarded procedure a non-expert agent can run reliably** — made hard
+to get wrong. It is the next step a doc-budget WARN or `/doctor`'s "condense soon"
 advisory OFFERs you — **two readers of one cap source**, reachable in different places. Both read
 `.claude/claugentic-doc-budgets.json`, and with **no** config neither speaks (your own periodic
 review is the cue). `/doctor`'s advisory runs **anywhere**. The **gate's** WARN needs the gate
@@ -22,8 +23,10 @@ there too, so the WARN reaches you at every commit — but that is not everywher
 kept its own architecture tree has no wrapper, a machine with no working Python skips both
 gates, and a wrapper installed by **v0.5.1 or earlier is never auto-chained** (`init` reports
 how to adopt the current one). Off that path — and in a repo `init` has not touched at all —
-`/doctor`'s advisory is the signal. The WORKFLOW condensation pass
-is the single source for the *why*; this skill is the *how*, in order.
+`/doctor`'s advisory is the signal. This skill is the single source for the
+condensation **procedure** — its *why* and its *how*, in order; WORKFLOW keeps the obligation
+and owns the escape-valve ladder, `/doctor` owns the caps-config reader-contract, and neither
+restates the procedure.
 
 ## The one rule that must not be inverted (read this FIRST)
 

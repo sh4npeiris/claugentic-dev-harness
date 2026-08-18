@@ -154,7 +154,27 @@ tagged `vX.Y.Z`.
   read it before the references it corrects rather than a hundred-odd lines later. Nothing new is
   enforced here: this is copy, plus three regression pins that keep it from rotting back.
 
+- **The condensation procedure now lives in exactly one place — the `/condense` skill.**
+  `WORKFLOW.md`'s Definition of Done carried a second copy of it, several passages word for word
+  with the skill: the keep/drop buckets, the merge-siblings rule, the "landed build-records are
+  the primary target" anti-footgun, the lever order and the ~80% band. That copy is **deleted**
+  (5,785 bytes net), leaving one line that says what the Definition of Done is actually for — a
+  budget WARN is a **do-it-now signal, not a deferral**, discharged inside the current slice —
+  and points at `/claugentic-dev-harness:condense` as the operator that owns the steps. **No rule
+  changed and nothing moved out of reach:** the **escape-valve ladder stays in `WORKFLOW.md`**,
+  where `/condense`, `/doctor` and `init` already point at it. A stale bullet telling you to
+  create the caps config by hand also went: `init` has seeded one for you since the doc-budget
+  gate shipped (see *Added*, above), and `/doctor` states the config's schema. Every pointer that
+  named the deleted text — in `CLAUDE.md`, both decisions-ledger headers, `/doctor` and
+  `/condense` itself — now names the skill.
+
 ### Fixed
+
+- **"Gate 5" in the Definition of Done was ambiguous — two different items carried that number.**
+  The *reviewer sign-offs* list was numbered `5.`/`6.`, continuing the deterministic-gate list
+  that already ends at 6, so a cross-reference to "DoD gate 5" could mean the shipped-content
+  scan or the standards-dimension audit. The sign-offs are now numbered from 1 within their own
+  group; the deterministic gates keep their numbers, so existing references still resolve.
 
 - **A caller could make the Verify panel spawn the same reviewer 200 times.** `dimensions` was
   checked for membership in the standards catalog but was neither de-duplicated nor capped, so a
