@@ -817,11 +817,16 @@ test("verifyChildArgs: the default set is returned as a COPY (a caller cannot mu
 
 test("verifyChildArgs: a NON-BOOLEAN trustSurface is reported, never silently read as false", () => {
   const V = verifyArgsHelpers();
-  for (const bad of ["true", 1, {}]) {
+  // `null` is the common serialization of "unset" and `typeof null` is "object" -- the note must
+  // name it honestly. The note is the ONLY signal an operator gets that the lens did not spawn, so
+  // its CONTENT is pinned, not merely its existence (a bare "trustSurface" would pass a /match/).
+  for (const [bad, kind] of [["true", "string"], [1, "number"], [{}, "object"], [null, "null"]]) {
     const out = V.verifyChildArgs({ trustSurface: bad, dimensions: ["testing"] }, "d", "f");
     assert.equal(out.args.trustSurface, false, "the value stays fail-closed -- only the silence is fixed");
     assert.equal(out.defaulted.length, 1, `expected the substitution to be reported for ${JSON.stringify(bad)}`);
     assert.match(out.defaulted[0], /trustSurface/);
+    assert.ok(out.defaulted[0].includes(`is ${kind}, not a boolean`), `the note must name the actual kind (${kind}); got: ${out.defaulted[0]}`);
+    assert.ok(out.defaulted[0].includes("does NOT spawn"), "the note must state the CONSEQUENCE -- the trust-surface lens did not run");
   }
 });
 
@@ -841,9 +846,11 @@ test("build-item.js control flow: the verify child args come from verifyChildArg
   const flow = controlFlowOf(SCRIPT_PATH);
   assert.ok(flow.includes("verifyChildArgs("), "the verify child call must go through the extracted pure builder");
   assert.ok(/defaulted/.test(flow), "the control flow must consume the builder's `defaulted` report");
+  const loop = flow.match(/for \(const \w+ of \w+\.defaulted\) \{([\s\S]*?)\}/);
+  assert.ok(loop, "the control flow must iterate the builder's defaulted report");
   assert.ok(
-    /of [A-Za-z]+\.defaulted\b/.test(flow),
-    "each reported substitution must reach the run log -- a silent default is the defect",
+    loop[1].includes("log("),
+    "each reported substitution must reach the run log -- an iteration that does not LOG re-creates the defect",
   );
   assert.ok(
     !/item\.dimensions/.test(flow),
@@ -860,6 +867,13 @@ test("build-item.js: the default verify dimensions have ONE source, and it is th
   const decl = src.match(/^const DEFAULT_VERIFY_DIMENSIONS = .*$/m);
   assert.ok(decl, "DEFAULT_VERIFY_DIMENSIONS must be the named single source of the default set");
   assert.ok(decl[0].includes('"maintainability-structure"'), "the default set must live in the constant");
+  // Independent fixture, NOT the constant compared against itself: every assertion elsewhere reads
+  // V.DEFAULT_VERIFY_DIMENSIONS on both sides, so the panel could silently lose its `testing` lens.
+  assert.deepEqual(
+    verifyArgsHelpers().DEFAULT_VERIFY_DIMENSIONS,
+    ["maintainability-structure", "testing"],
+    "the default Verify panel's coverage must not drift silently",
+  );
   assert.equal(
     src.split('"maintainability-structure"').length - 1,
     1,

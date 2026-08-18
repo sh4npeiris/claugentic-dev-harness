@@ -725,14 +725,19 @@ function isRunInputError(msg) {
 
 // The ONE source of the artifact-dir shape: default + trailing-separator trim. screenshotPath,
 // driverPrompt and the top-level artifactDir all derive from this (and artifacts.dir reuses the
-// already-normalized top-level value) -- the save-path and the report-path cannot diverge.
+// already-normalized top-level value). BOTH segments of the artifact path are normalized once at
+// the boundary -- the dir here, the runLabel through sanitizeForPath -- which is what makes the
+// save-path and the report-path convergent. Add a THIRD segment and it must normalize there too.
 //
 // This was documented as the one source while having ZERO call sites; four places re-implemented
 // it inconsistently, so the claim was false and the copies had already drifted. The trim covers
 // BOTH separators (build-item.js's childScriptPath does the same): a `/`-only trim left a trailing
 // backslash on a Windows-style dir, which then joined as `out\qa\/<label>` (0041 S10a, D3).
 function artifactBase(dir) {
-  return (dir && String(dir).length ? String(dir) : ".qa-artifacts").replace(/[\\/]+$/, "");
+  // Trim FIRST, then default: defaulting first is NOT idempotent (an all-separator dir trims to
+  // "" and a second application substitutes the default), and the driver path applies this twice.
+  const trimmed = (dir ? String(dir) : "").replace(/[\\/]+$/, "");
+  return trimmed.length ? trimmed : ".qa-artifacts";
 }
 
 // Map a THROWN boot-agent error to the same failed-boot report shape a returned failure uses --
@@ -1029,6 +1034,11 @@ try {
     // Last-ditch deterministic label so screenshots still have a home if the agent omitted one.
     runLabel = "qa-run";
   }
+  // Normalize ONCE here, at the same boundary the artifact dir is normalized at: driverPrompt and
+  // screenshotPath both sanitizeForPath this value, so joining it raw into artifacts.dir below would
+  // cite a directory the driver never wrote to (sanitizeForPath is idempotent, so the second
+  // application inside driverPrompt is a no-op) (0041 S10a, D3).
+  runLabel = sanitizeForPath(runLabel) || "qa-run";
 
   const outcome = bootOutcome(bootReport);
   ready = outcome === "ready";

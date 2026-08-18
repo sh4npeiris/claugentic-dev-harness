@@ -617,7 +617,9 @@ const DEFAULT_VERIFY_DIMENSIONS = ["maintainability-structure", "testing"];
 
 // Build the verify.js child-workflow args (a PURE builder, extracted from the inline call so the
 // threading is unit-testable -- the qaChildArgs shape below). Returns `{ args, defaulted }`, where
-// `defaulted` names every field this builder SUBSTITUTED for the item's own value.
+// `defaulted` names every substitution that is INVISIBLE downstream. specPath's fallback is
+// deliberately absent: the substituted VALUE ("(spec provided inline)") states itself in the prompt
+// it lands in, so it needs no second announcement.
 //
 // The substitutions were inline ternaries at the workflow() call site and were applied SILENTLY:
 // an item naming no dimensions got a two-dimension panel while the run reported nothing about the
@@ -638,8 +640,11 @@ function verifyChildArgs(item, diffRef, builderFamily) {
     );
   }
   if (item.trustSurface !== undefined && typeof item.trustSurface !== "boolean") {
+    // `typeof null` is "object" -- name the common "unset" serialization honestly, or the log
+    // reads as a caller error for a benign shape.
+    const kind = item.trustSurface === null ? "null" : typeof item.trustSurface;
     defaulted.push(
-      `trustSurface -- the item's value is a ${typeof item.trustSurface}, not a boolean; treated as false, so the trust-surface lens does NOT spawn`,
+      `trustSurface -- the item's value is ${kind}, not a boolean; treated as false, so the trust-surface lens does NOT spawn`,
     );
   }
   return {
