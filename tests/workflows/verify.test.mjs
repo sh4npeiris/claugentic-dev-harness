@@ -844,11 +844,14 @@ test("verify.js control flow: the dedupe is applied ONCE and feeds BOTH consumer
   // Trap 3: the roster and modulesAudited must derive from the SAME deduped array.
   assert.match(flow, /const roster = panelRoster\(\{ \.\.\.input, dimensions \}\);/);
   assert.match(flow, /const modulesAudited = modulesFor\(dimensions\);/);
-  const raw = flow.match(/input\.dimensions/g) || [];
-  assert.equal(
-    raw.length,
-    1,
-    "`input.dimensions` may be read exactly ONCE (by the dedupe) -- a second raw read is how the two consumers drift apart",
+  // Exactly ONE derivation from the raw list. `input.dimensions.length` is a REPORT (how many the
+  // caller asked for), not a second derivation, so it is enumerated as legal explicitly rather
+  // than by a blanket count -- any OTHER raw read is how the two consumers drift apart.
+  const raws = flow.match(/.{0,40}input\.dimensions(?!\.length)/g) || [];
+  assert.deepEqual(
+    raws.map((s) => s.trim()),
+    ["const dimensions = dedupeDimensions(input.dimensions"],
+    "`input.dimensions` may be DERIVED from exactly once (by the dedupe); every other read must be the `.length` report",
   );
 });
 
