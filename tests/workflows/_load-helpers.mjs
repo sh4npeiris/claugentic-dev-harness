@@ -37,6 +37,6 @@ export function loadHelpersFrom(scriptPath, names) {
   const block = src.slice(start, end);
   // No tool primitives are in scope inside this Function — so if any helper closed over
   // agent()/parallel()/phase()/log()/workflow(), constructing or calling it would throw here.
-  const factory = new Function(`${block}\n; return { ${names.join(", ")} };`);
+  const factory = new Function(`"use strict";\n${block}\n; return { ${names.join(", ")} };`);
   return factory();
 }

@@ -33,8 +33,11 @@ const ALL_SCRIPTS = [
   text: readFileSync(join(root, p), "utf-8"),
 }));
 
+// The `async ` prefix is accepted so a shared SPAWN wrapper (agentWithNamespaceFallback, 0041
+// S10b) is extractable by the same `^function`-to-closing-brace branch. Without it the wrapper
+// silently extracts as `null` and drops out of the pinned set entirely.
 function extract(text, name, path) {
-  const fn = text.match(new RegExp(`^function ${name}\\([^)]*\\) \\{[\\s\\S]*?^\\}`, "m"));
+  const fn = text.match(new RegExp(`^(?:async )?function ${name}\\([^)]*\\) \\{[\\s\\S]*?^\\}`, "m"));
   if (fn) return fn[0];
   const c = text.match(new RegExp(`^const ${name} =[ \\n][\\s\\S]*?;$`, "m"));
   if (c) return c[0];
@@ -51,7 +54,7 @@ function scriptsDefining(name) {
   );
 }
 
-for (const name of [
+const PINNED_HELPERS = [
   "MODELS",
   "SAME_MODEL_TAG",
   "UNRESOLVED_FAMILY_TAG",
@@ -59,7 +62,17 @@ for (const name of [
   "modelFamily",
   "sameModelTag",
   "nsAgent",
-]) {
+  // 0041 S10b (D6): the namespace-fallback set. AGENT_NAMESPACE is the ONE source nsAgent adds
+  // and bareAgentType strips; namespaceFallbackNotice is the logged trust-boundary wording; the
+  // spawn wrapper itself is copied byte-identical across all four scripts. A helper is pinned
+  // ONLY if its name appears in this array -- a new shared helper is unpinned until it is added.
+  "AGENT_NAMESPACE",
+  "bareAgentType",
+  "namespaceFallbackNotice",
+  "agentWithNamespaceFallback",
+];
+
+for (const name of PINNED_HELPERS) {
   test(`drift pin: ${name} is byte-identical across every workflow script that defines it`, () => {
     const defs = scriptsDefining(name);
     assert.ok(defs.length >= 2, `${name} must be pinned across ≥2 scripts (found in: ${defs.map((d) => d.path).join(", ") || "none"})`);
@@ -69,6 +82,54 @@ for (const name of [
     }
   });
 }
+
+// -----------------------------------------------------------------------------
+// The extractor's own integrity (0041 S10b, trap 4) -- WITHOUT this the drift pin can pass
+// while pinning almost nothing.
+//
+// The `const` branch is LAZY: `^const <name> =[ \n][\s\S]*?;$` stops at the FIRST line ending
+// in `;`. Rewrite a single-expression arrow as a multi-statement body and the pin silently
+// compares a truncated FRAGMENT across all four files -- green, and guarding nothing. A
+// truncated fragment is detectable: its brackets do not balance.
+// -----------------------------------------------------------------------------
+function balanced(code) {
+  const counts = { "{": 0, "}": 0, "(": 0, ")": 0, "[": 0, "]": 0 };
+  for (const ch of code) {
+    if (ch in counts) counts[ch] += 1;
+  }
+  return counts["{"] === counts["}"] && counts["("] === counts[")"] && counts["["] === counts["]"];
+}
+
+test("drift-pin integrity: every extracted helper is a WHOLE declaration, not a lazily-truncated fragment", () => {
+  let checked = 0;
+  for (const name of PINNED_HELPERS.concat(["parseArgs"])) {
+    const defs = scriptsDefining(name);
+    assert.ok(defs.length >= 2, `${name} is defined in fewer than 2 scripts -- the pin is vacuous`);
+    for (const def of defs) {
+      assert.ok(
+        balanced(def.code),
+        `${name} extracted from ${def.path} has unbalanced brackets -- the extractor truncated it, ` +
+          `so byte-identity is being asserted over a FRAGMENT:\n${def.code}`,
+      );
+      checked += 1;
+    }
+  }
+  // Corpus floor: a regex change that silently stopped matching must not pass vacuously.
+  assert.ok(checked >= 20, `expected >= 20 extracted declarations to check, got ${checked}`);
+});
+
+test("drift-pin integrity: nsAgent stays the SINGLE-EXPRESSION const shape the extractor needs", () => {
+  const defs = scriptsDefining("nsAgent");
+  assert.equal(defs.length, 4, "nsAgent must be defined in all four engine scripts");
+  for (const def of defs) {
+    assert.ok(
+      !def.code.includes("\n"),
+      `${def.path}: nsAgent must stay a ONE-LINE single-expression const -- a multi-statement ` +
+        `arrow body makes the drift pin compare a truncated fragment (trap 4):\n${def.code}`,
+    );
+    assert.match(def.code, /^const nsAgent = \(name\) => `.*`;$/, `${def.path}: unexpected nsAgent shape`);
+  }
+});
 
 test("drift pin: parseArgs differs only by its own script name across all scripts", () => {
   const norm = (s) => s.replace(/\b(verify|audit|qa|build-item) args\b/g, "SCRIPT args");
