@@ -156,6 +156,33 @@ tagged `vX.Y.Z`.
 
 ### Fixed
 
+- **A caller could make the Verify panel spawn the same reviewer 200 times.** `dimensions` was
+  checked for membership in the standards catalog but was neither de-duplicated nor capped, so a
+  list of 200 copies of one module validated cleanly and fanned out 200 reviewer agents over that
+  one module. The list is now de-duplicated once, at the boundary, and both consumers (the roster
+  and the audited-module list) read that same result — so the fan-out is bounded by the catalog
+  (at most one reviewer per module) rather than by the length of the caller's array, and a
+  narrowed list is reported in the run log instead of applied silently. The panel's lens and
+  cut-list thunks also carry a local guard now: a spawn that fails degrades to "this reviewer did
+  not run" **in place** — which the existing coverage check already turns into an explicit gap and
+  a forced `CHANGES_REQUIRED` — and the failure is written to the run log rather than swallowed by
+  the platform. The trust-surface honesty judge is deliberately **not** guarded: its
+  "failed twice, never a silent partial PASS" throw has to stay loud. The file's own header
+  claimed the call count was "structurally bounded by the roster — no loops"; both halves were
+  false, and it now says what is actually true.
+
+- **The engine could not spawn its own agents when this repo dogfooded itself.** Bundled agents
+  are spawned by their namespaced id, which is what an installed plugin resolves — but in a
+  project-local session, where the agent definitions live in `.claude/agents/`, only the bare
+  name resolves, and every spawn failed at the first call. That is what aborted an eval run and
+  forced the published v0.5.0 baseline to be measured through a hand-edited engine, so the
+  repo's own baseline does not measure the shipped agent-resolution path. Every engine spawn now
+  retries **once** with the bare name when the namespaced spawn *throws*; the bare name is
+  derived from the id at runtime, never written down. It is a namespace retry and nothing more:
+  it does not consume a judge's one respawn, does not touch the flag that drives the same-model
+  disclosure, does not swallow a two-failure error, and carries its own log label so a namespace
+  retry can never be mistaken for a model respawn.
+
 - **Four engine defects that shipped in every `/audit`, `/build` and QA run.** Each one is now
   covered by a regression test that was **observed failing against the old code first** — the
   fixes and their tests landed in separate commits so that is checkable in the history.
