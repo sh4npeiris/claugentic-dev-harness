@@ -10,6 +10,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -747,4 +748,189 @@ test("verdictFor: a requested not-checkable state folds to not-checkable, unrequ
   };
   assert.equal(H.verdictFor(report, ["loading"]).verdict, "not-checkable");
   assert.equal(H.verdictFor(report, []).verdict, "pass");
+});
+
+// -----------------------------------------------------------------------------
+// D3 (0041 S10a) -- the driver prompt's ORDER + separator, and the ONE artifact-dir shape
+//
+// (a) driverPrompt emitted its NARROWING `STATES SCOPE:` constraint BEFORE the role/task framing
+//     and joined the two with no separator at all, so the agent read
+//     `...never as a states[] entry.Runtime QA -- FLOW-DRIVING...`. The line had already been
+//     patched twice (a non-interpolating string, then ASCII) and the ordering survived both --
+//     because driverPrompt sat BELOW the helpers block and nothing could see it. It is pure
+//     (params + sanitizeForPath + artifactBase + one const), so this slice relocated it INTO the
+//     block; these pins are what that relocation buys.
+//
+// (b) artifactBase was documented as "the ONE source of the artifact-dir shape" and unit-tested
+//     while having ZERO call sites; four other places re-implemented it inconsistently, and its
+//     `/`-only trim left a trailing backslash on a Windows-style dir.
+// -----------------------------------------------------------------------------
+
+/** Lazily load the relocated driver-prompt helper INSIDE each test, so a missing/renamed
+ * extraction fails only these pins (naming the helper) rather than aborting the whole file. */
+function driverHelpers() {
+  return loadHelpersFrom(SCRIPT_PATH, ["driverPrompt", "artifactBase", "screenshotPath", "sanitizeForPath"]);
+}
+
+const DRIVER_RUN_CONFIG = { runCommand: "npm run dev", appUrl: "http://localhost:3000" };
+
+test("driverPrompt: the role/task framing comes FIRST, with a blank line before the STATES SCOPE constraint", () => {
+  const D = driverHelpers();
+  const p = D.driverPrompt(DRIVER_RUN_CONFIG, validCriterion(), "qa-2026", ".qa-artifacts");
+  assert.ok(
+    p.startsWith('Runtime QA -- FLOW-DRIVING for one acceptance criterion (id AC-1, feature "Add item").'),
+    `the prompt must OPEN with the role/task framing; got: ${JSON.stringify(p.slice(0, 120))}`,
+  );
+  assert.ok(p.includes("\n\nSTATES SCOPE:"), "the narrowing constraint must be its own paragraph");
+  assert.ok(
+    p.indexOf("STATES SCOPE:") > p.indexOf("Runtime QA -- FLOW-DRIVING"),
+    "the narrowing constraint must FOLLOW the framing it narrows",
+  );
+});
+
+test("driverPrompt: the sentence-glued rendering is gone (the exact defect string)", () => {
+  const D = driverHelpers();
+  const p = D.driverPrompt(DRIVER_RUN_CONFIG, validCriterion(), "qa-2026", ".qa-artifacts");
+  assert.ok(
+    !p.includes("entry.Runtime QA"),
+    "the STATES SCOPE clause and the framing must never be concatenated with no separator",
+  );
+  // Pin the paragraph SEQUENCE, not just the one seam the original defect glued: BOTH of the
+  // constraint's seams are paragraph breaks, so dropping either separator turns this red.
+  const paras = p.split("\n\n");
+  assert.match(paras[0], /^Runtime QA -- FLOW-DRIVING for one acceptance criterion/);
+  assert.match(paras[1], /^STATES SCOPE: check ONLY the states/);
+  assert.match(paras[2], /^App URL: /);
+});
+
+test("driverPrompt: every load-bearing SECTION survives, in order (the payload the agent executes)", () => {
+  const D = driverHelpers();
+  const p = D.driverPrompt(DRIVER_RUN_CONFIG, validCriterion(), "qa-2026", ".qa-artifacts");
+  // The relocation was justified as "now it can be pinned". The framing/order pins cover the 0041
+  // defect; this covers the PAYLOAD -- each section below was independently deletable while green.
+  const sections = ["STATES SCOPE:", "App URL:", "Flow (perform each ordered step", "Expect (evaluate each AFTER the flow", "State checks to run on the surface", "  - empty:", "  - loading:", "  - error:", "Screenshots:", "Return the structured report:"];
+  let at = -1;
+  for (const s of sections) {
+    const i = p.indexOf(s);
+    assert.ok(i > at, `the prompt must carry "${s}" and keep it after the preceding section -- this is the payload the driver agent executes`);
+    at = i;
+  }
+});
+
+test("driverPrompt: the STATES SCOPE clause still names the requested states (and the none-case)", () => {
+  const D = driverHelpers();
+  const withStates = D.driverPrompt(DRIVER_RUN_CONFIG, validCriterion({ states: ["empty", "error"] }), "r", ".qa-artifacts");
+  assert.ok(withStates.includes("STATES SCOPE: check ONLY the states listed for THIS criterion (empty, error)"));
+  const none = D.driverPrompt(DRIVER_RUN_CONFIG, validCriterion({ states: [] }), "r", ".qa-artifacts");
+  assert.ok(none.includes("none -- perform NO state checks"));
+});
+
+test("driverPrompt: an api criterion gets the HTTP tooling line, an e2e one the Playwright line", () => {
+  const D = driverHelpers();
+  const api = D.driverPrompt(DRIVER_RUN_CONFIG, validCriterion({ check: "api" }), "r", ".qa-artifacts");
+  assert.ok(api.includes("drive it over HTTP with curl/fetch via Bash"));
+  const e2e = D.driverPrompt(DRIVER_RUN_CONFIG, validCriterion(), "r", ".qa-artifacts");
+  assert.ok(e2e.includes("browser tooling unavailable in this session"), "the BROWSER_UNAVAILABLE_REASON const must interpolate");
+  assert.ok(e2e.includes("NEVER fake a pass"));
+});
+
+test("driverPrompt: the shot dir derives from artifactBase -- a trailing separator never doubles", () => {
+  const D = driverHelpers();
+  // POSIX-style, the shape the default carries.
+  const posix = D.driverPrompt(DRIVER_RUN_CONFIG, validCriterion(), "qa-2026", "out/qa///");
+  assert.ok(posix.includes("UNDER `out/qa/qa-2026/`"), `got: ${posix.match(/UNDER `[^`]*`/)}`);
+  // Windows-style -- the shape the `/`-only trim silently mangled into `out\qa\/qa-2026`.
+  const win = D.driverPrompt(DRIVER_RUN_CONFIG, validCriterion(), "qa-2026", "out\\qa\\");
+  assert.ok(win.includes("UNDER `out\\qa/qa-2026/`"), `got: ${win.match(/UNDER `[^`]*`/)}`);
+  assert.ok(!win.includes("\\/"), "a Windows-style artifact dir must not leave a backslash beside the joiner");
+});
+
+test("driverPrompt: the .png path it tells the agent to SAVE to converges with the path the report CITES", () => {
+  const D = driverHelpers();
+  // The cross-agent contract: <base>/<runLabel>/<criterionId>-<slug>.png. driverPrompt names the
+  // directory the driver saves into; screenshotPath names the file the report cites. NOTE this pins
+  // the two SANITIZING legs -- screenshotPath has no production call site, so it is not the report's
+  // oracle; the live third leg (artifacts.dir) is pinned by the test directly below.
+  const dir = "out/qa/";
+  const label = "QA Run 1";
+  const cited = D.screenshotPath(dir, label, "AC-1", "end");
+  const citedDir = cited.slice(0, cited.lastIndexOf("/"));
+  const p = D.driverPrompt(DRIVER_RUN_CONFIG, validCriterion(), label, dir);
+  assert.equal(cited, "out/qa/qa-run-1/ac-1-end.png");
+  assert.ok(p.includes(`UNDER \`${citedDir}/\``), `driverPrompt must save under ${citedDir}/`);
+  assert.ok(p.includes("filenames like `AC-1-<slug>.png`"), "the filename convention must still be stated");
+});
+
+test("qa.js: the report's artifacts.dir is the LIVE third leg, and it converges with the save dir", () => {
+  const D = driverHelpers();
+  const src = readFileSync(SCRIPT_PATH, "utf8");
+  // artifacts.dir is composed BELOW the helpers block, so its RULE is pinned at the source and its
+  // VALUE is pinned by composing that rule here. Both halves matter: the dir goes through
+  // artifactBase at the boundary, and the runLabel through sanitizeForPath at the same boundary.
+  assert.ok(
+    src.includes('runLabel = sanitizeForPath(runLabel) || "qa-run";'),
+    "the runLabel must be normalized ONCE at the boundary -- joining it raw into artifacts.dir cites a directory the driver never wrote to",
+  );
+  assert.ok(
+    src.includes('dir: mode === "full" ? `${artifactDir}/${runLabel}`'),
+    "artifacts.dir must reuse the boundary-normalized artifactDir and runLabel, never re-derive them",
+  );
+  // Non-vacuity: this label class really is one the normalizer rewrites.
+  const label = "build-AC-1-iter1";
+  assert.notEqual(D.sanitizeForPath(label), label, "the fixture must be a label normalization changes");
+  // Compose the three legs exactly as the live path does; all three must agree.
+  const artifactDir = D.artifactBase("out/qa/");
+  const runLabel = D.sanitizeForPath(label) || "qa-run";
+  const reported = artifactDir + "/" + runLabel;
+  const cited = D.screenshotPath(artifactDir, runLabel, "AC-1", "end");
+  const prompt = D.driverPrompt(DRIVER_RUN_CONFIG, validCriterion(), runLabel, artifactDir);
+  assert.equal(reported, "out/qa/build-ac-1-iter1");
+  assert.equal(cited.slice(0, cited.lastIndexOf("/")), reported);
+  assert.ok(prompt.includes("UNDER `" + reported + "/`"), "the driver must save under " + reported);
+});
+
+test("artifactBase: the trailing-separator trim covers BOTH separators (Windows-style dirs too)", () => {
+  // Uses the top-level H deliberately -- this pin is about artifactBase alone and must not be
+  // coupled to the driverPrompt relocation loading beside it.
+  assert.equal(H.artifactBase("out\\qa\\"), "out\\qa");
+  assert.equal(H.artifactBase("out\\qa\\\\"), "out\\qa");
+  assert.equal(H.artifactBase("out/qa\\/"), "out/qa");
+  // ... and the pre-existing POSIX behavior is unchanged.
+  assert.equal(H.artifactBase("out/dir///"), "out/dir");
+  assert.equal(H.artifactBase(undefined), ".qa-artifacts");
+});
+
+test("artifactBase: IDEMPOTENT -- the live path applies it twice (boundary, then driverPrompt)", () => {
+  // The boundary normalizes once (`const artifactDir = artifactBase(...)`) and driverPrompt/
+  // screenshotPath normalize again. A non-fixed-point makes the driver SAVE under one dir while
+  // the report CITES another, which is exactly what the one-source claim above promises cannot
+  // happen. An all-separator dir is the class that breaks it.
+  for (const dir of ["/", "//", "\\\\", "\\\\\\\\", "/\\\\", "\\/", "out/qa/", "out\\qa\\\\", ".qa-artifacts", "", undefined, null]) {
+    assert.equal(H.artifactBase(H.artifactBase(dir)), H.artifactBase(dir), `artifactBase must be a fixed point for ${JSON.stringify(dir)}`);
+  }
+  // The specific shape that regressed: a bare separator must not fall back to the default.
+  assert.equal(H.artifactBase("/"), ".qa-artifacts");
+  assert.equal(H.artifactBase("\\\\"), ".qa-artifacts");
+});
+
+test("qa.js: the artifact-dir default and trim have ONE source -- artifactBase (no re-implementations)", () => {
+  const src = readFileSync(SCRIPT_PATH, "utf8");
+  // The default literal lives inside artifactBase and nowhere else. Four inconsistent copies is
+  // the shape this slice removed; a fifth re-implementation turns this red.
+  assert.equal(
+    src.split('".qa-artifacts"').length - 1,
+    1,
+    "the .qa-artifacts default must appear exactly once -- inside artifactBase",
+  );
+  // The widened trim lives inside artifactBase and nowhere else, and the narrow `/`-only trim
+  // (which left a trailing backslash) must be gone entirely.
+  assert.equal(
+    src.split('.replace(/[\\\\/]+$/, "")').length - 1,
+    1,
+    "the trailing-separator trim must appear exactly once -- inside artifactBase",
+  );
+  assert.ok(
+    !src.includes('.replace(/\\/+$/, "")'),
+    "the `/`-only trailing-slash trim leaves a trailing backslash on a Windows-style dir -- no copy may remain",
+  );
 });

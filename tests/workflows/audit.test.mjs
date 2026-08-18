@@ -11,6 +11,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -1403,4 +1404,135 @@ test("render-level regression: a carried prior finding survives into the rendere
   });
   assert.ok(body.includes("prior verified"), "a carried prior finding must appear in the rendered fence");
   assert.ok(body.includes("fresh"), "this run's finding must appear too");
+});
+
+// -----------------------------------------------------------------------------
+// D1 (0041 S10a) -- the renderOnly SELECT seam is decided on the PARSED args
+//
+// A scriptPath invocation delivers `args` as a JSON STRING (parseArgs documents it, and it is the
+// ONLY shape /audit uses), so a seam decided on the RAW args can never fire on the real call path:
+// the documented call falls through to validateArgs and throws `audit args invalid`, or -- if the
+// caller re-passes the original args alongside renderOnly -- the engine silently runs a SECOND full
+// audit with the whole FIND/PRUNE/VERIFY agent fan-out.
+//
+// The seam itself lives in the control flow BELOW the helpers block, which the extract-and-eval
+// harness never runs. So the pin has two halves: `auditEntry` (the extracted, pure decision) is
+// unit-pinned on the real JSON-string shape, and a SOURCE-LEVEL pin fixes the control flow's ORDER
+// (the agent-namespace.test.mjs precedent for a below-the-block site).
+// -----------------------------------------------------------------------------
+
+/** Load the SELECT-seam helpers lazily, INSIDE each seam test, so a missing/renamed extraction
+ * fails ONLY these pins -- with the helper's name in the ReferenceError -- instead of aborting the
+ * whole file at import time (which is what the top-level loadHelpersFrom above would do). */
+function seamHelpers() {
+  return loadHelpersFrom(SCRIPT_PATH, ["auditEntry", "validateArgs", "renderOnlyResult"]);
+}
+
+/** The renderOnly payload the SKILL actually sends: an already-selected item subset and the
+ * pass-through blocks -- and NOTHING else. No dial / modules / scopeDirs, which is exactly why the
+ * seam must sit BEFORE validateArgs. */
+function renderOnlyPayload() {
+  return makeResult({ items: [makeItem()] });
+}
+
+/** The engine source below the `// --- end helpers ---` marker -- the control-flow region the
+ * extract-and-eval harness never exercises. The marker is matched line-anchored and asserted
+ * UNIQUE, so a mention of the marker text in a header comment cannot silently reposition the
+ * slice (the region-anchor technique from docs/claugentic-standards/testing.md). */
+function controlFlowOf(scriptPath) {
+  const src = readFileSync(scriptPath, "utf8");
+  const marks = src.match(/^\/\/ --- end helpers ---$/gm) || [];
+  assert.equal(marks.length, 1, `expected exactly ONE line-anchored end-helpers marker in ${scriptPath}`);
+  return src.slice(src.search(/^\/\/ --- end helpers ---$/m));
+}
+
+test("auditEntry: a JSON-STRING args payload carrying renderOnly IS a re-render pass (the real /audit call shape)", () => {
+  const S = seamHelpers();
+  const payload = renderOnlyPayload();
+  const entry = S.auditEntry(JSON.stringify({ renderOnly: payload }));
+  assert.notEqual(entry.renderOnly, null, "a JSON-string args payload carrying renderOnly must select the seam");
+  assert.equal(entry.renderOnly.items.length, 1);
+  assert.equal(entry.renderOnly.items[0].findingKey, "missing-validation");
+  // ... and the payload really does re-render, so the seam returns a usable result.
+  assert.ok(S.renderOnlyResult(entry.renderOnly).renderedBacklog.includes("Add input validation"));
+});
+
+test("auditEntry: the renderOnly payload is one validateArgs REJECTS -- the seam must precede it (non-vacuity)", () => {
+  const S = seamHelpers();
+  const entry = S.auditEntry(JSON.stringify({ renderOnly: renderOnlyPayload() }));
+  const errors = S.validateArgs(entry.input);
+  assert.ok(
+    errors.length > 0,
+    "a renderOnly payload carries no dial/modules/scopeDirs -- if validateArgs accepted it this pin would prove nothing",
+  );
+  assert.ok(errors.some((e) => /dial/.test(e)), `expected a dial error, got: ${errors.join(" | ")}`);
+});
+
+test("auditEntry: a JSON-STRING args payload WITHOUT renderOnly is a normal audit pass", () => {
+  const S = seamHelpers();
+  const entry = S.auditEntry(
+    JSON.stringify({ dial: "standard", modules: ["testing"], scopeDirs: ["src"], maxCellsPerRun: 4, builderFamily: "Fable 5" }),
+  );
+  assert.equal(entry.renderOnly, null, "a normal audit args payload must NOT select the re-render seam");
+  assert.equal(entry.input.dial, "standard");
+  assert.deepEqual(S.validateArgs(entry.input), []);
+});
+
+test("auditEntry: the SKILL's REAL re-invocation shape -- the ORIGINAL args plus renderOnly -- selects the seam", () => {
+  const S = seamHelpers();
+  // skills/audit/SKILL.md: "re-invoke the Workflow tool with `args.renderOnly = { ...result,
+  // items: <selected> }`" -- the ORIGINAL audit args carry the payload. This is the shape the
+  // defect actually inhabited: delivered as a JSON string the pre-fix seam never fired, and these
+  // args validate FINE, so the engine silently ran a SECOND full audit with the whole
+  // FIND/PRUNE/VERIFY agent fan-out instead of an agent-free re-render.
+  const raw = JSON.stringify({
+    dial: "standard",
+    modules: ["testing"],
+    scopeDirs: ["src"],
+    maxCellsPerRun: 4,
+    builderFamily: "Fable 5",
+    renderOnly: renderOnlyPayload(),
+  });
+  const entry = S.auditEntry(raw);
+  assert.notEqual(entry.renderOnly, null, "the seam must fire even when the original audit args ride along");
+  assert.equal(entry.renderOnly.items.length, 1);
+  assert.deepEqual(
+    S.validateArgs(entry.input),
+    [],
+    "these args are VALID -- which is exactly why the pre-fix miss ran a whole second audit instead of throwing",
+  );
+});
+
+test("auditEntry: the inline-script OBJECT args shape still selects the seam (both invocation shapes)", () => {
+  const S = seamHelpers();
+  const entry = S.auditEntry({ renderOnly: renderOnlyPayload() });
+  assert.notEqual(entry.renderOnly, null);
+  assert.equal(entry.renderOnly.items.length, 1);
+});
+
+test("auditEntry: a non-object parse result is not a re-render pass and stays validateArgs' problem", () => {
+  const S = seamHelpers();
+  for (const raw of ["null", "42", '"a string"']) {
+    const entry = S.auditEntry(raw);
+    assert.equal(entry.renderOnly, null, `${raw} must not select the seam`);
+    assert.deepEqual(S.validateArgs(entry.input), ["args must be an object"]);
+  }
+});
+
+test("audit.js control flow: the renderOnly seam reads the PARSED args and returns BEFORE validateArgs", () => {
+  const flow = controlFlowOf(SCRIPT_PATH);
+  const entryAt = flow.indexOf("auditEntry(args)");
+  const returnAt = flow.indexOf("return renderOnlyResult(");
+  const validateAt = flow.indexOf("validateArgs(");
+  assert.ok(entryAt >= 0, "the control flow must decide the seam through the extracted auditEntry(args) helper");
+  assert.ok(returnAt >= 0, "the control flow must still return the re-render from the seam");
+  assert.ok(validateAt >= 0, "the control flow must still validate at the boundary");
+  assert.ok(
+    entryAt < returnAt && returnAt < validateAt,
+    `order must be auditEntry -> renderOnly return -> validateArgs (got ${entryAt}, ${returnAt}, ${validateAt})`,
+  );
+  assert.ok(
+    !/\bargs\.renderOnly\b/.test(flow),
+    "the seam must never read renderOnly off the RAW args -- a scriptPath invocation delivers a JSON string",
+  );
 });
