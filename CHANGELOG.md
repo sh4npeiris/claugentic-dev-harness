@@ -9,7 +9,7 @@ plugin is versioned with [SemVer](https://semver.org/). The authoritative
 version is `plugin.json`; each release is published on the `release` branch and
 tagged `vX.Y.Z`.
 
-## Unreleased
+## 0.5.2
 
 **What this release is for, and what it does not do.** The through-line is that
 an adopter's harness stays **lean, current, and honest without being asked** — the
