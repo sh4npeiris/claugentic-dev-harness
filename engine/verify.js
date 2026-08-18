@@ -162,7 +162,7 @@ function validateArgs(args) {
   if (!Array.isArray(args.dimensions) || args.dimensions.length === 0) {
     errors.push("dimensions is required (non-empty array of in-scope module slugs)");
   } else {
-    for (const dim of args.dimensions) {
+    for (const dim of new Set(args.dimensions)) {
       if (!KNOWN_MODULES.includes(dim)) {
         errors.push(`unknown dimension '${dim}' -- not a docs/claugentic-standards/ module slug`);
       }
@@ -553,10 +553,14 @@ async function agentWithNamespaceFallback(prompt, opts) {
 // reshaped the results would misalign the pairing and name the WRONG module as unrun.
 //
 // NEVER apply this to the honesty thunk, and never blanket-map it over panelTasks (0041 S10b,
-// D4): honesty is a spawnJudge call in the SAME parallel(), and judgeOutcome DELIBERATELY throws
-// when a judge fails twice ("never a silent partial PASS"). coverageGaps walks lensReturns only,
-// so a guard there would swallow that throw and the honesty lens would read as "ran, nothing to
-// disclose" -- the one degradation this panel must never make silently.
+// D4): honesty is a spawnJudge call in the SAME parallel(), and guardFailure's message is FALSE
+// for it -- coverageGaps walks lensReturns only, so an unrun honesty judge yields no coverage gap
+// and no forced CHANGES_REQUIRED. That is the reason, and it is NOT "so the throw stays loud".
+// MEASURED 2026-08-17: parallel() swallows judgeOutcome's two-failure throw with or without a
+// guard -- a twice-failed honesty judge already returns honesty: null, panelDegraded: false and an
+// unchanged verdict, with no log line; a guard would only ADD one. Unguarded is NOT loud. Making
+// it visible, and deciding whether it degrades or blocks, moves finalVerdict/panelDegraded
+// semantics -- routed, not fixed here (docs/claugentic-ROADMAP.md, 0041 S10b).
 async function guardedPanelAgent(prompt, opts) {
   try {
     return await agentWithNamespaceFallback(prompt, opts);
@@ -633,7 +637,8 @@ const lensTasks = modulesAudited.map((modulePath) => () =>
 );
 
 // The lens and yagni thunks are guarded (null in position, logged); the honesty thunk below is
-// NOT -- it is a spawnJudge call whose two-failure throw must stay loud (0041 S10b, D4, trap 1).
+// NOT -- guardFailure's wording is false for a judge (see the guard). That does NOT make its
+// two-failure throw loud: parallel() swallows it either way (0041 S10b, D4, trap 1; ROADMAP).
 const panelTasks = [
   ...lensTasks,
   () =>

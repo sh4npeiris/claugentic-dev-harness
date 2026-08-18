@@ -227,3 +227,36 @@ test('agent namespace: the general-purpose built-in stays BARE where it is spawn
     );
   }
 });
+
+// D6's headline claim is "every ENGINE spawn of a bundled agent routes through the wrapper".
+// The positional pin above answers "is each nsAgent( site routed?", which a one-line hoist of the
+// id into a const defeats. This asks the INVERSE, which a hoist cannot dodge: does any raw agent(
+// outside the wrapper name anything but a built-in? (0041 S10b Stage-7, measured survivor MX4.)
+const BUILT_INS = ["general-purpose", "Explore", "Plan"];
+function decommented(src) {
+  return src.replace(/^(\s*)\/\/.*$/gm, "$1").replace(/([^:"'`])\/\/.*$/gm, "$1");
+}
+test("namespace fallback: no RAW agent() spawn outside the wrapper names anything but a BUILT-IN", () => {
+  let checked = 0;
+  for (const script of ENGINE_SCRIPTS) {
+    const flow = decommented(controlFlowOf(script));
+    const wrapper = flow.match(/^async function agentWithNamespaceFallback\([\s\S]*?^\}/m);
+    assert.ok(wrapper, `engine/${script}: agentWithNamespaceFallback not found`);
+    const wStart = flow.indexOf(wrapper[0]);
+    const wEnd = wStart + wrapper[0].length;
+    const re = /(^|[^A-Za-z0-9_$.])agent\(/g;
+    let m;
+    while ((m = re.exec(flow)) !== null) {
+      const at = m.index + m[1].length;
+      if (at >= wStart && at < wEnd) continue;
+      const opts = flow.slice(at, at + 400);
+      assert.ok(
+        BUILT_INS.some((b) => opts.includes(`"${b}"`)),
+        `engine/${script}: a RAW agent( spawn outside agentWithNamespaceFallback names no BUILT-IN ` +
+          `-- it has no namespace fallback:\n${opts.slice(0, 220)}`,
+      );
+      checked += 1;
+    }
+  }
+  assert.ok(checked >= 3, `expected >= 3 raw built-in spawn sites across the engine, got ${checked}`);
+});

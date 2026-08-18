@@ -618,7 +618,7 @@ function loadWrappers(names, { agent, log }) {
   const factory = new Function(
     "agent",
     "log",
-    `${block}\n${bodies.join("\n")}\n; return { ${names.join(", ")} };`,
+    `"use strict";\n${block}\n${bodies.join("\n")}\n; return { ${names.join(", ")} };`,
   );
   return factory(agent, log);
 }
@@ -791,6 +791,11 @@ test("bareAgentType returns a BARE id UNCHANGED -- 'unchanged' is the no-fallbac
   assert.equal(N.bareAgentType("Explore"), "Explore");
   // A different plugin's namespace is NOT ours to strip.
   assert.equal(N.bareAgentType("other-plugin:agent"), "other-plugin:agent");
+  // LEADING-only: a prefix that is not at the head is NOT ours to strip (0041 S10b Stage-7).
+  assert.equal(
+    N.bareAgentType("other-plugin:claugentic-dev-harness:x"),
+    "other-plugin:claugentic-dev-harness:x",
+  );
 });
 
 test("bareAgentType maps a non-string to '' (total function -- no throw at the spawn boundary)", () => {
@@ -867,9 +872,11 @@ test("verify.js: the namespace fallback LOGS its retry (the effect, not the voca
 
 test("verify.js control flow: the HONESTY thunk is NOT guarded -- the two-failure throw must survive", () => {
   const flow = controlFlowOf(SCRIPT_PATH);
-  // Trap 1: honesty is a spawnJudge call in the SAME parallel(). judgeOutcome deliberately
-  // throws on two failures; a guard here would swallow it and coverageGaps (which walks
-  // lensReturns only) would never notice the honesty lens silently no-showing.
+  // Trap 1: honesty is a spawnJudge call in the SAME parallel(). guardFailure's message is
+  // false for a judge (no coverage gap, no forced CHANGES_REQUIRED), which is why the guard
+  // stops at the lens/yagni thunks -- NOT because that keeps the throw loud. Measured, it does
+  // not: parallel() swallows judgeOutcome's two-failure throw either way (routed, see ROADMAP).
+  // This pin is VOCABULARY; the EFFECT pin is the next test -- keep them together.
   const honestyBlock = flow.match(/if \(hasHonesty\) \{[\s\S]*?^\}/m);
   assert.ok(honestyBlock, "could not locate the hasHonesty push block");
   assert.match(honestyBlock[0], /spawnJudge\(/, "honesty must still spawn through spawnJudge");
@@ -1170,5 +1177,38 @@ test("spawnJudge (driven): the respawn is still there for a real failure, and tw
   await assert.rejects(
     () => D.spawnJudge("honesty", NS_LENS, "prompt", { type: "object" }),
     /failed twice.*Never a silent partial PASS/s,
+  );
+});
+
+test("verify.js control flow: no panel thunk may SWALLOW its throw (trap 1, EFFECT not vocabulary)", () => {
+  const flow = controlFlowOf(SCRIPT_PATH);
+  const start = flow.indexOf("const panelTasks = [");
+  const end = flow.indexOf("const panelResults = await parallel(panelTasks);");
+  assert.ok(start >= 0 && end > start, "could not slice the panel-assembly region");
+  const assembly = flow.slice(start, end);
+  // A catch in this region is legal ONLY if it rethrows. Swallowing is trap 1 by any spelling:
+  // judgeOutcome's two-failure throw is the honesty judge's only signal that it never ran.
+  for (const arm of assembly.split(/\bcatch\s*\(/).slice(1)) {
+    const body = arm.slice(0, arm.indexOf("}") + 1);
+    assert.match(
+      body,
+      /\bthrow\b/,
+      "a panel thunk caught its own throw and did not rethrow -- that is trap 1 by another spelling",
+    );
+  }
+  assert.ok(
+    !/panelTasks\[/.test(assembly),
+    "panelTasks must never be re-indexed/re-wrapped in place -- a blanket guard without `.map(`",
+  );
+});
+
+test("validateArgs is bounded by the CATALOG, not by the caller's array", () => {
+  const errors = H.validateArgs(validArgs({ dimensions: Array(200).fill("not-a-module") }));
+  const unknown = errors.filter((e) => e.includes("not-a-module"));
+  assert.equal(
+    unknown.length,
+    1,
+    "200 copies of one bad slug must yield ONE error, not 200 -- the fail-loud path is sized by " +
+      "the same caller array the lens fan-out was just bounded against (0041 S10b, D4)",
   );
 });

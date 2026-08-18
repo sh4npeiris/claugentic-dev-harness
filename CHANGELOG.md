@@ -164,10 +164,11 @@ tagged `vX.Y.Z`.
   (at most one reviewer per module) rather than by the length of the caller's array, and a
   narrowed list is reported in the run log instead of applied silently. The panel's lens and
   cut-list thunks also carry a local guard now: a spawn that fails degrades to "this reviewer did
-  not run" **in place** — which the existing coverage check already turns into an explicit gap and
-  a forced `CHANGES_REQUIRED` — and the failure is written to the run log rather than swallowed by
-  the platform. The trust-surface honesty judge is deliberately **not** guarded: its
-  "failed twice, never a silent partial PASS" throw has to stay loud. The file's own header
+  not run" **in place**, and the failure is written to the run log rather than swallowed by the
+  platform. For a **lens**, the existing coverage check turns that into an explicit gap and a
+  forced `CHANGES_REQUIRED`; an unrun cut-list only marks the panel degraded. The trust-surface
+  honesty judge is deliberately **not** guarded, because the guard's wording describes neither of
+  those consequences for a judge. The file's own header
   claimed the call count was "structurally bounded by the roster — no loops"; both halves were
   false, and it now says what is actually true.
 
@@ -180,8 +181,8 @@ tagged `vX.Y.Z`.
   retries **once** with the bare name when the namespaced spawn *throws*; the bare name is
   derived from the id at runtime, never written down. It is a namespace retry and nothing more:
   it does not consume a judge's one respawn, does not touch the flag that drives the same-model
-  disclosure, does not swallow a two-failure error, and carries its own log label so a namespace
-  retry can never be mistaken for a model respawn.
+  disclosure, does not swallow a two-failure error, and carries its own `:ns-fallback` label so
+  the run log distinguishes a namespace retry from a model respawn.
 
 - **Four engine defects that shipped in every `/audit`, `/build` and QA run.** Each one is now
   covered by a regression test that was **observed failing against the old code first** — the
