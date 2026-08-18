@@ -54,7 +54,7 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 - `docs/claugentic-standards/api-and-contracts.md` — *(migrated)* minimal/consistent contracts, idempotency, versioning, pagination, rate-limiting, stable error shapes.
 - `docs/claugentic-standards/observability-ops.md` — *(migrated)* structured logging, metrics/tracing/health, alerting, 12-factor config, env separation, feature flags.
 - `docs/claugentic-standards/internationalization.md` — *(draft)* encoding, locale formatting, timezones, translatable strings, RTL (accessibility itself lives in `product-ux.md`).
-- `docs/claugentic-standards/docs-traceability.md` — *(migrated)* ARCHITECTURE_TREE currency, DECISIONS, docstrings, onboarding/runbooks, commit/PR narrative.
+- `docs/claugentic-standards/docs-traceability.md` — *(migrated)* the docs & traceability lens: explainable change, navigable architecture. The file IS the dimension list — none restated here.
 
 ## .claude/agents/ — specialist role library
 
@@ -93,7 +93,7 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 
 - `skills/doctor/SKILL.md` — open for harness-OWN-health (NOT your code — that's audit): runs the gates read-only + plan-scan + init post-conditions (stamped-fence skew · husky-chained wiring · commit-hook interpreter probe) + Stage-9 signal → snapshot → SELECT → treat / roadmap. Owns the caps-config reader-contract.
 
-- `skills/condense/SKILL.md` — open to change the condensation operator: encodes the WORKFLOW condensation pass as a guarded procedure (classify-first → absorb → promote → merge → trim). Proposes a diff, human approves, applies via `/doctor`'s treat. OFFERed on a WARN.
+- `skills/condense/SKILL.md` — open to change the condensation operator: the CANONICAL condensation procedure (classify-first → absorb → promote → merge → trim) WORKFLOW's DoD points at. Proposes a diff, human approves, applies via `/doctor`'s treat. OFFERed on a WARN.
 
 ## engine/ — executable choreography (Workflow-tool scripts)
 

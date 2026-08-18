@@ -176,7 +176,7 @@ budget signal available.
   config puts DECISIONS at 92% — condense soon"*, never *"the budget gate WARNs"* — there is
   no gate here, only a config-driven advisory. A "condense soon" advisory surfaces as a
   finder-pipeline finding (SELECT below), routed like any other — the condensation itself is
-  the existing user-approved-diff treat (`docs/claugentic-WORKFLOW.md` → the condensation pass).
+  the existing user-approved-diff treat, driven by `/claugentic-dev-harness:condense`.
 - **OFFER `/condense` as the next step (the ramp, not a dead-end).** When this read surfaces a
   "condense soon" advisory — and equally when the **doc-budget gate returns a `WARN:` line** (a
   ledger ≥90% of its budget) — **OFFER `/claugentic-dev-harness:condense`** as
