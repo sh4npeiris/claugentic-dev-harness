@@ -67,6 +67,11 @@ TREE_NOTE_ANCHOR = "Do not revert the `fixture-defects/` entries below to defect
 
 # The first cell of an answer-key table row, when it is a seed id. The table's shape is
 # `test_eval_manifest.py`'s contract; all this needs is the id column's vocabulary.
+# DO NOT loosen this to accept any first cell "for DRY" -- measured and REFUSED (0041 S11).
+# A first-cell-takes-anything parser makes the vocabulary the cell's literal TEXT, so a
+# bolded row puts the bold bytes into the alternation and the scan then hunts those while a
+# plain leak walks past: silent PARTIAL failure traded for silent TOTAL failure. The parity
+# assertion in the first test below is what makes a non-matching cell fail loudly instead.
 _ID_CELL_RE = re.compile(r"^\|\s*([A-Z]+-\d+)\s*\|")
 
 # The ONLY tracked files allowed to name a seed id, each with the measurement behind it.
