@@ -9,10 +9,11 @@ description: >-
 > no `/condense` sub-agent and no mechanical cut-decider — the classification and the proposed
 > diff are model-upheld judgment, and the human approval is the decision gate.
 
-The **executable operator for the condensation pass.** Where `docs/claugentic-WORKFLOW.md` →
-Definition of Done → *the condensation pass* frames the discipline in prose, this skill turns it
-into an **ordered, guarded procedure a non-expert agent can run reliably** — the same procedure,
-made hard to get wrong. It is the next step a doc-budget WARN or `/doctor`'s "condense soon"
+The **executable operator for the condensation pass — and its one canonical home.**
+`docs/claugentic-WORKFLOW.md` → Definition of Done carries the *obligation* (a budget WARN is a
+do-it-now signal, discharged inside the current slice) and points here; the procedure itself lives
+in this skill, as an **ordered, guarded procedure a non-expert agent can run reliably** — made hard
+to get wrong. It is the next step a doc-budget WARN or `/doctor`'s "condense soon"
 advisory OFFERs you — **two readers of one cap source**, reachable in different places. Both read
 `.claude/claugentic-doc-budgets.json`, and with **no** config neither speaks (your own periodic
 review is the cue). `/doctor`'s advisory runs **anywhere**. The **gate's** WARN needs the gate
@@ -22,8 +23,9 @@ there too, so the WARN reaches you at every commit — but that is not everywher
 kept its own architecture tree has no wrapper, a machine with no working Python skips both
 gates, and a wrapper installed by **v0.5.1 or earlier is never auto-chained** (`init` reports
 how to adopt the current one). Off that path — and in a repo `init` has not touched at all —
-`/doctor`'s advisory is the signal. The WORKFLOW condensation pass
-is the single source for the *why*; this skill is the *how*, in order.
+`/doctor`'s advisory is the signal. This skill is the single source for
+both the *why* and the *how*, in order; WORKFLOW states the obligation and the escape-valve
+ladder, and deliberately does not restate the procedure.
 
 ## The one rule that must not be inverted (read this FIRST)
 

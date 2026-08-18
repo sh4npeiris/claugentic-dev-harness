@@ -93,7 +93,7 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 
 - `skills/doctor/SKILL.md` — open for harness-OWN-health (NOT your code — that's audit): runs the gates read-only + plan-scan + init post-conditions (stamped-fence skew · husky-chained wiring · commit-hook interpreter probe) + Stage-9 signal → snapshot → SELECT → treat / roadmap. Owns the caps-config reader-contract.
 
-- `skills/condense/SKILL.md` — open to change the condensation operator: encodes the WORKFLOW condensation pass as a guarded procedure (classify-first → absorb → promote → merge → trim). Proposes a diff, human approves, applies via `/doctor`'s treat. OFFERed on a WARN.
+- `skills/condense/SKILL.md` — open to change the condensation operator: the CANONICAL condensation procedure (classify-first → absorb → promote → merge → trim) WORKFLOW's DoD points at. Proposes a diff, human approves, applies via `/doctor`'s treat. OFFERed on a WARN.
 
 ## engine/ — executable choreography (Workflow-tool scripts)
 

@@ -1,6 +1,6 @@
 # Decisions ledger — INDEX
 
-A forward-looking maintainer's guide — consult it before re-litigating a past choice. **NOT append-only history:** each shard is condensed periodically (`docs/claugentic-WORKFLOW.md` → the condensation pass) — superseded entries merge to git history, hardened must-holds promote to `docs/claugentic-INVARIANTS.md`; keep an entry only if a future agent needs it to decide correctly, and when in doubt keep a constraint.
+A forward-looking maintainer's guide — consult it before re-litigating a past choice. **NOT append-only history:** each shard is condensed periodically (`/claugentic-dev-harness:condense`) — superseded entries merge to git history, hardened must-holds promote to `docs/claugentic-INVARIANTS.md`; keep an entry only if a future agent needs it to decide correctly, and when in doubt keep a constraint.
 
 Index only — NEVER append entries here; file into the fitting shard in `docs/claugentic-decisions/`
 (no fit → create one — growth is horizontal). Not finding something? `rg <term> docs/claugentic-decisions/`.
