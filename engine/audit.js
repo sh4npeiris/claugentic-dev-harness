@@ -1078,7 +1078,8 @@ function mergePriorItems(currentItems, priorItems) {
 // renderOnly re-render: re-render the backlog fence from an ALREADY-SELECTED item subset while
 // passing lensCoverage/verification through full-scope (the SELECT seam -- the SKILL filters items,
 // the renderer stays the single source of the fence format). Validates its own payload at the
-// boundary because the run-body branch that calls it returns BEFORE parseArgs/validateArgs.
+// boundary because the run-body branch that calls it returns BEFORE validateArgs (auditEntry has
+// already normalized the args boundary by then -- see there for why the seam sits between them).
 // The guard checks the envelope (object + items array), not per-element shape: items are always a
 // subset of the engine's OWN result.items (the SKILL ticks a transient display checklist, never
 // authors item objects), so a malformed element is unreachable on the real path -- deeper
@@ -1088,6 +1089,25 @@ function renderOnlyResult(payload) {
     throw new Error("renderOnly requires an object payload with an items array");
   }
   return { ...payload, renderedBacklog: renderBacklogFence(payload) };
+}
+
+// The entry decision (PURE): normalize the args boundary ONCE, then answer the one question the
+// control flow asks before anything else -- is this a renderOnly re-render pass, and over what
+// payload? Returns `{ input, renderOnly }`; `renderOnly` is null on a normal audit pass, and the
+// payload's own shape is validated by renderOnlyResult at the boundary (never here).
+//
+// It reads the PARSED args ON PURPOSE. A scriptPath invocation delivers `args` as a JSON STRING
+// (see parseArgs), which is the ONLY shape /audit uses -- so a seam decided on the RAW args could
+// never fire on the real call path: the documented call fell straight through to `audit args
+// invalid`, and a caller that re-passed its original args alongside renderOnly got a SECOND full
+// audit with the whole FIND/PRUNE/VERIFY agent fan-out. Extracted so the decision is unit-pinnable
+// at all -- the control flow it drives sits below this block, where no test can reach it
+// (0041 S10a, D1).
+function auditEntry(rawArgs) {
+  const input = parseArgs(rawArgs);
+  const renderOnly =
+    input != null && typeof input === "object" && input.renderOnly ? input.renderOnly : null;
+  return { input, renderOnly };
 }
 // --- end helpers ---
 
@@ -1130,18 +1150,22 @@ async function spawnVerifier(input) {
 
 // -- Top-level control flow (Workflow scripts run in an async context; no module wrapper). --
 
+// Normalize the args boundary ONCE and decide the SELECT seam on the PARSED args (a scriptPath
+// invocation delivers them as a JSON string -- see auditEntry, which owns that decision).
+const { input, renderOnly: renderOnlySelection } = auditEntry(args);
+
 // renderOnly fast-path (the SELECT seam): an agent-free re-render of the backlog fence over an
-// ALREADY-SELECTED item subset. Returns BEFORE parseArgs/validateArgs, the FIND/PRUNE/VERIFY
-// pipeline, and the isGap branch -- so it serves both audit and product gap-mode. renderOnlyResult
-// validates its own payload at the boundary (this branch bypasses validateArgs by design).
-if (args && args.renderOnly) {
-  const selectedCount = Array.isArray(args.renderOnly.items) ? args.renderOnly.items.length : 0;
+// ALREADY-SELECTED item subset. Returns BEFORE validateArgs, the FIND/PRUNE/VERIFY pipeline, and
+// the isGap branch -- so it serves both audit and product gap-mode. renderOnlyResult validates its
+// own payload at the boundary; this branch bypasses validateArgs BY DESIGN, because a renderOnly
+// payload legitimately carries no dial/modules/scopeDirs. Do not reorder it past validateArgs.
+if (renderOnlySelection !== null) {
+  const selectedCount = Array.isArray(renderOnlySelection.items) ? renderOnlySelection.items.length : 0;
   log(`audit renderOnly -- re-rendering the backlog fence over ${selectedCount} selected item(s); no FIND/PRUNE/VERIFY this pass.`);
-  return renderOnlyResult(args.renderOnly);
+  return renderOnlyResult(renderOnlySelection);
 }
 
 // Validate at the boundary -- fail loud with the full error list.
-const input = parseArgs(args);
 {
   const errors = validateArgs(input);
   if (errors.length > 0) {

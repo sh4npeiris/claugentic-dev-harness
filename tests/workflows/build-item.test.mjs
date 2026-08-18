@@ -11,6 +11,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -716,4 +717,166 @@ test("implementPrompt: the fix-iteration path also carries the anti-hang bound",
   assert.match(p, /Build-to-green -- FIX/);
   assert.match(p, /200s/);
   assert.match(p, /Bash tool's `timeout` PARAMETER/);
+});
+
+// -----------------------------------------------------------------------------
+// D2 (0041 S10a) -- crossModelClaim must NOT drop a present non-confirming signal
+//
+// Three call sites push an explicit `null` into judgeFamilies to mean "this child ran and did NOT
+// confirm a different family" (verify not-confirmed; verify claimed but exposed no per-judge
+// reports; qa folded anything but confirmed). Filtering nulls out conflated that with "this child
+// never ran", so one confirming family beside a deliberate non-confirming null read as `confirmed`
+// -- the run over-reported cross-model review on the honesty trust surface.
+//
+// ABSENCE (nothing pushed) still contributes nothing: that case is `[]`, pinned above and below.
+// -----------------------------------------------------------------------------
+test("crossModelClaim: a confirming family BESIDE a deliberate non-confirming null -> the same-model tag", () => {
+  // The exact fold the engine produces when verify confirms with an Opus judge and QA then folds
+  // anything-but-confirmed (judgeFamilies.push(null)).
+  assert.equal(H.crossModelClaim("Fable 5", ["Opus 4.8", null]), EXPECTED_SAME_MODEL_TAG);
+  assert.equal(H.crossModelClaim("Fable 5", [null, "Opus 4.8"]), EXPECTED_SAME_MODEL_TAG);
+});
+
+test("crossModelClaim: a confirming family beside an EMPTY-STRING report -> the same-model tag", () => {
+  // An empty reportedFamily survives the caller's `f != null` filter, so it reaches here too.
+  assert.equal(H.crossModelClaim("Fable 5", ["Opus 4.8", ""]), EXPECTED_SAME_MODEL_TAG);
+});
+
+test("crossModelClaim: an unresolvable family beside a confirming one still blocks the claim", () => {
+  assert.equal(H.crossModelClaim("Fable 5", ["Opus 4.8", "some-unknown-model"]), EXPECTED_SAME_MODEL_TAG);
+});
+
+test("crossModelClaim: a child that never ran contributes NOTHING (absence is not a null signal)", () => {
+  // The only "contributes nothing" case is an entry that was never pushed -- i.e. a shorter array.
+  assert.equal(H.crossModelClaim("Fable 5", ["Opus 4.8"]), "confirmed");
+  assert.equal(H.crossModelClaim("Fable 5", []), EXPECTED_SAME_MODEL_TAG);
+});
+
+// -----------------------------------------------------------------------------
+// D5 (0041 S10a) -- the verify child's args are built by a pure helper, and every value it
+// SUBSTITUTES for the item's own is reported instead of applied silently.
+//
+// The three fields were inline ternaries at the (below-the-block) workflow() call site: an item
+// naming no dimensions silently got a two-dimension panel, and a non-boolean `trustSurface` was
+// silently coerced to false -- and that flag is what decides whether the honesty lens spawns at
+// all. Values are unchanged; the substitution is now visible in the run log.
+// -----------------------------------------------------------------------------
+
+/** Lazily load the D5 helpers INSIDE each test, so a missing/renamed extraction fails only these
+ * pins (naming the helper) rather than aborting the whole file at import time. */
+function verifyArgsHelpers() {
+  return loadHelpersFrom(SCRIPT_PATH, ["verifyChildArgs", "DEFAULT_VERIFY_DIMENSIONS"]);
+}
+
+/** The engine source below the `// --- end helpers ---` marker -- the control-flow region the
+ * extract-and-eval harness never exercises. The marker is matched line-anchored and asserted
+ * UNIQUE (the region-anchor technique from docs/claugentic-standards/testing.md). */
+function controlFlowOf(scriptPath) {
+  const src = readFileSync(scriptPath, "utf8");
+  const marks = src.match(/^\/\/ --- end helpers ---$/gm) || [];
+  assert.equal(marks.length, 1, `expected exactly ONE line-anchored end-helpers marker in ${scriptPath}`);
+  return src.slice(src.search(/^\/\/ --- end helpers ---$/m));
+}
+
+test("verifyChildArgs: an item naming dimensions keeps them and reports NO substitution", () => {
+  const V = verifyArgsHelpers();
+  const out = V.verifyChildArgs(
+    { planPath: ".claude/plans/x.md", dimensions: ["security", "testing"], trustSurface: true },
+    "main...feat/x",
+    "Fable 5",
+  );
+  assert.deepEqual(out.args.dimensions, ["security", "testing"]);
+  assert.equal(out.args.specPath, ".claude/plans/x.md");
+  assert.equal(out.args.diffRef, "main...feat/x");
+  assert.equal(out.args.trustSurface, true);
+  assert.equal(out.args.builderFamily, "Fable 5");
+  assert.deepEqual(out.defaulted, [], "nothing was substituted -- the run log must stay quiet");
+});
+
+test("verifyChildArgs: an item naming NO dimensions gets the default set AND says so", () => {
+  const V = verifyArgsHelpers();
+  for (const item of [{}, { dimensions: [] }, { dimensions: "testing" }]) {
+    const out = V.verifyChildArgs(item, "main...feat/x", "Fable 5");
+    assert.deepEqual(out.args.dimensions, V.DEFAULT_VERIFY_DIMENSIONS);
+    assert.equal(out.defaulted.length, 1, `expected exactly one reported substitution for ${JSON.stringify(item)}`);
+    assert.match(out.defaulted[0], /dimensions/);
+    // The report must NAME the narrowed coverage, not merely announce that something happened.
+    for (const dim of V.DEFAULT_VERIFY_DIMENSIONS) {
+      assert.ok(out.defaulted[0].includes(dim), `the report must name '${dim}' -- the panel's actual coverage`);
+    }
+  }
+});
+
+test("verifyChildArgs: the default set is returned as a COPY (a caller cannot mutate the constant)", () => {
+  const V = verifyArgsHelpers();
+  const out = V.verifyChildArgs({}, "main...feat/x", "Fable 5");
+  out.args.dimensions.push("mutated");
+  assert.ok(!V.DEFAULT_VERIFY_DIMENSIONS.includes("mutated"), "DEFAULT_VERIFY_DIMENSIONS must not be aliased out");
+  assert.deepEqual(V.verifyChildArgs({}, "d", "f").args.dimensions, V.DEFAULT_VERIFY_DIMENSIONS);
+});
+
+test("verifyChildArgs: a NON-BOOLEAN trustSurface is reported, never silently read as false", () => {
+  const V = verifyArgsHelpers();
+  // `null` is the common serialization of "unset" and `typeof null` is "object" -- the note must
+  // name it honestly. The note is the ONLY signal an operator gets that the lens did not spawn, so
+  // its CONTENT is pinned, not merely its existence (a bare "trustSurface" would pass a /match/).
+  for (const [bad, kind] of [["true", "string"], [1, "number"], [{}, "object"], [null, "null"]]) {
+    const out = V.verifyChildArgs({ trustSurface: bad, dimensions: ["testing"] }, "d", "f");
+    assert.equal(out.args.trustSurface, false, "the value stays fail-closed -- only the silence is fixed");
+    assert.equal(out.defaulted.length, 1, `expected the substitution to be reported for ${JSON.stringify(bad)}`);
+    assert.match(out.defaulted[0], /trustSurface/);
+    assert.ok(out.defaulted[0].includes(`is ${kind}, not a boolean`), `the note must name the actual kind (${kind}); got: ${out.defaulted[0]}`);
+    assert.ok(out.defaulted[0].includes("does NOT spawn"), "the note must state the CONSEQUENCE -- the trust-surface lens did not run");
+  }
+});
+
+test("verifyChildArgs: an absent or boolean trustSurface reports nothing (no false alarm)", () => {
+  const V = verifyArgsHelpers();
+  assert.deepEqual(V.verifyChildArgs({ dimensions: ["testing"] }, "d", "f").defaulted, []);
+  assert.deepEqual(V.verifyChildArgs({ dimensions: ["testing"], trustSurface: false }, "d", "f").defaulted, []);
+  assert.deepEqual(V.verifyChildArgs({ dimensions: ["testing"], trustSurface: true }, "d", "f").defaulted, []);
+});
+
+test("verifyChildArgs: specPath falls back to the self-describing inline marker", () => {
+  const V = verifyArgsHelpers();
+  assert.equal(V.verifyChildArgs({ dimensions: ["testing"] }, "d", "f").args.specPath, "(spec provided inline)");
+});
+
+test("build-item.js control flow: the verify child args come from verifyChildArgs and its report is LOGGED", () => {
+  const flow = controlFlowOf(SCRIPT_PATH);
+  assert.ok(flow.includes("verifyChildArgs("), "the verify child call must go through the extracted pure builder");
+  assert.ok(/defaulted/.test(flow), "the control flow must consume the builder's `defaulted` report");
+  const loop = flow.match(/for \(const \w+ of \w+\.defaulted\) \{([\s\S]*?)\}/);
+  assert.ok(loop, "the control flow must iterate the builder's defaulted report");
+  assert.ok(
+    loop[1].includes("log("),
+    "each reported substitution must reach the run log -- an iteration that does not LOG re-creates the defect",
+  );
+  assert.ok(
+    !/item\.dimensions/.test(flow),
+    "the dimensions decision must live in the helper, not as an inline ternary at the call site",
+  );
+});
+
+test("build-item.js: the default verify dimensions have ONE source, and it is the named constant", () => {
+  const src = readFileSync(SCRIPT_PATH, "utf8");
+  // Region-anchored, not a whole-file count: the literal must occur exactly once AND that one
+  // occurrence must be the DEFAULT_VERIFY_DIMENSIONS declaration. A count-only assertion would be
+  // vacuous -- it was satisfied by the inline ternary this slice removed (testing.md: assert the
+  // owning region, never the whole file).
+  const decl = src.match(/^const DEFAULT_VERIFY_DIMENSIONS = .*$/m);
+  assert.ok(decl, "DEFAULT_VERIFY_DIMENSIONS must be the named single source of the default set");
+  assert.ok(decl[0].includes('"maintainability-structure"'), "the default set must live in the constant");
+  // Independent fixture, NOT the constant compared against itself: every assertion elsewhere reads
+  // V.DEFAULT_VERIFY_DIMENSIONS on both sides, so the panel could silently lose its `testing` lens.
+  assert.deepEqual(
+    verifyArgsHelpers().DEFAULT_VERIFY_DIMENSIONS,
+    ["maintainability-structure", "testing"],
+    "the default Verify panel's coverage must not drift silently",
+  );
+  assert.equal(
+    src.split('"maintainability-structure"').length - 1,
+    1,
+    "the maintainability-structure default must appear exactly once -- inside DEFAULT_VERIFY_DIMENSIONS",
+  );
 });

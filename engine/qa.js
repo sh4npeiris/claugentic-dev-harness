@@ -655,7 +655,7 @@ function sanitizeForPath(s) {
 }
 
 function screenshotPath(artifactDir, runLabel, criterionId, slug) {
-  const dir = artifactDir && String(artifactDir).length > 0 ? String(artifactDir).replace(/\/+$/, "") : ".qa-artifacts";
+  const dir = artifactBase(artifactDir);
   const label = sanitizeForPath(runLabel) || "run";
   const id = sanitizeForPath(criterionId) || "criterion";
   const tail = sanitizeForPath(slug) || "shot";
@@ -723,11 +723,21 @@ function isRunInputError(msg) {
   );
 }
 
-// The ONE source of the artifact-dir shape: default + trailing-slash trim. screenshotPath,
-// driverPrompt, the top-level default, and the returned artifacts.dir all derive from this --
-// the save-path and the report-path cannot diverge.
+// The ONE source of the artifact-dir shape: default + trailing-separator trim. screenshotPath,
+// driverPrompt and the top-level artifactDir all derive from this (and artifacts.dir reuses the
+// already-normalized top-level value). BOTH segments of the artifact path are normalized once at
+// the boundary -- the dir here, the runLabel through sanitizeForPath -- which is what makes the
+// save-path and the report-path convergent. Add a THIRD segment and it must normalize there too.
+//
+// This was documented as the one source while having ZERO call sites; four places re-implemented
+// it inconsistently, so the claim was false and the copies had already drifted. The trim covers
+// BOTH separators (build-item.js's childScriptPath does the same): a `/`-only trim left a trailing
+// backslash on a Windows-style dir, which then joined as `out\qa\/<label>` (0041 S10a, D3).
 function artifactBase(dir) {
-  return (dir && String(dir).length ? String(dir) : ".qa-artifacts").replace(/\/+$/, "");
+  // Trim FIRST, then default: defaulting first is NOT idempotent (an all-separator dir trims to
+  // "" and a second application substitutes the default), and the driver path applies this twice.
+  const trimmed = (dir ? String(dir) : "").replace(/[\\/]+$/, "");
+  return trimmed.length ? trimmed : ".qa-artifacts";
 }
 
 // Map a THROWN boot-agent error to the same failed-boot report shape a returned failure uses --
@@ -741,6 +751,62 @@ function bootReportFromError(err) {
     logTail: `boot agent error: ${msg}`,
   };
 }
+
+// Build the driver agent's prompt for one criterion (Slice 4b). The agent reaches the session's
+// Playwright tools via ToolSearch (workflow agents load deferred MCP tools that way), drives the
+// flow, evaluates the expects, runs the requested state checks, and saves screenshots under the
+// artifact dir (the script itself has no filesystem -- the agent does the saving). The state-check
+// semantics are stated inline so the agent applies the product-ux bar, not its own guess.
+//
+// PURE (params + sanitizeForPath + artifactBase + one const), so it lives INSIDE the helpers block
+// on purpose: below the block nothing could see it, and the prompt shipped for three releases with
+// its narrowing STATES SCOPE clause emitted BEFORE the role framing and glued to it with no
+// separator (`...never as a states[] entry.Runtime QA -- FLOW-DRIVING...`). Two prior patches to
+// this same line did not catch it. Do not move it back out (0041 S10a, D3).
+function driverPrompt(runConfig, criterion, runLabel, artifactDir) {
+  const isApi = criterion.check === "api";
+  const shotDir = `${artifactBase(artifactDir)}/${sanitizeForPath(runLabel) || "run"}`;
+  const toolingLine = isApi
+    ? "This is an `api` criterion -- drive it over HTTP with curl/fetch via Bash (no browser). " +
+      "Each flow step is a described HTTP call; each expect is a response observable (status, body text, header)."
+    : "This is an `e2e` criterion -- drive it in a REAL browser. FIRST load the Playwright browser " +
+      "tools via ToolSearch (query 'playwright browser' -- e.g. select the `mcp__playwright__browser_*` " +
+      "set), THEN navigate, click, type, and snapshot. If the Playwright tools are unavailable in this " +
+      "session, set notCheckable=true and notCheckableReason='" + BROWSER_UNAVAILABLE_REASON + "' -- " +
+      "NEVER fake a pass.";
+  return (
+    // The role/task framing leads; the narrowing STATES SCOPE constraint FOLLOWS it as its own
+    // paragraph. Order and the `\n\n` separator are both pinned -- an agent cannot honor a
+    // constraint stated before it knows the task, and a glued sentence reads as one run-on.
+    `Runtime QA -- FLOW-DRIVING for one acceptance criterion (id ${criterion.id}, feature "${criterion.feature}").\n\n` +
+    `STATES SCOPE: check ONLY the states listed for THIS criterion (${(criterion.states || []).length ? criterion.states.join(", ") : "none -- perform NO state checks"}). Any other state observation you happen to make is informational evidence only -- report it in a note, never as a states[] entry.\n\n` +
+    `App URL: ${runConfig.appUrl}\n` +
+    `${toolingLine}\n\n` +
+    `Flow (perform each ordered step; a step you cannot perform fails the criterion at that step, with a note):\n` +
+    criterion.flow.map((s, i) => `  ${i + 1}. ${s}`).join("\n") +
+    `\n\nExpect (evaluate each AFTER the flow -- ALL must hold for a pass; record evidence: the observed text, ` +
+    `element presence/absence, URL, count, or HTTP status):\n` +
+    criterion.expect.map((e) => `  - ${e}`).join("\n") +
+    `\n\nState checks to run on the surface this criterion lands on (${criterion.states.length ? criterion.states.join(", ") : "none"}):\n` +
+    `  - empty: reach the zero-data condition (this run may boot FIXTURE_SEED=0). pass = a designed zero-state ` +
+    `(a message/CTA explaining what goes here); fail = a blank void / raw placeholder; zero-data unreachable ` +
+    `non-destructively => verdict not-checkable + reason.\n` +
+    `  - loading: observe DURING the fetch. pass = a layout-reserved indicator OR a sub-1s render (instant needs ` +
+    `no spinner -- the product-ux response-time threshold); fail = a >1s visible blank/jank with no indicator; ` +
+    `commonly verdict not-checkable with note 'too fast to observe' -- that is HONEST, not a fail.\n` +
+    `  - error: induce a NON-DESTRUCTIVE failure where the flow has one (invalid input, a failing call). pass = a ` +
+    `human-readable message + a recovery path; fail = a silent failure / raw stack / dead end; no inducible path => ` +
+    `verdict not-checkable + reason.\n\n` +
+    `Screenshots: save one end-of-flow screenshot and one per failed step/expect/state UNDER \`${shotDir}/\` ` +
+    `(filenames like \`${criterion.id}-<slug>.png\`); return their paths. (For an \`api\` criterion, screenshots ` +
+    `may be empty.)\n\n` +
+    `Return the structured report: steps [{action, ok, note}], expects [{expect, ok, evidence}], states ` +
+    `[{state, verdict, evidence, note}], screenshots [paths], and observedStatus (the HTTP status when one is ` +
+    `the load-bearing observation, else null). You MAP plain-English steps to tool calls by judgment -- state ` +
+    `that in your notes; you attempt the flow, you do not prove the app correct.`
+  );
+}
+
 // --- end helpers ---
 
 // Build the boot agent's prompt from the validated run config + the bounded readiness plan. The
@@ -793,53 +859,6 @@ function teardownPrompt(runConfig, plan) {
     `After stopping, VERIFY the port is free (the app's URL no longer answers / nothing is bound to its port). ` +
     `Return: toreDown (did you stop it), portFree (is the port verifiably free afterwards -- null if you could not check), ` +
     `and a short note. A port still bound is a leaked process -- report it loudly, never a silent success.`
-  );
-}
-
-// Build the driver agent's prompt for one criterion (Slice 4b). The agent reaches the session's
-// Playwright tools via ToolSearch (workflow agents load deferred MCP tools that way), drives the
-// flow, evaluates the expects, runs the requested state checks, and saves screenshots under the
-// artifact dir (the script itself has no filesystem -- the agent does the saving). The state-check
-// semantics are stated inline so the agent applies the product-ux bar, not its own guess.
-function driverPrompt(runConfig, criterion, runLabel, artifactDir) {
-  const isApi = criterion.check === "api";
-  const shotDir = `${(artifactDir || ".qa-artifacts").replace(/\/+$/, "")}/${sanitizeForPath(runLabel) || "run"}`;
-  const toolingLine = isApi
-    ? "This is an `api` criterion -- drive it over HTTP with curl/fetch via Bash (no browser). " +
-      "Each flow step is a described HTTP call; each expect is a response observable (status, body text, header)."
-    : "This is an `e2e` criterion -- drive it in a REAL browser. FIRST load the Playwright browser " +
-      "tools via ToolSearch (query 'playwright browser' -- e.g. select the `mcp__playwright__browser_*` " +
-      "set), THEN navigate, click, type, and snapshot. If the Playwright tools are unavailable in this " +
-      "session, set notCheckable=true and notCheckableReason='" + BROWSER_UNAVAILABLE_REASON + "' -- " +
-      "NEVER fake a pass.";
-  return (
-
-    `STATES SCOPE: check ONLY the states listed for THIS criterion (${(criterion.states || []).length ? criterion.states.join(", ") : "none -- perform NO state checks"}). Any other state observation you happen to make is informational evidence only -- report it in a note, never as a states[] entry.` +
-        `Runtime QA -- FLOW-DRIVING for one acceptance criterion (id ${criterion.id}, feature "${criterion.feature}").\n\n` +
-    `App URL: ${runConfig.appUrl}\n` +
-    `${toolingLine}\n\n` +
-    `Flow (perform each ordered step; a step you cannot perform fails the criterion at that step, with a note):\n` +
-    criterion.flow.map((s, i) => `  ${i + 1}. ${s}`).join("\n") +
-    `\n\nExpect (evaluate each AFTER the flow -- ALL must hold for a pass; record evidence: the observed text, ` +
-    `element presence/absence, URL, count, or HTTP status):\n` +
-    criterion.expect.map((e) => `  - ${e}`).join("\n") +
-    `\n\nState checks to run on the surface this criterion lands on (${criterion.states.length ? criterion.states.join(", ") : "none"}):\n` +
-    `  - empty: reach the zero-data condition (this run may boot FIXTURE_SEED=0). pass = a designed zero-state ` +
-    `(a message/CTA explaining what goes here); fail = a blank void / raw placeholder; zero-data unreachable ` +
-    `non-destructively => verdict not-checkable + reason.\n` +
-    `  - loading: observe DURING the fetch. pass = a layout-reserved indicator OR a sub-1s render (instant needs ` +
-    `no spinner -- the product-ux response-time threshold); fail = a >1s visible blank/jank with no indicator; ` +
-    `commonly verdict not-checkable with note 'too fast to observe' -- that is HONEST, not a fail.\n` +
-    `  - error: induce a NON-DESTRUCTIVE failure where the flow has one (invalid input, a failing call). pass = a ` +
-    `human-readable message + a recovery path; fail = a silent failure / raw stack / dead end; no inducible path => ` +
-    `verdict not-checkable + reason.\n\n` +
-    `Screenshots: save one end-of-flow screenshot and one per failed step/expect/state UNDER \`${shotDir}/\` ` +
-    `(filenames like \`${criterion.id}-<slug>.png\`); return their paths. (For an \`api\` criterion, screenshots ` +
-    `may be empty.)\n\n` +
-    `Return the structured report: steps [{action, ok, note}], expects [{expect, ok, evidence}], states ` +
-    `[{state, verdict, evidence, note}], screenshots [paths], and observedStatus (the HTTP status when one is ` +
-    `the load-bearing observation, else null). You MAP plain-English steps to tool calls by judgment -- state ` +
-    `that in your notes; you attempt the flow, you do not prove the app correct.`
   );
 }
 
@@ -956,7 +975,10 @@ if (runInputErrors.length > 0) {
 const criteria = runConfig.criteria;
 const mode = criteria.length > 0 ? "full" : "boot-only";
 const { drivable, manual } = criterionPlan(criteria);
-const artifactDir = runConfig.artifactDir && runConfig.artifactDir.length > 0 ? runConfig.artifactDir : ".qa-artifacts";
+// Normalized ONCE here, at the boundary, through the one source -- every consumer below (the
+// driver prompt's save dir, the returned artifacts.dir) reuses this value rather than re-deriving
+// the default or the trim (0041 S10a, D3).
+const artifactDir = artifactBase(runConfig.artifactDir);
 // The script has no clock: a runLabel from args wins; else the boot agent stamps `qa-<timestamp>`
 // (threaded below). A null here means "ask the boot agent to generate one".
 let runLabel = runConfig.runLabel && runConfig.runLabel.length > 0 ? runConfig.runLabel : null;
@@ -1012,6 +1034,11 @@ try {
     // Last-ditch deterministic label so screenshots still have a home if the agent omitted one.
     runLabel = "qa-run";
   }
+  // Normalize ONCE here, at the same boundary the artifact dir is normalized at: driverPrompt and
+  // screenshotPath both sanitizeForPath this value, so joining it raw into artifacts.dir below would
+  // cite a directory the driver never wrote to (sanitizeForPath is idempotent, so the second
+  // application inside driverPrompt is a no-op) (0041 S10a, D3).
+  runLabel = sanitizeForPath(runLabel) || "qa-run";
 
   const outcome = bootOutcome(bootReport);
   ready = outcome === "ready";
@@ -1185,7 +1212,8 @@ return {
   findings,
   refutedCount,
   manualCriteria,
-  artifacts: { dir: mode === "full" ? `${artifactDir.replace(/\/+$/, "")}/${runLabel}` : null, screenshots: allScreenshots },
+  // artifactDir is already artifactBase-normalized at the boundary -- no second default, no second trim.
+  artifacts: { dir: mode === "full" ? `${artifactDir}/${runLabel}` : null, screenshots: allScreenshots },
   crossModel: mode === "full" ? crossModel : SAME_MODEL_TAG,
   summary: mode === "full" ? fullSummary : bootOnlySummary,
 };

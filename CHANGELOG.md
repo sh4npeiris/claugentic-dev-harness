@@ -154,6 +154,33 @@ tagged `vX.Y.Z`.
   read it before the references it corrects rather than a hundred-odd lines later. Nothing new is
   enforced here: this is copy, plus three regression pins that keep it from rotting back.
 
+### Fixed
+
+- **Four engine defects that shipped in every `/audit`, `/build` and QA run.** Each one is now
+  covered by a regression test that was **observed failing against the old code first** — the
+  fixes and their tests landed in separate commits so that is checkable in the history.
+  - **`/audit`'s "re-render the backlog" fast path never fired.** It read `renderOnly` off the
+    *raw* arguments, but a script invocation delivers them as a JSON **string** — the only shape
+    `/audit` actually uses. So the documented call fell through and failed argument validation,
+    and a caller that re-sent its original arguments got a **second full audit**, with the whole
+    reviewer fan-out, instead of a cheap re-render. The check now runs on the parsed arguments.
+  - **A build run could report cross-model review it did not get.** When one child confirmed a
+    different model family and another explicitly reported *not* confirming, the fold dropped the
+    non-confirming signal and reported `confirmed`. It now reports the same-model disclosure, as
+    it always should have. (Values only get *more* conservative — never less.)
+  - **The runtime-QA driver prompt was malformed.** Its narrowing "check only these states"
+    constraint was emitted *before* the agent was told what its job was, and the two sentences
+    were run together with no separator at all. The task framing now comes first, and the
+    constraint follows it as its own paragraph. In the same pass, the artifact-directory shape
+    got a single source: it was documented as having one while four places re-implemented it
+    inconsistently, and its trailing-separator trim now handles Windows-style paths (a directory
+    ending in `\` used to produce `out\qa\/<run>`).
+  - **Build mode's Verify panel substituted defaults silently.** An item that named no review
+    dimensions quietly got a two-dimension panel, and a non-boolean `trustSurface` value quietly
+    read as `false` — which is the flag that decides whether the trust-surface reviewer runs at
+    all. Both values are unchanged (still fail-closed); the run log now **says** when a
+    substitution happened, so a narrowed panel is visible instead of invisible.
+
 ### Not changed (by design)
 
 - **The eval-drift check stays model-upheld.** CI does not run `eval/BASELINE.md`; nothing
