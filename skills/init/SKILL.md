@@ -982,11 +982,15 @@ no config it is a quiet exit-0 no-op — and it is the same file `/doctor`'s bud
   a glob matching nothing is skipped silently — so it is safe from day one and needs no edit when
   the ledger is later sharded. (It also structurally excludes the managed full-copy docs: they
   live in `docs/` and `docs/claugentic-standards/`, not in `docs/claugentic-decisions/`.)
-  **NEVER add an `INVARIANTS` or `WORKFLOW` key.** A cap on an **absent** file is a hard exit-1
-  breach — *even under `reportOnly`*, which graces the size verdict only — and
+  **NEVER add an `INVARIANTS` or `WORKFLOW` key — one rule, two DIFFERENT reasons.**
   `docs/claugentic-INVARIANTS.md` is created **lazily, on demand** by the workflow, not by
-  `init`. **Do not copy the harness's own config**: it caps `INVARIANTS.md` because this repo
-  has one, and its numbers are that repo's load profile.
+  `init`, and a cap on an **absent** file is a hard exit-1 breach — *even under `reportOnly`*,
+  which graces the size verdict only. **WORKFLOW is not that case: `init` DELIVERS it, so it is
+  present.** It is excluded because it is a **managed full-copy doc the adopter does not
+  author** (source = ship = your copy, refreshed on re-`init`) — capping it would fire
+  your own gate on harness-authored bytes you cannot condense, and a re-`init` could breach it
+  without you touching anything. **Do not copy the harness's own config**: it caps
+  `INVARIANTS.md` because this repo has one, and its numbers are that repo's load profile.
 - **Anchor every key to what THIS run actually leaves on disk — the mode matters.** In **solo
   mode** the harness anchor is **`CLAUDE.local.md`** (solo divergence (d)) and the committed
   `CLAUDE.md` is left byte-untouched — in a repo that has none, it stays absent. So in solo
