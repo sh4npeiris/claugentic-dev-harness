@@ -139,7 +139,9 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 
 ## eval/ — measurement fixtures (not gate-enforced, not vendored)
 
-The harness's runnable targets: `fixture-app/` for runtime verification (`engine/qa.js`), and `fixture-defects/` — the seeded-defect baseline the audit re-takes as a drift detector. *(All `eval/` is OUT of `INCLUDE_GLOBS` — listed for the map, invisible to the gate by design; see INVARIANTS → eval source stays out of gate scope. Deps documented-not-installed; `pyproject testpaths=["tests"]` keeps bare pytest out of `eval/`.)*
+The harness's runnable targets: `fixture-app/` for runtime verification (`engine/qa.js`), and `fixture-defects/` — the seeded-defect baseline the audit re-takes as a drift detector; **its defects are planted on purpose — never 'fix' them (that disarms the exam)**. *(All `eval/` is OUT of `INCLUDE_GLOBS` — listed for the map, invisible to the gate by design; see INVARIANTS → eval source stays out of gate scope. Deps documented-not-installed; `pyproject testpaths=["tests"]` keeps bare pytest out of `eval/`.)*
+
+**Do not revert the `fixture-defects/` entries below to defect-level detail.** An entry says what the file **is**, never what is planted in it — naming a seed here publishes the exam's answers in the doc every agent reads first, where the manifest's contamination canary (a tracer inside the manifest) cannot see it. `tests/test_eval_key_containment.py` pins the **id** half mechanically; the paraphrase half — describing a planted defect without naming its id — is **model-upheld, and this note is its only guard**. The answers live in `SEED_MANIFEST.md` and, for recorded runs, in `eval/BASELINE.md`'s baseline entries (that file's own no-peeking contract says so).
 
 - `eval/fixture-app/main.py` — the minimal FastAPI list app `engine/qa.js` boots against: `GET /`, `GET`/`POST /api/items`; seeds 3 items unless `FIXTURE_SEED=0`. The typo'd `/api/item` route the broken flow POSTs to 404s on purpose.
 - `eval/fixture-app/static/index.html` — the page with two permanent seeded UX defects (DO NOT fix — the run's catch targets): broken add flow (`ux-broken-flow`) + missing empty state (`ux-missing-empty-state`, blank `<ul>` at `FIXTURE_SEED=0`).
@@ -147,11 +149,12 @@ The harness's runnable targets: `fixture-app/` for runtime verification (`engine
 - `eval/fixture-app/requirements.txt` — the fixture's documented (not vendored) deps: `fastapi`, `uvicorn`.
 - `eval/fixture-app/README.md` — open to run the QA fixture: purpose, run command (`uvicorn main:app --app-dir eval/fixture-app --port 8123`), the `FIXTURE_SEED` knob, the seeded-defects section, criteria description.
 - `eval/fixture-defects/app/__init__.py` — the seeded-defect fixture's package init (re-exports `connect`/`init_schema`); a stdlib-only task tracker the standard audit re-takes as its drift exam.
-- `eval/fixture-defects/app/db.py` — sqlite3 data access; carries the two data-and-persistence seeds (DP-1 no-transaction, DP-2 N+1). *(Seeded on purpose — see SEED_MANIFEST.)*
-- `eval/fixture-defects/app/handlers.py` — request handlers; carries SEC-1 (f-string SQL), SEC-2 (hardcoded token), REL-1 (`except: pass`), MAINT-2 (divergent `STATUSES`). *(Seeded on purpose.)*
-- `eval/fixture-defects/app/service.py` — the HTML-rendering service; carries MAINT-1 (one function parses+queries+formats) + the other half of MAINT-2. *(Seeded on purpose.)*
-- `eval/fixture-defects/app/client.py` — outbound webhook notifier; carries REL-2 (`urlopen` no-timeout in an unbounded retry loop). *(Seeded on purpose.)*
-- `eval/fixture-defects/app/test_tasks.py` — the fixture's own tests; carries TEST-1 (asserts nothing) + TEST-2 (patches the function under test). Never collected by the repo's pytest. *(Seeded on purpose.)*
+- `eval/fixture-defects/app/db.py` — the tracker's sqlite3 data access: `connect`/`init_schema` plus the project-and-task write path and the task/project read queries.
+- `eval/fixture-defects/app/handlers.py` — the tracker's request handlers: header auth, task search, per-project task count, status update.
+- `eval/fixture-defects/app/service.py` — the tracker's HTML rendering: the task-list fragment and the status-label formatter.
+- `eval/fixture-defects/app/client.py` — the tracker's outbound webhook notifier: posts a task-changed event to the configured URL, plus the is-it-configured check.
+- `eval/fixture-defects/app/test_tasks.py` — the fixture's own tests over the tracker (status update, list rendering, status label). Never collected by the repo's pytest.
 - `eval/fixture-defects/SEED_MANIFEST.md` — the answer key: the ten seeds (`id · module · file · line · expected`) + the canary. MUST NOT be read during a measurement run (out of the audit's `app/`-scoped path on purpose).
-- `eval/BASELINE.md` — open before a measurement run: what the eval is (drift detector), the measurement procedure (SoT), the append-only baseline-entries table the orchestrator fills.
+- `eval/BASELINE.md` — open before a measurement run for *What this eval is* + *The measurement procedure* (SoT), then **stop: the baseline entries below carry per-seed answer mappings** (its own no-peeking contract). Append-only; the orchestrator fills an entry after each run.
 - `tests/test_eval_manifest.py` — the manifest-integrity guard: the seed table parses (10 rows / 2-per-module), every file:line exists, the canary is present, `app/*.py` compiles, bare `pytest --collect-only` finds nothing in `eval/`. *(Out of `INCLUDE_GLOBS`.)*
+- `tests/test_eval_key_containment.py` — the answer-key containment pin: no tracked file outside a justified allowlist names a seed id (vocabulary derived from the manifest, corpus from `git ls-files` with a floor). *(Out of `INCLUDE_GLOBS`.)*
