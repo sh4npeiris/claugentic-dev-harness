@@ -114,6 +114,10 @@ states · what-good-feels-like · honesty); the skill file owns the step-level m
 - **Job-to-be-done:** *"Drive my roadmap to production without micromanaging every step —
   keep me in control of the decisions that matter, and never hand me runaway scope or an
   irreversible surprise."*
+- **Job-to-be-done, the harness's own upkeep:** *"Keep my harness **lean, current, and
+  honest without being asked**."* The mechanisms serving it are deliberately partial and must
+  say so on every surface: the byte-cap gate **bounds growth, it never shrinks anything**
+  (`/claugentic-dev-harness:condense` is a human act), and the currency nudges are advisory.
 
 The whole design tension is **autonomy vs. control**: build enough that the user isn't
 clicking "next" forever, but pause at exactly the moments where a human judgment is

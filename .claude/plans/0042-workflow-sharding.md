@@ -1,7 +1,12 @@
 # 0042 — Shard `docs/claugentic-WORKFLOW.md` (escape-valve rung 3)
 
-- **Status:** Draft — **not yet through Stage 2b/3.** Everything below the *Research / grounding*
-  section is a **proposal for 0042's own draft pass**, not an approved design.
+- **Status:** Draft — **not yet through Stage 2b/3.** **The caveat is by section NAME, not by
+  position:** *Approach*, *Architecture & holistic fit*, *Risks & mitigations*, *Test strategy* and
+  *Decomposition* are **proposals for 0042's own draft pass**, not approved design. The first two
+  are the most design-committing sections in this file and they sit **above** *Research /
+  grounding*, so the earlier positional phrasing ("everything below *Research*") excluded exactly
+  the sections it most needed to cover. *Problem* restates 0041's recorded rung-3 decision;
+  *Research / grounding* is measured.
 - **Resumable from:** Stage 2a — draft the plan proper from the grounding below (it is measured,
   so do **not** re-derive it; re-measure only what this file marks as "measure again at draft").
 - **Blockers:** none.
@@ -23,6 +28,13 @@ lever list sheds 21,000–25,400 B, landing 64,900–69,200 B — above the 63,0
 cap it was meant to satisfy, i.e. permanent WARN on day one). The user chose **escape-valve
 rung 3 — shard it** (2026-08-18). 0041 S12b landed the two sanctioned density cuts and recorded
 the decision; **this plan owns the split and the cap.**
+
+**Size the shards against the GROWTH RATE, not today's bytes.** WORKFLOW grew **~1,149 B/slice**
+across the eleven slices *preceding* the one chartered to cut 40,000 from it — measured **under
+active condensation pressure**, i.e. that is the net after the density work of the same period.
+A shard set sized to today's 87,215 B reproduces 0041's failure one plan later: the cap-band rule
+(`docs/claugentic-DECISIONS.md` → doc-lifecycle, *Setting a NEW cap*) is what turns that rate into
+a number, and it is the same rule this plan exists because 0041 could not satisfy.
 
 Why rung 3 rather than rung 2 (a recorded cap-bump): WORKFLOW is a **rule-book**, not a log — its
 entries persist by design, so every condensation pass lands higher than the last and a bump only
@@ -84,7 +96,10 @@ an index that starts holding entries has quietly become the ledger again.
 
 All figures measured on `feat/0041-s12b-close` at head, after 0041 S12b's two density cuts.
 
-**Section sizes** (`## `-delimited, bytes incl. the section's own trailing blank line):
+**Section sizes** (`## `-delimited, bytes incl. the section's own trailing blank line; **the
+one convention exception, stated here because `:83` forbids re-deriving:** the FINAL section
+has no trailing blank line, so `## Plan file lifecycle` is 3,528 B, not 3,529 — with that the
+column sums to 87,215 exactly):
 
 | Section | Bytes |
 |---|---|
@@ -100,15 +115,20 @@ All figures measured on `feat/0041-s12b-close` at head, after 0041 S12b's two de
 | `## Executing an audit backlog item` (incl. the methodology toolbox) | 5,667 |
 | `## Bundled edge-skills` | 3,440 |
 | `## 9. The learning loop` | 4,939 |
-| `## Plan file lifecycle` | 3,529 |
+| `## Plan file lifecycle` | 3,528 |
 | **total** | **87,215** |
 
 **The binding constraint this table exposes:** `## The pipeline` alone is **21,822 B**. No 7-way
 grouping of these sections keeps every shard under a decisions-ledger-style 14,000 B cap unless
 **the pipeline itself splits** — its own `FRAME → APPROVE → BUILD → CLOSE` beats are the natural
 seam, and they are already named in the document. Decide *cap first, then grouping*: an index of
-~11,400 B (front matter + Triage + Context & handoff + the routing table) leaves **~78,300 B**
-across the shards, i.e. ~11,200 B mean over 7 — workable only if no shard is much above the mean.
+~11,400 B leaves **~75,800 B** across the shards, i.e. ~10,800 B mean over 7 — workable only if no
+shard is much above the mean. **The decomposition, so it evaluates:** the index is **8,907 B of
+EXISTING content** (front matter 5,543 + `## 0. Triage` 2,900 + `## Context & handoff` 464)
+**plus ~2,500 B of NEW routing-table copy that does not exist yet**; the shards are 87,215 − 11,400.
+That ~2,500 is the one **estimate** in this table — everything else is measured — so **measure the
+routing table at draft** and re-close the arithmetic. (An earlier pass printed ~78,300, which is
+87,215 − 8,907: it subtracted only the moved content and silently dropped the new table.)
 
 **Blast radius** (`git grep -o` / `-l` over `git ls-files`, so no worktree leakage):
 
@@ -121,9 +141,11 @@ across the shards, i.e. ~11,200 B mean over 7 — workable only if no shard is m
   *index-only* (no change) vs *anchored-into-a-shard* (change). **Measure again at draft** — this
   ratio is what turns ~10 files into ~50 if the routing contract flips.
 
-**Mechanically-pinned assertions that break on the split** — all in
-`tests/test_adopter_pointer_integrity.py`. Note there are **four**, in two classes (an earlier
-grounding pass said "three"; the corpus scan and the within-file count are separate assertions):
+**Mechanically-pinned assertions that break on the split** — a **class with a locator, not a
+count**: every pin in `tests/test_adopter_pointer_integrity.py` that resolves `WORKFLOW_PATH`
+(`:60`). **Grep `WORKFLOW_PATH` in that file at draft — the file is the list; no count is restated
+here** (an earlier grounding pass said "three", a later one "four", and both were restatements of
+something derivable). The ones known at 0041 S12b close, to orient the read:
 
 1. `TestWorkflowAdopterNoteComesFirst::test_both_headings_exist` — both the adopter-note heading
    and a `## 0.` stage heading exist **in WORKFLOW.md**.
@@ -138,6 +160,15 @@ grounding pass said "three"; the corpus scan and the within-file count are separ
    `offenders == [WORKFLOW_PATH]` over every tracked `*.md`. After the split the sole home is a
    **shard**, so this assertion's expected value changes; keep it a one-home assertion, do not
    loosen it to "one or more".
+5. `TestTheRolesRosterIsComplete` (`:313`) — the three-way agreement doc ↔ `git ls-files` ↔
+   `plugin.json:agents`, created by **0041 S12b itself**, which is why no earlier grounding pass
+   names it. It reads WORKFLOW between two **prose anchors** — `ROSTER_HEAD` (`:281`), whose value
+   is the literal heading *Starter library (`.claude/agents/`):*, and `ROSTER_ENTRY_RE` (`:283`)
+   — both resolved inside `WORKFLOW_PATH`
+   (`:60`). **`## Roles` is 5,157 B and is listed at the section table above as shardable, so the
+   default grouping carries this pin's anchor out of the file it is defined on.** Either keep
+   `## Roles` in the index or re-anchor the pin in the same slice; the failure mode is a silently
+   empty roster slice, not a red test.
 
 **Caps + config.** `.claude/claugentic-doc-budgets.json` gains **one** key — a
 `docs/claugentic-workflow/*.md` glob (a shape, zero-match-safe, needing no edit per new shard) —
@@ -178,10 +209,21 @@ draft** (this is a read-and-confirm, not an assumption).
 - **Adopter churn** — a re-`init` replaces one managed file with a directory. Confirm the
   never-clobber upsert and the stale-single-file case (an adopter whose `docs/` still holds the
   pre-split monolith) are both handled, and say plainly which one `init` does.
+- **The deferral itself** — this plan sitting undrafted while the file it exists to bound keeps
+  growing at the rate *Problem* records → the strongest defence of the seam is nameable, and it is
+  a **nudge, not a gate**: `scripts/claugentic-session-advisor.py` flags a plan cold after
+  `COLD_DAYS = 30` (`:141`) unless `_is_in_flight` (`:295`) says otherwise, and this file's **four**
+  unchecked `- [ ]` boxes keep it in-flight — so the deferral **self-surfaces** in SessionStart and
+  in `/doctor` after 30 days instead of going quiet. Nothing blocks on it; nothing has to.
+- **`ROSTER_ENTRY_RE` is anchored on PROSE SHAPE, so the pin admits a false member** (0041
+  S12b-D1) → between the two roster anchors it matches **any** bullet of the form ``- **`name`**``,
+  agent or not, so a shard boundary that moves other bulleted content inside those anchors leaves
+  the pin **green on a wrong roster**. Re-anchor on structure (an explicit end marker, or a list
+  the test can bound) in the same slice that moves `## Roles`.
 
 ## Test strategy
 
-Move-don't-delete for all four pointer-integrity pins above · a two-direction index↔shards
+Move-don't-delete for every pointer-integrity pin that resolves `WORKFLOW_PATH` (re-derived by grep at draft, per *Research* above) · a two-direction index↔shards
 agreement test (every routed shard exists; every shard file is routed) · the byte-exact caps pin
 updated in the same commit as the config · the existing full battery green
 (`python -m pytest -q` · `node --test tests/workflows/*.test.mjs` · `ruff` ·

@@ -987,7 +987,7 @@ no config it is a quiet exit-0 no-op — and it is the same file `/doctor`'s bud
   `init`, and a cap on an **absent** file is a hard exit-1 breach — *even under `reportOnly`*,
   which graces the size verdict only. **WORKFLOW is not that case: `init` DELIVERS it, so it is
   present.** It is excluded because it is a **managed full-copy doc the adopter does not
-  author** (source = ship = your copy, refreshed on every re-`init`) — capping it would fire
+  author** (source = ship = your copy, refreshed on re-`init`) — capping it would fire
   your own gate on harness-authored bytes you cannot condense, and a re-`init` could breach it
   without you touching anything. **Do not copy the harness's own config**: it caps
   `INVARIANTS.md` because this repo has one, and its numbers are that repo's load profile.
