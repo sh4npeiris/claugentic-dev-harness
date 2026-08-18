@@ -78,6 +78,143 @@ test("agent namespace: built-ins are NEVER namespaced (no nsAgent(\"general-purp
   }
 });
 
+// =============================================================================
+// 0041 Slice 10b (D6) -- the namespace FALLBACK, pinned at source level.
+//
+// Namespaced ids stay what the engine WRITES; the fallback is a single bare retry on a THROWN
+// spawn failure, so a project-local dogfood session resolves without the source shim the
+// v0.5.0 eval baseline had to carry. Two properties have to hold together:
+//   (1) every namespaced spawn actually ROUTES through the wrapper (an unrouted site
+//       re-creates the defect for exactly the spawn it guards), and
+//   (2) the bare name is DERIVED from the namespaced id at runtime -- a literal table would
+//       turn the bare-name guard above red, which is the construction that forbids it.
+// =============================================================================
+
+// The control-flow region of an engine script: everything below the line-anchored end-helpers
+// marker. verify.js's panelRoster also names agents via nsAgent(), but that is roster METADATA
+// inside the helpers block, not a spawn -- scoping to the control flow excludes it.
+function controlFlowOf(script) {
+  const src = readEngine(script);
+  const marks = src.match(/^\/\/ --- end helpers ---$/gm) || [];
+  assert.equal(marks.length, 1, `expected exactly ONE line-anchored end-helpers marker in engine/${script}`);
+  return src.slice(src.search(/^\/\/ --- end helpers ---$/m));
+}
+
+// The index of the LAST `<name>(` call opener strictly before `upto`, ignoring matches that are
+// part of a longer identifier or a property access (so `agentWithNamespaceFallback(` and
+// `guardedPanelAgent(` are never mistaken for a bare `agent(`).
+function lastCallBefore(src, upto, name) {
+  const re = new RegExp(`(^|[^A-Za-z0-9_$.])${esc(name)}\\(`, "g");
+  let last = -1;
+  let m;
+  while ((m = re.exec(src)) !== null) {
+    const idx = m.index + m[1].length;
+    if (idx >= upto) break;
+    last = idx;
+  }
+  return last;
+}
+
+// The callers that are allowed to hold a namespaced agent id: the fallback wrapper itself and
+// the wrappers that delegate to it (each pinned separately below).
+const ROUTED_CALLERS = [
+  "agentWithNamespaceFallback",
+  "guardedPanelAgent",
+  "guardedAgent",
+  "spawnJudge",
+  "attempt",
+];
+
+// Corpus floors -- a scan that silently stopped finding spawn sites must fail loud, not pass
+// vacuously. These are FLOORS (>=), so adding a spawn site does not turn them red.
+const NAMESPACED_SPAWN_FLOOR = {
+  "verify.js": 4,
+  "audit.js": 8,
+  "qa.js": 3,
+  "build-item.js": 1,
+};
+
+for (const script of ENGINE_SCRIPTS) {
+  test(`namespace fallback: every namespaced spawn in engine/${script} routes through the fallback wrapper`, () => {
+    const flow = controlFlowOf(script);
+    const sites = [];
+    const re = /nsAgent\("/g;
+    let m;
+    while ((m = re.exec(flow)) !== null) {
+      sites.push(m.index);
+    }
+    assert.ok(
+      sites.length >= NAMESPACED_SPAWN_FLOOR[script],
+      `engine/${script}: expected >= ${NAMESPACED_SPAWN_FLOOR[script]} namespaced spawn sites in the control flow, found ${sites.length}`,
+    );
+    for (const at of sites) {
+      const bare = lastCallBefore(flow, at, "agent");
+      const routed = Math.max(...ROUTED_CALLERS.map((n) => lastCallBefore(flow, at, n)));
+      assert.ok(
+        routed > bare,
+        `engine/${script}: the namespaced spawn at offset ${at} is handed to a BARE agent( call ` +
+          `(nearest routed caller at ${routed}, bare agent( at ${bare}) -- every namespaced spawn ` +
+          `must go through agentWithNamespaceFallback, or that spawn has no fallback at all:\n` +
+          flow.slice(Math.max(0, at - 200), at + 60),
+      );
+    }
+  });
+
+  test(`namespace fallback: engine/${script} derives the bare name -- no hardcoded agent-name table`, () => {
+    const flow = controlFlowOf(script);
+    const wrapper = flow.match(/^async function agentWithNamespaceFallback\([\s\S]*?^\}/m);
+    assert.ok(wrapper, `engine/${script}: agentWithNamespaceFallback not found in the control flow`);
+    assert.match(wrapper[0], /bareAgentType\(/, `engine/${script}: the fallback name must be DERIVED at runtime`);
+    for (const name of CUSTOM_AGENTS) {
+      assert.ok(
+        !wrapper[0].includes(name),
+        `engine/${script}: the fallback wrapper names '${name}' -- the bare name must be derived from ` +
+          `the namespaced id, never enumerated (a literal table also turns the bare-name guard above red)`,
+      );
+    }
+  });
+
+  test(`namespace fallback: engine/${script}'s judge attempt closure delegates to the wrapper`, () => {
+    const flow = controlFlowOf(script);
+    const attempts = flow.match(/const attempt = async \(opts\) => \{[\s\S]*?^  \};/gm) || [];
+    if (attempts.length === 0) {
+      // build-item.js spawns no judge directly -- nothing to delegate.
+      assert.equal(script, "build-item.js", `engine/${script}: expected an attempt closure to pin`);
+      return;
+    }
+    for (const body of attempts) {
+      assert.match(
+        body,
+        /agentWithNamespaceFallback\(prompt, opts\)/,
+        `engine/${script}: an attempt closure still calls the raw agent primitive -- its judge spawn has no namespace fallback`,
+      );
+    }
+  });
+}
+
+test("namespace fallback: the retry is NOT a model respawn in any engine script", () => {
+  for (const script of ENGINE_SCRIPTS) {
+    const flow = controlFlowOf(script);
+    const wrapper = flow.match(/^async function agentWithNamespaceFallback\([\s\S]*?^\}/m);
+    assert.ok(wrapper, `engine/${script}: agentWithNamespaceFallback not found`);
+    const body = wrapper[0];
+    assert.ok(
+      !/forcedSameModel/.test(body),
+      `engine/${script}: a namespace retry must never touch forcedSameModel -- that flag feeds the same-model disclosure`,
+    );
+    assert.ok(
+      !/:respawn/.test(body),
+      `engine/${script}: a namespace retry must never reuse the :respawn label -- the run log could not tell the two apart`,
+    );
+    assert.match(body, /:ns-fallback/, `engine/${script}: the namespace retry needs its own label`);
+    assert.match(
+      body,
+      /\{ \.\.\.opts, agentType: bare/,
+      `engine/${script}: the retry must spread the ORIGINAL opts so the judge model: pin survives it`,
+    );
+  }
+});
+
 test('agent namespace: the general-purpose built-in stays BARE where it is spawned (qa.js, build-item.js)', () => {
   // qa.js spawns general-purpose for the mechanical boot/teardown lifecycle (the DRIVE step is the
   // namespaced runtime-qa specialist); build-item.js spawns it for the gates stage. These remaining

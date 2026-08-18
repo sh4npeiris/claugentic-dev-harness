@@ -11,7 +11,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readdirSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 
@@ -551,4 +551,359 @@ test("dedupFindings: a three-way duplicate collapses to one, first non-empty fix
 
 test("sameModelTag: a whitespace-only report is the MISSING floor (same-model tag), not unresolved", () => {
   assert.equal(H.sameModelTag("Fable 5", "   "), EXPECTED_SAME_MODEL_TAG);
+});
+
+// =============================================================================
+// 0041 Slice 10b -- D4 (the unguarded / caller-sized panel fan-out) + D6 (the
+// bare-name namespace fallback).
+//
+// Both fixes live BELOW the `// --- end helpers ---` marker and close over agent()/log(),
+// so neither wrapper is extractable. The technique per the spec: unit-test the PURE parts
+// from the helpers block, and pin the wrappers at SOURCE level over the control-flow region
+// (new machinery in this file -- the `controlFlowOf` precedent is build-item.test.mjs:774).
+//
+// The new helpers are loaded LAZILY, per test, rather than added to the file-level `H`
+// extraction: a missing helper makes only its own pins red instead of collapsing the whole
+// file's 100+ tests into one unreadable load error.
+// =============================================================================
+
+function d4Helpers() {
+  return loadHelpersFrom(SCRIPT_PATH, [
+    "dedupeDimensions",
+    "guardFailure",
+    "panelRoster",
+    "modulesFor",
+    "KNOWN_MODULES",
+  ]);
+}
+
+function d6Helpers() {
+  return loadHelpersFrom(SCRIPT_PATH, [
+    "AGENT_NAMESPACE",
+    "nsAgent",
+    "bareAgentType",
+    "namespaceFallbackNotice",
+  ]);
+}
+
+// The control-flow region: everything BELOW the line-anchored end-helpers marker. Asserting the
+// marker is unique keeps the slice anchored to the real delimiter, never to an ordinal index.
+function controlFlowOf(scriptPath) {
+  const src = readFileSync(scriptPath, "utf8");
+  const marks = src.match(/^\/\/ --- end helpers ---$/gm) || [];
+  assert.equal(marks.length, 1, `expected exactly ONE line-anchored end-helpers marker in ${scriptPath}`);
+  return src.slice(src.search(/^\/\/ --- end helpers ---$/m));
+}
+
+// The file header: everything ABOVE `export const meta` (where the script's own claims live).
+function headerOf(scriptPath) {
+  const src = readFileSync(scriptPath, "utf8");
+  const idx = src.indexOf("export const meta");
+  assert.ok(idx > 0, "expected an `export const meta` declaration in verify.js");
+  return src.slice(0, idx);
+}
+
+// -----------------------------------------------------------------------------
+// D4 -- dedupeDimensions: the bound, non-mutation, and the inherited fixed-point AC
+// -----------------------------------------------------------------------------
+test("dedupeDimensions collapses duplicates preserving first-seen order", () => {
+  const D = d4Helpers();
+  assert.deepEqual(D.dedupeDimensions(["testing", "security", "testing", "security"]), [
+    "testing",
+    "security",
+  ]);
+});
+
+test("dedupeDimensions is IDEMPOTENT -- f(f(x)) deep-equals f(x) (the 10a spec amendment, as an AC)", () => {
+  const D = d4Helpers();
+  for (const input of [
+    [],
+    ["testing"],
+    ["testing", "testing"],
+    ["security", "testing", "security"],
+    new Array(200).fill("security"),
+    D.KNOWN_MODULES.concat(D.KNOWN_MODULES),
+  ]) {
+    const once = D.dedupeDimensions(input);
+    const twice = D.dedupeDimensions(once);
+    assert.deepEqual(twice, once, `dedupeDimensions is not a fixed point on ${JSON.stringify(input).slice(0, 60)}`);
+  }
+});
+
+test("dedupeDimensions NEVER mutates its input and always returns a NEW array", () => {
+  const D = d4Helpers();
+  // build-item.js's verifyChildArgs hands its `named` branch through with NO copy, so an
+  // in-place dedupe would mutate the caller's item across build-to-green iterations.
+  const caller = ["security", "testing", "security"];
+  const out = D.dedupeDimensions(caller);
+  assert.deepEqual(caller, ["security", "testing", "security"], "the caller's array was mutated");
+  assert.notEqual(out, caller, "the result must be a NEW array, never the caller's own");
+  // Even with nothing to drop, the result must not alias the input.
+  const clean = ["security", "testing"];
+  assert.notEqual(D.dedupeDimensions(clean), clean, "a duplicate-free input must still be copied");
+});
+
+test("dedupeDimensions bounds the fan-out: 200 duplicates spawn ONE lens, not 200", () => {
+  const D = d4Helpers();
+  const flooded = new Array(200).fill("security");
+  assert.deepEqual(D.dedupeDimensions(flooded), ["security"]);
+  const roster = D.panelRoster(validArgs({ dimensions: D.dedupeDimensions(flooded), trustSurface: false }));
+  assert.equal(roster.filter((r) => r.role.startsWith("lens:")).length, 1);
+});
+
+test("dedupeDimensions makes the lens fan-out bounded by the CATALOG (<= KNOWN_MODULES.length)", () => {
+  const D = d4Helpers();
+  const flooded = [];
+  for (let i = 0; i < 20; i += 1) {
+    flooded.push(...D.KNOWN_MODULES);
+  }
+  assert.equal(flooded.length, 220);
+  const deduped = D.dedupeDimensions(flooded);
+  assert.equal(deduped.length, D.KNOWN_MODULES.length);
+  const roster = D.panelRoster(validArgs({ dimensions: deduped, trustSurface: true }));
+  assert.equal(roster.filter((r) => r.role.startsWith("lens:")).length, D.KNOWN_MODULES.length);
+  // The whole panel: <= 11 lenses + yagni + honesty + synthesis.
+  assert.equal(roster.length, D.KNOWN_MODULES.length + 3);
+});
+
+test("dedupeDimensions keeps panelRoster and modulesFor INDEX-ALIGNED on a duplicated input", () => {
+  const D = d4Helpers();
+  // Trap 2/3: panelRoster and modulesAudited derive independently; coverageGaps pairs
+  // lensReturns[i] with modulesAudited[i]. One deduped array must feed BOTH.
+  const deduped = D.dedupeDimensions(["testing", "security", "testing"]);
+  const roster = D.panelRoster(validArgs({ dimensions: deduped, trustSurface: false }));
+  const modules = D.modulesFor(deduped);
+  const lensRoles = roster.filter((r) => r.role.startsWith("lens:")).map((r) => r.role.slice("lens:".length));
+  assert.deepEqual(lensRoles, modules);
+});
+
+test("dedupeDimensions returns [] for a non-array (never throws at the boundary)", () => {
+  const D = d4Helpers();
+  assert.deepEqual(D.dedupeDimensions(undefined), []);
+  assert.deepEqual(D.dedupeDimensions(null), []);
+  assert.deepEqual(D.dedupeDimensions("security"), []);
+});
+
+// -----------------------------------------------------------------------------
+// D4 -- guardFailure: the pure message the panel guard logs before degrading to null
+// -----------------------------------------------------------------------------
+test("guardFailure names the failing thunk's label and the underlying message", () => {
+  const D = d4Helpers();
+  const msg = D.guardFailure(new Error("spawn exploded"), "lens:docs/claugentic-standards/testing.md");
+  assert.match(msg, /lens:docs\/claugentic-standards\/testing\.md/);
+  assert.match(msg, /spawn exploded/);
+});
+
+test("guardFailure states the degradation is IN POSITION (the arity invariant splitPanelResults needs)", () => {
+  const D = d4Helpers();
+  const msg = D.guardFailure(new Error("x"), "yagni");
+  assert.match(msg, /null IN POSITION/);
+  // Honest on BOTH consumers: an unrun lens forces CHANGES_REQUIRED, an unrun yagni does not.
+  assert.match(msg, /coverage gap/i);
+  assert.match(msg, /CHANGES_REQUIRED/);
+  assert.match(msg, /panel degraded/i);
+});
+
+test("guardFailure survives a non-Error throw and an absent label -- no 'undefined' in the notice", () => {
+  const D = d4Helpers();
+  const msg = D.guardFailure("a bare string throw", undefined);
+  assert.match(msg, /a bare string throw/);
+  assert.match(msg, /\(unlabeled\)/);
+  assert.ok(!/undefined/.test(msg), `the notice leaked 'undefined': ${msg}`);
+});
+
+// -----------------------------------------------------------------------------
+// D6 -- AGENT_NAMESPACE / bareAgentType / namespaceFallbackNotice (the pure parts)
+// -----------------------------------------------------------------------------
+test("AGENT_NAMESPACE is the ONE source nsAgent adds and bareAgentType strips", () => {
+  const N = d6Helpers();
+  assert.equal(N.AGENT_NAMESPACE, "claugentic-dev-harness");
+  assert.equal(N.nsAgent("lens-reviewer"), `${N.AGENT_NAMESPACE}:lens-reviewer`);
+  // Round-trip: the fallback target is DERIVED from the namespaced id, never a literal.
+  assert.equal(N.bareAgentType(N.nsAgent("lens-reviewer")), "lens-reviewer");
+});
+
+test("bareAgentType is IDEMPOTENT -- f(f(x)) === f(x), incl. the nsAgent(nsAgent(x)) double prefix", () => {
+  const N = d6Helpers();
+  for (const input of [
+    N.nsAgent("honesty-reviewer"),
+    N.nsAgent(N.nsAgent("honesty-reviewer")),
+    "honesty-reviewer",
+    "general-purpose",
+    "",
+    "claugentic-dev-harness:",
+    "other-plugin:agent",
+    undefined,
+    null,
+    42,
+  ]) {
+    const once = N.bareAgentType(input);
+    assert.equal(N.bareAgentType(once), once, `bareAgentType is not a fixed point on ${JSON.stringify(input)}`);
+  }
+  // The double-prefix case must strip BOTH, never half-strip.
+  assert.equal(N.bareAgentType(N.nsAgent(N.nsAgent("honesty-reviewer"))), "honesty-reviewer");
+});
+
+test("bareAgentType returns a BARE id UNCHANGED -- 'unchanged' is the no-fallback-exists signal", () => {
+  const N = d6Helpers();
+  // A built-in must be returned unchanged so the wrapper's `bare === agentType` test rethrows
+  // rather than re-spawning the identical id.
+  assert.equal(N.bareAgentType("general-purpose"), "general-purpose");
+  assert.equal(N.bareAgentType("Explore"), "Explore");
+  // A different plugin's namespace is NOT ours to strip.
+  assert.equal(N.bareAgentType("other-plugin:agent"), "other-plugin:agent");
+});
+
+test("bareAgentType maps a non-string to '' (total function -- no throw at the spawn boundary)", () => {
+  const N = d6Helpers();
+  for (const bad of [undefined, null, 42, {}, []]) {
+    assert.equal(N.bareAgentType(bad), "");
+  }
+});
+
+test("namespaceFallbackNotice names both ids and DENIES the model-respawn reading", () => {
+  const N = d6Helpers();
+  const msg = N.namespaceFallbackNotice(
+    N.nsAgent("lens-reviewer"),
+    "lens-reviewer",
+    new Error("agent type not found"),
+  );
+  assert.match(msg, /claugentic-dev-harness:lens-reviewer/);
+  assert.match(msg, /'lens-reviewer'/);
+  assert.match(msg, /agent type not found/);
+  // The trust surface, stated in the log line itself.
+  assert.match(msg, /not a model respawn/i);
+  assert.match(msg, /no respawn budget/i);
+  assert.match(msg, /cross-model/i);
+});
+
+test("namespaceFallbackNotice survives a non-Error throw -- no 'undefined' in the notice", () => {
+  const N = d6Helpers();
+  const msg = N.namespaceFallbackNotice("claugentic-dev-harness:x", "x", "plain string boom");
+  assert.match(msg, /plain string boom/);
+  assert.ok(!/undefined/.test(msg), `the notice leaked 'undefined': ${msg}`);
+});
+
+// -----------------------------------------------------------------------------
+// D4/D6 -- source-level pins on the wrappers (they close over agent()/log(), so the
+// extract-and-eval harness cannot reach them). NEW machinery in this file.
+// -----------------------------------------------------------------------------
+test("verify.js control flow: the LENS and YAGNI thunks go through the panel guard", () => {
+  const flow = controlFlowOf(SCRIPT_PATH);
+  const lensTasks = flow.match(/const lensTasks = [\s\S]*?^\);$/m);
+  assert.ok(lensTasks, "could not locate the lensTasks declaration in the control flow");
+  assert.match(lensTasks[0], /guardedPanelAgent\(/, "the lens thunk must be guarded");
+  const panelTasks = flow.match(/const panelTasks = \[[\s\S]*?^\];$/m);
+  assert.ok(panelTasks, "could not locate the panelTasks array in the control flow");
+  assert.match(panelTasks[0], /guardedPanelAgent\(/, "the yagni thunk must be guarded");
+});
+
+test("verify.js control flow: the HONESTY thunk is NOT guarded -- the two-failure throw must survive", () => {
+  const flow = controlFlowOf(SCRIPT_PATH);
+  // Trap 1: honesty is a spawnJudge call in the SAME parallel(). judgeOutcome deliberately
+  // throws on two failures; a guard here would swallow it and coverageGaps (which walks
+  // lensReturns only) would never notice the honesty lens silently no-showing.
+  const honestyBlock = flow.match(/if \(hasHonesty\) \{[\s\S]*?^\}/m);
+  assert.ok(honestyBlock, "could not locate the hasHonesty push block");
+  assert.match(honestyBlock[0], /spawnJudge\(/, "honesty must still spawn through spawnJudge");
+  assert.ok(
+    !/guardedPanelAgent\(/.test(honestyBlock[0]),
+    "the honesty thunk must NOT be wrapped by the panel guard -- it would swallow judgeOutcome's two-failure throw",
+  );
+  // And the guard is never applied wholesale over the assembled task list.
+  assert.ok(
+    !/panelTasks\.map\(/.test(flow),
+    "panelTasks must never be blanket-mapped through a guard -- guard the lens and yagni thunks only",
+  );
+});
+
+test("verify.js control flow: the panel guard preserves parallel() ARITY (no filter/compact/settle)", () => {
+  const flow = controlFlowOf(SCRIPT_PATH);
+  // Trap 2: splitPanelResults slices by INDEX. The results must reach it untouched.
+  assert.match(
+    flow,
+    /const \{ lensReturns, yagni, honestyJudge \} = splitPanelResults\(\s*panelResults,\s*lensTasks\.length,\s*hasHonesty,\s*\);/,
+    "the splitPanelResults index arithmetic must be unchanged (panelResults, lensTasks.length, hasHonesty)",
+  );
+  const between = flow.slice(
+    flow.indexOf("const panelResults = await parallel(panelTasks);"),
+    flow.indexOf("splitPanelResults("),
+  );
+  assert.ok(between.length > 0, "could not slice the region between parallel() and splitPanelResults()");
+  for (const forbidden of ["panelResults.filter(", "panelResults.flat(", "allSettled", ".filter(Boolean)"]) {
+    assert.ok(
+      !between.includes(forbidden),
+      `panelResults must reach splitPanelResults unreshaped -- found '${forbidden}', which misaligns lensReturns[i] <-> modulesAudited[i]`,
+    );
+  }
+});
+
+test("verify.js control flow: the dedupe is applied ONCE and feeds BOTH consumers", () => {
+  const flow = controlFlowOf(SCRIPT_PATH);
+  assert.match(flow, /const dimensions = dedupeDimensions\(input\.dimensions\);/);
+  // Trap 3: the roster and modulesAudited must derive from the SAME deduped array.
+  assert.match(flow, /const roster = panelRoster\(\{ \.\.\.input, dimensions \}\);/);
+  assert.match(flow, /const modulesAudited = modulesFor\(dimensions\);/);
+  const raw = flow.match(/input\.dimensions/g) || [];
+  assert.equal(
+    raw.length,
+    1,
+    "`input.dimensions` may be read exactly ONCE (by the dedupe) -- a second raw read is how the two consumers drift apart",
+  );
+});
+
+test("verify.js control flow: a dropped duplicate is REPORTED, never a silent narrowing", () => {
+  const flow = controlFlowOf(SCRIPT_PATH);
+  const branch = flow.match(/if \(dimensions\.length !== input\.dimensions\.length\) \{([\s\S]*?)^\}/m);
+  assert.ok(branch, "the dedupe must carry an explicit not-equal branch");
+  assert.match(branch[1], /log\(/, "a de-duplicated dimension list must reach the run log");
+});
+
+test("verify.js control flow: spawnJudge routes through the namespace fallback WITHOUT touching its state machine", () => {
+  const flow = controlFlowOf(SCRIPT_PATH);
+  const spawnJudge = flow.match(/^async function spawnJudge\([\s\S]*?^\}/m);
+  assert.ok(spawnJudge, "could not locate spawnJudge in the control flow");
+  const body = spawnJudge[0];
+  assert.match(body, /agentWithNamespaceFallback\(prompt, opts\)/, "the judge attempt must route through the fallback");
+  // The one-respawn state machine is untouched: judgeOutcome still owns the decision, the
+  // second attempt still carries the `:respawn` label, and forcedSameModel is still its output.
+  assert.match(body, /let decision = judgeOutcome\(role, agentType, first\);/);
+  assert.match(body, /if \(decision\.needRetry\) \{/);
+  assert.match(body, /decision = judgeOutcome\(role, agentType, first, second\);/);
+  assert.match(body, /label: `\$\{role\}:respawn`/);
+  assert.ok(
+    !/forcedSameModel/.test(body),
+    "spawnJudge must never set forcedSameModel itself -- judgeOutcome owns it, and a namespace retry must not influence it",
+  );
+});
+
+test("verify.js: the namespace fallback never sets forcedSameModel and never reuses the :respawn label", () => {
+  const flow = controlFlowOf(SCRIPT_PATH);
+  const wrapper = flow.match(/^async function agentWithNamespaceFallback\([\s\S]*?^\}/m);
+  assert.ok(wrapper, "could not locate agentWithNamespaceFallback in the control flow");
+  const body = wrapper[0];
+  assert.ok(!/forcedSameModel/.test(body), "a namespace retry must not touch the same-model disclosure flag");
+  assert.ok(!/:respawn/.test(body), "a namespace retry must NOT reuse the model-respawn label");
+  assert.match(body, /:ns-fallback/, "the namespace retry must carry its own distinguishable label");
+  assert.match(body, /\.\.\.opts/, "the retry must spread the ORIGINAL opts so the judge model: pin survives it");
+  assert.match(body, /bareAgentType\(/, "the fallback name must be DERIVED, never a literal");
+  // It fires on a THROW only -- a null return is a legitimate agent outcome, not a resolution
+  // failure, and retrying it would double every genuine agent failure.
+  assert.match(body, /catch \(/, "the fallback must hang off the throw path");
+  assert.ok(!/== null/.test(body), "the fallback must not fire on a null return (a legitimate agent outcome)");
+});
+
+test("verify.js header: the 'no loops' / roster-bounded claim is corrected (honesty)", () => {
+  const header = headerOf(SCRIPT_PATH);
+  assert.ok(
+    !/no loops/.test(header),
+    "the header must not claim 'no loops' -- the lens fan-out is a .map()",
+  );
+  assert.ok(
+    !/structurally bounded by the roster/.test(header),
+    "the header must not claim the roster bounds the call count -- the roster is caller-sized before the dedupe",
+  );
+  // What replaces it must name the REAL bound and its source.
+  assert.match(header, /KNOWN_MODULES\.length/, "the corrected header must name the catalog bound");
+  assert.match(header, /de-duplicated/, "the corrected header must name what makes the bound real");
 });
