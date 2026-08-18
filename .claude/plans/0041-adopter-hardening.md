@@ -2050,9 +2050,16 @@ So `build_release.py` needs **no** change (a tracked dir ships by default-includ
    - **★ FIX THE ROSTER WHILE COMPRESSING IT — it is already stale.** `.claude/agents/` holds **9**
      agents; WORKFLOW's Roles section names only **7**. `retrospect-harvester` and `runtime-qa` are
      absent **entirely**. Compressing without fixing would silently ratify the omission in the
-     section the ledger calls canonical. *(Note: an earlier grounding pass attributed a "Roster = 9
-     agents" phrase to `roles-review.md:10`; that phrase does not exist — the line says "Roster maps
-     to distinct FUNCTIONS/POSTURES". The canonical-home claim is real; the quoted count was not.)*
+     section the ledger calls canonical. *(**Correction, recorded at Stage 6.** An earlier orchestrator note in this
+     spec claimed `roles-review.md:10` does **not** contain the phrase "Roster = 9 agents". **It
+     does** — verbatim, as `Roster = **9 agents**`, alongside the canonical-home claim. The
+     grounding pass was right and the correction was wrong: the refuting grep was
+     `Roster = [0-9]+ agents`, which cannot match across the markdown bold, run against a line
+     already truncated by `cut -c1-300`. **An absence asserted from a search that could not have
+     found it is not a measurement** — the same defect class as this plan's own
+     *Quantities in prose* dimension, applied to vocabulary instead of arithmetic. The restated
+     count is still the right thing to remove, but because a restated value is an ungated second
+     source of truth — replace it with a locator to the derived pin, not because it was absent.)*
 
 2. **NO cap for WORKFLOW.** `.claude/claugentic-doc-budgets.json` stays **byte-untouched** (hard AC,
    same as 12a). Record why in the ledger rather than reaching for a number:
