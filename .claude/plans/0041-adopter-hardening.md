@@ -1682,7 +1682,7 @@ Cap **70,000** → WARN **63,000** → 80% band **56,000** (all unchanged and co
 - **Acceptance criteria:** WORKFLOW **≤ 56,000 B measured on the MERGE tree, not the branch** (WORKFLOW's own Land rule, which this slice must obey about itself) · the cap added to the config **with its byte-exact test pin updated in the same commit** · doc-budget gate exit 0 **zero WARN** · all 21 fenced passages present, grep-verified · full battery green · **the whole-feature closing pass runs**, with the orchestrator passing the Stage-1 job-to-be-done into the `synthesizer-gate` prompt (the engine takes no new args field).
 - **The job-to-be-done to pass in — and fix its wording.** Two forms exist in the plan: *"an adopter's harness stays lean, current, and honest without being asked"* and, at its source, *"lean and current"*. **Use the three-adjective form and correct the source line.**
 - **Two contradictions this slice must resolve, both about itself:** `init`'s caps-seeding rule forbids a WORKFLOW key and gives **absence** as the reason — but WORKFLOW is *delivered* by init, so the reason reads false the moment the harness caps its own. Restate the reason (a managed full-copy doc the adopter does not author should not be capped in their repo). And **`doc-lifecycle`'s worked case is this slice's own stale arithmetic** (83,383 / 73,590) — the ledger would otherwise document its own violation.
-- **Pre-registered land obligations:** **S12-L1 — the ledgers have no room.** ROADMAP ~12,584 (~15 usable) · `plugin-distribution` ~12,594 (~5) · INVARIANTS ~17,976 (~23) · CLAUDE.md ~5,364 (~35); the gate fires on `>=`, so usable is one byte less than the distance. Any routing goes to an unbudgeted home. **S12-L2 — two unowned residuals found while grounding:** `skills/build/SKILL.md` says *"the five sweeps"* where §9 has **six** (a)–(f), and the DoD gate list's numbering defect. Fix in-slice if trivial, else route. **S12-L3 — this is the LAST slice; plan close follows immediately:** the ROADMAP migrations, the declined-decision lines for S3 GAP-5 and S5's X1–X5, and the plan-file delete. **S12-L4 — the plan's own Slice-12 arithmetic was amended at Stage 7** (12b owes 34,237 B, not 29,358); confirm 12b was specced off the amended table, not the stale one.
+- **Pre-registered land obligations:** **S12-L1 — the ledgers have no room.** ROADMAP ~12,584 (~15 usable) · `plugin-distribution` ~12,594 (~5) · INVARIANTS ~17,976 (~23) · CLAUDE.md ~5,364 (~35); the gate fires on `>=`, so usable is one byte less than the distance. Any routing goes to an unbudgeted home. **S12-L2 — two unowned residuals found while grounding:** `skills/build/SKILL.md` says *"the five sweeps"* where §9 has **six** (a)–(f), and the DoD gate list's numbering defect. Fix in-slice if trivial, else route. **S12-L3 — this is the LAST slice; plan close follows immediately:** the ROADMAP migrations, the declined-decision lines for S3 GAP-5 and S5's X1–X5, and the plan-file delete. **S12-L4 — the plan's own Slice-12 arithmetic was amended at Stage 7** (12b owes 34,237 B, not 29,358); confirm 12b was specced off the amended table, not the stale one. **S12-L5 — the S12a harvest's row-(b) gate item does not fit ROADMAP** (12,583 B measured on this merge tree; 16 B usable, the item is 276 B). File it as **(h)** on the *Gate items* entry at the **12b/plan-close ROADMAP migration**, where retiring the plan-0041 entry pays for it several times over. Text is drafted verbatim in the S12a harvest record; the rule half already landed unbudgeted in `docs/claugentic-standards/docs-traceability.md` → *Reach, not residence*, so the lesson is not carried by this obligation alone.
 
 ---
 
@@ -1944,3 +1944,47 @@ string was pre-validated and parses. And the bigger one is not in the diff at al
 arithmetic subtracted a ladder the same spec ordered to keep, so its `≥10,000 B` target was impossible
 by 3,444 bytes and its follow-on table under-states 12b's work by 4,879 bytes. If 12b gets specced off
 that table, it plans short by exactly the size of the section this slice correctly refused to cut.
+
+---
+
+#### Slice 12a — Stage-7 delta verdict (round 2)
+
+> **Independence disclosure.** Delta pass ran as **Opus 5 (1M context)** — same model family as the
+> builder and as the round-1 synthesizer. Clean-context, role-independent; **not** model-independent.
+> Every byte figure below was re-measured from the git blobs, not taken from the fix commit or the
+> round-1 record.
+
+**VERDICT: PASS — clear to land.** All five prescriptions applied verbatim, nothing new broken.
+
+| P | Prescription | Status | Evidence (re-measured here) |
+|---|---|---|---|
+| **P1** | `skills/condense/SKILL.md` — `:3`, `:12`, `:26-28` | **DISCHARGED** | `:3` is **one physical line**, **exactly 2 leading spaces**, 1,268 B. `yaml.safe_load` on the block yields a **`dict`** with `description` = a **1,248-char** string, **0 newlines** — matching the round-1 pre-validation exactly. `"WORKFLOW condensation"` absent from the string. `:12` and `:26-29` match the prescribed text word for word. `pytest tests/test_frontmatter_parses.py` **17 passed, exit 0**; `claude plugin validate . --strict` **exit 0** (both re-run, exit code read directly). |
+| **P2** | `CHANGELOG.md:161` + `:166-167` | **DISCHARGED** | `:161` reads `(5,785 bytes net)`. Re-wrapped paragraph `:157-169` runs 43–97 chars — inside the file's own convention (only 3 lines in the whole file exceed 100; max 121). No orphan: `:169` at 43 chars is a normal paragraph terminator. The new `(see *Added*, above)` **resolves** — `### Added` at `:14`, entries at `:16` and `:34-36` are exactly "the doc-budget gate ships" + "`init` seeds `.claude/claugentic-doc-budgets.json`". |
+| **P3** | `docs/claugentic-decisions/doc-lifecycle.md` | **DISCHARGED** | Stray blank gone — bullet list contiguous at `:5-10`. Entry says **three** clauses and enumerates exactly the three the survivor at `WORKFLOW.md:175` keeps (do-it-now-not-deferral · DoD **OFFERs** · inline pass reversible → rides as FLAG). Arithmetic re-derived from the **base blob**, not from the entry: region `bf4a568` L175–188 = **10,664 B**, ladder L182–185 = **4,108 B**, difference = **6,556 B**; head ladder = **4,087 B**, survivor `:175` = **792 B**. `10,664 = 6,556 + 4,108` ✔ · `4,879 = 4,087 + 792` ✔ · `10,664 − 5,785 = 4,879` ✔ · `96,022 − 90,237 = 5,785` ✔. File **8,967 B** exactly as predicted, vs cap 14,000 / WARN band 12,600. |
+| **P4** | `docs/claugentic-decisions/workflow-process.md:10` | **DISCHARGED** | Appended to the **existing** entry (single-line modification, no new bullet). Matches the DoD's actual structure at `docs/claugentic-WORKFLOW.md:166-185`: deterministic gates **1–6**, reviewer sign-offs **1–2** — each group numbering from 1. **No shard path cited** — the clause generalizes to *"DoD gate N"* rather than naming gate 5, which satisfies the `CLAUDE.md` never-link-a-shard rule and covers `release-contract.md:11` without pointing at it. |
+| **P5** | `.claude/plans/0041-adopter-hardening.md` | **DISCHARGED** | Rows now `90,237 (actual, landed)` / `34,237` — and `90,237 − 56,000 = 34,237` ✔ against the ≤56,000 B condensation AC. AC amended to **≥5,700 B**; **delivered 5,785 B → AC now MET**. Parenthetical closes: `10,000 − 6,556 = 3,444` ✔ · `6,556 − 792 + 21 = 5,785` ✔ · `6,556 − 5,785 = 771` ✔. `S12-L4` present on the obligations line. |
+
+**Sweep complete.** `git grep -n "WORKFLOW condensation"` → **2 hits, both in the plan's round-1 verdict**
+quoting the retired string as a record. **Zero shipped surfaces.** `ARCHITECTURE_TREE.md:96`
+("the CANONICAL condensation procedure … WORKFLOW's DoD points at") and `skills/condense/SKILL.md:160`/`:171`
+now agree with the new frontmatter rather than contradicting it.
+
+**Regression check — hard AC held.** `.claude/claugentic-doc-budgets.json` blob is `181a5b4a` at **all
+three** of `bf4a568`, `0066997`, `f13db8c`, and absent from `git diff --name-only bf4a568..f13db8c`.
+`docs/claugentic-WORKFLOW.md` blob is **byte-identical** between `0066997` and `f13db8c` (`71644298`,
+90,237 B) — the fix pass touched no WORKFLOW text.
+
+**Gates spot-checked (exit codes read directly, never through a pipe):** frontmatter test **17 passed /
+exit 0** · `claude plugin validate . --strict` **exit 0** · `claugentic-check_doc_budgets.py` **exit 0,
+zero WARN** · `check_shipped_content.py` **exit 0** · `claugentic-check_architecture_tree.py` **exit 0**.
+
+**Nothing new introduced.** No broken pointer, no new over-claim, no neighbour contradiction. One
+**advisory, non-blocking, do-not-block-the-land** residual: the ledger entry's prose *"the duplicated
+6,556 B was deleted and a 792 B pointer line put back"* invites `6,556 − 792 = 5,764`, **21 B short** of
+the published 5,785 — the ladder's own in-line 21 B shrink is unstated. This originates in **round 1's own
+verbatim prescription**, not in the fix pass, and is materially unlike the defect it replaced: the entry
+states both endpoints (`96,022 → 90,237`) **in the same sentence**, so −5,785 *is* directly derivable from
+the entry itself. Left as-is; recorded here so it is a known residual, not a silent one.
+
+**DoD delta:** AC-1 **met** under the amended ≥5,700 B · AC-2 **met** (verified byte-identical) ·
+AC-3 pointer sweep **now complete** · AC-4 unchanged and untouched. **No new tech debt.**

@@ -382,7 +382,7 @@ out, others can build on it, so it's hard to take back. Want me to go ahead?"* �
 
 On approval, land per the WORKFLOW Stage 8: a **conventional commit**, **dispose of the plan**
 (below), append a **`docs/claugentic-DECISIONS.md`** line for any non-trivial choice, and **run
-the Stage-9 harvest checklist** (the five sweeps — see `docs/claugentic-WORKFLOW.md` §9; point
+the Stage-9 harvest checklist** (the six sweeps — see `docs/claugentic-WORKFLOW.md` §9; point
 at it, don't restate it).
 
 **Disposition before removal (gated only on the committed slice).** A plan is **removed from
