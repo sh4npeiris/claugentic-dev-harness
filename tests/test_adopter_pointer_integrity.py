@@ -3,8 +3,8 @@
 Every `.claude/agents/*.md` role file and `docs/claugentic-WORKFLOW.md` ship inside the
 plugin and are read, verbatim, by agents running in an ADOPTER's repo. So a pointer in
 them is only honest if it resolves **in the reader's project**, not merely in this one
-(`docs/claugentic-standards/docs-traceability.md` -> *Reach, not residence*). Three
-pointer regressions are pinned here, each one a real defect this slice fixed:
+(`docs/claugentic-standards/docs-traceability.md` -> *Reach, not residence*). Each pin
+below is a real defect a slice fixed (1-3 from Slice 9; 4 from Slice 12b):
 
   1. **The dangling honesty-positioning pointer.** Two role files told the reader to read
      `CLAUDE.md` -> "Honesty positioning". No such heading exists in an adopter's managed
@@ -27,6 +27,11 @@ pointer regressions are pinned here, each one a real defect this slice fixed:
      read from the plugin manifest, never re-typed -- is pinned present, pinned to a single
      occurrence within WORKFLOW, and pinned as the only shipped `.md` prose that carries it
      (one canonical home per lesson; every other mention is a pointer).
+  4. **The role roster's completeness.** `docs/claugentic-DECISIONS.md` -> roles-review
+     names WORKFLOW -> Roles as the roster's CANONICAL home, so a reader takes that list
+     as the set. It had silently drifted: two agents shipped in the plugin were absent
+     from it for as long as they had existed, and a condensation pass would have ratified
+     the omission. The list is therefore derived-and-compared, never hand-maintained.
 
 HONEST SCOPE. Pin 1 is a **proximity heuristic**, not a semantic check: it fires on
 `CLAUDE.md` and "honesty positioning" within 40 characters of each other with no sentence
@@ -268,4 +273,67 @@ class TestWorkflowNamesTheUpstreamChannel:
             f"the channel URL must appear in exactly one shipped markdown file "
             f"({WORKFLOW_PATH.name}); found it in: {offenders}. A second prose copy is a "
             "second home that drifts -- point at the learning loop instead."
+        )
+
+
+# --- Pin 4: the Roles roster names every agent that ships ---------------------------------
+
+ROSTER_HEAD = "Starter library (`.claude/agents/`):"
+ROSTER_TAIL = "Also available without new files:"
+ROSTER_ENTRY_RE = re.compile(r"^- \*\*`([a-z][a-z-]*)`\*\*", re.MULTILINE)
+
+
+def _tracked_agent_names() -> list[str]:
+    """Agent role names from `git ls-files` -- the tracked corpus, never a disk walk.
+
+    A repo-rooted `glob`/`rglob` would sweep `.claude/worktrees/`, which lives INSIDE this
+    checkout: an in-flight worktree's own `.claude/agents/` would inflate the set and this
+    pin would fail for a reason that has nothing to do with the roster
+    (`docs/claugentic-standards/testing.md` -> a scan's CORPUS is part of its contract).
+    """
+    out = subprocess.run(
+        ["git", "-C", str(REPO_ROOT), "ls-files", ".claude/agents/*.md"],
+        capture_output=True, text=True, encoding="utf-8", check=True,
+    ).stdout
+    return sorted(Path(line.strip()).stem for line in out.splitlines() if line.strip())
+
+
+def _roster_names() -> list[str]:
+    """The agent names WORKFLOW's Roles section actually lists."""
+    text = WORKFLOW_PATH.read_text(encoding="utf-8")
+    start, end = text.find(ROSTER_HEAD), text.find(ROSTER_TAIL)
+    assert 0 <= start < end, (
+        f"{WORKFLOW_PATH.name}: the Roles roster block is no longer delimited by "
+        f"{ROSTER_HEAD!r} .. {ROSTER_TAIL!r} -- re-derive the anchors before editing "
+        "this test; do not delete the pin."
+    )
+    return sorted(ROSTER_ENTRY_RE.findall(text[start:end]))
+
+
+class TestTheRolesRosterIsComplete:
+    def test_the_roster_is_not_vacuous(self) -> None:
+        # Without this, a renamed heading or a broken regex would compare [] == [] and the
+        # pin would agree with an EMPTY roster.
+        tracked = _tracked_agent_names()
+        assert len(tracked) >= 5, f"only {len(tracked)} tracked agent files -- corpus is wrong"
+        assert len(_roster_names()) >= 5, "the roster block parsed to almost nothing"
+
+    def test_the_roster_names_every_tracked_agent(self) -> None:
+        roster, tracked = _roster_names(), _tracked_agent_names()
+        assert roster == tracked, (
+            f"{WORKFLOW_PATH.name} -> Roles is the roster's canonical home, so it must name "
+            f"every role file. Missing from the doc: {sorted(set(tracked) - set(roster))}; "
+            f"named but not on disk: {sorted(set(roster) - set(tracked))}."
+        )
+
+    def test_the_shipped_manifest_agrees(self) -> None:
+        # The third leg: a role file that is not registered never loads, and a registered
+        # path that does not exist is a dead entry. Both are invisible to the doc alone.
+        registered = sorted(
+            Path(a).stem
+            for a in json.loads(PLUGIN_MANIFEST.read_text(encoding="utf-8"))["agents"]
+        )
+        assert registered == _tracked_agent_names(), (
+            f"`.claude-plugin/plugin.json` registers {registered}, but the tracked role "
+            f"files are {_tracked_agent_names()}."
         )
