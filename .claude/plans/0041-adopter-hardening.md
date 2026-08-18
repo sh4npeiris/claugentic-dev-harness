@@ -1988,3 +1988,142 @@ the entry itself. Left as-is; recorded here so it is a known residual, not a sil
 
 **DoD delta:** AC-1 **met** under the amended ≥5,700 B · AC-2 **met** (verified byte-identical) ·
 AC-3 pointer sweep **now complete** · AC-4 unchanged and untouched. **No new tech debt.**
+
+---
+
+## Slice 12b — RE-SPECCED (Stage 4, 2026-08-18): record the rung-3 decision, land the sanctioned cuts, close the plan
+
+**The original 12b spec above is SUPERSEDED.** Its `≤56,000 B` AC and its `70,000 B` cap are both
+withdrawn as measured-impossible. This section replaces it.
+
+### Why the original 12b cannot be built
+
+Grounded twice, independently. `docs/claugentic-WORKFLOW.md` is **90,237 B** post-12a. The full
+duplication + density lever list sheds **21,000–25,400 B**, landing **64,900–69,200 B**. That is
+*above* the **63,000 B** WARN line of the intended 70,000 cap — so the cap the spec wanted would put
+the file in **permanent WARN on day one**, which `docs/claugentic-decisions/doc-lifecycle.md:7`
+explicitly rules out. Closing the remaining 8,900–13,200 B means cutting ~10 KB of live constraint
+prose from a document whose every surviving section is a canonical home another file cites by name.
+
+**The plan pre-declared this exact outcome** (*★ THE HONEST FALLBACK, PRE-DECLARED*): surface the
+measured achievable size and the honest cap, and **stop** — it is a user decision. **The user chose
+escape-valve rung 3: SHARD WORKFLOW** (2026-08-18), and separately sanctioned two density cuts.
+
+### Why sharding is plan 0042, not this slice
+
+- **It changes the release/init contract.** Plan 0040 (the DECISIONS shard) deliberately did **not** —
+  `scripts/build_release.py:156` puts `docs/claugentic-decisions/` in `DEV_ONLY_DIRS` precisely so
+  adopters are unaffected. WORKFLOW ships and `init` delivers it, so a shard needs a managed-set
+  directory row. That is a different risk class and deserves a plan-gate.
+- **Blast radius ~3× the precedent** — **118** path citations across 37 files (re-derived via
+  `git ls-files`) and ~45 anchored-section citations, vs 0040's 90. Plus **three mechanically-pinned
+  assertions** 0040 had zero of, all in `tests/test_adopter_pointer_integrity.py`: the adopter note's
+  position before the first `## 0.` stage heading · the plugin URL appearing exactly once in
+  WORKFLOW.md (it lives in *The learning loop*) · the `offenders == [WORKFLOW_PATH]` no-second-home
+  assertion.
+- **It requires amending the rule it is climbing.** Rung 3 says the index stays routing-only under a
+  tight cap; the standards-catalog shape links modules directly. Which contract WORKFLOW's shards use
+  is a Stage-2/3 design decision — and it is what makes the blast radius ~10 files instead of ~50.
+- **12b is already the plan's terminal ceremony** — it carries the whole-feature closing pass that
+  has never run in twelve slices, plus S12-L3/L5 and the plan close. Stapling an 8-way structural
+  split of the most-cited shipped document in the repo onto that and calling it *no new tech debt* is
+  not credible.
+
+**Not a blocker, recorded so 0042 does not re-derive it:** "shipped" is *not* the obstacle. The
+harness has already sharded a shipped, init-delivered rule-book — the standards catalog
+(`docs/claugentic-ENGINEERING_STANDARDS.md` is a 1,455 B entry point; 11 modules live in
+`docs/claugentic-standards/`, delivered by a **single directory row** at `skills/init/SKILL.md:140`).
+So `build_release.py` needs **no** change (a tracked dir ships by default-include) and
+`check_shipped_content.py` Pass D is unaffected.
+
+### Files & changes
+
+1. **`docs/claugentic-WORKFLOW.md` — the two sanctioned cuts only.**
+   - **Delete the skills-taxonomy map** (the `### Skills-taxonomy map` H3 block, ~1,459 B). It
+     self-describes as *"a short model-upheld note, not a managed doc and not wired — a lens the
+     maintainer consults, nothing reads it"*, and has **zero inbound citations** repo-wide. Re-verify
+     that zero by `git grep` before deleting.
+   - **Compress the role roster** (the per-role prose under `## Roles`, ~2,597 B → ~900 B). The
+     **list must survive** — `docs/claugentic-decisions/roles-review.md:10` declares
+     *(canonical: WORKFLOW → Roles)*. Keep each agent's name + a one-clause posture; drop the prose
+     that restates the agent's own `description:` frontmatter near-verbatim.
+   - **★ FIX THE ROSTER WHILE COMPRESSING IT — it is already stale.** `.claude/agents/` holds **9**
+     agents; WORKFLOW's Roles section names only **7**. `retrospect-harvester` and `runtime-qa` are
+     absent **entirely**. Compressing without fixing would silently ratify the omission in the
+     section the ledger calls canonical. *(Note: an earlier grounding pass attributed a "Roster = 9
+     agents" phrase to `roles-review.md:10`; that phrase does not exist — the line says "Roster maps
+     to distinct FUNCTIONS/POSTURES". The canonical-home claim is real; the quoted count was not.)*
+
+2. **NO cap for WORKFLOW.** `.claude/claugentic-doc-budgets.json` stays **byte-untouched** (hard AC,
+   same as 12a). Record why in the ledger rather than reaching for a number:
+   - the only cap clearing ~87,000 B is ≥88,000, parking the file at ~99% — permanent WARN;
+   - a cap at ~109,000 (87,078 ÷ 0.8) is the ceiling-raise `doc-lifecycle.md:7` marks
+     **do-not-re-propose**;
+   - **`reportOnly` is not the escape either** — it graces the *size verdict*; using it to bless a
+     current measurement is the same anti-pattern wearing a third face.
+
+3. **`docs/claugentic-decisions/doc-lifecycle.md` — one entry, and one FIX.**
+   - **New dated entry:** rung 3 chosen for WORKFLOW, with the measured numbers (lever list sheds
+     21,000–25,400 B → 64,900–69,200 B, above the 63,000 B WARN of a 70,000 cap), the cap **deferred
+     to the shard**, and the pointer to plan 0042.
+   - **★ FIX `:7`'s worked case — it documents its own violation.** It reads *"WORKFLOW measured
+     83,383 B; relocation alone leaves 73,590 B … resolved by pairing the 70,000 B cap with a hard
+     ≤ 56,000 B condensation AC in the same slice."* Every number is stale (real: 96,022 base, 90,237
+     post-relocation) **and the stated resolution is the one that proved impossible.** Restate it as
+     what actually happened: the pairing did not work, and the recourse was rung 3. This is the
+     ledger entry that exists to prevent cap-at-current-size — leaving a failed resolution presented
+     as a success inside it is self-refuting. Shard is at 8,967/14,000, so there is room.
+
+4. **`skills/init/SKILL.md:985` + `tests/test_check_doc_budgets.py:1266` — the WORKFLOW half of the
+   never-cap rationale is FALSE.** Both give *absence* as the reason (*"a cap on an absent file is a
+   hard exit-1 breach"* / *"either key would hand an adopter a repo that cannot commit"*). That is
+   true for `INVARIANTS` (created lazily, on demand) but **not** for WORKFLOW — `init` **delivers**
+   it, so it is present. Restate WORKFLOW's reason correctly: a **managed full-copy doc the adopter
+   does not author** should not be capped in their repo, because the gate would fire on
+   harness-authored content they cannot condense. Keep the assertion; fix the stated reason.
+
+5. **`docs/claugentic-ROADMAP.md` — the migrations, funded by the plan-0041 entry's deletion.**
+   Discharge **S12-L5**: file gate item **(h)** (drafted verbatim in the S12a harvest record) on the
+   *Gate items* entry. Then migrate every still-live 0041 residual and **delete the plan-0041 ACTIVE
+   entry** — measure before and after; ROADMAP must **net-shrink or hold**, never WARN.
+   Add the plan-0042 entry.
+
+6. **`.claude/plans/0042-workflow-sharding.md` — NEW**, from `docs/claugentic-PLAN_TEMPLATE.md`,
+   carrying the proposed split (thin index + 7 shards in `docs/claugentic-workflow/`, index-only
+   routing contract, the three pinned assertions, the ~14-file change list) so 0042 starts grounded.
+
+7. **Declined-decision lines** for S3 GAP-5 and S5's X1–X5, per S12-L3.
+
+### Acceptance criteria
+
+- **`.claude/claugentic-doc-budgets.json` byte-UNTOUCHED** (hard).
+- WORKFLOW shrinks by **≥3,000 B measured on the MERGE tree** (the two cuts; ~3,159 B expected).
+  *(Deliberately a floor, not a target — the lesson of 12a's AC. Compute the ceiling before asserting
+  a number, and if the measured shed lands under it, the SPEC is what changes.)*
+- WORKFLOW's Roles section names **all 9** agents in `.claude/agents/` — assert by deriving the set
+  from disk, not from a hand-list.
+- `git grep` for the skills-taxonomy map's inbound citations returns **zero** before deletion.
+- **No new cap anywhere**; doc-budget gate exit 0, **zero WARN**, on the merge tree.
+- Every 0041 residual is either landed, migrated to ROADMAP, or carried by plan 0042 — **nothing
+  dropped silently**. The plan file is deleted only after this is verified by name.
+- **The whole-feature closing pass RUNS** (Stage 7), with the orchestrator passing the Stage-1
+  job-to-be-done into the `synthesizer-gate` prompt: *"an adopter's harness stays lean, current, and
+  honest without being asked"* — the three-adjective form; correct the source line if it still reads
+  "lean and current".
+- Full battery green.
+
+### In-scope review dimensions
+
+`docs-traceability` (the citation/pointer surface + the two false rationales) · `honesty` (a
+withdrawn AC and a failed resolution must be recorded as such, not quietly replaced) ·
+`maintainability-structure` (is deferring the cap to 0042 the right seam, or is it debt wearing a
+plan number?).
+
+### Pre-registered land obligations
+
+- **S12b-L1 — the ledger squeeze is unchanged.** ROADMAP had **16 B** usable at S12a's merge.
+  Measure ROADMAP before AND after; the plan-0041 entry's deletion is what funds items (h) + 0042.
+- **S12b-L2 — `reportOnly` must not appear** in any diff of this slice as a way to bless WORKFLOW's
+  size. Grep the diff for it and say so explicitly.
+- **S12b-L3 — the plan-file delete is LAST**, after the closing pass and after the residual sweep is
+  verified by name. A deleted plan whose residuals were never migrated is the failure mode.
