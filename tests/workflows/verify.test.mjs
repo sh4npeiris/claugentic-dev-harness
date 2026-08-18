@@ -918,10 +918,22 @@ test("verify.js: the namespace fallback never sets forcedSameModel and never reu
   assert.match(body, /:ns-fallback/, "the namespace retry must carry its own distinguishable label");
   assert.match(body, /\.\.\.opts/, "the retry must spread the ORIGINAL opts so the judge model: pin survives it");
   assert.match(body, /bareAgentType\(/, "the fallback name must be DERIVED, never a literal");
-  // It fires on a THROW only -- a null return is a legitimate agent outcome, not a resolution
-  // failure, and retrying it would double every genuine agent failure.
-  assert.match(body, /catch \(/, "the fallback must hang off the throw path");
-  assert.ok(!/== null/.test(body), "the fallback must not fire on a null return (a legitimate agent outcome)");
+  // No fallback exists (a built-in, an already-bare id) -> RETHROW the original error. Re-spawning
+  // the identical id would double every built-in spawn failure and swallow the real cause.
+  assert.match(
+    body,
+    /if \(bare === agentType\) \{\n {6}throw e;/,
+    "when there is no namespace to strip the wrapper must rethrow, never retry the identical id",
+  );
+  // It fires on a THROW only -- a null return is a legitimate agent outcome (skip / terminal
+  // error), not a resolution failure, and retrying it would double every genuine agent failure.
+  // Pinned as the exact happy path rather than as an absent token: the fallback must hang off
+  // `catch`, with the first attempt returned straight out of `try` and inspected by nothing.
+  assert.match(
+    body,
+    /try \{\n {4}return await agent\(prompt, opts\);\n {2}\} catch \(/,
+    "the first attempt must be returned directly from try{} -- any inspection of its RESULT means the fallback also fires on a null return",
+  );
 });
 
 test("verify.js header: the 'no loops' / roster-bounded claim is corrected (honesty)", () => {
