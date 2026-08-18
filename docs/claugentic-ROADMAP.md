@@ -54,4 +54,4 @@ Longer-term tracks and ideas — hand-written, never fence-touched. Deferred har
 - **`harness`** — **0040 Verify banked:** the non-`.md`-in-shard-dir stance. *(The engine `nsAgent()` bare-name fallback moved into plan 0041 S10.)*
 - **`harness`** — Stage-2b advisory panel as an `engine/verify.js`-orchestrated fan-out: prose-convened 2b works; engine orchestration only if it proves unwieldy at scale (`0026` §C; the prompt mode landed).
 - **`harness`** — Eval residuals, and a stale baseline: `eval/BASELINE.md`'s newest row is v0.5.0 — record one per release.
-- **`harness`** — **0041 S10a spotted, out of scope (`engine/qa.js`):** `screenshotPath` has **zero** engine call sites — dead code that four tests still pin; delete it with its pins, or wire it as the report's oracle.
+- **`harness`** — **0041 S10a spotted, out of scope (`engine/qa.js`):** `screenshotPath` has **zero** engine call sites — dead code that five tests still pin; delete it with its pins, or wire it as the report's oracle.
