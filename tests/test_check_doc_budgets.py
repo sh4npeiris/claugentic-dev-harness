@@ -1174,6 +1174,7 @@ class TestProductionConfig:
             "docs/claugentic-decisions/*.md": 14000,
             "docs/claugentic-ROADMAP.md": 14000,
             "docs/claugentic-INVARIANTS.md": 20000,
+            "docs/claugentic-standards/*.md": 60000,
         }
 
     def test_every_configured_entry_resolves_to_something_real(self):
