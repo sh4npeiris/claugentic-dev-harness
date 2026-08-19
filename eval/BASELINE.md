@@ -67,6 +67,94 @@ table · contamination note.
 
 ---
 
+### 2026-08-19 · v0.5.3 · standard · eval/fixture-defects/app (release gate for v0.5.3)
+
+- **Models:** builder **Opus 5 (1M context)**; judges **inherit the session tier** — v0.5.3 removed the
+  pinned `model:` from the agents and left `MODELS = { judge: null }` in the engine, so there is no longer
+  anything to pin them to. `verification.crossModel` came back **`false`** and the same-model tag FIRED
+  verbatim: *"same-model review on this run -- the judge and the builder are the same model family here."*
+  **This is now STRUCTURAL, not a run-to-run outcome, and it is the honest cost of the portability fix:**
+  in a single-session run the judge can never be a different family from the builder, so `crossModel: true`
+  is **unreachable** and the disclosure will fire every time. A genuine cross-family read now means running
+  the review session on a different tier — which is exactly the one control that works for every adopter,
+  and is why the fix was made. Read precision-proxy and refute-rate as same-family; recall is unaffected
+  (it is graded by the human against the manifest, not by the judges). Stated in the v0.5.3 CHANGELOG
+  under *Known* rather than left for a reader to discover.
+- **Run shape:** scripted `engine/audit.js` via the Workflow tool (the only comparable path). `COMPLETE` —
+  5/5 cells swept, 0 pending, **32 agents, 0 errors**, `verificationIncomplete: false`. `lensCoverage` all
+  `ran-found`: security 9 · testing 7 · maintainability-structure 9 · data-and-persistence 14 ·
+  reliability-resilience 11 (**50 raw → 26 surfaced** after coded dedup + synthesis prune; v0.5.2 was the
+  same 50 raw → 29 surfaced, so the prune ran slightly harder — no recall consequence). First attempt
+  succeeded; no respawn, no resume.
+- **No-peeking, STRENGTHENED this run (the v0.5.2 fix, applied).** v0.5.2 recorded that prompt-scoping
+  alone let three verifiers' greps surface **SEED_MANIFEST lines**, and prescribed a path-level exclusion.
+  This run ran from a **scratch worktree with `SEED_MANIFEST.md` and `BASELINE.md` deleted from it**, so a
+  scope-rooted grep cannot reach the key at all. **Honest limit:** agent CWD is still the main checkout, so
+  a repo-rooted grep can still see the *filename* — and several did. **What changed is the payload:** this
+  run surfaced only the **path**, never a manifest **line**, and every agent that saw it disclosed the fact
+  and stated it did not open the file. Structural exclusion of the agents' CWD is the remaining gap.
+
+- **Recall: 10/10 — flat vs v0.5.2's 10/10.** Seed↔finding map (graded by hand; each tolerance case
+  re-verified against the source):
+
+  | Seed | manifest loc | finding | finding loc | match |
+  |---|---|---|---|---|
+  | SEC-1 | `handlers.py:23` | #1 search f-string reads any table | `handlers.py:23-24` | exact |
+  | SEC-2 | `handlers.py:9` | #3 hardcoded `API_TOKEN` in source | `handlers.py:9` | exact |
+  | TEST-1 | `test_tasks.py:21` | #6 suite passes on deliberately broken code | `test_tasks.py:21-34` | **tolerance — the weakest hit of the ten; see below** |
+  | TEST-2 | `test_tasks.py:26` | #7 the test patches the function under test | `test_tasks.py:26-30` | exact |
+  | MAINT-1 | `service.py:9` | #13 one function parses + queries + renders | `service.py:9-36` | exact |
+  | MAINT-2 | `handlers.py:6` | #10 **and** #11 (a duplicate pair) | `handlers.py:6` · `service.py:6` | exact |
+  | DP-1 | `db.py:32` | #17 project half-created if the task write fails | `db.py:32-46` | tolerance — inside `create_project_with_task` (def at `:32`) |
+  | DP-2 | `db.py:49` | #18 one extra query per task | `db.py:49-69` | tolerance — the N+1 inside `list_tasks_with_project` (def at `:49`) |
+  | REL-1 | `handlers.py:40` | #24 DB outage reported as "zero tasks" | `handlers.py:40-41` | exact |
+  | REL-2 | `client.py:17` | #22 unbounded retry, no timeout, no backoff | `client.py:17` | exact |
+
+- **The TEST-1 qualification, stated rather than smoothed over.** v0.5.2 surfaced TEST-1 as its **own
+  item** ("write-path test asserts nothing", `test_tasks.py:21-23`). This run did **not**: no finding's
+  title names that test. It is instead **subsumed** into #6, a suite-wide mutation finding whose location
+  range covers `:21-34` and whose survivor list names *"set_status becomes a no-op"* — precisely TEST-1's
+  stated consequence, measured. Meanwhile #7's title claims *"two of the three existing tests check nothing
+  real"* while its locations cover only TEST-2. So the defect **was** found and evidenced; it was not
+  surfaced as a discrete, fixable item. Graded a hit under the manifest's own rule (same defect, same file,
+  line tolerance) — **but a reader working this backlog would fix TEST-2 and might never notice TEST-1
+  needs its own edit.** If the next run also subsumes it, treat that as a recall regression forming, not a
+  presentational quirk.
+
+- **Precision proxy: 26/26 (100%)** on the baseline-comparable *"judged real on review"* instrument —
+  **0 pp** from v0.5.2's 29/29. As in v0.5.2, **no adversarial second instrument was run**, so there is no
+  counterpart to v0.5.0's 19/25 refute-first number; that absence is stated rather than papered over, and
+  it is why only the comparable figure carries the block decision. The 16 non-seeded findings are all
+  literally true of the fixture (stored XSS in the renderer, an auth check that is never called, tests that
+  delete the real DB, no indexes, unenforced FKs, a `create-if-absent` schema, no timestamps, leaked
+  handles, a constant-true predicate, a timing-unsafe token compare) and all carry evidence.
+- **Refute-rate: 0/26 (0%)** — **0 pp** from v0.5.2's 0/29. Same honest caveat as every prior baseline: a
+  refute-rate of zero measures the judges' **agreement**, not the findings' truth, and this run's judges
+  were same-family (structurally so — above).
+
+- **MEASURED HARNESS DEFECT, new this run: coded dedup missed a same-defect pair.** MAINT-2 surfaced
+  **twice** — #10 from the `testing` lens (key `contract-testing-/-declarative-parity-...`) and #11 from
+  `maintainability-structure` (key `dry-/-single-source-of-truth-...`). Same defect, same two files, two
+  different `findingKey`s, so the coded dedup — which keys on the normalized issue class — never collapsed
+  them. **The 26 surfaced items therefore describe 25 distinct defects**, and the precision-proxy
+  denominator is one high. Not a recall issue and not a regression vs v0.5.2 (which had no such pair to
+  catch), but it is a real duplicate reaching a user's backlog. **Route it to the roadmap only if a second
+  run reproduces it** — one instance is not yet evidence that a cross-lens semantic dedup pass is worth
+  its cost, and the harness's own north star says an unevidenced addition is declined, not built.
+- **Fence write:** none to revert. `engine/audit.js` was invoked directly and returns `renderedBacklog` for
+  a skill to write; no skill write step ran, and `docs/claugentic-ROADMAP.md` is byte-untouched (verified
+  with `git status --porcelain`).
+- **Contamination: canary ABSENT.** The manifest's planted canary sentence appears nowhere in any output
+  (checked case-insensitively across the full run record). The answer key was never opened — see the
+  no-peeking note above for what *did* leak (the filename only) and what is still open.
+- **Verdict: NO REGRESSION — does not block v0.5.3.** Recall **10/10, flat**; precision proxy **0 pp**;
+  refute-rate **0 pp**. Block thresholds (recall down by >=2 seeds, or either rate moving >=15 pp) are not
+  approached in the blocking direction. Three honest asterisks, none of them blocking: the same-model judge
+  family is now **structural**, the adversarial instrument was again not run, and TEST-1 was found but not
+  surfaced as its own item.
+
+---
+
 ### 2026-08-18 · v0.5.2 · standard · eval/fixture-defects/app (release gate for v0.5.2)
 
 - **Models:** builder **Opus 5 (1M context)**; verifiers/judges pinned `opus`. `verification.crossModel`
