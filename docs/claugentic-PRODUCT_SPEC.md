@@ -143,6 +143,30 @@ under-claims rather than over-claims, every time."
 - **What good feels like** — "my managed docs stay lean over months of use, and nothing is dropped
   without my say-so — git history keeps the full record."
 
+## Deliberate non-goals (declined 2026-08-19 — do NOT re-propose)
+
+Declined against the north star above: each compensates for a capability the model already has,
+or waits on evidence that has not arrived. **Deleting them is the YAGNI rule applied to this
+harness itself.** Git history holds the full prior text.
+
+- **Bootstrap-and-approve self-extension** — the harness proposing a tailored per-project agent/skill
+  set. A capable model already tailors its approach; this is scaffolding for one that could not.
+- **Multi-charter / domain-pack** — re-pointing the kernel at a non-software domain. Diagnosed, never
+  built, and no second domain has asked for it.
+- **`doctor` ledger-coherence check** — flag semantically conflicting ledger entries. A model reading
+  two contradictory rules already notices; this mechanizes noticing.
+- **Release/init-contract completeness residual** — its own text said *YAGNI-until-a-real-miss*. No miss.
+- **Experience-craft's two deferred parts** — runtime felt-observation (capability unproven) and a
+  frozen-schema enum slice.
+- **Small standards fills** (`architecture-styles`, error-handling, DDD) — its own text said *only when
+  a change pulls it in*. Nothing pulled.
+- **Adoption-evidence-gated items** — its own text said *only if a real adopter proves the need*.
+  Three deployments, no such need.
+- **Stage-2b advisory panel as an engine fan-out** — prose-convened 2b works; engine orchestration was
+  conditional on it proving unwieldy, which it has not.
+
+**If one is ever re-proposed, the bar is evidence — a real project that needed it — not a better argument.**
+
 ## Acceptance criteria
 
 The machine-readable projection of the promise + invariant + features above (the frozen schema —
