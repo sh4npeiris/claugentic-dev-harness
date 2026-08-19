@@ -1,0 +1,11 @@
+#!/bin/sh
+# git fires THIS hook for a conflict-free `git merge` — never `pre-commit`. Without this file
+# neither chained gate runs on a merge result (measured, git 2.55: an over-cap ledger merges
+# clean and lands unchecked; plan 0041 S7 L1).
+#
+# Delegate to the sibling wrapper; do NOT duplicate the gate chain. One chain, two entry points:
+# adding a gate to `pre-commit` covers merges automatically, and the two can never drift.
+#
+# Unchanged limits, stated so nobody reads more into this than it does: a server-side PR merge
+# runs NO local hook at all, and a merge that stops on conflicts commits via `pre-commit` anyway.
+exec "$(dirname "$0")/pre-commit" "$@"

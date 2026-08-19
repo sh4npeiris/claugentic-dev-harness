@@ -695,8 +695,25 @@ def _wrapper_template() -> str:
     UNIQUE: two shebang'd blocks would mean the skill grew a second wrapper and this pin would
     silently be watching whichever came first.
     """
-    blocks = [b for b in _sh_fences(INIT_SKILL.read_text(encoding="utf-8")) if b.startswith("#!/bin/sh")]
+    shebanged = [
+        b for b in _sh_fences(INIT_SKILL.read_text(encoding="utf-8")) if b.startswith("#!/bin/sh")
+    ]
+    # init documents TWO hook scripts, and they are told apart by CONTENT, never by ordinal:
+    # the wrapper is the one that runs the gate chain; its `pre-merge-commit` sibling is the
+    # one that delegates to it. Each must still be UNIQUE -- a second of either would mean the
+    # skill grew a duplicate and this pin would silently watch whichever came first.
+    blocks = [b for b in shebanged if "run_gate" in b]
     assert len(blocks) == 1, f"expected exactly one wrapper template in init's SKILL, found {len(blocks)}"
+    return blocks[0]
+
+
+def _merge_hook_template() -> str:
+    """The `pre-merge-commit` block `init` tells an adopter to write -- the delegating one."""
+    shebanged = [
+        b for b in _sh_fences(INIT_SKILL.read_text(encoding="utf-8")) if b.startswith("#!/bin/sh")
+    ]
+    blocks = [b for b in shebanged if "run_gate" not in b and "exec " in b]
+    assert len(blocks) == 1, f"expected exactly one merge-hook template, found {len(blocks)}"
     return blocks[0]
 
 
@@ -1240,3 +1257,123 @@ class TestTheRealChainEndToEnd:
         # The report the wrapper printed on ITS stdout arrives on git's stderr (see the sibling
         # above) — the refusal is useless without the reason, so assert the reason is there.
         assert "vs budget 100" in result.stderr, result.stdout + result.stderr
+
+
+class TestTheMergeCommitHook:
+    """The gates must fire on a MERGE result, not only on an ordinary commit.
+
+    Why this class exists (0041 S7 L1, fixed here): git runs `pre-merge-commit` -- NOT
+    `pre-commit` -- when a conflict-free `git merge` creates its commit. With only a
+    `pre-commit` hook wired, an over-cap ledger merged clean and landed completely
+    unchecked. Measured on git 2.55 before the fix: the same merge that is refused below
+    returned exit 0 and committed a 14,192-byte ledger against a 14,000-byte cap.
+
+    The pair is deliberate. The first test proves the merge is REFUSED; the second removes
+    only the merge hook and proves the SAME merge then succeeds -- so the refusal is this
+    hook doing its job, not the merge failing for some unrelated reason.
+    """
+
+    MERGE_HOOK = REPO_ROOT / ".githooks" / "pre-merge-commit"
+
+    def test_the_merge_hook_delegates_rather_than_duplicating_the_chain(self):
+        # DRY, and the reason it matters: a second copy of the gate list would drift the
+        # moment a gate is added to one and not the other. One chain, two entry points.
+        assert self.MERGE_HOOK.is_file(), "the merge hook must ship in .githooks/"
+        body = self.MERGE_HOOK.read_text(encoding="utf-8")
+        assert 'exec "$(dirname "$0")/pre-commit"' in body, body
+        assert "run_gate" not in body, "the merge hook must delegate, never restate the chain"
+
+    @pytest.fixture
+    def merge_repo(self, tmp_path) -> Path:
+        """A repo wired the way `init` leaves one, on a branch named `main`."""
+        root = tmp_path / "adopter"
+        root.mkdir()
+        subprocess.run(
+            ["git", "init", "-q", "-b", "main", str(root)], check=True, capture_output=True
+        )
+        for key, value in (
+            ("user.name", "Harness Test"),
+            ("user.email", "test@example.invalid"),
+            ("commit.gpgsign", "false"),
+        ):
+            subprocess.run(["git", "-C", str(root), "config", key, value], check=True)
+        subprocess.run(
+            ["git", "-C", str(root), "config", "core.hooksPath", ".githooks"], check=True
+        )
+        (root / ".githooks").mkdir()
+        _write_executable(root / ".githooks" / "pre-commit", HOOK.read_text(encoding="utf-8"))
+        (root / "scripts").mkdir()
+        # Tree gate stubbed silent-passing; the BUDGET gate is the real delivered bytes --
+        # faking that one would make the assertion prove nothing.
+        (root / GATE_REL).write_text(SILENT_PASS, encoding="utf-8")
+        shutil.copy(REAL_BUDGET_GATE, root / BUDGET_GATE_REL)
+        (root / "LEDGER.md").write_text("x" * 400, encoding="utf-8")
+        (root / ".claude").mkdir()
+        (root / ".claude" / "claugentic-doc-budgets.json").write_text(
+            json.dumps({"LEDGER.md": {"max": 100, "reportOnly": True}}), encoding="utf-8"
+        )
+        return root
+
+    def _run_merge(self, root: Path, *, with_merge_hook: bool) -> subprocess.CompletedProcess:
+        """Land a passing base, branch a cap BREACH past the hook, then merge it back."""
+        if with_merge_hook:
+            _write_executable(
+                root / ".githooks" / "pre-merge-commit",
+                self.MERGE_HOOK.read_text(encoding="utf-8"),
+            )
+        subprocess.run(["git", "-C", str(root), "add", "-A"], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "-C", str(root), "commit", "-m", "base"], check=True, capture_output=True
+        )
+        subprocess.run(
+            ["git", "-C", str(root), "checkout", "-qb", "side"], check=True, capture_output=True
+        )
+        # `--no-verify` is REQUIRED to create this commit at all -- `pre-commit` correctly
+        # refuses it -- which is itself the proof that the ordinary path was never the hole.
+        (root / ".claude" / "claugentic-doc-budgets.json").write_text(
+            json.dumps({"LEDGER.md": 100}), encoding="utf-8"
+        )
+        subprocess.run(["git", "-C", str(root), "add", "-A"], check=True, capture_output=True)
+        subprocess.run(
+            ["git", "-C", str(root), "commit", "-m", "breach", "--no-verify"],
+            check=True,
+            capture_output=True,
+        )
+        subprocess.run(
+            ["git", "-C", str(root), "checkout", "-q", "main"], check=True, capture_output=True
+        )
+        return subprocess.run(
+            ["git", "-C", str(root), "merge", "--no-ff", "side", "-m", "merge"],
+            capture_output=True,
+            text=True,
+        )
+
+    def test_a_breach_arriving_by_MERGE_is_refused(self, sh, merge_repo):
+        result = self._run_merge(merge_repo, with_merge_hook=True)
+        assert result.returncode != 0, (
+            "a conflict-free merge carrying a cap breach must be refused\n"
+            + result.stdout
+            + result.stderr
+        )
+        # A refusal is useless without its reason -- assert the gate's own line survives.
+        assert "vs budget 100" in (result.stdout + result.stderr), result.stdout + result.stderr
+
+    def test_NON_VACUITY_without_the_merge_hook_the_same_merge_lands(self, sh, merge_repo):
+        # The bug, reproduced. If this starts failing, the test above stopped proving
+        # anything -- the merge would be blocked by something other than this hook.
+        result = self._run_merge(merge_repo, with_merge_hook=False)
+        assert result.returncode == 0, (
+            "without the merge hook the breach is expected to land unchecked\n"
+            + result.stdout
+            + result.stderr
+        )
+
+    def test_what_init_DOCUMENTS_matches_what_the_harness_SHIPS(self):
+        # The parity that actually bites an adopter: they copy init's block, so if the shipped
+        # hook and the documented one diverge, every repo init touches gets the stale one.
+        # Compared on run logic, the same normalization the wrapper's own parity pin uses.
+        documented = _run_logic(_merge_hook_template())
+        shipped = _run_logic(self.MERGE_HOOK.read_text(encoding="utf-8"))
+        assert documented == shipped, f"documented={documented!r} shipped={shipped!r}"
+        # Non-vacuity: the comparison must be over a real instruction, not two empty lists.
+        assert any("exec" in line for line in shipped), shipped

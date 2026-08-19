@@ -30,7 +30,6 @@ A fence replaces **only** the text between its markers, so a re-audit never wipe
 
 Out-of-scope defects spotted mid-work, jotted here as **planless one-liners** so capturing one stays cheap (trivial fixes skip even this). A bug stays a one-liner until you select it to fix — selecting it triggers its own plan (per `0025`), then the normal pipeline.
 
-- **`harness`** — a conflict-free `git merge` commits via `pre-merge-commit`, which nothing wires — **neither chained gate runs on the merge result** (measured, git 2.55; a server-side PR merge runs no local hook; CI's WARNs are exit 0, so a band only the merge trips lands green — 0041 S7 L1). Fix: chain the wrapper from `pre-merge-commit`, both homes, sweeping the sibling "every commit" sites — a **class, not a count**: re-derive by grep (`CHANGELOG.md` is SHIP-set).
 
 ### Later / Ideas
 

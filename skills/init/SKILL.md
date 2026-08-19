@@ -580,7 +580,22 @@ then stays model-upheld via the CLAUDE.md authority anchor.
      exit $rc
      ```
      **Make it executable** — set the file's exec bit (`chmod +x .githooks/pre-commit`;
-     git tracks the bit so a clone inherits it). The wrapper probes `python3` then `python`
+     git tracks the bit so a clone inherits it).
+
+     **Then write its merge sibling, `.githooks/pre-merge-commit`, and `chmod +x` it too.**
+     git fires **`pre-merge-commit`** for a conflict-free `git merge` — **never `pre-commit`** —
+     so without it neither chained gate runs on a merge result (measured, git 2.55: an over-cap
+     ledger merges clean and lands unchecked). It **delegates, it does not duplicate** — one
+     chain, two entry points, so a gate added to the wrapper covers merges automatically and the
+     two can never drift:
+
+     ```sh
+     #!/bin/sh
+     exec "$(dirname "$0")/pre-commit" "$@"
+     ```
+
+     **Unchanged limits, state them:** a **server-side PR merge runs no local hook at all**, and a
+     merge that stops on conflicts commits through `pre-commit` anyway. The wrapper probes `python3` then `python`
      itself, so the step-1 interpreter detection is not baked into the file.
      A repo whose Python is missing at `init` time still gets the hook: it skips (loudly)
      until Python is installed, then starts gating with no re-run needed.
@@ -594,7 +609,7 @@ then stays model-upheld via the CLAUDE.md authority anchor.
        forbids editing it) and the solo hook lives at `.git/hooks/pre-commit`, which git
        never normalizes.
   2. **Run `git config core.hooksPath .githooks`** — points git at the tracked hook
-     directory so the hook fires on every commit in this clone (**not** on a conflict-free `git merge`, which fires the unwired `pre-merge-commit`).
+     directory so the hook fires on every commit in this clone — and, via its `pre-merge-commit` sibling below, on a conflict-free `git merge` too.
 - **Gate OFF (Keep-mine-gate-off) →** wire **no** pre-commit hook: do **not** write
   `.githooks/pre-commit` and do **not** set `core.hooksPath`. (Record the gate-off choice
   via step 4's `Architecture tree:` line as before.)
@@ -732,12 +747,14 @@ then stays model-upheld via the CLAUDE.md authority anchor.
 > **Solo divergence (b) — pre-commit hook → `.git/hooks/pre-commit`, NOT `.githooks/` +
 > `core.hooksPath`.** In **solo mode** with the gate **ON** (Fresh / Mature-no-tree /
 > Replace), write the **same wrapper** (run-logic byte-identical to the shared `.githooks/pre-commit`
-> above) to **`.git/hooks/pre-commit`** instead, and **make it executable** (`chmod +x`). That
+> above) to **`.git/hooks/pre-commit`** instead, and **make it executable** (`chmod +x`). **Write the
+> merge sibling here too — `.git/hooks/pre-merge-commit`, the same one-line delegating `exec`, also
+> `chmod +x`** — for the same reason: git fires it, not `pre-commit`, on a conflict-free merge. That
 > path is **inherently local + untracked** (`.git/` is never tracked), so it places **no tracked
 > file** and needs **no shared git config** — therefore **do NOT run `git config core.hooksPath
 > .githooks`** and **do NOT create a tracked `.githooks/` directory** in solo mode (`.githooks/`
 > would be a tracked path — a solo-invariant violation). `core.hooksPath` stays at its git default,
-> so `.git/hooks/pre-commit` fires on every commit in this clone (**not** on a conflict-free `git merge` — that fires `pre-merge-commit`, which nothing wires). **Never-clobber:** if
+> so `.git/hooks/pre-commit` fires on every commit in this clone — and its `pre-merge-commit` sibling covers a conflict-free `git merge`. **Never-clobber:** if
 > `core.hooksPath` is already set to a **non-default** value, `.git/hooks/` would **not** run — so
 > the hook wouldn't fire. Mirroring the shared branch, **REPORT the conflict** ("core.hooksPath is
 > set to `<value>`; in solo mode the tree gate's `.git/hooks/pre-commit` was written but won't fire
