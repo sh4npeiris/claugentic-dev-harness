@@ -9,7 +9,102 @@ plugin is versioned with [SemVer](https://semver.org/). The authoritative
 version is `plugin.json`; each release is published on the `release` branch and
 tagged `vX.Y.Z`.
 
-## Unreleased
+## 0.5.3
+
+**What this release is for.** Two threads. The first is **the harness saying only what it
+actually did** — six places where a run reported more certainty than it had, including one
+where a review that never happened read as a clean pass. The second is **the harness getting
+smaller**: the backlog was judged against the product's own north star rather than worked
+down, and most of it was deleted. As always, nothing here reaches an existing adopter until
+this version publishes **and** they re-run `init`.
+
+### Added
+
+- **Gap mode now tells you which parts of your spec the code DOES deliver.** The promise was a
+  criterion-by-criterion **met / partial / missing** report; what shipped was a list of surviving
+  problems, so "met" was indistinguishable from "the check quietly produced nothing" and "partial"
+  had no representation at all. The per-criterion verdict the reviewer already returned was
+  collected and thrown away. Every criterion now carries one of four states — **met · partial ·
+  missing · not-checked** — and the fourth matters most: a criterion whose batch was budget-deferred
+  or failed is reported as **not checked this run**, never as a verdict.
+
+  **Three things make it trustworthy rather than a relayed claim.** The verdict is **schema-required**
+  at the boundary, not prompt guidance a reviewer may forget. Attribution is the **unioned** module
+  list — an earlier attempt keyed it on a first-wins field, so a second criterion's finding vanished
+  into the first criterion's and that criterion then read **MET**; that path is closed and pinned by
+  the regression that found it. And the verdict is **folded against surviving evidence in both
+  directions**: a "met" with a surviving finding is downgraded to partial, and a "missing" whose
+  findings were all refuted is upgraded to met. The evidence wins, never the claim.
+
+### Fixed
+
+- **An unrun trust-surface review no longer reads as a clean pass.** On a trust/honesty surface the
+  panel convenes an honesty reviewer. If that judge failed twice, `engine/verify.js` reported
+  `honesty: null` with **`panelDegraded: false`** and a **PASS** verdict — the adversarial review
+  the whole panel exists for could fail silently and the run still read green. It now logs, marks
+  the panel **degraded**, and serializes `{ couldNotRun: true }`, exactly as the yagni sentinel
+  already did. **It degrades; it does not block** — `finalVerdict` is unchanged, because turning a
+  failed spawn into a blocked land was never the ask. The ledger sentence that recorded this as
+  *"routed, not fixed"* was amended in the same change rather than left standing.
+
+- **Your spec gaps are no longer pruned by a filter written for engineering audits.** Before you saw
+  them, gap findings passed through a step told to cut "marginal nice-to-haves" and told to add an
+  "establish a test baseline" item. So a **genuinely promised-but-missing feature could be cut with
+  no trace** — and with no per-criterion report, that criterion then simply looked met — while an
+  engineering to-do mapping to no acceptance criterion could appear in your product backlog. Gap mode
+  now runs a **conformance** prune: cut only exact duplicates and findings citing no criterion, every
+  cut reason naming its criterion id, and never the test-baseline item. **Fixed at all three sites** —
+  the engine, the reviewer's own contract, and both prose fallbacks; a one-site patch was refused
+  because it would have left the engine and the contract disagreeing.
+
+- **Shipped skills no longer point you at files you don't have.** Seven places told the reader to
+  consult `.claude/agents/<role>.md`. Those agents are **plugin-resident** — your repo has no such
+  directory — so the pointer dangled for exactly the person the skill is written for. The role is now
+  named by its id, which resolves. The sweep closes on the **retired string**, not on a list of sites:
+  the first pass found five and a re-check found two more.
+
+- **A release gate that could be voided while the suite stayed green.** Three steps in the release
+  workflow run on the Linux leg only — the check that the tagged commit is actually on `main`, the
+  CLI install, and `claude plugin validate --strict`. Dropping `ubuntu-latest` from the job's matrix
+  would **skip all three, leave the job reporting success, and publish anyway**, with the existing
+  tests still green because they assert the steps' *text*, never that they *run*. Now pinned, and the
+  pin was verified by making the mutation and watching it go red. Recorded as an invariant: **a guard
+  is unpinned until a mutation makes its test go red** — the third instance of that class here.
+
+- **Dead code deleted rather than wired.** `engine/qa.js` carried a screenshot-path helper with zero
+  call sites that five tests still pinned. Wiring it as the report's oracle would have fabricated a
+  path the script cannot verify — it has no filesystem, and the report cites what the driver agent
+  returns. Deleted; its tests were **re-aimed** at the sanitizer that guards the live boundary and had
+  no direct pin of its own, so removing dead code did not open a real hole.
+
+### Changed
+
+- **The backlog was judged, not worked down — and most of it was deleted.** Every open item was put to
+  the product spec's own test: *does this supply what a team supplies, or compensate for a capability
+  the model already has?* Each verdict was then handed to an independent re-checker. **Sixteen items:
+  eight declined, four built, three split, one routed to a setting only a repo admin can apply.**
+  Three items' premises turned out to be **measurably false** and died on inspection. The declines are
+  recorded as **deliberate non-goals**, where the bar for re-proposing is evidence — a real project
+  that needed it — not a better argument.
+
+  The visible result is a **thinner harness**: the roadmap went 9,500 → 4,396 bytes, the invariants
+  ledger 17,976 → 12,751 (four entries a live test already holds were deleted — the pin *is* the
+  memory), and three decision shards sitting at their warning band were **condensed rather than given
+  a bigger cap**. A plan to split the workflow document into pieces was deleted too: it would have
+  preserved every byte and paid for the privilege in ~99 cross-references, to re-house content that
+  should be cut instead.
+
+  **The honest limit:** "thinner" here is measured in the ledgers, not in the workflow document itself,
+  which is unchanged at ~88,000 bytes and still the one large managed doc with no cap on it.
+
+### Known
+
+- **`crossModel` can no longer come back `true` in a single-session run.** Removing the pinned judge
+  model (below) means judges inherit the session's tier, so the judge and the builder are always the
+  same family and the same-model disclosure always fires. This is the disclosure working, not
+  breaking — but read every judged run's precision figures as same-family unless you deliberately run
+  the review on a different tier.
+
 
 ### Fixed
 

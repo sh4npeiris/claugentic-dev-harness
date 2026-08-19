@@ -11,7 +11,7 @@
         "ref": "release"
       },
       "description": "Reusable, self-improving Claude Code development harness: a staged workflow, specialist agent roles, an ISO/IEC 25010 standards catalog, and deterministic commit-time gates (the codebase-map and doc-budget checks, wired by init) — with six live skills: /claugentic-dev-harness:init (scaffold), /claugentic-dev-harness:product (spec + intent-vs-code gap audit), /claugentic-dev-harness:audit (audit → backlog), /claugentic-dev-harness:build (drive your backlog — one item, several, or a whole tier — through the reviewed pipeline to the honest stop-signal, re-checking touched code between items), /claugentic-dev-harness:condense (compact a budgeted ledger back under its cap — a constraint-preserving judgment pass; landed build-records and superseded entries absorb to git history), and /claugentic-dev-harness:doctor (check the harness's own health — gates, plans, init wiring — read-only, treating only the bounded-mechanical set on your approval).",
-      "version": "0.5.2",
+      "version": "0.5.3",
       "author": { "name": "sh4npeiris" },
       "license": "Apache-2.0",
       "category": "development",
