@@ -1395,3 +1395,79 @@ class TestInvokedFromASubdirectory:
                 assert f"{key} ({matched} files) <= {cap} bytes each" in out
             else:
                 assert f"{key} <= {cap} bytes" in out
+
+
+class TestGeneratedBacklogFencesAreNotCapped:
+    """A generated backlog fence is not accreting ledger prose, so it is not measured.
+
+    Why this class exists — the flagship feature broke this gate. `/audit` and `/product gap`
+    write their backlog INTO `docs/claugentic-ROADMAP.md`, and `init` seeds every adopter a
+    14,000-byte cap on that exact file. A real backlog costs ~4,815 bytes per finding, so an
+    adopter's THIRD finding breached the cap `init` had just given them and the pre-commit hook
+    then blocked their commits. Measured on this repo: a real 25-finding gap run rendered
+    120,687 bytes, taking ROADMAP to 132,200 — a 9.4x breach of its own cap.
+
+    The distinction the fix rests on: the hand-written body ACCRETES (bounding that is what a
+    cap is for); a fence body is REGENERATE-DON'T-ACCUMULATE — replaced whole each run, and it
+    SHRINKS as findings are fixed. Capping it would block you from RECORDING findings, i.e.
+    punish finding problems, which is worse than the disease. So it is reported, never capped.
+    """
+
+    FENCE = (
+        "<!-- harness-audit:backlog:start -->\n"
+        "{body}\n"
+        "<!-- harness-audit:backlog:end -->\n"
+    )
+
+    def test_a_huge_generated_fence_does_not_breach(self, budget_repo):
+        budget_repo.configure({"R.md": 100})
+        body = "x" * 5000
+        (budget_repo.root / "R.md").write_text(
+            "hand-written\n" + self.FENCE.format(body=body), encoding="utf-8"
+        )
+        problems, warnings, summary = cdb.evaluate()
+        assert problems == [], problems
+        assert "OK:" in summary
+
+    def test_NON_VACUITY_the_same_bytes_OUTSIDE_a_fence_do_breach(self, budget_repo):
+        # Without this twin the test above could pass because nothing was measured at all.
+        budget_repo.configure({"R.md": 100})
+        (budget_repo.root / "R.md").write_text("x" * 5000, encoding="utf-8")
+        problems, _, _ = cdb.evaluate()
+        assert problems, "5000 bytes of hand-written prose against a 100-byte cap must breach"
+        assert "vs budget 100" in problems[0], problems[0]
+
+    def test_the_generated_size_is_REPORTED_even_though_it_is_not_counted(self, budget_repo):
+        # Not counted must never mean not visible: a large backlog stays on screen.
+        budget_repo.configure({"R.md": 100})
+        (budget_repo.root / "R.md").write_text(
+            "x" * 95 + "\n" + self.FENCE.format(body="y" * 4000), encoding="utf-8"
+        )
+        problems, warnings, _ = cdb.evaluate()
+        line = " ".join(problems + warnings)
+        assert "generated backlog fences" in line, line
+        assert "not counted" in line, line
+
+    def test_the_product_fence_is_excluded_too_not_only_the_audit_one(self, budget_repo):
+        # Two skills write two different fences; the exclusion is keyed on the marker SHAPE,
+        # so a new fence added later is covered without editing this gate.
+        budget_repo.configure({"R.md": 100})
+        (budget_repo.root / "R.md").write_text(
+            "hand\n<!-- harness-product:backlog:start -->\n"
+            + "z" * 5000
+            + "\n<!-- harness-product:backlog:end -->\n",
+            encoding="utf-8",
+        )
+        problems, _, _ = cdb.evaluate()
+        assert problems == [], problems
+
+    def test_an_UNCLOSED_fence_is_counted_in_full_the_safe_direction(self, budget_repo):
+        # A malformed marker must not become an exemption loophole — if the fence never closes,
+        # nothing is excluded and the bytes are measured, which fails LOUD rather than silently
+        # exempting an entire ledger.
+        budget_repo.configure({"R.md": 100})
+        (budget_repo.root / "R.md").write_text(
+            "<!-- harness-audit:backlog:start -->\n" + "x" * 5000, encoding="utf-8"
+        )
+        problems, _, _ = cdb.evaluate()
+        assert problems, "an unclosed fence must not exempt the file"

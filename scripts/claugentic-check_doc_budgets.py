@@ -143,6 +143,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -467,6 +468,39 @@ def _summary_clause(rel_path: str, rule: dict, matched: int, graced: bool) -> st
     return f"{rel_path} <= {rule['max_bytes']} bytes"
 
 
+# A generated backlog fence is NOT accreting ledger prose, so it is not measured against the cap.
+# The distinction is the whole reason this exclusion exists:
+#   * the hand-written body ACCRETES -- a human appends to it, it only grows, and bounding that
+#     growth is what the cap is for;
+#   * a fence body is REGENERATE-DON'T-ACCUMULATE -- `/audit` and `/product gap` replace it whole
+#     on every run, and it SHRINKS as findings get fixed. Its size is a symptom (how many open
+#     findings you have), never an accretion.
+# Measuring them together made the flagship feature break this gate: a real backlog costs ~4.8 KB
+# per finding against init's seeded 14,000-byte ROADMAP cap, so an adopter's THIRD finding made
+# their repo un-committable -- i.e. finding more problems was punished. Deliberately NOT capped
+# separately: a cap on the fence would block you from RECORDING findings, which is worse than the
+# disease. The size is reported instead, so it stays visible without being punitive.
+FENCE_RE = re.compile(
+    r"^<!--\s*harness-[\w-]+:backlog:start\s*-->.*?^<!--\s*harness-[\w-]+:backlog:end\s*-->",
+    re.MULTILINE | re.DOTALL,
+)
+
+
+def _split_generated(raw: bytes) -> tuple[int, int]:
+    """(hand_written_bytes, generated_fence_bytes) for one ledger's raw content.
+
+    Decodes as UTF-8 to find the markers; on any decode failure the whole file counts as
+    hand-written, which is the SAFE direction -- an unreadable-as-text ledger is measured in
+    full rather than silently exempted.
+    """
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return (len(raw), 0)
+    generated = sum(len(m.group(0).encode("utf-8")) for m in FENCE_RE.finditer(text))
+    return (len(raw) - generated, generated)
+
+
 def _check_one(rel_path: str, max_bytes: int) -> tuple[str, str] | None:
     """Measure one ledger. Returns (level, message) or None (well within budget).
 
@@ -482,15 +516,17 @@ def _check_one(rel_path: str, max_bytes: int) -> tuple[str, str] | None:
             f"If you removed it deliberately, delete its entry from {CONFIG_PATH}.",
         )
     try:
-        measured = len(path.read_bytes())
+        measured, generated = _split_generated(path.read_bytes())
     except OSError as exc:
         return ("error", f"{rel_path} could not be read ({exc}) — check the file exists and is readable.")
+    # Reported, never capped — so a large backlog stays VISIBLE without blocking a commit.
+    note = f" (+{generated} B in generated backlog fences, not counted)" if generated else ""
     if measured > max_bytes:
-        return ("error", f"{rel_path}: {measured} bytes vs budget {max_bytes} — {REMEDIATION}")
+        return ("error", f"{rel_path}: {measured} bytes vs budget {max_bytes}{note} — {REMEDIATION}")
     if measured >= int(max_bytes * WARN_RATIO):
         return (
             "warn",
-            f"{rel_path}: {measured} bytes vs budget {max_bytes} (>= {int(WARN_RATIO * 100)}%) — {WARN_REMEDIATION}",
+            f"{rel_path}: {measured} bytes vs budget {max_bytes} (>= {int(WARN_RATIO * 100)}%){note} — {WARN_REMEDIATION}",
         )
     return None
 
