@@ -36,6 +36,9 @@ RELEASE_WORKFLOW = WORKFLOWS / "release.yml"
 CI_WORKFLOW = WORKFLOWS / "ci.yml"
 
 _GATE_SCRIPT_RE = re.compile(r"python (scripts/[\w.\-]+\.py)")
+_RUNNER_OS_RE = re.compile(r"runner\.os\s*==\s*'(\w+)'")
+# GitHub's `runner.os` values -> the runner-label prefix that produces them.
+_RUNNER_OS_LABEL_PREFIX = {"Linux": "ubuntu", "Windows": "windows", "macOS": "macos"}
 
 
 def _load(path: Path) -> dict:
@@ -265,6 +268,39 @@ class TestGateParity:
             )
             assert checkout.get("with", {}).get("fetch-depth") == 0, (
                 f"job '{name}' needs full history: the tag anchors and ancestry guards read it"
+            )
+
+    def test_every_os_gated_step_still_has_a_leg_to_run_on(self, release):
+        """An `if: runner.os == 'X'` step is a no-op unless the matrix carries an X leg.
+
+        Three steps of the gates job are gated that way — the on-main ancestry check (the
+        authorization gate for what makes a commit releasable), the CLI install, and the strict
+        marketplace validation. `publish` needs only that `gates` SUCCEEDED, and a job whose
+        steps all skip still succeeds — so dropping the leg leaves the job green and publishes
+        with those three gates never having run. Every other test here asserts the steps' TEXT,
+        which that edit leaves untouched.
+
+        Both sides are DERIVED from the file — no step name and no `ubuntu-latest` literal
+        appears in this test — so a rename, a reorder, or a deliberate move to a different OS
+        stays green; only a condition that can never fire goes red.
+        """
+        gates = release["jobs"]["gates"]
+        labels = [str(o) for o in gates["strategy"]["matrix"]["os"]]
+        required = {
+            os_name
+            for step in _steps(gates)
+            for os_name in _RUNNER_OS_RE.findall(str(step.get("if", "")))
+        }
+        assert required, (
+            "no step is OS-gated any more — this assertion is now vacuous and must be DELETED "
+            "together with the OS gating it guards, not left behind reading green."
+        )
+        for os_name in sorted(required):
+            prefix = _RUNNER_OS_LABEL_PREFIX[os_name]
+            assert any(label.startswith(prefix) for label in labels), (
+                f"steps gated on `runner.os == '{os_name}'` have no matrix leg to run on "
+                f"(matrix os: {labels}) — they SKIP while the job still reports success, "
+                f"silently voiding the release gate they implement."
             )
 
 

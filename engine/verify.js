@@ -557,10 +557,12 @@ async function agentWithNamespaceFallback(prompt, opts) {
 // for it -- coverageGaps walks lensReturns only, so an unrun honesty judge yields no coverage gap
 // and no forced CHANGES_REQUIRED. That is the reason, and it is NOT "so the throw stays loud".
 // MEASURED 2026-08-17: parallel() swallows judgeOutcome's two-failure throw with or without a
-// guard -- a twice-failed honesty judge already returns honesty: null, panelDegraded: false and an
-// unchanged verdict, with no log line; a guard would only ADD one. Unguarded is NOT loud. Making
-// it visible, and deciding whether it degrades or blocks, moves finalVerdict/panelDegraded
-// semantics -- routed to the harness's own backlog, not fixed here (0041 S10b).
+// guard -- a twice-failed honesty judge returned honesty: null, panelDegraded: false and an
+// unchanged verdict, with no log line; a guard would only ADD one. Unguarded is NOT loud.
+// RESOLVED 2026-08-19 at the RESULT rather than here (the guard still must not wrap honesty):
+// an unrun trust-surface honesty judge now sets honestyUnrun -- it is LOGGED, it sets
+// panelDegraded, and it serializes as { couldNotRun: true }, mirroring yagni. It DEGRADES; it
+// does NOT block -- finalVerdict is unchanged.
 async function guardedPanelAgent(prompt, opts) {
   try {
     return await agentWithNamespaceFallback(prompt, opts);
@@ -638,7 +640,8 @@ const lensTasks = modulesAudited.map((modulePath) => () =>
 
 // The lens and yagni thunks are guarded (null in position, logged); the honesty thunk below is
 // NOT -- guardFailure's wording is false for a judge (see the guard). That does NOT make its
-// two-failure throw loud: parallel() swallows it either way (0041 S10b, D4, trap 1; ROADMAP).
+// two-failure throw loud: parallel() swallows it either way (0041 S10b, D4, trap 1). The
+// loudness comes from the RESULT side instead -- honestyUnrun, below.
 const panelTasks = [
   ...lensTasks,
   () =>
@@ -675,6 +678,11 @@ const { lensReturns, yagni, honestyJudge } = splitPanelResults(
   hasHonesty,
 );
 const honesty = honestyJudge ? honestyJudge.out : null;
+// A trust-surface run whose honesty judge produced nothing is DEGRADED, never clean. The
+// `hasHonesty &&` guard is load-bearing: with trustSurface=false splitPanelResults returns
+// honestyJudge: null BY CONSTRUCTION, so a null `honesty` there is the legitimate
+// not-asked-for case -- unguarded, every non-trust-surface run would report a degraded panel.
+const honestyUnrun = hasHonesty && honesty == null;
 const honestyReportedFamily =
   honestyJudge && !honestyJudge.forcedSameModel && honestyJudge.out
     ? honestyJudge.out.reported_model_family
@@ -692,7 +700,7 @@ for (const lensReturn of lensReturns) {
 }
 const unrunGaps = coverageGaps(lensReturns, modulesAudited);
 const dedupedFindings = dedupFindings([...lensGaps, ...unrunGaps]);
-const panelDegraded = unrunGaps.length > 0 || yagni == null;
+const panelDegraded = unrunGaps.length > 0 || yagni == null || honestyUnrun;
 // Piece #1 -- observability: a named lens that produced no usable result is LOGGED loudly here
 // (it also forces CHANGES_REQUIRED at the return via finalVerdict), so an unrun lens never reads
 // as a silently-clean dimension. Presence-check on the panel's own outputs -- not a completeness
@@ -702,6 +710,18 @@ if (unrunGaps.length > 0) {
     `verify: ${unrunGaps.length} named lens(es) produced NO usable result ` +
       `(${unrunGaps.map((g) => g.dimension).join(", ")}) -- forcing CHANGES_REQUIRED; ` +
       `a named lens cannot silently no-show from the panel's own outputs.`,
+  );
+}
+// The MIRROR of the lens log, for the trust-surface honesty judge. parallel() swallows
+// judgeOutcome's two-failure throw (measured; see the panel guard), so without this line an
+// honesty reviewer that never ran leaves NO trace at all. It marks the panel DEGRADED -- it does
+// not force CHANGES_REQUIRED, which stays the lens presence-assertion's job -- because an unrun
+// trust-surface review must never read as a clean honesty dimension.
+if (honestyUnrun) {
+  log(
+    `verify: the honesty reviewer produced NO usable result on a trustSurface run ` +
+      `(the judge failed twice) -- marking the panel DEGRADED; an unrun trust-surface review ` +
+      `must never read as a clean honesty dimension.`,
   );
 }
 
@@ -759,7 +779,7 @@ return {
   findings: synthesis ? synthesis.findings : [],
   yagni: yagni == null ? { couldNotRun: true } : yagni,
   panelDegraded,
-  honesty: input.trustSurface ? honesty : { skipped: "trustSurface=false" },
+  honesty: input.trustSurface ? (honesty == null ? { couldNotRun: true } : honesty) : { skipped: "trustSurface=false" },
   panel: roster,
   modulesAudited,
 };

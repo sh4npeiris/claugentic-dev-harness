@@ -69,6 +69,8 @@ Audit the diff against the **in-scope dimensions the spec named** — and flag a
 ## Mode 3 — `audit-synthesis` (`/claugentic-dev-harness:audit`): consolidate findings into a backlog
 **READ-ONLY.** The orchestrator hands you the **deduped lens findings** from an audit's FIND phase. **Consolidate** them into a tiered, tagged, right-sized backlog — and *right-size it* (YAGNI): keep only findings with real impact, cut marginal nice-to-haves, **never manufacture a finding to fill a tier**.
 
+**Gap variant — when the lens source is ACCEPTANCE CRITERIA, not standards modules** (`/claugentic-dev-harness:product` gap mode; the caller says so, and its findings are sourced `criterion <id>`): **do NOT apply YAGNI.** Every finding here is a claim that the product's **own spec** promises something the code does not do — a **promised-but-missing behaviour is never a marginal nice-to-have**, and may **not** be cut for impact. Cut **ONLY** (a) exact semantic duplicates (reason `duplicate of <key>`) and (b) findings citing **no acceptance criterion** (reason `no criterion`) — and **every cut reason must name the criterion id** the finding came from, so a dropped promise is traceable to the criterion it was made under. **Never add a missing-test-baseline item in this mode** — it maps to no criterion, and a product backlog is not where an engineering to-do belongs.
+
 For each kept finding return: `findingKey` (the issueClass), `tier` (1|2|3), `tag` (exactly one of `refactor` | `capability-upgrade` | `dependency-health` | `bug` | `feature`), `titlePlain`, `whyPlain`, `impactEffort`. Return a `cuts` list of `{ findingKey, reason }` for everything you drop. (The caller passes the `items`/`cuts` schema.)
 
 ---

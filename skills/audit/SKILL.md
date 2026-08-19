@@ -268,8 +268,8 @@ pseudo-cell `blindspot|(scope)` is capped/resumed like any cell).
 State to the user that the Workflow tool is unavailable, run the legacy 9-step pipeline below by
 hand (it covers all three levels — the `thorough`-only sub-steps fire at `thorough`), and **tag
 the conversational run report "prose-orchestrated"** — never claim the script's mechanical
-guarantees on a prose run. The pipeline (each agent's full contract is in its `.claude/agents/`
-file — read it there):
+guarantees on a prose run. The pipeline (each agent's full contract is in its agent definition —
+read it there):
 
 1. **Set the dial** (above) — depth per lens; at `thorough`, also the blind-spot sweep + the
    adversarial prune.
@@ -277,24 +277,27 @@ file — read it there):
 3. **Enumerate `(module | dir-or-package)` cells** — the deterministic unit; on resume, read the
    status block and continue from `pending`, never redoing a `done` cell.
 4. **Fan out lenses — one look per cell.** One `claugentic-dev-harness:lens-reviewer` (audit-scope mode) per module batch,
-   in parallel, passed its module + scoped dirs + exclude-set + the dial's `depth`
-   (`.claude/agents/lens-reviewer.md`). *(thorough only:* also one `claugentic-dev-harness:lens-reviewer`
-   in **whole-scope mode** over the whole scope at `exhaustive` — it FINDS only; its findings join the
-   same dedup → prune → verify path. `.claude/agents/lens-reviewer.md`.)
+   in parallel, passed its module + scoped dirs + exclude-set + the dial's `depth`. *(thorough only:*
+   also one `claugentic-dev-harness:lens-reviewer` in **whole-scope mode** over the whole scope at
+   `exhaustive` — it FINDS only; its findings join the same dedup → prune → verify path.)
 5. **Dedup + synthesize.** Key dedup on **issue-class**, not file·location alone; roll up systemic
    cross-file duplicates into one "recurs in N files" item; carry each finding's confidence label
    unchanged. **Citation-guard:** re-confirm every `file:line` against the actual file first.
 6. **PRUNE — YAGNI right-size** the consolidated set (keep real impact; cut nice-to-haves; never
    manufacture a finding to fill a tier). *(thorough only:* additionally spawn one `claugentic-dev-harness:yagni-sentinel`
-   over the set — the independent skeptic — and apply its cut-list. `.claude/agents/yagni-sentinel.md`.)
+   over the set — the independent skeptic — and apply its cut-list.)
    **Exception: never prune the Tier-1 "establish a test baseline" item.**
+   **Criteria-as-lens-source (gap) mode runs the CONFORMANCE variant instead** — per the
+   `synthesizer-gate` **Mode 3 gap variant**: no YAGNI right-sizing, cut only exact duplicates and
+   criterion-less findings (every reason naming its criterion id), **never a promised-but-missing
+   behaviour**, and **never add the test-baseline item** (it maps to no criterion).
 7. **VERIFY — re-check every surfaced finding** (all tiers, every level). Spawn one
    `claugentic-dev-harness:finding-verifier` per finding — it **runs on the most capable available model** (the
    `RUNNING AS:` self-report, the honest same-model reporting, and the structural clean-context independence
    live in `docs/claugentic-WORKFLOW.md` → Principles → *the reviews-run-on-the-most-capable-model
    principle* — read it there). Pass each verifier **only** `{claim (plain + technical),
    file:line, source module, confidence label, exclude-set}` and the refute-first posture — never
-   the finder's rationale, never a lens verifying its own finding (`.claude/agents/finding-verifier.md`).
+   the finder's rationale, never a lens verifying its own finding.
    Apply verdicts exactly as the script does (the *Item format* in Phase 3 is the verdict→tag map):
    **Refuted** → drop (count it, don't persist) · **Verified** / **Unconfirmed** → keep with the
    matching tag · **budget-exhausted** → `deferred` and list in `pending-cells`.

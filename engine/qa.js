@@ -675,11 +675,10 @@ function dedupFindings(findings) {
   return [...byKey.values()];
 }
 
-// Build the screenshot path under the artifact dir (PURE). Convention:
-// `<artifactDir>/<runLabel>/<criterionId>-<slug>.png`. ids/slugs are sanitized (lowercase,
-// spaces/slashes/other non-[a-z0-9-_] -> '-', collapsed) so a free-text id can never escape the
-// artifact dir or break the path. The script can't touch the filesystem -- this only NAMES the
-// path the driver agent saves to.
+// Normalize ONE artifact-path segment (PURE): lowercase, non-[a-z0-9._-] -> '-', collapsed, so a
+// free-text label or id can never escape the artifact dir or break the path. It is the only escape
+// guard on the two live legs -- both the runLabel: the boundary normalization in run() (which
+// artifacts.dir reuses) and driverPrompt's shotDir. Idempotent, so the second one is a no-op.
 function sanitizeForPath(s) {
   return String(s == null ? "" : s)
     .trim()
@@ -689,14 +688,6 @@ function sanitizeForPath(s) {
     .replace(/\.{2,}/g, ".")
     .replace(/^[.-]+|[.-]+$/g, "")
     .replace(/-{2,}/g, "-");
-}
-
-function screenshotPath(artifactDir, runLabel, criterionId, slug) {
-  const dir = artifactBase(artifactDir);
-  const label = sanitizeForPath(runLabel) || "run";
-  const id = sanitizeForPath(criterionId) || "criterion";
-  const tail = sanitizeForPath(slug) || "shot";
-  return `${dir}/${label}/${id}-${tail}.png`;
 }
 
 // Apply the finding-verifier verdicts to the surfaced runtime findings (PURE). Mirrors audit.js's
@@ -765,9 +756,9 @@ function isRunInputError(msg) {
   );
 }
 
-// The ONE source of the artifact-dir shape: default + trailing-separator trim. screenshotPath,
-// driverPrompt and the top-level artifactDir all derive from this (and artifacts.dir reuses the
-// already-normalized top-level value). BOTH segments of the artifact path are normalized once at
+// The ONE source of the artifact-dir shape: default + trailing-separator trim. driverPrompt and
+// the top-level artifactDir both derive from this (and artifacts.dir reuses the already-normalized
+// top-level value). BOTH segments of the artifact path are normalized once at
 // the boundary -- the dir here, the runLabel through sanitizeForPath -- which is what makes the
 // save-path and the report-path convergent. Add a THIRD segment and it must normalize there too.
 //
@@ -1106,10 +1097,10 @@ try {
     // Last-ditch deterministic label so screenshots still have a home if the agent omitted one.
     runLabel = "qa-run";
   }
-  // Normalize ONCE here, at the same boundary the artifact dir is normalized at: driverPrompt and
-  // screenshotPath both sanitizeForPath this value, so joining it raw into artifacts.dir below would
-  // cite a directory the driver never wrote to (sanitizeForPath is idempotent, so the second
-  // application inside driverPrompt is a no-op) (0041 S10a, D3).
+  // Normalize ONCE here, at the same boundary the artifact dir is normalized at: driverPrompt is
+  // the only other caller that runs this value through sanitizeForPath, so joining it raw into
+  // artifacts.dir below would cite a directory the driver never wrote to (sanitizeForPath is
+  // idempotent, so the second application inside driverPrompt is a no-op) (0041 S10a, D3).
   runLabel = sanitizeForPath(runLabel) || "qa-run";
 
   const outcome = bootOutcome(bootReport);

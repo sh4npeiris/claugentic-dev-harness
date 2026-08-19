@@ -8,16 +8,9 @@ has none, so keep this lean. (Sibling to `docs/claugentic-DECISIONS.md` — a *d
 
 Each entry: **the invariant** · **why** (what breaks if violated) · **enforcement, stated exactly** (which half is test-pinned vs model-upheld — a partly-enforced must-hold must say where the line falls, never imply the whole is mechanical) · **provenance** (dated — the failure or near-miss that taught it).
 
----
-
-## The two version manifests must move together
-
-- **Invariant —** `plugin.json` and `marketplace.json` carry the same version; every bump
-  moves both, with `plugin.json` as the source of truth.
-- **Why —** they are one logical stamp; a drifted pair ships an install whose advertised
-  version lies about its contents, and the marketplace serves the wrong tree.
-- **Provenance —** 2026-06-22: codified after the version-sync gate (`check_versions_synced.py`)
-  was added to mechanically catch a drift that had previously been caught only by eye.
+**Admission rule —** an invariant a live, **red-on-break test already enforces does NOT get a prose
+entry** — the pin IS the memory; only what no test can hold is written here. Where an otherwise-pinned
+constraint has a model-upheld remainder, that half alone rides *Unpinnable residue* at the foot.
 
 ---
 
@@ -55,24 +48,6 @@ Each entry: **the invariant** · **why** (what breaks if violated) · **enforcem
 
 ---
 
-## The SELECT re-render keeps coverage full-scope and never emits a false terminal signal
-
-- **Invariant —** the SELECT seam (`renderOnly` in `engine/audit.js`) passes `lensCoverage` /
-  `verification` through **full-scope** — never recomputed over the user's selected subset — and
-  `renderOnly` is **never invoked with an empty selection** when the full run carried Tier-1/2
-  findings (a keep-none result is handled conversationally + the fence write is skipped, never
-  re-rendered through the engine).
-- **Why —** recomputing coverage over the kept subset would falsely claim "every lens spoke" about
-  only the findings the user kept; an empty `renderOnly` re-render over a run that *did* find things
-  emits the engine's terminal "sound on the audited dimensions" signal — a lie when the run actually
-  surfaced work the user simply chose not to act on now. Both break the harness honesty rule.
-- **Provenance —** 2026-06-25 (plan 0025 S5): a focused plan-review found the prior "filter-before-
-  render, zero engine change" SELECT design was unreachable from a prose skill (un-exported renderer)
-  and its only literal implementation (string-dropping rendered blocks) was dishonest; the `renderOnly`
-  seam replaced it, and this is the honesty contract that seam exists to uphold.
-
----
-
 ## The independent test-author's failing tests must not be edited by the implementer
 
 - **Invariant —** when the per-work choice selects **test-first**, the independent clean-context
@@ -99,63 +74,38 @@ Each entry: **the invariant** · **why** (what breaks if violated) · **enforcem
   PRODUCT*), `init` must (re)create or manage; and no SHIPPED file may reference a stripped-uncreated
   file, nor run a harness-self gate (Class-A: version-sync, shipped-content), without adopter-awareness
   (a caveat / an N-A path).
-- **Why —** a release built by stripping the dev tree otherwise ships a harness that points an adopter
-  at a file that isn't there, or runs a gate that errors in their repo — the harness fails in the
-  adopter's context though every harness-self test was green.
-- **Provenance —** 2026-06-25 (plan 0027): two instances — (1) shipped WORKFLOW / build-SKILL said a
-  plan is "structured by `TEMPLATE.md`" while `.claude/plans/` (the template's home) is stripped
-  wholesale (a degraded dangling ref); and the stronger (2) the doc-budget gate shipped and — new at
-  0.3.0, after plan 0024 added the `INVARIANTS.md` budget row — **fail-louded on the lazily-created
-  `INVARIANTS.md`**, a hard error a fresh 0.3.0 adopter would hit. (Ships again from 0041 S6 —
-  absent CONFIG = quiet no-op; a cap on an ABSENT file still exits 1 even under `reportOnly`,
-  so the S7 seeder caps only files that run creates — never INVARIANTS.) Live gate:
-  `tests/test_build_release.py::TestReleaseInitContract` (membership) + `scripts/check_shipped_content.py`
-  (a **run-gate, NOT hook-enforced**; 0028 S3, closure pass 0034 S3 — run by CI on every push to `main`,
-  and **since 0041 S2 also at the tagged commit** before anything publishes) — the latter
-  now mechanically pins the **exact-literal** cases: a dangling stripped-uncreated path reference
-  (Pass A.a, hard), a stranded
-  `claugentic-dev-harness:<token>` namespace literal (Pass B, hard), and — 0034 Slice 3 — the
-  **referential closure `NEEDS ⊆ HAS`** (Pass D, hard): every stripped adopter-relevant path is
-  **producible by `init` OR the workflow's lazy/templated/agent authoring** — `init-seed` (its `_X.md`
-  seed ships) · `init-gen` (a known init generator output) · `recreate-on-demand` (accepted VIA the
-  class, **NOT** claimed init-produced) · `self-gate` (a stripped harness-self script,
-  self-consistent). A missing seed / unregistered generator now fails the gate.
-  Its uncaveated-gate-mention pass (A.b) is **WARN-heuristic**, not a hard gate. **Dir-swept blind
-  spot (2026-07-30, plan 0040):** a `DEV_ONLY_DIRS` subtree carries **no recreate-class**, so Pass
-  A.a/D structurally cannot see it — for a dir-swept path (e.g. `docs/claugentic-decisions/`) the
-  no-shipped-reference leg is **model-upheld only** (the rule + its ungatedness are recorded in
-  CLAUDE.md). The contract is
-  therefore pinned mechanically for the exact literals + the referential closure — but **NOT** *fully*
-  content-enforced: Pass D pins that nothing dangles (closure), **not** that the release is *correct*;
-  the membership test + model-upheld review still complement it.
+- **Why —** otherwise the release ships a harness that points an adopter at a file that isn't there, or
+  runs a gate that errors in their repo — a failure in the adopter's context with every harness-self
+  test green.
+- **Enforcement, stated exactly —** **Test-pinned:** `tests/test_build_release.py::TestReleaseInitContract`
+  (membership) + `scripts/check_shipped_content.py` (a **run-gate, NOT hook-enforced**) — the exact
+  literals and the referential closure `NEEDS ⊆ HAS`; closure ≠ correctness (it pins that nothing
+  dangles, never that the release is *right*). **Model-upheld:** the **dir-swept blind spot** — a
+  `DEV_ONLY_DIRS` subtree carries no recreate-class, so those passes structurally cannot see it; for a
+  dir-swept path (e.g. `docs/claugentic-decisions/`) the no-shipped-reference leg is model-upheld only
+  (the rule is recorded in CLAUDE.md).
+- **Provenance —** 2026-06-25 (plan 0027), hardened since; per-pass gate detail in git history.
 
 ---
 
 ## The `release` branch has exactly ONE publisher
 
-- **Invariant —** only `.github/workflows/release.yml` pushes the `release` branch, and it does so
-  only by invoking `scripts/build_release.py --apply` at the tagged commit. No command in the flow,
-  no other workflow, and no hand-rolled YAML build/push logic may write that branch. The human's one
-  release act is the tag push (`git tag vX.Y.Z && git push origin main vX.Y.Z`).
-- **Why —** the `release` branch IS the installed plugin, and it is force-updated. Two writers means
-  a publish can silently clobber the other's tree, and a YAML re-implementation of the strip drifts
-  from the tested one on its first edit — publishing content no test ever classified. **Consequence
-  to accept, not fix:** because the tag precedes publishing, a red run spends that version — first
-  try re-running the failed run (safe by construction); otherwise bump forward, and never reuse a
-  tag (deleting a failed tag is an outward, user-gated exception).
-- **Enforcement, stated exactly —** the *tooling* half is pinned: `tests/test_release_workflow.py`
-  (`needs: gates`, the leased push scoped to its own step, no hand-rolled strip, no `--bump` at
-  publish, write permission granted to `publish` alone) and
-  `tests/test_build_release.py::TestGatedPublishCommand` (the printed human command contains no
-  `release`-branch push at all). The *branch* half is **model-upheld until `release` is
-  branch-protected** — verified 2026-08-12: no protection rule, no ruleset, so anyone with push
-  rights can still write it by hand. Read "one publisher" as a contract the tooling keeps, not a
-  permission the platform enforces; "a red run publishes nothing" likewise holds for every failure
-  BEFORE the branch push, which is the second-to-last step of the publish job.
-- **Provenance —** 2026-08-12 (plan 0041 S2): v0.5.1 published from an 11-day red-CI window because
-  the human force-pushed `release` and CI gated nothing that adopters consume. The Stage-7 panel
-  then caught the first draft of this very entry claiming the mechanical half — hence the split
-  above.
+- **Invariant —** only `.github/workflows/release.yml` writes `release`, and only by invoking
+  `scripts/build_release.py --apply` at the tagged commit. No command in the flow, no other workflow,
+  and no hand-rolled YAML build/push logic may write that branch. The human's one release act is the
+  tag push (`git tag vX.Y.Z && git push origin main vX.Y.Z`).
+- **Why —** the `release` branch IS the installed plugin, and it is force-updated: two writers means a
+  publish can silently clobber the other's tree, and a YAML re-implementation of the strip drifts from
+  the tested one on its first edit. **Consequence to accept, not fix:** the tag precedes publishing, so
+  a red run SPENDS that version — first re-run the failed run (safe by construction); otherwise bump
+  forward, and never reuse a tag (deleting a failed tag is an outward, user-gated exception).
+- **Enforcement, stated exactly —** **Test-pinned (tooling half):** `tests/test_release_workflow.py` +
+  `tests/test_build_release.py::TestGatedPublishCommand`. **Model-upheld (branch half) — until `release`
+  is branch-protected**, verified 2026-08-12: no protection rule, no ruleset, so anyone with push rights
+  can still write it by hand. Read "one publisher" as a contract the tooling keeps, not a permission the
+  platform enforces; "a red run publishes nothing" likewise holds only for failures BEFORE the branch
+  push, which is the second-to-last step of the publish job.
+- **Provenance —** 2026-08-12: v0.5.1 published from an 11-day red-CI window; detail in git history.
 
 ---
 
@@ -176,14 +126,6 @@ Each entry: **the invariant** · **why** (what breaks if violated) · **enforcem
 
 ---
 
-## The doc-budget caps have exactly ONE source per repo — and it must be tracked
-
-- **Invariant —** A repo's ledger byte caps live in exactly one place: its caps config (`.claude/claugentic-doc-budgets.json`). The gate only **reads** it — it holds no caps of its own. Where a glob entry covers a set of files, that glob is the **sole** cap for the set; per-file entries beside it are forbidden. And the config file must stay **tracked by version control**.
-- **Why —** two cap homes means every file is measured twice (one breach prints two messages) and the number has two hand-maintained copies that drift — the exact defect a plan-gate round prescribed and the next round had to retract. And because an **absent** config is a deliberate quiet no-op ("this repo has not opted in"), an untracked config is indistinguishable from an uncapped repo: the gate passes green on the author's machine and measures **nothing** in CI or in any fresh clone, with no error anywhere.
-- **Enforcement, stated exactly —** **Test-pinned:** the config is tracked (asserted through `git ls-files --error-unmatch`, never through the ignore rules' wording) · the five cap values are pinned byte-exactly (deliberate drift-detection — this pin is a harness-self extra, so a cap bump here touches the config *and* the pin) · every configured key resolves to something real · key shapes are validated (`**` refused; `*` only in the final path component; duplicate keys fatal) · shard **existence** is the two-direction index↔shards agreement test, not a second cap. **Model-upheld:** that no *second* cap list is introduced anywhere — nothing greps for one; and that any future file added under the deny-by-default `.claude/` directory gets its own un-ignore line.
-- **Provenance —** 2026-08-13, plan 0041 Slice 4, when the caps moved from a hardcoded dict into the config; the tracked half came from a mid-slice near-miss (the new config was git-invisible by default — the gate would have measured nothing outside the author's machine). General class: `reliability-resilience` → *Opt-in by absence*; this entry is this repo's instance and the exact enforcement split. **0041 S6/S7:** the gate ships, and `init` delivers it + seeds the adopter's own caps (create-if-absent), so it binds there too.
----
-
 ## A chained gate's advisory output rides stderr — the wrapper eats stdout
 
 - **Invariant —** Any gate chained into `.githooks/pre-commit` must emit advisory output (a WARN band, a report-only breach) on **stderr**. The wrapper captures a gate's stdout and discards it on a passing run — advisory text printed there is silently lost, and the report-only grace becomes a no-op.
@@ -193,9 +135,33 @@ Each entry: **the invariant** · **why** (what breaks if violated) · **enforcem
 
 ---
 
-## The wrapper's Python floor and the hook-wired gates' syntax move together
+## A guard is UNPINNED until a mutation makes its test go red
 
-- **Invariant —** The floor the pre-commit wrapper's probe demands (`>= (3, 7)`) is the SAME floor every **hook-wired** gate is written to. Raise the wrapper's floor only when a hook-wired gate raises its own; never let a hook-wired gate use syntax above it (walrus, `match`).
-- **Why —** the probe picks the interpreter the gates then run on. Too low, and the wrapper hands the commit to one that dies on a `SyntaxError` — infrastructure blocking a commit, the exact failure warn-and-pass exists to remove.
-- **Enforcement, stated exactly —** **Test-pinned, both halves (0041 S7):** the wrapper's floor against the `# Python 3.7+` marker each hook-wired gate records for itself (numeric drift either side turns red), AND the *syntax* half — `ast.parse(src, feature_version=<floor>)` over the gate set, with BOTH inputs derived from the hook itself (the set from its `run_gate` call sites, the floor from its probe). Non-vacuity is pinned on the repo's one walrus-carrying script, which must therefore never be chained without raising the floor.
-- **Provenance —** 2026-08-14, plan 0041 S5; mechanized S7 when the budget gate was chained in and the SET grew to two — that is when the blast radius widened. The floor was a Verify correction: the panel prescribed `(3, 8)`, the gates' own recorded requirement was 3.7.
+**The invariant.** A test that only asserts a guard's *text* — that the step exists, that the string is
+present — does not pin the guard. Deleting or disabling the guard must make a test FAIL. Until you have
+watched that happen, the guard is unpinned no matter how many tests name it.
+
+**Why.** A green suite over a removed guard is worse than no test: it is a *false* assurance, and it is
+the shape this repo keeps re-discovering. Three instances now — the merge-commit gate (a conflict-free
+`git merge` fired an unwired hook, so a capped ledger landed unchecked with the suite green) · the earlier
+deleted-guard case · and the release job's `if: runner.os == 'Linux'` steps, where dropping `ubuntu-latest`
+from `matrix.os` skips the on-main authorization check and `plugin validate --strict` while `gates` still
+reports success and `publish` proceeds. In every case the existing tests asserted presence and stayed green.
+
+**Enforcement, stated exactly.** **Model-upheld, and no pin can hold it** — a test asserting "guards are
+mutation-verified" would itself be a presence assertion needing mutation-verification, so the regress is
+the reason this is prose. What IS mechanical is each individual guard's own pin once written. The practice:
+break it, watch it go red, restore it byte-for-byte (`git checkout --`), watch it go green.
+
+**Provenance.** 2026-08-19, RM-3c — the third instance, and the one that made it a class rather than a
+recurrence. Surfaced during the north-star backlog adjudication; the other eight proposed gate items were
+declined as compensation, and this one was built precisely because a green suite hid a voided *release* gate.
+
+## Unpinnable residue
+
+The model-upheld remainder of constraints whose substance is otherwise test-pinned — kept only because
+no pin can hold these halves. One line each; anything a test could carry does not belong here.
+
+- **Doc-budget caps —** no *second* cap list is introduced anywhere (nothing greps for one), and every
+  new file added under the deny-by-default `.claude/` directory gets its own un-ignore line —
+  everything else about the caps config is pinned in `tests/test_check_doc_budgets.py`.

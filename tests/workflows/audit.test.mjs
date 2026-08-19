@@ -92,6 +92,7 @@ const H = loadHelpersFrom(SCRIPT_PATH, [
   "parseCellKey",
   "groupByModule",
   "lensCoverage",
+  "criterionCoverage",
   "normalizeIssueClass",
   "findingKey",
   "dedupFindings",
@@ -111,6 +112,7 @@ const H = loadHelpersFrom(SCRIPT_PATH, [
   "toResultItem",
   "mergePriorItems",
   "LENS_SCHEMA",
+  "GAP_LENS_SCHEMA",
   "SYNTHESIS_SCHEMA",
   "VERIFIER_SCHEMA",
   "SENTINEL_SCHEMA",
@@ -138,6 +140,7 @@ const H = loadHelpersFrom(SCRIPT_PATH, [
   "renderTier",
   "renderRecommendation",
   "renderLensCoverage",
+  "renderCriterionCoverage",
   "renderRunReport",
   "renderBacklogFence",
   "renderOnlyResult",
@@ -1591,4 +1594,233 @@ test("a rendered item prints its stable findingKey -- resume and dismissal both 
   // An item without a key must not render a bare `#` marker.
   const noKey = H.renderItem({ titlePlain: "T", tag: "bug", claimTechnical: "c", whyPlain: "w" });
   assert.ok(!/`#/.test(noKey), noKey);
+});
+
+// -----------------------------------------------------------------------------
+// 0043 T2-03 -- the PRUNE is mode-branched. Gap findings are claims that the product's OWN
+// spec promises something the code does not do, so the engineering YAGNI filter (cut the
+// marginal nice-to-haves) and the engineering test-baseline ADD must BOTH be absent there.
+// -----------------------------------------------------------------------------
+
+/** Build a synthesis prompt for one mode -- the two calls differ ONLY in the isGap flag. */
+function synthesisPrompt(isGap) {
+  return H.buildSynthesisPrompt([{ issueClass: "x" }], ["AC-1"], ["scope"], isGap);
+}
+
+test("buildSynthesisPrompt(gap): NO YAGNI right-size clause and NO test-baseline ADD", () => {
+  const gap = synthesisPrompt(true);
+  // The pin is the INSTRUCTION, not the word: gap names YAGNI only to negate it, and names
+  // "nice-to-have" only inside "never a marginal nice-to-have" -- so match the clauses.
+  assert.ok(!gap.includes("right-size it (YAGNI"), `gap must not right-size by YAGNI: ${gap}`);
+  assert.ok(!gap.includes("cut marginal nice-to-haves"), "a promised-but-missing behaviour is never cut");
+  assert.match(gap, /do NOT apply YAGNI/); // negated EXPLICITLY, not merely omitted
+  assert.ok(!gap.includes(H.TEST_BASELINE_CLASS), "the test-baseline item maps to no criterion");
+  // ... and it says what it DOES cut, with the criterion id on every reason.
+  assert.match(gap, /SPEC CONFORMANCE/);
+  assert.match(gap, /no acceptance criterion/);
+  assert.match(gap, /name the criterion id/);
+});
+
+test("buildSynthesisPrompt(standard): STILL carries both -- the branch is gap-only (non-vacuity)", () => {
+  const std = synthesisPrompt(false);
+  assert.match(std, /YAGNI -- keep only findings with real impact/);
+  assert.match(std, /cut marginal nice-to-haves/);
+  assert.ok(std.includes(H.TEST_BASELINE_CLASS), "standard mode still adds the test baseline");
+  assert.ok(!/SPEC CONFORMANCE/.test(std), "the conformance clause is gap-only");
+});
+
+test("buildSynthesisPrompt: the shared consolidate/tier/tag/return-shape text is IDENTICAL in both modes", () => {
+  const shared = [
+    "Synthesis self-review of an audit. Consolidate these deduped findings into a tiered, tagged backlog set ",
+    "For each kept finding return: findingKey (the issueClass), tier (1|2|3), tag (exactly one of ",
+    'Return a cuts list of { findingKey, reason } for everything you drop (use reason "duplicate of <key>" ',
+  ];
+  for (const phrase of shared) {
+    assert.ok(synthesisPrompt(true).includes(phrase), `gap dropped shared text: ${phrase}`);
+    assert.ok(synthesisPrompt(false).includes(phrase), `standard dropped shared text: ${phrase}`);
+  }
+});
+
+test("BOTH synthesis call sites pass isGap -- a mode-less RETRY would restore the engineering prompt", () => {
+  const flow = controlFlowOf(SCRIPT_PATH);
+  const calls = flow.match(/buildSynthesisPrompt\([^)]*\)/g) || [];
+  assert.equal(calls.length, 2, `expected the first call + the retry, got: ${JSON.stringify(calls)}`);
+  for (const call of calls) {
+    assert.match(call, /,\s*isGap\)$/, `a synthesis call site drops the mode: ${call}`);
+  }
+});
+
+test("the test-baseline injection is guarded by !isGap -- the prompt is guidance, this is the gate", () => {
+  const flow = controlFlowOf(SCRIPT_PATH);
+  const guard = flow.slice(flow.indexOf("// Surface a synthesized missing-test-baseline item"));
+  assert.match(guard.slice(0, 800), /if \(\s*\n\s*!isGap &&/);
+});
+
+// -----------------------------------------------------------------------------
+// 0043 T2-02 -- criterionCoverage: the met / partial / missing / not-checked report. The
+// verdict is the reviewer's CLAIM; the surviving findings are the EVIDENCE, and evidence
+// wins in both directions. Attribution is by the unioned `modules`, never by sourceModule.
+// -----------------------------------------------------------------------------
+
+/** A criterion as the engine passes it (only id + feature are read here). */
+function crit(id, feature = "Feature X") {
+  return { id, feature };
+}
+/** A surviving finding attributed to one or more criteria, exactly as the engine tags them. */
+function attributed(...ids) {
+  return { modules: ids.map((id) => `criterion ${id}`) };
+}
+/** verdictByCriterion as the batch loop builds it. */
+function verdicts(pairs) {
+  return new Map(Object.entries(pairs));
+}
+
+test("criterionCoverage: verdict 'met' with zero surviving findings reads MET", () => {
+  const cov = H.criterionCoverage([crit("AC-1")], [], verdicts({ "AC-1": "met" }), []);
+  assert.deepEqual(cov, [{ id: "AC-1", feature: "Feature X", state: "met", findings: 0 }]);
+});
+
+test("criterionCoverage: verdict 'met' + a SURVIVING finding DOWNGRADES to partial -- evidence outranks the claim", () => {
+  const cov = H.criterionCoverage([crit("AC-1")], [], verdicts({ "AC-1": "met" }), [attributed("AC-1")]);
+  assert.deepEqual(cov, [{ id: "AC-1", feature: "Feature X", state: "partial", findings: 1 }]);
+});
+
+test("criterionCoverage: verdict 'missing' with every finding refuted/pruned UPGRADES to met", () => {
+  // The reviewer said missing; VERIFY refuted its only finding, so nothing attributed survives.
+  const cov = H.criterionCoverage([crit("AC-1")], [], verdicts({ "AC-1": "missing" }), []);
+  assert.deepEqual(cov, [{ id: "AC-1", feature: "Feature X", state: "met", findings: 0 }]);
+});
+
+test("criterionCoverage: verdict 'missing' + a surviving finding stays MISSING (partial is not a floor)", () => {
+  const cov = H.criterionCoverage([crit("AC-1")], [], verdicts({ "AC-1": "missing" }), [
+    attributed("AC-1"),
+    attributed("AC-1"),
+  ]);
+  assert.deepEqual(cov, [{ id: "AC-1", feature: "Feature X", state: "missing", findings: 2 }]);
+});
+
+test("criterionCoverage: a PENDING criterion is not-checked and NEVER carries a verdict", () => {
+  // Budget-deferred or a failed batch: the cell is pending, so no verdict was recorded for it --
+  // but even a stale one must not surface as a claim about the code.
+  const cov = H.criterionCoverage(
+    [crit("AC-1"), crit("AC-2", "Feature Y")],
+    ["AC-2"],
+    verdicts({ "AC-1": "met", "AC-2": "met" }),
+    [],
+  );
+  assert.deepEqual(cov, [
+    { id: "AC-1", feature: "Feature X", state: "met", findings: 0 },
+    { id: "AC-2", feature: "Feature Y", state: "not-checked", findings: 0 }, // never "met"
+  ]);
+});
+
+test("criterionCoverage: two criteria colliding on ONE issueClass leave BOTH non-met (the dedup false-MET regression)", () => {
+  // dedupFindings merges same-issueClass findings and UNIONS their modules; sourceModule is
+  // first-wins, so attributing by it would have made AC-2 read a clean MET.
+  const merged = H.dedupFindings([
+    { issueClass: "missing-empty-state", sourceModule: "criterion AC-1", modules: ["criterion AC-1"] },
+    { issueClass: "missing-empty-state", sourceModule: "criterion AC-2", modules: ["criterion AC-2"] },
+  ]);
+  assert.equal(merged.length, 1, "one issueClass -> one deduped finding");
+  assert.deepEqual(merged[0].modules, ["criterion AC-1", "criterion AC-2"]);
+  assert.equal(merged[0].sourceModule, "criterion AC-1"); // first-wins -- the reason modules exists
+  const cov = H.criterionCoverage(
+    [crit("AC-1"), crit("AC-2", "Feature Y")],
+    [],
+    verdicts({ "AC-1": "missing", "AC-2": "missing" }),
+    merged,
+  );
+  assert.deepEqual(cov.map((c) => c.state), ["missing", "missing"]);
+  assert.deepEqual(cov.map((c) => c.findings), [1, 1]);
+});
+
+test("criterionCoverage: an id containing '|' resolves EXACTLY -- parseCellKey is out of this path", () => {
+  // A `module|dir` split would read "AC|1" as module "AC" and report it checked on an earlier pass.
+  const cov = H.criterionCoverage([crit("AC|1"), crit("AC", "Feature Y")], ["AC|1"], verdicts({}), []);
+  assert.deepEqual(cov, [
+    { id: "AC|1", feature: "Feature X", state: "not-checked", findings: 0 },
+    { id: "AC", feature: "Feature Y", state: "met", findings: 0 }, // NOT dragged into AC|1's pending
+  ]);
+});
+
+test("renderCriterionCoverage: each state renders its phrase; absent/empty renders NOTHING", () => {
+  const out = H.renderCriterionCoverage([
+    { id: "AC-1", feature: "Sign-in", state: "met", findings: 0 },
+    { id: "AC-2", feature: "Search", state: "partial", findings: 1 },
+    { id: "AC-3", feature: "Export", state: "missing", findings: 2 },
+    { id: "AC-4", feature: "Billing", state: "not-checked", findings: 0 },
+  ]);
+  assert.ok(out.includes("which parts of your spec does the code deliver?"));
+  assert.ok(out.includes("`AC-1` (Sign-in): checked, delivers it"));
+  assert.ok(out.includes("`AC-2` (Search): 1 gap")); // singular
+  assert.ok(!out.includes("1 gaps"));
+  assert.ok(out.includes("`AC-3` (Export): not delivered -- 2 gaps"));
+  // partial and missing are DIFFERENT states and must not render the same sentence: "some of this
+  // works" and "none of this exists" are the two the reader most needs to tell apart, and the fence
+  // is where they read it (the structured state is not what a human opens weeks later).
+  assert.notEqual(
+    H.renderCriterionCoverage([{ id: "X", state: "partial", findings: 2 }]),
+    H.renderCriterionCoverage([{ id: "X", state: "missing", findings: 2 }]),
+  );
+  assert.ok(out.includes("`AC-4` (Billing): not checked this run -- re-run to cover it"));
+  assert.equal(H.renderCriterionCoverage(undefined), "");
+  assert.equal(H.renderCriterionCoverage([]), "");
+});
+
+test("renderBacklogFence: gap carries the criterion report in the SAME slot the lens line uses", () => {
+  const gap = H.renderBacklogFence(
+    makeResult({
+      level: "gap",
+      items: [makeItem()],
+      criterionCoverage: [{ id: "AC-1", feature: "Sign-in", state: "met", findings: 0 }],
+    }),
+  );
+  assert.ok(gap.includes("`AC-1` (Sign-in): checked, delivers it"));
+  assert.ok(!gap.includes("did every lens speak?"), "the two coverage reports are mode-exclusive");
+  // The slot is shared: the criterion report sits between the recommendation and the run report.
+  const parts = gap.split("\n\n");
+  const cov = parts.findIndex((s) => s.startsWith("**Criterion coverage**"));
+  const rec = parts.findIndex((s) => s.startsWith("**Recommended starting point:**"));
+  const run = parts.findIndex((s) => s.startsWith("Re-checked "));
+  assert.ok(rec < cov && cov < run, `criterion coverage sits in the lens slot: ${parts.map((s) => s.slice(0, 20))}`);
+  // NON-VACUITY: with no criterionCoverage the fence grows no empty header.
+  assert.ok(!H.renderBacklogFence(makeResult({ level: "gap", items: [] })).includes("Criterion coverage"));
+});
+
+test("renderOnlyResult passes criterionCoverage through FULL-SCOPE even when items are narrowed", () => {
+  const S = loadHelpersFrom(SCRIPT_PATH, ["renderOnlyResult"]);
+  const out = S.renderOnlyResult(
+    makeResult({
+      level: "gap",
+      items: [makeItem()], // the SELECT-narrowed subset
+      criterionCoverage: [
+        { id: "AC-1", feature: "Sign-in", state: "met", findings: 0 },
+        { id: "AC-2", feature: "Search", state: "missing", findings: 3 },
+      ],
+    }),
+  );
+  assert.ok(out.renderedBacklog.includes("`AC-1` (Sign-in): checked, delivers it"));
+  assert.ok(
+    out.renderedBacklog.includes("`AC-2` (Search): not delivered -- 3 gaps"),
+    "a narrowed fence keeps the full report",
+  );
+});
+
+test("GAP_LENS_SCHEMA REQUIRES criterionVerdict; LENS_SCHEMA is untouched", () => {
+  assert.deepEqual(H.GAP_LENS_SCHEMA.required, ["lensVerdict", "criterionVerdict", "findings"]);
+  assert.deepEqual(H.GAP_LENS_SCHEMA.properties.criterionVerdict, {
+    type: "string",
+    enum: ["met", "partial", "missing"],
+  });
+  // The findings shape is inherited verbatim -- one schema, not a fork.
+  assert.equal(H.GAP_LENS_SCHEMA.properties.findings, H.LENS_SCHEMA.properties.findings);
+  assert.deepEqual(H.LENS_SCHEMA.required, ["lensVerdict", "findings"]);
+  assert.equal(H.LENS_SCHEMA.properties.criterionVerdict, undefined);
+});
+
+test("the gap FIND fan-out validates against GAP_LENS_SCHEMA -- the verdict is boundary-enforced", () => {
+  const flow = controlFlowOf(SCRIPT_PATH);
+  assert.match(flow, /schema: isGap \? GAP_LENS_SCHEMA : LENS_SCHEMA,/);
+  // ... and a failed batch records NO verdict -- pending is what makes a criterion "not checked".
+  assert.match(flow, /verdictByCriterion\.set\(batch\.module, r\.criterionVerdict\)/);
 });

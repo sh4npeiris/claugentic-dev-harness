@@ -461,6 +461,47 @@ function lensCoverage(modules, pendingCells, findings) {
   });
 }
 
+// Per-criterion coverage -- gap mode's answer to "which parts of my spec does the code DELIVER?"
+// (the met / partial / missing report the product spec promises). A SEPARATE function from
+// lensCoverage on purpose, and it does NOT touch parseCellKey: a gap cell IS the raw criterion id,
+// so pending is an exact Set membership test -- no delimiter is parsed, so an id containing a `|`
+// cannot be mis-split into a phantom "checked on an earlier pass".
+// Per criterion, in SPEC order:
+//   * not-checked -- the id is still pending (budget-deferred or a failed batch). A cell that never
+//                    ran NEVER carries a verdict; "unchecked" is not a claim about the code.
+//   * otherwise   -- the reviewer's schema `criterionVerdict` FOLDED against surviving evidence, so
+//                    the verdict can never outrank the code: "met" + >=1 surviving attributed
+//                    finding DOWNGRADES to "partial"; "partial"/"missing" + ZERO surviving
+//                    attributed findings (every one refuted or pruned) UPGRADES to "met". Evidence
+//                    wins in BOTH directions -- that fold is what makes this a report rather than a
+//                    relayed claim. (An absent verdict is unreachable through GAP_LENS_SCHEMA, which
+//                    requires it; it folds by the same rule.)
+// Attribution is `modules.includes("criterion <id>")` -- the engine-assigned source list dedupFindings
+// unions -- NEVER `sourceModule ===`, which is first-wins under dedup. `findings` is the SURVIVING
+// set the fence renders, so a criterion can never read "met" above an item that cites it.
+// Pure -> unit-tested.
+function criterionCoverage(criteria, pendingCells, verdictByCriterion, findings) {
+  const pending = new Set(Array.isArray(pendingCells) ? pendingCells : []);
+  const verdicts = verdictByCriterion instanceof Map ? verdictByCriterion : new Map();
+  const surviving = Array.isArray(findings) ? findings : [];
+  return (Array.isArray(criteria) ? criteria : []).map((criterion) => {
+    const id = criterion && criterion.id != null ? criterion.id : "";
+    const tag = `criterion ${id}`;
+    const findingCount = surviving.filter(
+      (f) => f && Array.isArray(f.modules) && f.modules.includes(tag),
+    ).length;
+    const state = pending.has(id)
+      ? "not-checked"
+      : findingCount > 0
+        ? verdicts.get(id) === "missing"
+          ? "missing"
+          : "partial"
+        : "met";
+    const feature = criterion && criterion.feature != null ? criterion.feature : "";
+    return { id, feature, state, findings: findingCount };
+  });
+}
+
 // Normalize an issue-class string: lowercase, trim, collapse internal whitespace to single
 // hyphens. The deterministic dedup identity is derived from this (synonym slugs that differ
 // after normalization stay distinct -- semantic dedup is the synthesis agent's job).
@@ -477,20 +518,29 @@ function findingKey(finding) {
   return normalizeIssueClass(finding && finding.issueClass);
 }
 
-// Merge same-key findings across lenses: union of `locations` (the "recurs in N files" roll-up),
-// WEAKEST confidence wins (any `judgment` member => merged finding is `judgment`, never
-// upgraded), keep the first concrete claim/fix. Distinct classes stay separate. Preserves
-// first-seen order. Each merged finding carries its computed `findingKey`.
+// Merge same-key findings across lenses: union of `locations` (the "recurs in N files" roll-up)
+// AND of `modules` (the source list every coverage report attributes by), WEAKEST confidence wins
+// (any `judgment` member => merged finding is `judgment`, never upgraded), keep the first concrete
+// claim/fix. Distinct classes stay separate. Preserves first-seen order. Each merged finding
+// carries its computed `findingKey`.
+//
+// The `modules` union is load-bearing, not cosmetic: `sourceModule` is FIRST-WINS here, so two
+// lenses (or two criteria) that surface the SAME issueClass collapse to the first one's source and
+// the second's attribution silently disappears -- in gap mode that is a reachable false MET
+// (criterion B's gap vanishing into criterion A's finding). Attribute coverage by `modules`, never
+// by `sourceModule ===`.
 function dedupFindings(findings) {
   const byKey = new Map();
   for (const finding of findings) {
     const key = findingKey(finding);
     const incomingLocations = Array.isArray(finding.locations) ? finding.locations : [];
+    const incomingModules = Array.isArray(finding.modules) ? finding.modules : [];
     if (!byKey.has(key)) {
       byKey.set(key, {
         ...finding,
         findingKey: key,
         locations: [...incomingLocations],
+        modules: [...incomingModules],
       });
       continue;
     }
@@ -498,6 +548,11 @@ function dedupFindings(findings) {
     for (const loc of incomingLocations) {
       if (!merged.locations.includes(loc)) {
         merged.locations.push(loc);
+      }
+    }
+    for (const mod of incomingModules) {
+      if (!merged.modules.includes(mod)) {
+        merged.modules.push(mod);
       }
     }
     if ((merged.fix == null || merged.fix === "") && finding.fix != null && finding.fix !== "") {
@@ -627,21 +682,42 @@ function buildSentinelPrompt(keptFindings) {
 }
 
 // Build the synthesis prompt: consolidate -> tier (1|2|3) + exactly one of the five tags +
-// plain-English title/why/impact-effort per item -> a YAGNI right-size cut list with reasons
-// (incl. "duplicate of <key>" cuts). ADD one missing-test-baseline Tier-1 item ONLY when the
-// inputs show untested behavior-bearing code and none exists; NEVER manufacture a finding to
-// fill a tier. This is the prose's quick/standard "synthesis self-review", delegated.
-function buildSynthesisPrompt(dedupedFindings, modules, scopeDirs) {
+// plain-English title/why/impact-effort per item -> a cut list with reasons. MODE-BRANCHED on
+// `isGap` at EXACTLY TWO clauses -- the consolidate/tier/tag/return-shape text is byte-identical in
+// both modes (one prompt, one contract, .claude/agents/synthesizer-gate.md Mode 3):
+//   * standard -- a YAGNI right-size prune, and ADD one missing-test-baseline Tier-1 item ONLY when
+//     the inputs show untested behavior-bearing code and none exists.
+//   * gap -- the CONFORMANCE variant (Mode 3's gap paragraph). The lens source is ACCEPTANCE
+//     CRITERIA, not standards modules, so YAGNI does not apply: every finding claims the product's
+//     OWN spec promises something the code does not do, and a promised-but-missing behaviour is
+//     never a marginal nice-to-have. The test-baseline ADD is DROPPED entirely -- it maps to no
+//     criterion, so an engineering to-do can never enter a PRODUCT backlog.
+// NEVER manufacture a finding to fill a tier, either mode. This is the prose's quick/standard
+// "synthesis self-review", delegated.
+function buildSynthesisPrompt(dedupedFindings, modules, scopeDirs, isGap) {
+  const prune = isGap
+    ? `and PRUNE it for SPEC CONFORMANCE -- do NOT apply YAGNI. The lens source is acceptance ` +
+      `criteria, not engineering standards: every finding is a claim that the product's OWN spec ` +
+      `promises something the code does not do, so a promised-but-missing behaviour is never a ` +
+      `marginal nice-to-have and may NOT be cut for impact. Cut ONLY (a) exact semantic duplicates ` +
+      `(reason "duplicate of <key>") and (b) findings citing no acceptance criterion (reason ` +
+      `"no criterion") -- and every cut reason MUST name the criterion id the finding came from. ` +
+      `Never manufacture a finding to fill a tier. `
+    : `and right-size it (YAGNI -- keep only findings with real impact; cut marginal ` +
+      `nice-to-haves; never manufacture a finding to fill a tier). `;
+  const baselineAdd = isGap
+    ? ``
+    : `ADD one item with findingKey "${TEST_BASELINE_CLASS}" at tier 1 ONLY IF the audited code is ` +
+      `behavior-bearing and untested and no test baseline exists -- otherwise do not add it. `;
   return (
     `Synthesis self-review of an audit. Consolidate these deduped findings into a tiered, tagged ` +
-    `backlog set and right-size it (YAGNI -- keep only findings with real impact; cut marginal ` +
-    `nice-to-haves; never manufacture a finding to fill a tier). ` +
+    `backlog set ` +
+    prune +
     `For each kept finding return: findingKey (the issueClass), tier (1|2|3), tag (exactly one of ` +
     `refactor|capability-upgrade|dependency-health|bug|feature), titlePlain, whyPlain, impactEffort. ` +
     `Return a cuts list of { findingKey, reason } for everything you drop (use reason "duplicate of <key>" ` +
     `for semantic duplicates the coded dedup missed). ` +
-    `ADD one item with findingKey "${TEST_BASELINE_CLASS}" at tier 1 ONLY IF the audited code is ` +
-    `behavior-bearing and untested and no test baseline exists -- otherwise do not add it. ` +
+    baselineAdd +
     `Audited modules: ${JSON.stringify(modules)}. Scope: ${JSON.stringify(scopeDirs)}. ` +
     `Deduped findings: ${JSON.stringify(dedupedFindings)}.`
   );
@@ -856,6 +932,20 @@ const LENS_SCHEMA = {
         },
       },
     },
+  },
+};
+
+// The gap-mode FIND schema: LENS_SCHEMA plus a REQUIRED per-criterion verdict. The met/partial/
+// missing report is carried STRUCTURALLY and validated at the tool-call boundary -- never inferred
+// from prompt guidance and never parsed back out of an issueClass prefix (that inference is what
+// made a false MET reachable). Standard mode keeps LENS_SCHEMA unchanged: a standards module has no
+// criterion to render a verdict on.
+const GAP_LENS_SCHEMA = {
+  ...LENS_SCHEMA,
+  required: ["lensVerdict", "criterionVerdict", "findings"],
+  properties: {
+    ...LENS_SCHEMA.properties,
+    criterionVerdict: { type: "string", enum: ["met", "partial", "missing"] },
   },
 };
 
@@ -1085,6 +1175,33 @@ function renderLensCoverage(lensCoverage) {
   return `**Lens coverage** (did every lens speak?):\n${lines.join("\n")}`;
 }
 
+// The per-criterion coverage line -- gap mode's "which parts of my spec does the code deliver?"
+// report, and the surface that makes "met" distinguishable from "the check quietly produced
+// nothing". Structurally the twin of renderLensCoverage (one line per criterion in SPEC order,
+// nothing rendered when absent -- never a misleading empty header). The two are MUTUALLY EXCLUSIVE
+// by mode, so they share the fence's single coverage slot. The phrase map is the single source of
+// truth for the wording.
+const CRITERION_COVERAGE_PHRASE = {
+  met: () => "checked, delivers it",
+  partial: (n) => `${n} gap${n === 1 ? "" : "s"}`,
+  missing: (n) => `not delivered -- ${n} gap${n === 1 ? "" : "s"}`,
+  "not-checked": () => "not checked this run -- re-run to cover it",
+};
+function renderCriterionCoverage(criterionCoverage) {
+  const criteria = Array.isArray(criterionCoverage) ? criterionCoverage : [];
+  if (criteria.length === 0) {
+    return "";
+  }
+  const lines = criteria.map((c) => {
+    const phrase = (CRITERION_COVERAGE_PHRASE[c.state] || CRITERION_COVERAGE_PHRASE["not-checked"])(
+      c.findings || 0,
+    );
+    const label = c.feature ? `\`${c.id}\` (${c.feature})` : `\`${c.id}\``;
+    return `- ${label}: ${phrase}`;
+  });
+  return `**Criterion coverage** (which parts of your spec does the code deliver?):\n${lines.join("\n")}`;
+}
+
 // The verification run-report line -- driven by the result's verification block. Frames the dropped
 // findings as a trust signal (a COUNT, never a list) -- worded DISPROVED, never "could not confirm",
 // which is the KEPT unconfirmed state's phrase (VERIFICATION_PHRASE / LEGEND). When crossModel is
@@ -1120,15 +1237,20 @@ function renderRunReport(verification) {
 }
 
 // Build the COMPLETE inner fence body from the structured result. Order: status line, legend,
-// the three tiers (most-urgent-first), the recommended starting point, the per-lens coverage report
-// (did every lens speak? -- omitted when absent), the run report, the go-button. NO fence markers,
+// the three tiers (most-urgent-first), the recommended starting point, the coverage report (per-lens
+// in standard mode, per-criterion in gap mode -- omitted when absent), the run report, the
+// go-button. NO fence markers,
 // NO heading (SKILL-owned). {{DATE}} stays a placeholder.
 function renderBacklogFence(result) {
   const items = Array.isArray(result.items) ? result.items : [];
   const tier1 = items.filter((it) => it.tier === 1);
   const tier2 = items.filter((it) => it.tier === 2);
   const tier3 = items.filter((it) => it.tier === 3);
-  const lensCoverageLine = renderLensCoverage(result.lensCoverage);
+  // ONE coverage slot, two mode-exclusive reports: standard mode carries `lensCoverage`, gap mode
+  // carries `criterionCoverage`; neither is ever present alongside the other, and an absent one
+  // renders "" so the fence never grows an empty header.
+  const coverageLine =
+    renderLensCoverage(result.lensCoverage) || renderCriterionCoverage(result.criterionCoverage);
   const parts = [
     renderStatusLine(result),
     LEGEND,
@@ -1136,7 +1258,7 @@ function renderBacklogFence(result) {
     renderTier("Tier 2 -- important", tier2),
     renderTier("Tier 3 -- polish", tier3),
     renderRecommendation(tier1, tier2, result.status, result.level, result.verificationIncomplete),
-    ...(lensCoverageLine ? [lensCoverageLine] : []),
+    ...(coverageLine ? [coverageLine] : []),
     renderRunReport(result.verification),
     // Emitted on EVERY gap fence, pass or fail -- the fence is the surface that persists.
     ...(result.level === "gap" ? [GAP_SCOPE_LINE] : []),
@@ -1165,7 +1287,8 @@ function mergePriorItems(currentItems, priorItems) {
 }
 
 // renderOnly re-render: re-render the backlog fence from an ALREADY-SELECTED item subset while
-// passing lensCoverage/verification through full-scope (the SELECT seam -- the SKILL filters items,
+// passing lensCoverage / criterionCoverage / verification through full-scope (the SELECT seam --
+// a narrowed item list must never narrow the coverage report; the SKILL filters items,
 // the renderer stays the single source of the fence format). Validates its own payload at the
 // boundary because the run-body branch that calls it returns BEFORE validateArgs (auditEntry has
 // already normalized the args boundary by then -- see there for why the seam sits between them).
@@ -1173,6 +1296,12 @@ function mergePriorItems(currentItems, priorItems) {
 // subset of the engine's OWN result.items (the SKILL ticks a transient display checklist, never
 // authors item objects), so a malformed element is unreachable on the real path -- deeper
 // per-element validation would guard an impossible state (YAGNI).
+// HONESTY CONTRACT (why full-scope, and why the SKILL guards the empty case): recomputing
+// coverage/verification over the KEPT subset would claim "every lens spoke" about only the
+// findings the user kept; and an EMPTY selection re-rendered here emits the engine's terminal
+// "sound on the audited dimensions" signal over a run that DID surface work -- so the SKILL must
+// never invoke renderOnly with an empty selection when the full run carried Tier-1/2 findings.
+// Pinned in tests/workflows/audit.test.mjs (both legs).
 function renderOnlyResult(payload) {
   if (payload == null || typeof payload !== "object" || !Array.isArray(payload.items)) {
     throw new Error("renderOnly requires an object payload with an items array");
@@ -1364,7 +1493,9 @@ const findTasks = batches.map((batch) => () =>
       : buildLensPrompt(batch.module, batch.dirs, excludeSet, depth),
     {
       agentType: nsAgent("lens-reviewer"),
-      schema: LENS_SCHEMA,
+      // Gap mode REQUIRES the per-criterion verdict at the boundary (GAP_LENS_SCHEMA); standard
+      // mode has no criterion, so it keeps LENS_SCHEMA unchanged.
+      schema: isGap ? GAP_LENS_SCHEMA : LENS_SCHEMA,
       label: isGap ? `gap:${batch.module}` : `lens:${batch.module}`,
       phase: "Find",
     },
@@ -1386,6 +1517,11 @@ const findResults = await parallel(findTasks);
 // run goes PARTIAL. Surviving batches contribute their findings, each tagged with its module.
 const failedCells = [];
 const rawFindings = [];
+// Gap mode only: the criterion's schema-enforced met/partial/missing verdict, keyed by the criterion
+// id (batch.module IS criterion.id -- engine-assigned end to end, never a model-authored key). A
+// failed batch records NOTHING: its cell is already in failedCells, and THAT is what makes the
+// criterion read "not checked" rather than carrying a verdict nobody produced.
+const verdictByCriterion = new Map();
 batches.forEach((batch, i) => {
   const r = findResults[i];
   if (!r || !Array.isArray(r.findings)) {
@@ -1399,6 +1535,9 @@ batches.forEach((batch, i) => {
   // mode it is the module's doc path. Each finding carries its source so the verifier and the
   // fence can cite it.
   const source = isGap ? `criterion ${batch.module}` : modulePath(batch.module);
+  if (isGap) {
+    verdictByCriterion.set(batch.module, r.criterionVerdict);
+  }
   for (const finding of r.findings) {
     rawFindings.push({ ...finding, sourceModule: source, modules: [source] });
   }
@@ -1431,14 +1570,16 @@ const synthesisModules = isGap ? input.criteria.map((c) => c.id) : modulesToPath
 const synthesisScope = isGap ? ["product-gap: intent vs implementation"] : input.scopeDirs;
 
 let synthesis = await agentWithNamespaceFallback(
-  buildSynthesisPrompt(dedupedFindings, synthesisModules, synthesisScope),
+  buildSynthesisPrompt(dedupedFindings, synthesisModules, synthesisScope, isGap),
   { agentType: nsAgent("synthesizer-gate"), schema: SYNTHESIS_SCHEMA, label: "synthesis", phase: "Prune" },
 );
 if (!synthesis || !Array.isArray(synthesis.items)) {
   // Single-point seam: a null synthesis would discard the whole FIND sweep. Retry once
   // before the fail-loud terminal (the throw stays -- never proceed without the prune).
+  // The retry passes the SAME isGap -- a mode-less respawn would silently restore the engineering
+  // prompt (YAGNI prune + test-baseline ADD) on exactly the runs a first synthesis failed.
   synthesis = await agentWithNamespaceFallback(
-    buildSynthesisPrompt(dedupedFindings, synthesisModules, synthesisScope),
+    buildSynthesisPrompt(dedupedFindings, synthesisModules, synthesisScope, isGap),
     { agentType: nsAgent("synthesizer-gate"), schema: SYNTHESIS_SCHEMA, label: "synthesis:respawn", phase: "Prune" },
   );
 }
@@ -1451,8 +1592,11 @@ const annotated = applySynthesisItems(dedupedFindings, synthesis.items);
 let survivors = applyPrune(annotated, synthesis.cuts);
 
 // Surface a synthesized missing-test-baseline item if synthesis declared one and dedup/prune
-// didn't already carry it (it is added to VERIFY like any finding).
+// didn't already carry it (it is added to VERIFY like any finding). NEVER in gap mode: the item
+// maps to no acceptance criterion, so the `!isGap` guard holds even if a non-conforming synthesis
+// return ignores the prompt and declares one anyway (the prompt is guidance; this is the gate).
 if (
+  !isGap &&
   synthesis.items.some((it) => normalizeIssueClass(it.findingKey) === TEST_BASELINE_CLASS) &&
   !survivors.some((f) => findingKey(f) === TEST_BASELINE_CLASS)
 ) {
@@ -1559,6 +1703,15 @@ const lensCoverageReport = isGap
   ? undefined
   : lensCoverage(input.modules, pendingCells, dedupedFindings);
 
+// Per-criterion coverage (gap mode only -- the met / partial / missing report). Derived from
+// `items`, the SURVIVING set the fence renders (not the deduped set lensCoverage uses), because the
+// fold's whole point is that evidence outranks the reviewer's verdict: a finding refuted at VERIFY
+// or cut at PRUNE has stopped being evidence, and a criterion may never read "met" above an item
+// that cites it.
+const criterionCoverageReport = isGap
+  ? criterionCoverage(input.criteria, pendingCells, verdictByCriterion, items)
+  : undefined;
+
 const result = {
   status: runStatus(pendingCells),
   // A COMPLETE cell sweep can still carry unverified findings -- say so mechanically.
@@ -1571,6 +1724,7 @@ const result = {
   refutedCount,
   verification: { ...summary, carried: carriedForward },
   ...(lensCoverageReport ? { lensCoverage: lensCoverageReport } : {}),
+  ...(criterionCoverageReport ? { criterionCoverage: criterionCoverageReport } : {}),
 };
 
 // The complete fence body the skill writes between the harness-audit:backlog markers (Phase 3 is

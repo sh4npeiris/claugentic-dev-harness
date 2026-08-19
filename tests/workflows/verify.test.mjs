@@ -638,6 +638,32 @@ function spies(agentImpl) {
   return { calls, logs, agent, log: (line) => logs.push(line) };
 }
 
+// Drive the SHIPPED degradation expressions. `honestyUnrun`, `panelDegraded` and the result
+// object's `honesty:` field are top-level control-flow STATEMENTS, not functions, so loadWrappers
+// cannot reach them -- but their free names can be bound, same trick. Extract the three shipped
+// lines verbatim and evaluate them with (hasHonesty, honesty, yagni, unrunGaps, input) injected,
+// so what these tests exercise is the byte-for-byte source, never a restatement of it.
+function degradation({ hasHonesty, trustSurface, honesty, yagni = { verdict: "PROPORTIONATE" }, unrunGaps = [] }) {
+  const flow = controlFlowOf(SCRIPT_PATH);
+  const unrunLine = flow.match(/^const honestyUnrun = .*;$/m);
+  assert.ok(unrunLine, "could not locate the `honestyUnrun` declaration in the control flow");
+  const degradedLine = flow.match(/^const panelDegraded = .*;$/m);
+  assert.ok(degradedLine, "could not locate the `panelDegraded` declaration in the control flow");
+  const result = flow.slice(flow.lastIndexOf("\nreturn {"));
+  const honestyField = result.match(/^ {2}honesty: (.*),$/m);
+  assert.ok(honestyField, "could not locate the `honesty:` field of the result object");
+  const fn = new Function(
+    "hasHonesty",
+    "honesty",
+    "yagni",
+    "unrunGaps",
+    "input",
+    `"use strict";\n${unrunLine[0]}\n${degradedLine[0]}\n` +
+      `return { panelDegraded, honesty: ${honestyField[1]} };`,
+  );
+  return fn(hasHonesty, honesty, yagni, unrunGaps, { trustSurface });
+}
+
 // The file header: everything ABOVE `export const meta` (where the script's own claims live).
 function headerOf(scriptPath) {
   const src = readFileSync(scriptPath, "utf8");
@@ -879,7 +905,9 @@ test("verify.js control flow: the HONESTY thunk is NOT guarded -- the two-failur
   // Trap 1: honesty is a spawnJudge call in the SAME parallel(). guardFailure's message is
   // false for a judge (no coverage gap, no forced CHANGES_REQUIRED), which is why the guard
   // stops at the lens/yagni thunks -- NOT because that keeps the throw loud. Measured, it does
-  // not: parallel() swallows judgeOutcome's two-failure throw either way (routed, see ROADMAP).
+  // not: parallel() swallows judgeOutcome's two-failure throw either way. RESOLVED 2026-08-19 at
+  // the RESULT instead: honestyUnrun logs, sets panelDegraded and serializes { couldNotRun: true }
+  // (pinned by the degradation tests below) -- it degrades, it never blocks.
   // This pin is VOCABULARY; the EFFECT pin is the next test -- keep them together.
   const honestyBlock = flow.match(/if \(hasHonesty\) \{[\s\S]*?^\}/m);
   assert.ok(honestyBlock, "could not locate the hasHonesty push block");
@@ -892,6 +920,69 @@ test("verify.js control flow: the HONESTY thunk is NOT guarded -- the two-failur
   assert.ok(
     !/panelTasks\.map\(/.test(flow),
     "panelTasks must never be blanket-mapped through a guard -- guard the lens and yagni thunks only",
+  );
+});
+
+// -----------------------------------------------------------------------------
+// RM-4 (2026-08-19) -- the honesty judge's could-not-run is a DEGRADATION, not a clean pass.
+// The false-green: a trustSurface run whose honesty judge failed twice reported honesty: null
+// with panelDegraded: false and a PASS verdict. `panelDegraded` was pinned NOWHERE before these.
+// -----------------------------------------------------------------------------
+test("an unrun trust-surface honesty judge DEGRADES the panel and serializes as couldNotRun", () => {
+  const r = degradation({ hasHonesty: true, trustSurface: true, honesty: null });
+  assert.equal(
+    r.panelDegraded,
+    true,
+    "a twice-failed honesty judge must mark the panel degraded -- the adversarial-review function cannot fail silently",
+  );
+  assert.deepEqual(
+    r.honesty,
+    { couldNotRun: true },
+    "an unrun trust-surface review must serialize as could-not-run, mirroring yagni -- never as a clean honesty dimension",
+  );
+});
+
+test("a trust-surface honesty judge that DID run is passed through untouched, panel not degraded", () => {
+  const out = { reported_model_family: "Opus 5", verdict: "CLEAN", findings: [] };
+  const r = degradation({ hasHonesty: true, trustSurface: true, honesty: out });
+  assert.equal(r.panelDegraded, false, "a judge that ran must not degrade the panel");
+  assert.equal(r.honesty, out, "a real honesty result must reach the caller unwrapped");
+});
+
+test("non-regression: trustSurface=false still skips, and its null honesty never degrades the panel", () => {
+  // splitPanelResults returns honestyJudge: null by CONSTRUCTION when trustSurface is false, so
+  // `honesty == null` there is the legitimate not-asked-for case. Without the `hasHonesty &&`
+  // guard on honestyUnrun, EVERY non-trust-surface run would report a degraded panel.
+  const r = degradation({ hasHonesty: false, trustSurface: false, honesty: null });
+  assert.equal(r.panelDegraded, false, "a run that never asked for an honesty review is not degraded by its absence");
+  assert.deepEqual(r.honesty, { skipped: "trustSurface=false" }, "the skip wording is the caller's contract -- unchanged");
+  // The honesty disjunct is an ADDITION: the pre-existing degradation causes still fire.
+  assert.equal(
+    degradation({ hasHonesty: false, trustSurface: false, honesty: null, yagni: null }).panelDegraded,
+    true,
+    "yagni's own could-not-run must still degrade the panel",
+  );
+  assert.equal(
+    degradation({ hasHonesty: false, trustSurface: false, honesty: null, unrunGaps: [{ dimension: "testing" }] }).panelDegraded,
+    true,
+    "an unrun lens must still degrade the panel",
+  );
+});
+
+test("verify.js control flow: an unrun trust-surface honesty judge is LOGGED, and DEGRADES rather than blocks", () => {
+  const flow = controlFlowOf(SCRIPT_PATH);
+  const block = flow.match(/^if \(honestyUnrun\) \{[\s\S]*?^\}/m);
+  assert.ok(
+    block,
+    "an unrun honesty judge needs its own log block -- parallel() swallows the two-failure throw, so this is its ONLY trace",
+  );
+  assert.match(block[0], /log\(/, "the mirror of the unrun-lens log must reach the run log");
+  // DEGRADE, not block: finalVerdict's inputs are untouched by the honesty path. Forcing
+  // CHANGES_REQUIRED here would be a verdict-semantics change, and that was never approved.
+  assert.match(
+    flow,
+    /verdict: finalVerdict\(synthesis \? synthesis\.verdict : "CHANGES_REQUIRED", unrunGaps\.length\),/,
+    "finalVerdict must still take only the synthesis verdict and the unrun LENS count -- honesty degrades, it never blocks",
   );
 });
 

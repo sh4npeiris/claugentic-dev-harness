@@ -41,8 +41,8 @@ phase genuinely needs the user — it stays a conversation.**
    `README`; and the user. The spec is the user's product truth — you surface and structure it,
    you do not decide it.
 
-3. **Convene `claugentic-dev-harness:product-designer`** (Stage-1 Discuss register — per `.claude/agents/product-designer.md`,
-   no new agents): plain-English opener; surface the user, job-to-be-done, the key flows and their
+3. **Convene `claugentic-dev-harness:product-designer`** (Stage-1 Discuss register — no new agents):
+   plain-English opener; surface the user, job-to-be-done, the key flows and their
    loading/empty/error states, and what "good" feels like; **the user owns every product decision;
    never invent scope** (a genuinely-new feature idea goes to the user as a question, not into the
    spec). The states bar is the standard — **point at** `docs/claugentic-standards/product-ux.md` →
@@ -61,9 +61,9 @@ phase genuinely needs the user — it stays a conversation.**
    any benchmark/competitor claim it makes without a deep-research round is **model knowledge,
    tagged not-verified** (only a research round carries citations).
 
-   1. **Convene `claugentic-dev-harness:product-designer` in its elevate mode** (per
-      `.claude/agents/product-designer.md` — no new agents; a second subagent, allowed under the
-      top-level-agent constraint). Pass it: the **elevate mode** + the **draft spec** + the
+   1. **Convene `claugentic-dev-harness:product-designer` in its elevate mode** (no new agents; a
+      second subagent, allowed under the top-level-agent constraint). Pass it: the **elevate
+      mode** + the **draft spec** + the
       **spec-conversation context** (what the user said that didn't survive structuring) + the
       **rejected-proposals memory** (the `<!-- product-critic:rejected-proposals -->`-fenced list in
       `docs/claugentic-PRODUCT_SPEC.md`, when present — so it never re-pitches a decided idea). The elevate pass
@@ -179,14 +179,19 @@ checking is the QA workflow's job (`qa.js`); say so.**
      - `builderFamily` — your (the orchestrator's) model family, for the same-model tag.
 
    The criteria list (not a depth dial) bounds FIND — **lens depth is fixed at `deep`**. Findings
-   join the **unchanged** path: coded dedup → synthesis prune → **exactly one `finding-verifier`
+   join the same path — **dedup and verify unchanged, the PRUNE mode-branched**: coded dedup →
+   synthesis prune in its **spec-conformance variant** (no YAGNI right-sizing, no test-baseline
+   item; `synthesizer-gate` Mode 3 gap variant) → **exactly one `finding-verifier`
    per surviving finding** (clean-context judge + same-model tagging owned by the script, per the
    shared `MODELS` contract); the shared budget cap + status-block resume apply with criterion ids
    as the cells.
 
 3. **Write the backlog into the product's OWN `harness-product:backlog` fence** — gap mode writes
    its **own** fence (`<!-- harness-product:backlog:start -->` / `<!-- harness-product:backlog:end -->`),
-   **separate from the engineering `harness-audit:backlog` fence** the `audit` skill owns. **Each
+   **separate from the engineering `harness-audit:backlog` fence** the `audit` skill owns. It carries
+   a **per-criterion `met` / `partial` / `missing` / `not-checked` line** (the gap-mode twin of the
+   engineering fence's lens-coverage report), so a criterion that was checked and IS delivered is
+   distinguishable from one the run never reached. **Each
    regenerates independently — a gap run never touches the engineering fence, and an engineering
    audit never touches this one** (that independence is the whole point of the split). The renderer
    is **reused, not forked** — `renderedBacklog` is the same `renderBacklogFence` body the engineering
@@ -208,8 +213,10 @@ checking is the QA workflow's job (`qa.js`); say so.**
      rejected. If anything was omitted, route through `renderOnly` with the presented set.
    - **Keep a non-empty subset** → **re-invoke the Workflow tool** with `args.renderOnly = { ...result,
      items: <selected> }` — passing the **full `result` (incl. its `verification`) through unchanged**
-     so the product fence's run-report stays **full-scope** (gap results carry no `lensCoverage`, which
-     the renderer omits gracefully). Write the returned `renderedBacklog`.
+     so the product fence's run-report **and its `criterionCoverage`** stay **full-scope** — a
+     SELECT-narrowed item list must never narrow the per-criterion report (the same
+     full-scope-coverage invariant the engineering audit already holds). Write the returned
+     `renderedBacklog`.
    - **★ Keep none but the run found gaps** → do **NOT** call `renderOnly` (it would emit the false
      "sound" terminal signal); handle conversationally + skip/clear the write. **Precondition:
      `renderOnly` is never invoked with an empty `items` when the full run carried findings.**
@@ -226,9 +233,11 @@ checking is the QA workflow's job (`qa.js`); say so.**
 5. **Prose-orchestrated fallback** *(Workflow tool unavailable — the ONLY fallback trigger).* State
    to the user that the Workflow tool is unavailable, run the **audit SKILL's prose pipeline**
    (`skills/audit/SKILL.md` → *Prose-orchestrated fallback*) with the **criteria as the lens
-   source** — one cell per criterion, the same dedup → prune → one-verifier-per-finding path — and
-   **tag the run "prose-orchestrated."** Never claim the script's mechanical guarantees on a prose
-   run.
+   source** — one cell per criterion, the same dedup → prune → one-verifier-per-finding path, with
+   the PRUNE in its **conformance variant** (`synthesizer-gate` Mode 3 gap variant: no YAGNI, cut
+   only duplicates and criterion-less findings, **never** a promised-but-missing behaviour, and
+   **never** add the test-baseline item) — and **tag the run "prose-orchestrated."** Never claim the
+   script's mechanical guarantees on a prose run.
 
 **Register throughout:** gap mode **attempts / tags / reduces the risk** the product diverged from
 intent. It is **never proof** the product is good — and it **reads code, it does not run the app.**

@@ -165,6 +165,39 @@ harness itself.** Git history holds the full prior text.
 - **Stage-2b advisory panel as an engine fan-out** — prose-convened 2b works; engine orchestration was
   conditional on it proving unwieldy, which it has not.
 
+- **The nine proposed gate items** (a local exit-code-observing gate runner · content-anchored spec file-lists · an
+  exemption-inside-a-scan pin · the matrix-leg guard's siblings · a `git ls-files` corpus-scan pin · printed
+  headroom · a routing-citation resolver · a retired-string sweep pin · IDs-spelled-in-full). Declined
+  2026-08-19 **except the matrix-leg guard, which was BUILT** — it is the only one where a green suite hides a
+  voided *release* gate. The other eight police how **this repo** writes its own commits, plans and tests; each
+  lesson is already a written rule in the shipped surface that owns it (`docs/claugentic-standards/testing.md`,
+  the Definition of Done, `synthesizer-gate`), and one pin would have been green on arrival. Mechanizing a rule a
+  model reads and follows is compensation.
+- **0041's verify-deferred CI/robustness batch** (S2 CI hygiene · S3 advisor timeouts and call-count pins · S4's
+  `_repo_root()` five-file sweep · the S10b namespace-retry residuals). Declined 2026-08-19: S2's only consumer is
+  this repo's own `release.yml`; the `timeout=` requests name **no hang class** (`git rev-parse --show-toplevel`
+  and `git log -1` are local, lock-free, prompt-free); **S4's premise is false** — the five copies are *not*
+  byte-identical (the tree gate alone carries a `GIT_DIR` strip); and the retry residuals are compensation, since
+  the run log already carries the first cause. **The one real defect in the batch — an unrun honesty judge reading
+  as PASS — was BUILT, not deferred.**
+- **A repo-wide mechanical-vs-run-gate register sweep.** Declined 2026-08-19: its premise is false. `CLAUDE.md:3`
+  already carries the *where wired* scoping, and `:31` already names the deterministic run-gate class; the
+  `honesty-reviewer` role owns this sweep as a standing lens.
+- **`init --rewrite-wrapper` / a released-shape wrapper catalogue.** Declined 2026-08-19: the repair is not
+  unbuilt — `init` already prints a shape-aware refusal *and* the working manual remedy, pinned by
+  `tests/test_precommit_wrapper.py`. Automating it is migration tooling for a population of three author-owned repos.
+- **Budgeting a non-`.md` file in a ledger shard directory.** Declined 2026-08-19: the glob caps a *shape* of file
+  by design, the script's own docstring says so, and zero non-`.md` file has ever landed there.
+- **Splitting `eval/BASELINE.md`, and back-filling a row per release.** Declined 2026-08-19: both premises are
+  false. The newest entry is **v0.5.2**, not v0.5.0 (v0.5.1 was a hotfix with no eval run — recording a row would
+  fabricate a figure), and the procedure names the answer key only to forbid reading it, so splitting blinds nobody
+  who is not already required to look away.
+- **Sharding or cap-bumping `docs/claugentic-INVARIANTS.md`.** Declined 2026-08-19: the answer to a rule-book at its
+  band is **deleting what a red test already holds** — the pin *is* the memory. Condensed instead.
+- **Sharding `docs/claugentic-WORKFLOW.md` (plan 0042, deleted).** Declined 2026-08-19, reversing the 2026-08-18
+  rung-3 pick: sharding preserves 100% of the bytes and pays 99 anchored pointers across 36 files, the release/init
+  contract, and two test pins — to re-house content a thinning pass is about to delete. **Thin it, then cap it.**
+
 **If one is ever re-proposed, the bar is evidence — a real project that needed it — not a better argument.**
 
 ## Acceptance criteria

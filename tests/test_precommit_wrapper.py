@@ -773,8 +773,11 @@ def _chained_gates(script: str) -> list[str]:
 
 
 class TestTheHookWiredSetParsesAtTheWrapperFloor:
-    """`docs/claugentic-INVARIANTS.md` → *The wrapper's Python floor and the hook-wired gates'
-    syntax move together*, mechanized (0041 S5 routed it here, S7 lands it with the second gate).
+    """THE INVARIANT, owned here: the floor the wrapper's probe demands is the SAME floor every
+    **hook-wired** gate is written to — raise the wrapper's floor only when a hook-wired gate
+    raises its own, and never let a hook-wired gate use syntax above it (walrus, `match`).
+    Mechanized 0041 S5/S7; its `docs/claugentic-INVARIANTS.md` prose entry was retired 2026-08-19
+    under that file's admission rule — this pin IS the memory now, so do not weaken it.
 
     Until now that invariant's second half was a hand-read: nothing parsed the sources, so a
     hook-wired gate could quietly adopt walrus/`match` syntax and the wrapper would hand a

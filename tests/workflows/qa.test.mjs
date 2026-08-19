@@ -69,7 +69,6 @@ const H = loadHelpersFrom(SCRIPT_PATH, [
   "findingsFrom",
   "dedupFindings",
   "sanitizeForPath",
-  "screenshotPath",
   "applyVerifierVerdicts",
   "BOOT_SCHEMA",
   "TEARDOWN_SCHEMA",
@@ -621,22 +620,26 @@ test("dedupFindings: same route, different class stays separate", () => {
 });
 
 // -----------------------------------------------------------------------------
-// screenshotPath -- sanitization + stable shape under the artifact dir
+// sanitizeForPath -- the artifact-path SEGMENT normalizer, and the only escape guard on a
+// free-text runLabel/id. These three pins were screenshotPath's until that dead helper was
+// deleted; re-aimed here because the live boundary they really guard had no direct pin.
 // -----------------------------------------------------------------------------
-test("screenshotPath: stable shape under <artifactDir>/<runLabel>/", () => {
-  assert.equal(H.screenshotPath(".qa-artifacts", "qa-2026", "AC-1", "end"), ".qa-artifacts/qa-2026/ac-1-end.png");
+test("sanitizeForPath: stable shape -- lowercased, already-clean segments pass through", () => {
+  assert.equal(H.sanitizeForPath("AC-1"), "ac-1");
+  assert.equal(H.sanitizeForPath("qa-2026"), "qa-2026");
 });
 
-test("screenshotPath: sanitizes spaces/slashes in ids (cannot escape the artifact dir)", () => {
-  const p = H.screenshotPath(".qa-artifacts", "qa run", "AC 1/../x", "broken flow");
-  assert.ok(!p.includes(".."), "must not contain a parent-dir escape");
-  assert.ok(!p.includes(" "), "must not contain spaces");
-  assert.ok(p.startsWith(".qa-artifacts/"), "stays under the artifact dir");
-  assert.ok(p.endsWith(".png"));
+test("sanitizeForPath: sanitizes spaces/slashes/dots (a segment cannot escape the artifact dir)", () => {
+  const seg = H.sanitizeForPath("AC 1/../x");
+  assert.ok(!seg.includes(".."), "must not contain a parent-dir escape");
+  assert.ok(!seg.includes("/"), "must not contain a path separator");
+  assert.ok(!seg.includes(" "), "must not contain spaces");
 });
 
-test("screenshotPath: trims a trailing slash on the artifact dir and defaults a blank runLabel", () => {
-  assert.equal(H.screenshotPath(".qa-artifacts/", "", "AC-1", "x"), ".qa-artifacts/run/ac-1-x.png");
+test("sanitizeForPath: a blank/whitespace segment normalizes to '' so the callers' defaults fire", () => {
+  // The empty string is what makes driverPrompt's `|| "run"` and the boundary's `|| "qa-run"` fire.
+  assert.equal(H.sanitizeForPath(""), "");
+  assert.equal(H.sanitizeForPath("   "), "");
 });
 
 // -----------------------------------------------------------------------------
@@ -773,7 +776,7 @@ test("verdictFor: a requested not-checkable state folds to not-checkable, unrequ
 /** Lazily load the relocated driver-prompt helper INSIDE each test, so a missing/renamed
  * extraction fails only these pins (naming the helper) rather than aborting the whole file. */
 function driverHelpers() {
-  return loadHelpersFrom(SCRIPT_PATH, ["driverPrompt", "artifactBase", "screenshotPath", "sanitizeForPath"]);
+  return loadHelpersFrom(SCRIPT_PATH, ["driverPrompt", "artifactBase", "sanitizeForPath"]);
 }
 
 const DRIVER_RUN_CONFIG = { runCommand: "npm run dev", appUrl: "http://localhost:3000" };
@@ -852,20 +855,20 @@ test("driverPrompt: the shot dir derives from artifactBase -- a trailing separat
 test("driverPrompt: the .png path it tells the agent to SAVE to converges with the path the report CITES", () => {
   const D = driverHelpers();
   // The cross-agent contract: <base>/<runLabel>/<criterionId>-<slug>.png. driverPrompt names the
-  // directory the driver saves into; screenshotPath names the file the report cites. NOTE this pins
-  // the two SANITIZING legs -- screenshotPath has no production call site, so it is not the report's
-  // oracle; the live third leg (artifacts.dir) is pinned by the test directly below.
+  // directory the driver saves into and states the filename convention to the agent. NOTE the
+  // contract is TWO legs -- this one and the returned artifacts.dir (pinned by the test directly
+  // below); the dead third leg (screenshotPath, zero call sites, never the report's oracle) was
+  // deleted. Both surviving legs compose the same normalizers, so they must agree.
   const dir = "out/qa/";
   const label = "QA Run 1";
-  const cited = D.screenshotPath(dir, label, "AC-1", "end");
-  const citedDir = cited.slice(0, cited.lastIndexOf("/"));
+  const citedDir = `${D.artifactBase(dir)}/${D.sanitizeForPath(label)}`;
   const p = D.driverPrompt(DRIVER_RUN_CONFIG, validCriterion(), label, dir);
-  assert.equal(cited, "out/qa/qa-run-1/ac-1-end.png");
+  assert.equal(citedDir, "out/qa/qa-run-1");
   assert.ok(p.includes(`UNDER \`${citedDir}/\``), `driverPrompt must save under ${citedDir}/`);
   assert.ok(p.includes("filenames like `AC-1-<slug>.png`"), "the filename convention must still be stated");
 });
 
-test("qa.js: the report's artifacts.dir is the LIVE third leg, and it converges with the save dir", () => {
+test("qa.js: the report's artifacts.dir is the SECOND live leg, and it converges with the save dir", () => {
   const D = driverHelpers();
   const src = readFileSync(SCRIPT_PATH, "utf8");
   // artifacts.dir is composed BELOW the helpers block, so its RULE is pinned at the source and its
@@ -882,14 +885,12 @@ test("qa.js: the report's artifacts.dir is the LIVE third leg, and it converges 
   // Non-vacuity: this label class really is one the normalizer rewrites.
   const label = "build-AC-1-iter1";
   assert.notEqual(D.sanitizeForPath(label), label, "the fixture must be a label normalization changes");
-  // Compose the three legs exactly as the live path does; all three must agree.
+  // Compose both legs exactly as the live path does; the two must agree.
   const artifactDir = D.artifactBase("out/qa/");
   const runLabel = D.sanitizeForPath(label) || "qa-run";
   const reported = artifactDir + "/" + runLabel;
-  const cited = D.screenshotPath(artifactDir, runLabel, "AC-1", "end");
   const prompt = D.driverPrompt(DRIVER_RUN_CONFIG, validCriterion(), runLabel, artifactDir);
   assert.equal(reported, "out/qa/build-ac-1-iter1");
-  assert.equal(cited.slice(0, cited.lastIndexOf("/")), reported);
   assert.ok(prompt.includes("UNDER `" + reported + "/`"), "the driver must save under " + reported);
 });
 
@@ -905,8 +906,8 @@ test("artifactBase: the trailing-separator trim covers BOTH separators (Windows-
 });
 
 test("artifactBase: IDEMPOTENT -- the live path applies it twice (boundary, then driverPrompt)", () => {
-  // The boundary normalizes once (`const artifactDir = artifactBase(...)`) and driverPrompt/
-  // screenshotPath normalize again. A non-fixed-point makes the driver SAVE under one dir while
+  // The boundary normalizes once (`const artifactDir = artifactBase(...)`) and driverPrompt
+  // normalizes again. A non-fixed-point makes the driver SAVE under one dir while
   // the report CITES another, which is exactly what the one-source claim above promises cannot
   // happen. An all-separator dir is the class that breaks it.
   for (const dir of ["/", "//", "\\\\", "\\\\\\\\", "/\\\\", "\\/", "out/qa/", "out\\qa\\\\", ".qa-artifacts", "", undefined, null]) {
