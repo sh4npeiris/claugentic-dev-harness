@@ -724,6 +724,47 @@ class TestMechanizedDropCheck:
         monkeypatch.setattr(br, "_git", lambda *args: "")
         assert br._dropped_shipped_paths(Path("."), []) == []
 
+    def test_it_asks_git_for_ABSENCE_not_a_content_diff(self, monkeypatch):
+        """The guard's whole claim is *present on origin/main, ABSENT from HEAD*. Every other test
+        in this class monkeypatches `_git` to a fixed string, so none of them can see WHICH git
+        question was asked -- they stayed green through a real change to it. This one pins the
+        question, because that is where the defect lived: a plain `diff --name-only HEAD ORIGIN`
+        reports every path whose CONTENT differs, so the ordinary pre-tag state (the bump commit on
+        HEAD, unpushed) read as `3 SHIPPED file(s) ... would be dropped`. Modified is not missing.
+        A guard is unpinned until a mutation makes its test go red -- see
+        `docs/claugentic-INVARIANTS.md`."""
+        seen: list[tuple[str, ...]] = []
+
+        def _spy(*args):
+            seen.append(args)
+            return ""
+
+        monkeypatch.setattr(br, "_git", _spy)
+        br._dropped_shipped_paths(Path("."), [])
+        assert len(seen) == 1, "the drop-check must ask git exactly once"
+        argv = seen[0]
+        assert "--diff-filter=D" in argv, (
+            "the drop-check must ask for DELETED paths only; without the filter it reports "
+            "modified files as dropped and refuses every ordinary pre-tag build"
+        )
+        # Direction is load-bearing and is NOT symmetric: `--diff-filter=D` means "deleted going
+        # FROM the first ref TO the second", so upstream must come first and HEAD second.
+        ref_order = [a for a in argv if a in (br.UPSTREAM_REF, "HEAD")]
+        assert ref_order == [br.UPSTREAM_REF, "HEAD"], (
+            f"refs must be ({br.UPSTREAM_REF}, HEAD) in that order -- reversed, the filter "
+            f"reports paths HEAD ADDS, which is the opposite guard; got {ref_order}"
+        )
+
+    def test_a_MODIFIED_shipped_file_is_not_reported_as_dropped(self, monkeypatch):
+        """The false-alarm case, pinned from the caller's side. `--diff-filter=D` makes git itself
+        omit a merely-modified path, so the real regression guard is the argv pin above; this
+        states the CONTRACT in the vocabulary a future reader will have -- a shipped file that
+        changed on HEAD is not a dropped file."""
+        # git, asked the absence question, returns nothing for a modified-only diff.
+        monkeypatch.setattr(br, "_git", lambda *args: "")
+        _, strip = br.classify([".claude-plugin/plugin.json", "CHANGELOG.md", "README.md"])
+        assert br._dropped_shipped_paths(Path("."), strip) == []
+
     def test_windows_backslash_paths_normalized(self, monkeypatch):
         # git may emit backslash paths on Windows; they must normalize to forward-slash before
         # the strip-set membership test (which uses forward-slash keys).
