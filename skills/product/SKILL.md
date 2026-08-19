@@ -46,7 +46,7 @@ phase genuinely needs the user — it stays a conversation.**
    loading/empty/error states, and what "good" feels like; **the user owns every product decision;
    never invent scope** (a genuinely-new feature idea goes to the user as a question, not into the
    spec). The states bar is the standard — **point at** `docs/claugentic-standards/product-ux.md` →
-   *Loading / empty / error states*, don't restate it.
+   *Loading / empty / error states*, don't restate it. It is **read-only** — it returns the `docs/claugentic-PRODUCT.md` update; **you write it**.
 
 4. **Draft per the template.** Fill **Who it's for · The job-to-be-done · The promise · Features**
    (per feature: flow · states · what-good-feels-like) **· Acceptance criteria**. For each

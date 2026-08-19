@@ -341,7 +341,7 @@ judgment, never as a mechanical fact.
 
 ## SELECT — pick what to act on  *(the shared finder-pipeline gate)*
 
-Present the **WARN / breach + substantive findings** as the finder-pipeline **SELECT** checklist —
+Present **every row that is not green or N-A** as the finder-pipeline **SELECT** checklist — a `flag` or `condense-soon` row is what three of the four treats below actually fire on, so enumerating only WARN/breach left them unreachable. A row whose remedy is yours, not doctor's, is still listed and simply has no treat —
 one editable `- [ ]` line per finding (contract: `docs/claugentic-WORKFLOW.md` → **The finder
 pipeline** → *SELECT*; don't restate the mechanics). The **checked subset is what gets acted on**;
 unchecked findings are a per-run skip.

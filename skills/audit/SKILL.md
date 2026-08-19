@@ -247,7 +247,7 @@ pseudo-cell `blindspot|(scope)` is capped/resumed like any cell).
   items: [{ findingKey, modules, tier, tag, titlePlain, claimTechnical, locations,
             whyPlain, impactEffort, confidence, verification: {state, evidence, plainLine} }],
   refutedCount,
-  verification: { verified, unconfirmed, deferred, refuted, crossModel, sameModelTag },
+  verification: { verified, unconfirmed, deferred, refuted, carried, crossModel, sameModelTag },
   renderedBacklog }   // the COMPLETE fence body to write between the markers (Phase 3)
 ```
 

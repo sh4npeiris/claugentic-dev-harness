@@ -59,11 +59,13 @@
   - **Cost:** Medium impact - a confusing first failure with no in-repo explanation. Low effort - one clause in the report's abort-cause list, one line in the generated map header.
 
 - [ ] **[PS-2] Gap mode never tells you which parts of your spec the code does deliver** · `feature`
+  - **DEFERRED (not a patch).** Its Fable refuter demonstrated the proposed fix introduces a **reachable false MET** (coverage keys on `sourceModule`, but `findingKey` is normalized issueClass only and the criterion-id prefix is prompt guidance, never schema-enforced) and a **false `checked on an earlier pass`** for any criterion id containing a pipe. It also shipped a comment claiming `Pure -> unit-tested` while adding **zero** tests. Real feature, needs its own slice.
   - **What:** The promise is a criterion-by-criterion met / partial / missing report; the engine reports only surviving problems. "Met" is therefore indistinguishable from "the check quietly produced nothing", there is no representation of "partial" at all, and the per-criterion verdict the reviewer already returns is collected and thrown away. The coverage roll-up that would express this exists for the other mode and is explicitly switched off here.
   - **Where:** `engine/audit.js:1501` · `engine/audit.js:1037` · `engine/audit.js:811` · `engine/audit.js:951`
   - **Cost:** High impact - the reader cannot tell checked-and-clean from never-checked, which is the core value of the mode. Medium effort - build a criterion-keyed coverage report reusing the existing coverage renderer rather than forking it.
 
 - [ ] **[PS-2] Spec-gap findings are pruned by a filter written for engineering audits** · `bug`
+  - **DEFERRED (incomplete).** Its refuter refuted the premise: `buildSynthesisPrompt` is **not** the only shared prune. `.claude/agents/synthesizer-gate.md` Mode 3 hardcodes the same YAGNI/right-size rule, and the documented prose fallback routes gap findings through the audit prose PRUNE. Patching 1 of 3 sites would leave the engine and the agent contract disagreeing.
   - **What:** Before you see them, gap findings pass through a step told to cut "marginal nice-to-haves" and told to add an "establish a test baseline" item. A genuinely promised-but-missing feature can therefore be cut with no trace - and with no per-criterion report, that criterion then simply looks met - while an engineering to-do that maps to no acceptance criterion at all can appear in your product backlog.
   - **Where:** `engine/audit.js:617` · `engine/audit.js:626` · `engine/audit.js:1378` · `engine/audit.js:1399`
   - **Cost:** High impact - true spec gaps can vanish silently and untraceable items can appear. Low effort - branch the synthesis prompt on gap mode: drop the test-baseline injection, replace the right-sizing instruction with a spec-conformance one.
@@ -108,7 +110,7 @@
   - **Where:** `skills/build/SKILL.md:143-162` · `docs/claugentic-WORKFLOW.md:122` · `docs/claugentic-WORKFLOW.md:187` · `engine/verify.js:758`
   - **Cost:** Medium-high impact - true at the data layer, unevidenced at the surface a user reads, on three of four pipelines. Low effort - one instruction line in the build skill and two in the workflow doc; no engine change.
 
-- [ ] **[PS-6] Doctor flags things it then gives you no way to choose for fixing** · `bug`
+- [x] **[PS-6] Doctor flags things it then gives you no way to choose for fixing** · `bug`
   - **What:** Findings like "a landed plan is still sitting there" or "your commit hook is not wired" are reported with their own flag status, but the step where you pick what to fix presents only warnings, breaches and substantive items. Two of doctor's four just-do-it fixes can only ever come from a flag, so they can never be ticked and therefore never applied - and the enumeration is narrower than the pipeline contract it points at.
   - **Where:** `skills/doctor/SKILL.md:344-347` · `skills/doctor/SKILL.md:330-334` · `skills/doctor/SKILL.md:355-364` · `docs/claugentic-WORKFLOW.md:217`
   - **Cost:** Medium-high impact - a whole documented user action is unreachable. Very low effort - widen one sentence to name the flag class, keeping the two report-only carve-outs the skill already makes.
@@ -126,7 +128,7 @@
 
 ### Tier 3 — polish  (4 findings)
 
-- [ ] **[PS-2] The proposal reviewer can edit the very spec it is told never to write into** · `refactor`
+- [x] **[PS-2] The proposal reviewer can edit the very spec it is told never to write into** · `refactor`
   - **What:** The rule that a proposal is a question and never spec content until you adopt it is enforced only by asking the agent nicely - it still holds file-write tools, including on the spec. The write capability is genuinely needed by its other mode, not this one, and the folding is the orchestrator's job. Other adversarial roles in this harness are read-only by construction, so this one is the odd exception.
   - **Where:** `.claude/agents/product-designer.md:4` · `.claude/agents/product-designer.md:47` · `.claude/agents/product-designer.md:103` · `skills/product/SKILL.md:89`
   - **Cost:** Low-medium impact - removes a class of accident rather than fixing an observed failure. Low effort - split the agent file, or spawn the review mode with a read-only tool set and say the rule is structural there.
@@ -136,7 +138,7 @@
   - **Where:** `docs/claugentic-ROADMAP.md:24` · `docs/claugentic-ROADMAP.md:22` · `docs/claugentic-PRODUCT_SPEC.md:1` · `skills/product/SKILL.md:199`
   - **Cost:** Low impact - a self-contradicting dogfood example, no functional consequence. Very low effort - replace the placeholder text and bring the heading to the prescribed form.
 
-- [ ] **[PS-3] On a resumed run the backlog lists more findings than its own tallies count** · `bug`
+- [x] **[PS-3] On a resumed run the backlog lists more findings than its own tallies count** · `bug`
   - **What:** The summary counts are computed before findings carried over from the earlier pass are merged in, so carried items appear in the list with nothing counting them, and the count of false alarms dropped in the earlier pass resets to zero - erasing part of the trust signal. The numbers at the bottom stop reconciling with the list above them, and this skew is documented nowhere.
   - **Where:** `engine/audit.js:1485` · `engine/audit.js:1493` · `engine/audit.js:1054` · `engine/audit.js:1077`
   - **Cost:** Low-medium impact - resumed runs only, and the direction of the skew is under-counting rather than over-claiming. Low effort - compute the summary after the merge, or add a carried-over term and a cumulative dropped count.

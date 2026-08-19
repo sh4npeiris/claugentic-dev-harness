@@ -1108,10 +1108,14 @@ function renderRunReport(verification) {
     deferred > 0
       ? `all but ${deferred} of the findings I surfaced (the budget ran out -- re-run to check them)`
       : "every finding I surfaced";
+  // Carried items are RENDERED but never re-checked this pass, so the tallies cannot cover them.
+  const carried = v.carried != null ? v.carried : 0;
+  const carriedClause =
+    carried > 0 ? ` Plus ${carried} carried forward -- verdicts already earned, not re-checked this pass.` : "";
   return (
     `Re-checked ${covered} against the code ${judgeClause}; ` +
     `dropped ${refuted} that were disproved -- ` +
-    `verified ${verified} - unconfirmed ${unconfirmed} - deferred ${deferred}.`
+    `verified ${verified} - unconfirmed ${unconfirmed} - deferred ${deferred}.${carriedClause}`
   );
 }
 
@@ -1541,6 +1545,9 @@ const sweptCells = runCells.filter((c) => !failedCells.includes(c));
 const doneCells = [...doneCellsIn, ...sweptCells];
 const pendingCells = [...overflowCells, ...failedCells];
 const items = mergePriorItems(kept.map(toResultItem), input.priorItems);
+// How many the merge carried in from a prior pass -- read off the merge's OWN output (never a
+// second copy of its filter) so the run-report's numbers reconcile with the list it renders.
+const carriedForward = items.length - kept.length;
 
 // Per-lens coverage (standard mode only -- gap mode's "lenses" are criteria, not standards modules).
 // Counts each configured lens's deduped-finding contribution and flags any lens whose cells are still
@@ -1562,7 +1569,7 @@ const result = {
   pendingCells,
   items,
   refutedCount,
-  verification: summary,
+  verification: { ...summary, carried: carriedForward },
   ...(lensCoverageReport ? { lensCoverage: lensCoverageReport } : {}),
 };
 
