@@ -13,6 +13,26 @@ tagged `vX.Y.Z`.
 
 ### Fixed
 
+- **Running the audit no longer jams your commits.** `/audit` and `/product gap` write their
+  backlog **into `docs/claugentic-ROADMAP.md`**, and `init` seeds every adopter a **14,000-byte cap
+  on that exact file**. A real backlog costs **~4,815 bytes per finding** — so an adopter's **third
+  finding** breached the cap `init` had just given them, and the pre-commit hook then blocked their
+  commits. Measured here: a real 25-finding gap run rendered **120,687 bytes**, taking ROADMAP to
+  **132,200 — a 9.4× breach of its own cap**. Finding more problems was punished.
+
+  The gate now measures the **hand-written** body and excludes **generated backlog fences**. The
+  distinction is the fix: a hand-written ledger **accretes**, and bounding that is what a cap is
+  for; a fence is **regenerate-don't-accumulate** — replaced whole on every run, and it **shrinks
+  as findings get fixed**. Its size is a symptom, never an accretion. **Deliberately not capped
+  separately either:** a cap on the fence would block you from *recording* findings, which is worse
+  than the disease — so the size is **reported on every run** instead, visible without being
+  punitive.
+
+  Proven both directions on the real 132,200-byte file: old measure → breach, exit 1; new measure
+  → 11,513 bytes hand-written, ok, with `+120,687 B in generated backlog fences, not counted`.
+  Pinned with a non-vacuity twin (the same bytes *outside* a fence still breach) and a loophole
+  guard (an **unclosed** fence is counted in full, the safe direction).
+
 - **The chained gates now run on a MERGE, not only on an ordinary commit.** git fires
   `pre-merge-commit` — never `pre-commit` — when a conflict-free `git merge` creates its commit,
   and nothing wired that hook. So a ledger pushed past its cap on a branch **merged clean and
