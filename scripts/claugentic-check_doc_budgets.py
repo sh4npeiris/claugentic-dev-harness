@@ -3,7 +3,7 @@
 
 A monotonic-ledger trip-wire: a managed ledger grows only — it never shrinks on its own
 — so this gate FLAGS (never edits) when one balloons past a sane TOTAL byte budget and
-names the remediation (a compaction pass: merge superseded entries to git history). It
+names the remediation (a compaction pass: absorb landed build-records first, then superseded entries, to git history). It
 SHIPS in the release payload and `init` DELIVERS a copy into the adopter's repo, because its
 caps are per-repo data rather than harness-tuned code — unlike the harness-self
 `scripts/check_versions_synced.py`, which stays stripped. **Mechanical-when-run** (plain
@@ -166,8 +166,15 @@ WARN_RATIO = 0.9
 
 # The named fixes, printed verbatim so the remediation never drifts between
 # message instances.
-REMEDIATION = "over budget — run a compaction pass (merge superseded entries to git history)"
-WARN_REMEDIATION = "approaching budget — plan a compaction pass soon (merge superseded entries to git history)"
+REMEDIATION = (
+    "over budget — run a compaction pass with `/claugentic-dev-harness:condense` (absorb landed "
+    "build-records first, "
+    "then superseded entries, to git history)"
+)
+WARN_REMEDIATION = (
+    "approaching budget — plan a compaction pass soon with `/claugentic-dev-harness:condense` "
+    "(absorb landed build-records first, then superseded entries, to git history)"
+)
 
 # Appended to a GLOB entry's message only. A shard has a second, shape-specific recourse a
 # single-file ledger doesn't: split it topically into a new shard (growth is horizontal).

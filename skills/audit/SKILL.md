@@ -243,7 +243,7 @@ pseudo-cell `blindspot|(scope)` is capped/resumed like any cell).
 ### The structured return (what Phase 3 renders)
 
 ```
-{ status, level, depth, doneCells, pendingCells,
+{ status, verificationIncomplete, level, depth, doneCells, pendingCells,
   items: [{ findingKey, modules, tier, tag, titlePlain, claimTechnical, locations,
             whyPlain, impactEffort, confidence, verification: {state, evidence, plainLine} }],
   refutedCount,
@@ -259,8 +259,9 @@ pseudo-cell `blindspot|(scope)` is capped/resumed like any cell).
 - `verification.state` per item is one of `verified` · `unconfirmed` · `deferred` — never a silent
   "checked". Refuted findings are **dropped** (their only trace is `refutedCount`); no timestamps
   anywhere (the orchestrator stamps the date when it renders).
-- `verification.crossModel` is true **only** when every verifier returned a confirming
-  different-family self-report; otherwise `verification.sameModelTag` carries the verbatim tag.
+- `verification.crossModel` is true **only** when every verifier that ran — **including those whose
+  finding was refuted and dropped** — returned a confirming different-family self-report; otherwise
+  `verification.sameModelTag` carries the verbatim tag.
 
 ### Prose-orchestrated fallback  *(Workflow tool unavailable — the ONLY fallback trigger)*
 
@@ -416,14 +417,16 @@ backlog and **never imply the hook (or any automatic gate) exists or is coming.*
 ### After the write — report to the user
 
 After writing the fence and stamping the date, **report the dial level + coverage** conversationally
-(which cells ran, `COMPLETE` or `PARTIAL`, and any baseline fallback). The verification run-report
-line is already in the rendered fence; echo its trust framing to the user (count of dropped findings,
-the clean-context-judge / same-model-tag clause exactly as the fence carries it). **Do not list the specific
-refuted claims** and **do not persist them.**
+(which cells ran, `COMPLETE` or `PARTIAL`, and any baseline fallback) — and **never call a run
+finished while `verificationIncomplete` is true**; say how many findings the budget left unchecked.
+The verification run-report line is already in the rendered fence; echo its trust framing to the user
+(count of dropped findings, the clean-context-judge / same-model-tag clause exactly as the fence
+carries it). **Do not list the specific refuted claims** and **do not persist them.**
 
-**Resume note (one line, user-facing):** *"Interrupted? If the run reported `PARTIAL`, just re-run
-`/claugentic-dev-harness:audit` — it picks up where it left off"* (it reads the status block's
-`done-cells`/`pending-cells` and sweeps only what's left — the resume contract above).
+**Resume note (one line, user-facing):** *"Interrupted? If the run reported `PARTIAL` — or any item
+still reads `! not yet verified` — just re-run `/claugentic-dev-harness:audit`, it picks up where it
+left off"* (it reads the status block's `done-cells`/`pending-cells` and sweeps only what's left;
+`verificationIncomplete` is the second trigger — pass those items back as `deferredFindings`).
 
 ### OFFER-BUILD — the finder→build bridge  *(after the write — offered, never forced)*
 

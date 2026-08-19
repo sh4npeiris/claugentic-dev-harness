@@ -1,9 +1,12 @@
 // engine/build-item.js -- the build-to-green inner loop as an executable Workflow script.
 //
-// The engine the 5a autonomy ladder unlocks: take ONE approved item and iterate
+// The engine the earned build-to-green mode unlocks: take ONE approved item and iterate
 //   implement (worktree) -> deterministic gates -> Verify panel -> QA flows -> fix
 // until everything is green or the iteration/budget cap hits. The script NEVER lands,
-// pushes, merges, or touches git history by construction -- EVERY terminal status is a
+// pushes, or merges by construction -- but it DOES branch and commit (the implementer works
+// in an isolated worktree; the branch is the durable artifact), so the guarantee is SCOPE,
+// not abstinence from git: it writes ONLY its own work branch, never the base branch or a
+// remote. EVERY terminal status is a
 // return-to-orchestrator (the before-land pause, the irreversible hard-stop, and the
 // re-triage on a new Tier-1/2 finding all belong to the orchestrator/skill, not the script).
 //
@@ -48,7 +51,7 @@
 export const meta = {
   name: "build-item",
   description:
-    "The build-to-green engine: one approved item iterated implement (implementer in a worktree) -> deterministic gates (an agent runs the repo's gate commands; pass/fail is exit codes) -> Verify panel (the verify.js child workflow) -> QA flows (the qa.js child workflow, only when machine-checkable acceptance criteria exist) -> fix, until green or the iteration/budget cap. The script NEVER lands/pushes/merges/touches git -- every terminal status is a return-to-orchestrator: green (the before-land pause is the orchestrator's), needs-irreversible (the irreversible hard-stop), new-tier12 (a finding outside the item -- re-triage), not-green (the cap: 'not green; here is the residual', nothing partial landed), blocked (a boundary error, e.g. a manual criterion or criteria with no run-app command). A green close-out claims only 'passed the deterministic gates and the reviewers' audit on this run' -- a reduction of unwatched-run risk, never a substitute for the unbuilt deterministic trust-gates, never 'proven correct'.",
+    "The build-to-green engine: one approved item iterated implement (implementer in a worktree) -> deterministic gates (an agent runs the repo's gate commands; pass/fail is exit codes) -> Verify panel (the verify.js child workflow) -> QA flows (the qa.js child workflow, only when machine-checkable acceptance criteria exist) -> fix, until green or the iteration/budget cap. The script NEVER lands/pushes/merges and writes ONLY its own work branch (the implementer does branch and commit there) -- every terminal status is a return-to-orchestrator: green (the before-land pause is the orchestrator's), needs-irreversible (the irreversible hard-stop), new-tier12 (a finding outside the item -- re-triage), not-green (the cap: 'not green; here is the residual', nothing partial landed), blocked (a boundary error, e.g. a manual criterion or criteria with no run-app command). A green close-out claims only 'passed the deterministic gates and the reviewers' audit on this run' -- a reduction of unwatched-run risk, never a substitute for the unbuilt deterministic trust-gates, never 'proven correct'.",
   // Bounded call count: per iteration = 1 implement/fix + 1 gates agent + 1 verify child + (<=1
   // qa child) -- no unbounded loops (maxIterations caps it). The static budget below is a
   // backstop; caps.maxIterations is the true bound, enforced in code by nextAction.
@@ -207,7 +210,7 @@ function resolveStageTimeouts(caps) {
 // against this set so a typo'd spec fails loud, not silently unchecked.
 const CRITERION_KEYS = ["id", "feature", "flow", "expect", "states", "check"];
 // The criterion `check` enum (frozen -- qa.js CHECK_KINDS). `manual` needs a human -> the item
-// stays in checkpoint (5a should have declined; the script re-validates and blocks).
+// stays watched (Mode handling should have declined; the script re-validates and blocks).
 const CHECK_KINDS = ["e2e", "api", "manual"];
 
 // Validate the args contract at the boundary. Returns `{ ok, errors }` -- the control flow
@@ -329,8 +332,8 @@ function maxIterationsFor(caps) {
 
 // Which acceptance criteria can never be attempted unwatched (a `check: "manual"` criterion
 // needs a human mid-run). Returns the offending ids -- a non-empty result is a terminal
-// `blocked` (5a should have declined; the script re-validates, never silently waives a manual
-// criterion). PURE.
+// `blocked` (Mode handling should have declined; the script re-validates, never silently
+// waives a manual criterion). PURE.
 function criteriaBlockers(criteria) {
   const list = Array.isArray(criteria) ? criteria : [];
   return list.filter((c) => c && c.check === "manual").map((c, i) => (c && c.id != null ? c.id : `criteria[${i}]`));
@@ -463,13 +466,20 @@ function nextAction(state) {
 // for inspection.
 function residualReport(state) {
   const s = state && typeof state === "object" ? state : {};
-  return {
+  const r = {
     failingGates: Array.isArray(s.failingGates) ? s.failingGates : [],
     openFindings: Array.isArray(s.openFindings) ? s.openFindings : [],
     failingCriteria: Array.isArray(s.failingCriteria) ? s.failingCriteria : [],
     stageCouldNotRun: Array.isArray(s.stageCouldNotRun) ? s.stageCouldNotRun : [],
     iterationsUsed: typeof s.iteration === "number" ? s.iteration : 0,
   };
+  // The floor: "here is the residual" must never hand back nothing. A stage can report red with no
+  // finding (verify forces CHANGES_REQUIRED for a no-showed lens on an empty findings list) -- say
+  // so plainly rather than ship a silent empty residual. Assigned, never pushed: no caller mutation.
+  if (r.failingGates.length === 0 && r.openFindings.length === 0 && r.failingCriteria.length === 0 && r.stageCouldNotRun.length === 0) {
+    r.stageCouldNotRun = ["not green, but no stage named a failure -- a stage returned a red verdict with no findings; re-run and inspect the branch, the residual could not be attributed"];
+  }
+  return r;
 }
 
 // Fold one iteration's residual into the next iteration's fix brief (PURE). The fix agent gets
@@ -777,7 +787,7 @@ const stageTimeouts = resolveStageTimeouts(input.caps);
 const builderFamily = input.builderFamily;
 
 // Boundary blocks (terminal `blocked` -- never an unwatched run that can't honestly complete):
-//   - a manual criterion needs a human (5a should have declined; re-validate here).
+//   - a manual criterion needs a human (Mode handling should have declined; re-validate here).
 //   - criteria present with no run-the-app command => criteria that can't be attempted.
 {
   const manualIds = criteriaBlockers(criteria);
@@ -786,7 +796,7 @@ const builderFamily = input.builderFamily;
     return {
       status: "blocked",
       reason: `acceptance criteria require a human mid-run (check: "manual"): ${manualIds.join(", ")}. ` +
-        `Build-to-green cannot attempt a manual criterion -- run this item in checkpoint mode.`,
+        `Build-to-green cannot attempt a manual criterion -- run this item watched instead.`,
       manualCriteria: manualIds,
     };
   }
@@ -796,7 +806,7 @@ const builderFamily = input.builderFamily;
       status: "blocked",
       reason: `this item carries ${criteria.length} machine-checkable acceptance criteria but the repo records no ` +
         `run-the-app command, so QA cannot attempt them -- they can't be waived silently. Record a Run-the-app ` +
-        `command (CLAUDE.md detected-tooling block) or run this item in checkpoint mode.`,
+        `command (CLAUDE.md detected-tooling block) or run this item watched instead.`,
       criteriaCount: criteria.length,
     };
   }
@@ -1006,16 +1016,17 @@ for (let iteration = 1; iteration <= maxIterations; iteration++) {
     break;
   }
   if (decision === "cap-stop") {
-    const openFindings = lastVerify && Array.isArray(lastVerify.findings)
-      ? lastVerify.findings.filter((f) => f && f.status !== "met")
-      : [];
+    // The SAME fold the fix brief gets (DRY) -- so the residual the USER sees carries the explicit
+    // could-not-run entries a crashed verify/qa stage would have handed the next iteration.
+    const folded = foldResidual(lastGates, lastVerify, lastQa);
     terminal = {
       status: "not-green",
       residual: residualReport({
         iteration,
-        failingGates: lastGates.failures,
-        openFindings,
-        failingCriteria: lastQa ? lastQa.failures : [],
+        failingGates: folded.failingGates,
+        openFindings: folded.verifyFindings,
+        failingCriteria: folded.failingCriteria,
+        stageCouldNotRun: folded.stageCouldNotRun,
       }),
     };
     break;
@@ -1033,16 +1044,15 @@ const crossModel = crossModelClaim(builderFamily, judgeFamilies);
 if (terminal == null) {
   // The loop ran to the cap without a terminal branch (defensive -- nextAction would have set
   // cap-stop). Treat as not-green with the last residual so we never return a silent partial.
-  const openFindings = lastVerify && Array.isArray(lastVerify.findings)
-    ? lastVerify.findings.filter((f) => f && f.status !== "met")
-    : [];
+  const folded = foldResidual(lastGates, lastVerify, lastQa);
   terminal = {
     status: "not-green",
     residual: residualReport({
       iteration: iterationsUsed,
-      failingGates: lastGates ? lastGates.failures : [],
-      openFindings,
-      failingCriteria: lastQa ? lastQa.failures : [],
+      failingGates: folded.failingGates,
+      openFindings: folded.verifyFindings,
+      failingCriteria: folded.failingCriteria,
+      stageCouldNotRun: folded.stageCouldNotRun,
     }),
   };
 }

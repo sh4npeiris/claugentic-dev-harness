@@ -333,7 +333,10 @@ without per-file content reads** (the whole point: the *path list* is a millisec
      copied `claugentic-check_architecture_tree.py`'s `in_scope_files()` computes (tracked + staged +
      untracked-not-ignored, minus exclusions). Honoring `.gitignore` via git excludes
      deps/build/generated trees for free.
-  3. Write the skeleton: a short intro, then **one `- \`path\`` line per in-scope file**,
+  3. Write the skeleton: a short intro that **states the per-entry length budget** — read
+     `MAX_ENTRY_CHARS` from the copied `scripts/claugentic-check_architecture_tree.py` and name
+     that number as the hard ceiling a commit is refused over (the Fresh branch's minimal tree
+     carries the same line) — then **one `- \`path\`` line per in-scope file**,
      **grouped under markdown headings by directory** (e.g. `## src/api`), each line a
      **thin, path-derived one-liner** (the filename/dir role — **NO per-file content reads**;
      descriptions enrich best-effort later via the existing "update a file's line when you
@@ -1230,8 +1233,10 @@ Then tell the user the **setup is live** — honestly, so no restart is implied 
 needed (a skill **cannot** restart a session; don't pretend otherwise):
 - **When the tree-gate is ON:** **two gates run at commit time** — a git **pre-commit hook**
   checks the tree and the doc budgets once per `git commit` (no restart, no per-action
-  overhead); a missing tree entry, or a ledger over its cap, aborts that commit until you fix
-  it, and a ledger at ≥90% of its cap prints a WARN and lets the commit through. Name the
+  overhead); a missing tree entry, a tree entry longer than the per-entry budget
+  (`MAX_ENTRY_CHARS` in `scripts/claugentic-check_architecture_tree.py`), or a ledger over its
+  cap, aborts that commit until you fix it, and a ledger at ≥90% of its cap prints a WARN and
+  lets the commit through. Name the
   **hook path per mode**: **shared** →
   `.githooks/pre-commit` via `core.hooksPath=.githooks` (travels with the repo); **solo** →
   `.git/hooks/pre-commit` (local to this clone, untracked — `core.hooksPath` left at its

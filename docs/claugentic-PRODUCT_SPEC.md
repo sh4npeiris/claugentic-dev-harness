@@ -92,7 +92,7 @@ under-claims rather than over-claims, every time."
 
 ### Earned autonomy (build)
 
-- **Flow** — point `build` at an approved backlog item → checkpoint mode pauses at the spec,
+- **Flow** — point `build` at an approved backlog item → the watched run pauses at the spec,
   before land, and before anything irreversible → an unwatched build-to-green run is requestable
   and unlocks only where the repo has earned it.
 - **States** — an unearned build-to-green ask declines naming exactly the unmet conditions with
@@ -181,8 +181,8 @@ every criterion is `check: "manual"`; gap mode sweeps each against the code stat
     "flow": ["Ask for an unwatched build-to-green run in a repo that has not earned it"],
     "expect": [
       "the ask declines naming exactly the unmet unlock conditions with the evidence checked",
-      "the decline carries the verbatim risk-reduction scoping and offers checkpoint",
-      "the engine never lands, pushes, or touches git — every terminal status is a return"
+      "the decline carries the verbatim risk-reduction scoping and offers the watched run",
+      "the engine never lands, pushes, or merges (it does commit on its own branch) — every terminal status is a return"
     ],
     "states": [],
     "check": "manual"

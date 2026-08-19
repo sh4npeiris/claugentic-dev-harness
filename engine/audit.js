@@ -561,7 +561,8 @@ function buildLensPrompt(moduleName, dirs, excludeSet, depth) {
   );
 }
 
-// Build the product-gap lens prompt for ONE acceptance criterion (criteria mode). The lens reads
+// Build the product-gap lens prompt for ONE acceptance criterion (criteria mode -- the
+// lens-reviewer's PRODUCT-GAP mode, per .claude/agents/lens-reviewer.md). The lens reads
 // the implementation STATICALLY against this criterion -- it does NOT run the app (runtime checking
 // is qa.js's job; the prompt says so) -- and reports missing / partial / diverging behavior per flow
 // step, expectation, and required state, in the SAME finding shape as buildLensPrompt so the
@@ -710,18 +711,24 @@ function sameModelTag(builderFamily, judgeFamily) {
 // are verified / unconfirmed / deferred -- NEVER a silent "checked"):
 //   Verified   -> kept, verification.state = 'verified'   + evidence
 //   Unconfirmed-> kept, verification.state = 'unconfirmed'
-//   Refuted    -> dropped (counted in refutedCount; its only trace is the count)
+//   Refuted    -> dropped (counted in refutedCount; the FINDING leaves no other trace, but its
+//                 verifier's self-report rides out in refutedRunningAs -- a reviewer that decided
+//                 what reaches the backlog must not vanish from the run's cross-model fold)
 //   no verdict -> kept, verification.state = 'deferred'   (budget ran out / verifier never ran)
 // `results` is a parallel array aligned to `findings` (results[i] verifies findings[i]); a
 // missing/null result is the deferred case (the verifier did not run).
 function applyVerdicts(findings, results) {
   const kept = [];
+  const refutedRunningAs = [];
   let refutedCount = 0;
   findings.forEach((finding, i) => {
     const result = Array.isArray(results) ? results[i] : undefined;
     const verdict = result && result.verdict ? result.verdict : null;
     if (verdict === "Refuted") {
       refutedCount += 1;
+      // A verifier that RAN and refuted pushes its report (null = ran, no self-report -> the
+      // conservative floor). Never filter this list: absence is a shorter ARRAY, not a null entry.
+      refutedRunningAs.push(result && result.runningAs != null ? result.runningAs : null);
       return; // dropped -- false positive caught before the backlog
     }
     let verification;
@@ -754,7 +761,7 @@ function applyVerdicts(findings, results) {
       verifierRunningAs: result && result.runningAs != null ? result.runningAs : null,
     });
   });
-  return { kept, refutedCount };
+  return { kept, refutedCount, refutedRunningAs };
 }
 
 // Fold the verifier results into the run's verification summary. `crossModel` is true ONLY when
@@ -764,19 +771,26 @@ function applyVerdicts(findings, results) {
 // UNRESOLVED verifier family yields UNRESOLVED_FAMILY_TAG (reported unresolved, never asserted
 // same-model fact); a resolved-same (or missing-report) verifier yields SAME_MODEL_TAG. Any
 // unresolved report taints the whole run's disclosure to UNRESOLVED. Counts the kept verification
-// states + the refuted drops.
-function verificationSummary(findings, refutedCount, builderFamily) {
+// states + the refuted drops. EVERY verifier that RAN votes -- the kept findings' own reports PLUS
+// `refutedRunningAs`, the reports of the verifiers whose finding was Refuted: a refuting verifier
+// decided what reached the backlog, so excluding it would let a same-model reviewer do the deciding
+// under a cross-model banner.
+function verificationSummary(findings, refutedCount, builderFamily, refutedRunningAs) {
   let verified = 0;
   let unconfirmed = 0;
   let deferred = 0;
-  let allConfirmingDifferentFamily = findings.length > 0;
+  const reports = findings
+    .map((f) => (f && f.verifierRunningAs != null ? f.verifierRunningAs : null))
+    .concat(Array.isArray(refutedRunningAs) ? refutedRunningAs : []);
+  let allConfirmingDifferentFamily = reports.length > 0;
   let sawUnresolved = false;
   findings.forEach((finding) => {
     const v = finding && finding.verification ? finding.verification.state : null;
     if (v === "verified") verified += 1;
     else if (v === "unconfirmed") unconfirmed += 1;
     else deferred += 1;
-    const reported = finding && finding.verifierRunningAs != null ? finding.verifierRunningAs : null;
+  });
+  reports.forEach((reported) => {
     // A PRESENT non-empty report that does not resolve to a KNOWN family is the unresolved case --
     // distinct from a missing/empty report (a forced-respawn / no self-report) which stays the
     // same-model floor (the same missing-vs-present split sameModelTag uses).
@@ -1026,12 +1040,15 @@ function renderTier(heading, items) {
 // The recommended-starting-point line. When Tiers 1+2 are BOTH empty it IS the terminal "sound"
 // signal (with the covered-cells scoping clause appended on a PARTIAL run); otherwise it points at
 // the first Tier-1 item, else the first Tier-2 item.
-function renderRecommendation(tier1, tier2, status, level) {
+function renderRecommendation(tier1, tier2, status, level, verificationIncomplete) {
   if (tier1.length === 0 && tier2.length === 0) {
+    // A COMPLETE sweep whose VERIFY was budget-truncated must not read as "don't keep re-auditing".
     const scope =
       status === "PARTIAL"
         ? " (scoped to the cells covered this run -- re-run to finish the rest)"
-        : "";
+        : verificationIncomplete
+          ? " (the budget ran out before every finding was re-checked -- re-run to check the rest)"
+          : "";
     const signal = level === "gap" ? GAP_TERMINAL_SIGNAL : TERMINAL_SIGNAL;
     return `**Recommended starting point:** ${signal}${scope}`;
   }
@@ -1066,7 +1083,9 @@ function renderLensCoverage(lensCoverage) {
 }
 
 // The verification run-report line -- driven by the result's verification block. Frames the dropped
-// findings as a trust signal (a COUNT, never a list). When crossModel is false the parenthetical
+// findings as a trust signal (a COUNT, never a list) -- worded DISPROVED, never "could not confirm",
+// which is the KEPT unconfirmed state's phrase (VERIFICATION_PHRASE / LEGEND). When crossModel is
+// false the parenthetical
 // cross-model clause is REPLACED by the disclosure tag the summary computed -- the THREE-state tag
 // (SAME_MODEL_TAG for resolved-same, UNRESOLVED_FAMILY_TAG when a verifier family was unresolved),
 // so an unresolved run never reads as asserted same-model fact (never both clauses).
@@ -1081,9 +1100,14 @@ function renderRunReport(verification) {
     : v.sameModelTag != null
       ? v.sameModelTag
       : SAME_MODEL_TAG;
+  // A budget-truncated VERIFY may never read as "every finding" -- name the shortfall inline.
+  const covered =
+    deferred > 0
+      ? `all but ${deferred} of the findings I surfaced (the budget ran out -- re-run to check them)`
+      : "every finding I surfaced";
   return (
-    `Re-checked every finding I surfaced against the code ${judgeClause}; ` +
-    `dropped ${refuted} that couldn't be confirmed -- ` +
+    `Re-checked ${covered} against the code ${judgeClause}; ` +
+    `dropped ${refuted} that were disproved -- ` +
     `verified ${verified} - unconfirmed ${unconfirmed} - deferred ${deferred}.`
   );
 }
@@ -1104,7 +1128,7 @@ function renderBacklogFence(result) {
     renderTier("Tier 1 -- critical", tier1),
     renderTier("Tier 2 -- important", tier2),
     renderTier("Tier 3 -- polish", tier3),
-    renderRecommendation(tier1, tier2, result.status, result.level),
+    renderRecommendation(tier1, tier2, result.status, result.level, result.verificationIncomplete),
     ...(lensCoverageLine ? [lensCoverageLine] : []),
     renderRunReport(result.verification),
     // Emitted on EVERY gap fence, pass or fail -- the fence is the surface that persists.
@@ -1491,11 +1515,13 @@ const verifyTasks = toVerify.map((finding) => () =>
 );
 const verifyResults = await parallel(verifyTasks);
 
-const { kept, refutedCount } = applyVerdicts(toVerify, verifyResults);
+const { kept, refutedCount, refutedRunningAs } = applyVerdicts(toVerify, verifyResults);
 // Observability: a verifier self-report that is present but does not resolve to a KNOWN family is
 // LOGGED, never silently degraded -- the disclosure becomes UNRESOLVED, not asserted same-model.
-for (const finding of kept) {
-  const reported = finding && finding.verifierRunningAs != null ? finding.verifierRunningAs : null;
+// The REFUTING verifiers are swept here too -- they voted in the fold, so they are logged too.
+for (const reported of kept
+  .map((f) => (f && f.verifierRunningAs != null ? f.verifierRunningAs : null))
+  .concat(refutedRunningAs)) {
   if (typeof reported === "string" && reported.trim().length > 0 && modelFamily(reported) === null) {
     log(
       `audit: a finding-verifier self-reported an UNRECOGNIZED model family ` +
@@ -1503,7 +1529,7 @@ for (const finding of kept) {
     );
   }
 }
-const summary = verificationSummary(kept, refutedCount, input.builderFamily);
+const summary = verificationSummary(kept, refutedCount, input.builderFamily, refutedRunningAs);
 
 // --- Assemble the structured result (the Phase-3 contract; no timestamps -- the orchestrator
 // stamps the date when it renders the fence). doneCells = input done + this run's swept cells

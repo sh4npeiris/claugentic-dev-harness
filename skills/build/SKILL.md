@@ -103,7 +103,7 @@ Build-to-green is **a reduction of unwatched-run risk, never a substitute for th
 
 The fixed per-condition lines (angle-bracket slots filled per run from the evidence actually checked):
 - *CI running the deterministic gates — I found <no CI config | `<file>`, but it doesn't run <the missing gate commands>>.*
-- *a test baseline for the code this item touches — I found no tests exercising <the touched files/behavior>.*
+- *a test baseline for the code this item touches — I found <no tests exercising <the touched files/behavior> | tests that exercise <the touched files> but assert nothing about <the behavior this item changes>>.*
 - *an approved spec with testable acceptance criteria — <no plan with `Status: Approved` traces to this item | the spec's criteria include ones I can't check without you: <ids>>.*
 - *the engine itself — <the Workflow tool isn't available in this session | `engine/build-item.js` isn't in the installed plugin>; build-to-green never runs as prose.*
 
@@ -404,6 +404,9 @@ never a blanket "verified/done":**
 - the **reviewer sign-offs** (the in-scope `docs/claugentic-standards/` dimensions the
   `synthesizer-gate` audited) — model-upheld judgment, **"passed the checks and the
   reviewer's audit,"** never "proven correct."
+- the **run's model-relationship disclosure** — when the engine result's `crossModel` is not
+  `confirmed`, state that tag **verbatim** (WORKFLOW → *Principles*), never a bare pass with
+  the disclosure left in the JSON.
 
 **Surface the flags — "things to review"** (the decision-gated close-out). List **every flag**
 raised during the run (the reversible judgment-calls the run flagged-and-continued — each a

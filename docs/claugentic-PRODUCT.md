@@ -125,17 +125,17 @@ load-bearing — and nowhere else (decision-fatigue is a failure mode, not a saf
 
 ## The two modes (one seam)
 
-- **`checkpoint` (default).** Auto-drives Plan → Review → Implement → Verify between the real
+- **Watched (the default).** Auto-drives Plan → Review → Implement → Verify between the real
   human gates, and **pauses** at: (1) triage selection, (2) the spec, before any code
   (Stage 5) — **per item as you go, or pre-satisfied per item up front in one approval
   sitting** when the user asks to *spec everything first* (the batch ask), (3) before land /
   any irreversible action.
-- **`build-to-green` (requestable, evidence-checked).** Governed by the **autonomy ladder**
-  (the contract lives in `skills/build/SKILL.md` → Mode handling): checkpoint stays the default;
+- **`build-to-green` (requestable, evidence-checked).** Governed by the **who-watches axis**
+  (the contract lives in `skills/build/SKILL.md` → Mode handling): watched stays the default;
   an unwatched build-to-green run unlocks per-repo only on three evidence-stated conditions
   (CI running the deterministic gates · a test baseline on the touched code · an approved spec
   with testable acceptance criteria) plus the engine being installed (`engine/build-item.js`).
-  Anything unmet → an honest decline naming exactly what's missing, offering checkpoint — never
+  Anything unmet → an honest decline naming exactly what's missing, offering the watched run — never
   silently degrading to a weaker promise. Build-to-green is a reduction of unwatched-run risk,
   never a substitute for the unbuilt deterministic trust-gates.
 
@@ -158,9 +158,9 @@ load-bearing — and nowhere else (decision-fatigue is a failure mode, not a saf
    work surfaced, **pause to re-triage** — the user re-picks before more is built.
 4. **Stop / done** — when the agreed list is worked through, one **full audit** confirms
    Tier-1+2 empty → the terminal "Sound on the audited dimensions" signal. Stop.
-5. **Build-to-green ask** — if the user asks for an unwatched run, check the ladder's
+5. **Build-to-green ask** — if the user asks for an unwatched run, check the
    unlock conditions with stated evidence; unmet → decline honestly (naming exactly what's
-   missing) and offer checkpoint.
+   missing) and offer the watched run.
 
 **Guardrails (both modes, non-negotiable):** hard-stop + ask before any **irreversible
 action** (push to a shared remote, deploy, delete data, spend money, external side-effect);
@@ -209,7 +209,7 @@ A surface is only finished when none of these is a blank screen or a dead end.
   scoped honestly to the audited dimensions (not "your app is perfect / bug-free").
 - **The build-to-green decline state** — honest about *exactly which* unlock conditions this
   repo hasn't met (per-condition evidence lines, per `skills/build/SKILL.md` → Mode handling),
-  and offers checkpoint as the live, trustworthy alternative. Not an apology, not a vague
+  and offers the watched run as the live, trustworthy alternative. Not an apology, not a vague
   "coming soon" — a clear, true, per-condition reason.
 
 ## What "good" feels like
@@ -249,7 +249,8 @@ The four experience qualities, in priority order:
 
 Build mode rides on the audit's **model-upheld** verification — only the architecture-tree and
 doc-budget gates are mechanically enforced, and only where the commit hook is wired — and is
-**checkpoint-only-live**. Four user-facing surfaces are the
+**watched by default** (an unwatched build-to-green run is earned per-repo, never assumed).
+Four user-facing surfaces are the
 over-claim hotspots; the exact honest wording for each is owned by its source of truth, not
 restated here:
 

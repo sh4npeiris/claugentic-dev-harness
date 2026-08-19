@@ -703,13 +703,15 @@ function screenshotPath(artifactDir, runLabel, criterionId, slug) {
 // applyVerdicts mapping, runtime-shaped:
 //   Verified   -> kept, verificationTag (checked against the code) + evidence
 //   Unconfirmed-> kept, verificationTag (could not confirm independently -- model's assertion)
-//   Refuted    -> dropped + counted (a false positive caught before the backlog)
+//   Refuted    -> dropped + counted; its verifier's self-report still rides out in refutedRunningAs
+//                 (a reviewer that decided what reaches the backlog stays in the cross-model fold)
 //   no verdict -> kept, verificationTag (! not yet verified -- re-run to confirm)  [deferred]
 // The COULD-NOT-RUN finding is EXEMPT: it carries its own observed-this-run boot-fact tag and is
 // passed through untouched (a boot fact, not a code claim). `results` is aligned to `findings`
 // (results[i] verifies findings[i]); the could-not-run finding is matched by issueClass, not index.
 function applyVerifierVerdicts(findings, results) {
   const kept = [];
+  const refutedRunningAs = [];
   let refutedCount = 0;
   (Array.isArray(findings) ? findings : []).forEach((finding, i) => {
     if (finding && finding.issueClass === COULD_NOT_RUN_CLASS) {
@@ -720,6 +722,9 @@ function applyVerifierVerdicts(findings, results) {
     const verdict = result && result.verdict ? result.verdict : null;
     if (verdict === "Refuted") {
       refutedCount += 1;
+      // A verifier that RAN and refuted pushes its report (null = ran, no self-report -> the
+      // conservative floor). Never filter this list: absence is a shorter ARRAY, not a null entry.
+      refutedRunningAs.push(result && result.runningAs != null ? result.runningAs : null);
       return; // dropped
     }
     let verificationTag;
@@ -745,7 +750,7 @@ function applyVerifierVerdicts(findings, results) {
       verifierRunningAs: result && result.runningAs != null ? result.runningAs : null,
     });
   });
-  return { kept, refutedCount };
+  return { kept, refutedCount, refutedRunningAs };
 }
 
 // The error-partition predicate: which boundary errors become the honest could-not-run
@@ -1072,6 +1077,7 @@ let bootReport = null;
 let findings = [];
 let verdicts = [];
 let refutedCount = 0;
+let refutedRunningAs = [];
 let ready = false;
 let allScreenshots = [];
 
@@ -1169,6 +1175,7 @@ try {
       const applied = applyVerifierVerdicts(toVerify, verifyResults);
       findings = applied.kept;
       refutedCount = applied.refutedCount;
+      refutedRunningAs = applied.refutedRunningAs;
     }
   } else if (mode === "full" && !ready) {
     // Full run requested, but the app never booted -- the could-not-run finding stands and NO
@@ -1222,14 +1229,16 @@ try {
 // session family (passed as args.builderFamily when known).
 const builderFamily = typeof input.builderFamily === "string" ? input.builderFamily : "";
 const reCheckable = findings.filter((f) => f.issueClass !== COULD_NOT_RUN_CLASS);
+// EVERY verifier that RAN votes -- the survivors' own reports PLUS `refutedRunningAs`, the reports of
+// the verifiers whose finding was Refuted. A refuting verifier decided what reached the backlog, so
+// excluding it would let a same-model reviewer do the deciding under a cross-model banner.
+const judgeReports = reCheckable.map((f) => f.verifierRunningAs).concat(refutedRunningAs);
 const allConfirmingDifferentFamily =
-  reCheckable.length > 0 &&
-  reCheckable.every((f) => f.verifierRunningAs != null && sameModelTag(builderFamily, f.verifierRunningAs) === null);
+  judgeReports.length > 0 && judgeReports.every((r) => r != null && sameModelTag(builderFamily, r) === null);
 // Observability: a verifier self-report that is present but does not resolve to a KNOWN family is
 // LOGGED, never silently degraded -- and taints the disclosure to UNRESOLVED, not asserted same-model.
 let sawUnresolved = false;
-for (const f of reCheckable) {
-  const reported = f.verifierRunningAs;
+for (const reported of judgeReports) {
   if (typeof reported === "string" && reported.trim().length > 0 && modelFamily(reported) === null) {
     sawUnresolved = true;
     log(

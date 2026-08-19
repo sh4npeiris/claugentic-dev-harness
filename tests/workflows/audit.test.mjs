@@ -1043,7 +1043,8 @@ test("renderRecommendation falls to the first Tier-2 item when Tier 1 is empty b
 test("renderRunReport emits the clean-context parenthetical when crossModel is true", () => {
   const line = H.renderRunReport({ verified: 4, unconfirmed: 1, deferred: 0, refuted: 2, crossModel: true });
   assert.ok(line.includes("re-checked by a separate clean-context agent -- a reduction of shared-blind-spot risk, not independence"));
-  assert.ok(line.includes("dropped 2 that couldn't be confirmed"));
+  assert.ok(line.includes("dropped 2 that were disproved"));
+  assert.ok(!/(could not|couldn't be) confirm/.test(line)); // never the KEPT unconfirmed state's words
   assert.ok(line.includes("verified 4 - unconfirmed 1 - deferred 0"));
   assert.ok(!line.includes(EXPECTED_SAME_MODEL_TAG)); // never both clauses
 });
@@ -1188,7 +1189,7 @@ test("renderOnlyResult re-renders the SELECTED subset: recommendation names the 
   // NOT recomputed over the 2-item subset.
   assert.ok(body.includes("`security`: 3 findings"));
   assert.ok(body.includes("`testing`: did not run this pass -- re-run to cover it"));
-  assert.ok(body.includes("dropped 1 that couldn't be confirmed"));
+  assert.ok(body.includes("dropped 1 that were disproved"));
   assert.ok(body.includes("verified 3 - unconfirmed 0 - deferred 0"));
   // the payload passes through unchanged but for renderedBacklog
   assert.equal(out.status, "COMPLETE");
