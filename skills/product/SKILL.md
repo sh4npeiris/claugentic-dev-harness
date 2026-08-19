@@ -202,7 +202,10 @@ checking is the QA workflow's job (`qa.js`); say so.**
    mechanics + skip-vs-reject there): **read `<!-- product-critic:rejected-proposals -->` first** and
    omit already-rejected candidates; present the remaining `result.items` as an editable `- [ ]`
    checklist (transient; "keep all" shortcut). Then:
-   - **Keep all / nothing found** → write the engine's original `renderedBacklog`.
+   - **Keep all / nothing found** → write the engine's original `renderedBacklog` — **but only when
+     the rejected-proposals read omitted NOTHING.** "All" means all of what you presented; the original
+     still carries any omitted candidate, so writing it directly resurrects a proposal the user
+     rejected. If anything was omitted, route through `renderOnly` with the presented set.
    - **Keep a non-empty subset** → **re-invoke the Workflow tool** with `args.renderOnly = { ...result,
      items: <selected> }` — passing the **full `result` (incl. its `verification`) through unchanged**
      so the product fence's run-report stays **full-scope** (gap results carry no `lensCoverage`, which

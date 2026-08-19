@@ -152,7 +152,13 @@ are model-upheld judgment; your approval is the gate.
 
 After the diff is applied, **re-measure** the ledger:
 
-- **Under the band (~80%)** → done. Report the before/after byte figure and the new headroom.
+- **Under the band (~80%)** → **clear any `reportOnly` grace on that entry, THEN** report the
+  before/after byte figure and the new headroom. **This step is not optional and nothing else does
+  it:** three surfaces state that only this skill clears the flag, and until now this skill never
+  did — so a graced ledger stayed graced forever and its cap silently stopped enforcing. Once the
+  file is genuinely under budget the grace has nothing left to excuse; leaving it is a gate switched
+  off invisibly. Editing the entry is a config change — it rides the **same user-approved diff**, and
+  say so when you surface it.
 - **Still at or over the WARN** → the diff was too shallow: return to the lever order (STEP 2 first) and
   propose a deeper cut, or — if the content is genuinely all-live and cannot reach the band without
   over-cutting live constraints — **the escape-valve ladder is the recourse** — promote durable

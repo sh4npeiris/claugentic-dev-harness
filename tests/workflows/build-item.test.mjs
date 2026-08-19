@@ -742,8 +742,14 @@ test("crossModelClaim: a confirming family beside an EMPTY-STRING report -> the 
   assert.equal(H.crossModelClaim("Fable 5", ["Opus 4.8", ""]), EXPECTED_SAME_MODEL_TAG);
 });
 
-test("crossModelClaim: an unresolvable family beside a confirming one still blocks the claim", () => {
-  assert.equal(H.crossModelClaim("Fable 5", ["Opus 4.8", "some-unknown-model"]), EXPECTED_SAME_MODEL_TAG);
+test("crossModelClaim: an unresolvable family beside a confirming one -> UNRESOLVED, not same-model", () => {
+  // Both tags block the cross-model claim, which is what this pin has always been for. What
+  // changed is WHICH tag: SAME_MODEL_TAG asserts as FACT that "the judge and the builder are
+  // the same model family here" -- and here they demonstrably are not, since Opus 4.8 is a
+  // confirmed DIFFERENT family from Fable 5. The honest state is the third one: could not
+  // resolve, so no claim either way (0043 PS-5). Asserting the falsehood on the very surface
+  // built to prevent over-claiming is the defect this now pins against.
+  assert.equal(H.crossModelClaim("Fable 5", ["Opus 4.8", "some-unknown-model"]), EXPECTED_UNRESOLVED_FAMILY_TAG);
 });
 
 test("crossModelClaim: a child that never ran contributes NOTHING (absence is not a null signal)", () => {

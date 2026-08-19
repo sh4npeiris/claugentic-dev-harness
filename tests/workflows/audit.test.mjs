@@ -1536,3 +1536,54 @@ test("audit.js control flow: the renderOnly seam reads the PARSED args and retur
     "the seam must never read renderOnly off the RAW args -- a scriptPath invocation delivers a JSON string",
   );
 });
+
+// -----------------------------------------------------------------------------
+// 0043 PS-2 / PS-3 -- the fence is the surface that PERSISTS, so it carries the scope
+// and the stable id. Chat messages do not survive a run; this artifact does.
+// -----------------------------------------------------------------------------
+
+test("gap mode never calls a clean run 'sound' -- it never ran the app", () => {
+  const H = loadHelpersFrom(SCRIPT_PATH, [
+    "renderRecommendation",
+    "TERMINAL_SIGNAL",
+    "GAP_TERMINAL_SIGNAL",
+  ]);
+  const gap = H.renderRecommendation([], [], "COMPLETE", "gap");
+  assert.ok(!/\bSound\b/i.test(gap), `gap must not claim soundness: ${gap}`);
+  assert.match(gap, /did not run your app/i);
+  // NON-VACUITY: the engineering path still earns the word, so the assertion above is about
+  // gap mode specifically, not about the string having been deleted everywhere.
+  const audit = H.renderRecommendation([], [], "COMPLETE", "standard");
+  assert.match(audit, /Sound on the audited dimensions/);
+});
+
+test("every gap fence carries the static-only scope line, pass or fail", () => {
+  const H = loadHelpersFrom(SCRIPT_PATH, ["renderBacklogFence", "GAP_SCOPE_LINE"]);
+  const clean = H.renderBacklogFence({ status: "COMPLETE", level: "gap", items: [] });
+  assert.ok(clean.includes(H.GAP_SCOPE_LINE), "a CLEAN gap fence must still state the scope");
+  const withFinding = H.renderBacklogFence({
+    status: "COMPLETE",
+    level: "gap",
+    items: [{ tier: 1, tag: "bug", titlePlain: "t", claimTechnical: "c", whyPlain: "w" }],
+  });
+  assert.ok(withFinding.includes(H.GAP_SCOPE_LINE), "a gap fence WITH findings must state it too");
+  // NON-VACUITY: an engineering audit does run no app either, but it makes no runtime claim --
+  // the line is gap-specific, so it must be absent there or it proves nothing about the branch.
+  const eng = H.renderBacklogFence({ status: "COMPLETE", level: "standard", items: [] });
+  assert.ok(!eng.includes(H.GAP_SCOPE_LINE));
+});
+
+test("a rendered item prints its stable findingKey -- resume and dismissal both need it", () => {
+  const H = loadHelpersFrom(SCRIPT_PATH, ["renderItem"]);
+  const line = H.renderItem({
+    findingKey: "sql-injection-handlers",
+    titlePlain: "T",
+    tag: "bug",
+    claimTechnical: "c",
+    whyPlain: "w",
+  });
+  assert.match(line, /`#sql-injection-handlers`/);
+  // An item without a key must not render a bare `#` marker.
+  const noKey = H.renderItem({ titlePlain: "T", tag: "bug", claimTechnical: "c", whyPlain: "w" });
+  assert.ok(!/`#/.test(noKey), noKey);
+});

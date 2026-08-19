@@ -517,10 +517,23 @@ function crossModelClaim(builderFamily, judgeFamilies) {
   if (reports.length === 0) {
     return SAME_MODEL_TAG; // no child reported at all -> never claim cross-model
   }
+  // THREE states in, three states out. `sameModelTag` already distinguishes "same family"
+  // from "a present report I could not resolve"; collapsing both to SAME_MODEL_TAG asserted
+  // same-model as FACT on runs that only failed to identify the judge -- a false statement on
+  // the one surface built to prevent over-claiming. Precedence: a confirmed same-family judge
+  // is the more specific finding, so it wins over an unresolved one.
+  let unresolved = false;
   for (const j of reports) {
-    if (sameModelTag(builderFamily, j) !== null) {
+    const tag = sameModelTag(builderFamily, j);
+    if (tag === SAME_MODEL_TAG) {
       return SAME_MODEL_TAG;
     }
+    if (tag === UNRESOLVED_FAMILY_TAG) {
+      unresolved = true;
+    }
+  }
+  if (unresolved) {
+    return UNRESOLVED_FAMILY_TAG;
   }
   return "confirmed";
 }

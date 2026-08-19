@@ -1244,6 +1244,13 @@ const crossModel = allConfirmingDifferentFamily
     ? UNRESOLVED_FAMILY_TAG
     : SAME_MODEL_TAG;
 
+// The three states are resolved directly above; hardcoding one of them into the sentence a
+// human actually reads is the exact over-claim this register exists to prevent.
+const recheckLabel =
+  crossModel === "confirmed"
+    ? "the cross-model re-check"
+    : "the re-check (NOT cross-model on this run -- see the disclosure below)";
+
 const passCount = verdicts.filter((v) => v.verdict === "pass").length;
 const failCount = verdicts.filter((v) => v.verdict === "fail").length;
 const notCheckableCount = verdicts.filter((v) => v.verdict === "not-checkable").length;
@@ -1251,7 +1258,7 @@ const notCheckableCount = verdicts.filter((v) => v.verdict === "not-checkable").
 const fullSummary =
   `full run: ${verdicts.length} criteria driven (${passCount} pass - ${failCount} fail - ` +
   `${notCheckableCount} not-checkable) + ${manualCriteria.length} manual (listed for a human, never driven). ` +
-  `${findings.length} finding(s) surfaced (${refutedCount} refuted and dropped by the cross-model re-check). ` +
+  `${findings.length} finding(s) surfaced (${refutedCount} refuted and dropped by ${recheckLabel}). ` +
   `The drivers ATTEMPTED each flow (model-upheld judgment of your plain-English steps) -- measured facts are the ` +
   `observed HTTP/element evidence; asserted are the drivers' interpretive calls. This reduces the risk the product ` +
   `diverged from the criteria; it does not prove the app correct.`;

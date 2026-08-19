@@ -15,37 +15,37 @@
 
 ### Tier 1 — the trust register itself  (7 findings)
 
-- [ ] **[PS-1] Setup's report can say it overwrote nothing on a run that overwrote your files** · `bug`
+- [x] **[PS-1] Setup's report can say it overwrote nothing on a run that overwrote your files** · `bug`
   - **What:** If you pick "Replace my code map" during setup, or setup rewrites your commit-hook script or appends to .gitignore/.gitattributes, the first line of the report still tells you nothing of yours was changed or overwritten. The honest disclosure sits several paragraphs later, or nowhere. The headline is computed from two narrow report groups instead of from the real question - did we write anything the user owns - so the most-read line says the opposite of what happened. (Merged with the separate 'I changed nothing' finding: same defect, same edit site.)
   - **Where:** `skills/init/SKILL.md:1172-1179` · `skills/init/SKILL.md:1180-1188` · `skills/init/SKILL.md:1273-1276` · `skills/init/SKILL.md:1197-1201`
   - **Cost:** High impact - the report's most-read line can be flatly false, on the two paths that touch user-owned files. Low effort - one branch condition in skills/init/SKILL.md:1172-1188, computed from a 'wrote nothing at all this run' predicate.
 
-- [ ] **[PS-2] The product backlog never says the check never ran your app - and calls a clean run "sound"** · `bug`
+- [x] **[PS-2] The product backlog never says the check never ran your app - and calls a clean run "sound"** · `bug`
   - **What:** The promise is that gap mode always states it read the code statically and did not run the product. It says so only in the chat message at the end; the backlog written into your ROADMAP - the thing you actually read weeks later - never says it. Worse, a clean run prints "Sound on the audited dimensions", which reads as "your product matches its spec" from a check that never executed a line of the product.
   - **Where:** `engine/audit.js:1076` · `engine/audit.js:149` · `engine/audit.js:156` · `engine/audit.js:1011`
   - **Cost:** High impact - a durable, unqualified soundness claim from a static-only check. Low effort - one constant plus a gap-mode branch in the fence renderer, and the same clause in the skill-owned heading.
 
-- [ ] **[PS-3] Answering "keep all" can write a finding you already dismissed back into your backlog** · `bug`
+- [x] **[PS-3] Answering "keep all" can write a finding you already dismissed back into your backlog** · `bug`
   - **What:** Findings you dismissed are correctly hidden from the checklist you are shown, but the "keep all" answer routes to writing the engine's original, unfiltered backlog text - which still contains them. So the documented guarantee that a dropped finding stays dropped breaks precisely on the runs where the dismissal memory did its job. Nothing in the skill flags this as a case that needs the re-render path.
   - **Where:** `skills/audit/SKILL.md:325` · `skills/audit/SKILL.md:331` · `docs/claugentic-WORKFLOW.md:221` · `engine/audit.js:1228`
   - **Cost:** High impact - breaks a headline guarantee and quietly undoes the user's own decision. Low effort - one routing clause in the SELECT phase of the audit skill, mirrored in the workflow doc.
 
-- [ ] **[PS-3] The backlog never prints the stable id that resuming and dismissing both depend on** · `bug`
+- [x] **[PS-3] The backlog never prints the stable id that resuming and dismissing both depend on** · `bug`
   - **What:** When a run stops early and you re-run it, the engine carries forward already-confirmed findings only if each one has its internal key - and the rendered backlog never writes that key out. So a re-run either drops findings that were already confirmed, or the orchestrator invents a key from the title and produces a duplicate; an already-verified verdict can also silently downgrade to "not yet verified". The same missing key is why the dismissal memory has to match on model-rewritten titles, so a slight wording change resurrects something you dismissed. (Merged with the separate dismissal-identity finding - one key, one fix.)
   - **Where:** `engine/audit.js:1102` · `engine/audit.js:983` · `skills/audit/SKILL.md:221` · `tests/workflows/audit.test.mjs:1372`
   - **Cost:** High impact - silent loss of verified findings on every resumed run, and unreliable dismissals. Low effort - render the key with each item and add a render-parse-merge round-trip test.
 
-- [ ] **[PS-5] Build asserts the reviewer was the same model on runs where it could not tell** · `bug`
+- [x] **[PS-5] Build asserts the reviewer was the same model on runs where it could not tell** · `bug`
   - **What:** The trust disclosure has three honest states, but the build engine folds them to two: whenever the reviewing model's family cannot be resolved, it states flatly that the reviewer and the builder are the same model family - a fact the run never established. The correct "could not resolve" wording is a dead constant here, and the QA stage's honest version is discarded on the way up. Verify, QA and audit all implement the three states correctly; build is the one that regresses it, and a test currently pins the wrong string.
   - **Where:** `engine/build-item.js:515-524` · `engine/build-item.js:109-116` · `engine/build-item.js:961-971` · `engine/build-item.js:1016-1017`
   - **Cost:** High impact - a false statement in the exact surface built to prevent over-claiming. Low effort - make the fold three-state like its siblings, thread the child tags through, re-point one test.
 
-- [ ] **[PS-5] The QA summary always says findings were dropped by a cross-model re-check** · `bug`
+- [x] **[PS-5] The QA summary always says findings were dropped by a cross-model re-check** · `bug`
   - **What:** The headline sentence hardcodes "dropped by the cross-model re-check" no matter what the run concluded, so a same-family or unidentifiable run returns that sentence sitting beside its own contradicting disclosure on the same object. The audit engine already solves this by substituting the disclosure for the claim and never emitting both.
   - **Where:** `engine/qa.js:1254` · `engine/qa.js:1241-1245` · `engine/qa.js:1283-1284`
   - **Cost:** High impact - the sentence a user actually reads over-claims the one thing the trust register exists to under-claim. Very low effort - make one clause conditional and add a test that a non-confirmed run never contains the phrase.
 
-- [ ] **[PS-7] A budget grace flag is never removed, so that check can stay switched off for good** · `bug`
+- [x] **[PS-7] A budget grace flag is never removed, so that check can stay switched off for good** · `bug`
   - **What:** A ledger can be let through over budget with a grace flag, and three separate places state that only the condense command clears it. The condense procedure never mentions removing it - and the one line that does mention the flag says to leave it alone. So a graced ledger gets condensed, the flag survives the condition it was granted for, and the next real breach downgrades to a warning and passes silently instead of failing the commit.
   - **Where:** `skills/condense/SKILL.md:151` · `skills/condense/SKILL.md:166` · `scripts/claugentic-check_doc_budgets.py:106` · `scripts/claugentic-check_doc_budgets.py:538`
   - **Cost:** High impact - a mechanically enforced gate silently stops enforcing, permanently and invisibly. Very low effort - one closing step in the condense re-check loop, disambiguated from the cap-bump rung.

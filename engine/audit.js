@@ -156,6 +156,19 @@ const LEGEND =
 const TERMINAL_SIGNAL =
   "Sound on the audited dimensions -- what remains is optional polish; you don't need to keep re-auditing.";
 
+// The GAP-mode counterpart. Gap mode reads code against the spec STATICALLY and never runs the
+// product, so it cannot earn the word "sound" -- claiming it would be exactly the over-claim the
+// trust register exists to prevent. Scoped to what was actually checked, and it names the check
+// that was NOT run (0043 PS-2).
+const GAP_TERMINAL_SIGNAL =
+  "No gaps found against the spec's criteria, read STATICALLY -- this did not run your app, so it " +
+  "is not evidence the product behaves correctly; the QA workflow is what checks that.";
+
+// The static-only scope line, emitted on EVERY gap fence -- pass or fail. The skill says this in
+// chat at the end of a run; the fence is the surface that persists, so it has to carry it too.
+const GAP_SCOPE_LINE =
+  "_This read the code against the spec -- it did not run the app. Runtime checking is the QA workflow._";
+
 // The verbatim closing "how to start" line -- the user's always-present go-button. Defined once so
 // the wording cannot drift.
 const GO_BUTTON =
@@ -988,7 +1001,12 @@ function renderItem(item) {
       ? ` Evidence: ${item.verification.evidence}.`
       : "";
   const lines = [];
-  lines.push(`- **${item.titlePlain}** -- \`${item.tag}\` *${phrase}*`);
+  // The STABLE id must be on the page. `priorItems` (resume) and the rejected-findings memory
+  // (dismissal) are both keyed on findingKey, and the fence is the only artifact that survives a
+  // run -- so omitting it meant a resumed run silently dropped confirmed findings and a dismissal
+  // could not be matched back. Rendered last so it reads as a marker, not a title (0043 PS-3).
+  const key = item.findingKey ? ` \`#${item.findingKey}\`` : "";
+  lines.push(`- **${item.titlePlain}** -- \`${item.tag}\` *${phrase}*${key}`);
   lines.push(
     `  - Technical: ${item.claimTechnical}${renderLocations(item.locations)}.${evidence}`,
   );
@@ -1008,13 +1026,14 @@ function renderTier(heading, items) {
 // The recommended-starting-point line. When Tiers 1+2 are BOTH empty it IS the terminal "sound"
 // signal (with the covered-cells scoping clause appended on a PARTIAL run); otherwise it points at
 // the first Tier-1 item, else the first Tier-2 item.
-function renderRecommendation(tier1, tier2, status) {
+function renderRecommendation(tier1, tier2, status, level) {
   if (tier1.length === 0 && tier2.length === 0) {
     const scope =
       status === "PARTIAL"
         ? " (scoped to the cells covered this run -- re-run to finish the rest)"
         : "";
-    return `**Recommended starting point:** ${TERMINAL_SIGNAL}${scope}`;
+    const signal = level === "gap" ? GAP_TERMINAL_SIGNAL : TERMINAL_SIGNAL;
+    return `**Recommended starting point:** ${signal}${scope}`;
   }
   const first = tier1.length > 0 ? tier1[0] : tier2[0];
   return `**Recommended starting point:** ${first.titlePlain}.`;
@@ -1085,9 +1104,11 @@ function renderBacklogFence(result) {
     renderTier("Tier 1 -- critical", tier1),
     renderTier("Tier 2 -- important", tier2),
     renderTier("Tier 3 -- polish", tier3),
-    renderRecommendation(tier1, tier2, result.status),
+    renderRecommendation(tier1, tier2, result.status, result.level),
     ...(lensCoverageLine ? [lensCoverageLine] : []),
     renderRunReport(result.verification),
+    // Emitted on EVERY gap fence, pass or fail -- the fence is the surface that persists.
+    ...(result.level === "gap" ? [GAP_SCOPE_LINE] : []),
     `*${GO_BUTTON}*`,
   ];
   return parts.join("\n\n");

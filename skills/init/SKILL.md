@@ -1186,15 +1186,20 @@ plugin-self-reference item** (step 5c is skipped in solo, so there is nothing to
 mode SOLO is a healthy chosen state, never "reduced."
 
 **Then lead with a plain-English headline** — before the grouped technical summary — so a
-non-engineer reads the reassurance first. **Branch the headline on the Refreshed group (and, when it's empty, on the Created group —
-never claim a refresh that didn't happen):**
-- **Refreshed empty AND Created empty (a true no-op) →** *"Done — everything is already at
+non-engineer reads the reassurance first. **Branch on ONE predicate — did this run write anything the USER owns?** Compute it directly:
+the tree on **Replace**, the pre-commit wrapper, a `.gitignore`/`.gitattributes` append, or any
+**refreshed managed file**. **Never compute it from the Refreshed/Created groups:** the Replace
+overwrite is filed under **Created** (see the tree-mode line below), so a group-based branch
+emits *"nothing overwritten"* on the one path that overwrites a user-owned file.
+- **Wrote nothing at all (a true no-op) →** *"Done — everything is already at
   the installed version; I changed nothing. I did NOT touch any of your code or your own
   files."*
-- **Refreshed empty, Created non-empty (a first run / fill-in) →** *"Done — I added a code
+- **Wrote only NEW files, nothing user-owned touched →** *"Done — I added a code
   map, a quality checklist, and a safety check. I did NOT change any of your code or
   overwrite your own files — nothing existing was modified."*
-- **Refreshed is non-empty →** keep the same lead, then **append the honest caveat:**
+- **Touched ANYTHING user-owned → say what, by name, IN THE HEADLINE — before any
+  reassurance.** e.g. *"Done — and I replaced your `docs/claugentic-ARCHITECTURE_TREE.md`
+  with a harness skeleton, as you confirmed."* Then **append the honest caveat:**
   *"Files marked `claugentic-dev-harness managed — do not edit` were refreshed to the
   installed version; if you had edited one of those, your edits were replaced — they're
   listed in the Refreshed group below, and git history keeps any version you committed

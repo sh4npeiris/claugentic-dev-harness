@@ -328,8 +328,12 @@ distinction there; don't restate them). The audit-specific wiring:
    in the rendered item form (titlePlain · tier · tag), a **transient conversational artifact** (never
    written into the fence). Offer a **"keep all"** shortcut.
 3. **Write paths** *(the kept subset is what reaches the fence):*
-   - **Keep all** (or **the run found nothing** → no candidates) → write the engine's **original
-     `renderedBacklog`** directly; **no `renderOnly` needed.**
+   - **Keep all** → **"all" means all of what you PRESENTED, never the engine's original.** If step 1
+     omitted anything as already-rejected, the original `renderedBacklog` still contains it, so writing
+     it directly **resurrects a finding the user dismissed** — silently undoing their decision and
+     breaking the re-audit guarantee. **Nothing omitted** → write the original directly (no `renderOnly`
+     needed). **Anything omitted** → route through `renderOnly` with the presented set, exactly like a
+     partial keep below. (**The run found nothing** → write the original; there is nothing to resurrect.)
    - **Keep a non-empty subset (≥1 dropped)** → **re-invoke the Workflow tool** with
      `args.renderOnly = { ...result, items: <selected> }`; it re-renders the fence over the selected
      subset while passing `lensCoverage`/`verification` through **full-scope** (the renderer stays the

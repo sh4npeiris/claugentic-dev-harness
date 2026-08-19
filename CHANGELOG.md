@@ -13,6 +13,18 @@ tagged `vX.Y.Z`.
 
 ### Fixed
 
+- **Seven trust-register defects — the harness claiming more than it did.** Found by `/product gap`
+  against the product spec. `init`'s report said *"I did NOT change any of your code or overwrite your
+  own files"* on the one path that overwrites yours (it branched on report groups, and the overwrite is
+  filed under *Created*); it now branches on **did this run write anything you own**, and names the file
+  in the headline. Gap mode called a clean run **"sound"** and never said it hadn't run your app — both
+  fixed, and the scope line is now on the fence, which persists, not just in chat. **"Keep all" resurrected
+  findings you had dismissed** — "all" now means all of what was *presented*. The backlog never printed
+  the **stable id** that resume and dismissal both key on. `build` **asserted same-model** on runs where it
+  could not resolve the judge (a three-state disclosure folded to two). The QA summary **always** claimed a
+  cross-model re-check. And a **`reportOnly` grace was never cleared** — three surfaces said only
+  `/condense` clears it and `/condense` never did, so a capped ledger silently stopped being gated.
+
 - **Running the audit no longer jams your commits.** `/audit` and `/product gap` write their
   backlog **into `docs/claugentic-ROADMAP.md`**, and `init` seeds every adopter a **14,000-byte cap
   on that exact file**. A real backlog costs **~4,815 bytes per finding** — so an adopter's **third
