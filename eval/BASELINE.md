@@ -67,6 +67,76 @@ table · contamination note.
 
 ---
 
+### 2026-08-18 · v0.5.2 · standard · eval/fixture-defects/app (release gate for v0.5.2)
+
+- **Models:** builder **Opus 5 (1M context)**; verifiers/judges pinned `opus`. `verification.crossModel`
+  came back **`false`** and the **same-model tag FIRED** verbatim: *"same-model review on this run -- the
+  judge and the builder are the same model family here."* **This is a disclosure REGRESSION vs v0.5.0**
+  (which ran builder Fable 5 against opus judges and got `crossModel: true`). It does not touch recall —
+  recall is graded by the human against the manifest, not by the judges — but it **weakens the
+  precision-proxy and refute-rate signals**, which are exactly the two the judges produce. Read those two
+  numbers as same-family this run.
+- **Run shape:** scripted `engine/audit.js` via the Workflow tool (the only comparable path). `COMPLETE` —
+  5/5 cells swept, 0 pending, **35 agents, 0 errors**. `lensCoverage` all `ran-found`: security 9 ·
+  testing 8 · maintainability-structure 11 · data-and-persistence 14 · reliability-resilience 8 (50 raw →
+  **29 surfaced** after coded dedup + synthesis prune). All 29 verified, 0 unconfirmed, 0 deferred, 0 refuted.
+- **First attempt failed and was NOT scored.** Run 1 died in PRUNE with `API Error: Connection lost
+  mid-response` on the synthesis agent and `Connection refused` on its respawn — a transport failure after
+  5/7 agents had completed, with nothing about the fixture or the lenses implicated. Recovered by
+  `resumeFromRunId`, which replays the cached FIND prefix and re-runs only synthesis onward. **A network
+  drop is not a measurement and was not recorded as one.**
+
+- **Recall: 10/10 — UP one seed from v0.5.0's 9/10.** **MAINT-1, the seed v0.5.0 explicitly lost, is
+  surfaced this run** — and with the *cohesion* framing the manifest describes ("One function parses the
+  web request, queries the database and builds HTML", `service.py:9-36`), not the *layering* near-miss a
+  3-lens panel scored 0/3 last time. Seed↔finding map (graded by hand; line tolerance applied and each
+  tolerance case re-verified against the source):
+
+  | Seed | manifest loc | finding | finding loc | match |
+  |---|---|---|---|---|
+  | SEC-1 | `handlers.py:23` | #1 SQL injection via f-string | `handlers.py:23-24` | exact |
+  | SEC-2 | `handlers.py:9` | #2 hardcoded `API_TOKEN` | `handlers.py:9,14` | exact |
+  | TEST-1 | `test_tasks.py:21` | #8 write-path test asserts nothing | `test_tasks.py:21-23` | exact |
+  | TEST-2 | `test_tasks.py:26` | #9 patches the function under test | `test_tasks.py:26-30` | exact |
+  | MAINT-1 | `service.py:9` | #12 one function parses + queries + renders | `service.py:9-36` | exact |
+  | MAINT-2 | `handlers.py:6` | #11 `STATUSES` written twice, copies disagree | `service.py:5-6` | tolerance — same duplication cited from the other side; verified `handlers.py:6` has 3 values, `service.py:6` has 4 |
+  | DP-1 | `db.py:32` | #25 two dependent writes, orphan on failure | `db.py:38,40` | tolerance — inside `create_project_with_task` (def at `:32`) |
+  | DP-2 | `db.py:49` | #18 one extra query per task | `db.py:55-68` | tolerance — the N+1 loop inside `list_tasks_with_project` (def at `:49`) |
+  | REL-1 | `handlers.py:40` | #24 bare except returns a made-up zero | `handlers.py:40-41` | exact |
+  | REL-2 | `client.py:17` | #23 unbounded retry, no timeout, no backoff | `client.py:17,19` | exact |
+
+- **Precision proxy: 29/29 (100%)** on the baseline-comparable (neutral "judged real on review") instrument
+  — **0 pp** from v0.5.0's 25/25. **No adversarial second instrument was run this time**, so there is no
+  counterpart to v0.5.0's 19/25 (76%) refute-first number; that absence is stated rather than papered over,
+  and it is why only the comparable figure carries the block decision. The 19 non-seeded findings are all
+  literally true of the fixture (missing logging, no indexes, no type hints, unclosed handles, unenforced
+  FKs, `create-if-absent` schema, no timestamps), and all sit at T2/T3 — no non-seeded finding claimed T1.
+- **Refute-rate: 0/29 (0%)** — **0 pp** from v0.5.0's 0/25. Same honest caveat as prior baselines: a
+  refute-rate of zero measures the judges' agreement, not the findings' truth, and this run's judges were
+  same-family (above).
+
+- **Contamination: canary ABSENT — but a partial scope leak occurred and is recorded.** The manifest's
+  planted canary sentence does **not** appear anywhere in the output (checked three spellings), so the
+  answer key was never used. However **three separate verifier agents disclosed incidental leakage**: a
+  recursive `grep` matched `SEED_MANIFEST.md` and surfaced one or two of its lines, each agent stating it
+  disregarded them and reasoned only from source (e.g. *"A broad grep incidentally printed one matching
+  line from SEED_MANIFEST.md; it was disregarded"*). **Structurally this cannot inflate recall:** every
+  leak was in **VERIFY**, downstream of FIND, and recall is determined by what FIND surfaced. It is
+  nonetheless a real weakening of the no-peeking contract. **Fix for the next run:** pass the exclude-set
+  as a *path* exclusion the agents' own greps inherit, rather than relying on prompt-scoping alone — the
+  exclusions were passed (`excludeSet`) and still leaked, which means prompt-scoping is not sufficient on
+  its own for tools that walk the tree.
+- **Fence write:** none to revert. Invoking `engine/audit.js` directly returns `renderedBacklog` for the
+  skill to write; no skill write step ran, and `docs/claugentic-ROADMAP.md` is byte-untouched in both the
+  main tree and the eval worktree (verified).
+- **Verdict: NO REGRESSION — does not block v0.5.2.** Recall **+1 seed**; precision proxy **0 pp**;
+  refute-rate **0 pp**. Block thresholds (recall −≥2 seeds, or either rate moving ≥15 pp) are not
+  approached in the blocking direction. The two honest asterisks on this run are the same-model judge
+  family and the absent adversarial instrument — both weaken *confidence in the precision figures*,
+  neither weakens the recall result, and the recall result is the one that moved.
+
+---
+
 ### 2026-07-30 · v0.5.0 · standard · eval/fixture-defects/app (release gate for v0.5.0)
 
 - **Models:** builder Fable 5; verifiers/judges pinned `opus`. `verification.crossModel` came back
