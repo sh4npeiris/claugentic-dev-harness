@@ -21,8 +21,9 @@ script to be present in the repo being measured: it is in the release payload **
 delivers a copy into your repo**. Where your **pre-commit wrapper is wired** it is chained in
 there too, so the WARN reaches you at every commit — but that is not everywhere: a repo that
 kept its own architecture tree has no wrapper, a machine with no working Python skips both
-gates, and a wrapper installed by **v0.5.1 or earlier is never auto-chained** (`init` reports
-how to adopt the current one). Off that path — and in a repo `init` has not touched at all —
+gates, and **only a wrapper already on this version's run-logic shape is
+auto-chained** (— `init` adds the missing budget line); any other shape — an older wrapper, or one
+you edited — is never rewritten, and `init` reports how to adopt the current one. Off that path — and in a repo `init` has not touched at all —
 `/doctor`'s advisory is the signal. This skill is the single source for the
 condensation **procedure** — its *why* and its *how*, in order; WORKFLOW keeps the obligation
 and owns the escape-valve ladder, `/doctor` owns the caps-config reader-contract, and neither
@@ -136,7 +137,7 @@ floors out in the low-80s%, not at ~80% — that is a correct accept, not a shor
 ## Propose the diff → surface it → apply via `/doctor`'s existing treat-path
 
 Produce the condensation as a **diff** and surface it for approval. **The apply path is `/doctor`'s
-EXISTING "apply a user-approved doc-condensation diff" treat** (`skills/doctor/SKILL.md` → *Treat*) —
+EXISTING "apply a user-approved doc-condensation diff" treat** (the `claugentic-dev-harness:doctor` skill → *Treat*) —
 **reuse it; do not build a second apply path** (DRY). The honesty framing there is the same, adapted to this skill's voice (doctor is the source of truth):
 
 > The doc-condensation treat is safe **only because the diff is user-approved before apply — the
@@ -167,7 +168,7 @@ After the diff is applied, **re-measure** the ledger:
   the recorded cap-increase rung raises this repo's cap in the per-repo caps config
   (`.claude/claugentic-doc-budgets.json`) with a dated `docs/claugentic-DECISIONS.md` entry.
   **Which edit that is depends on the entry's FORM** (all three are in
-  `skills/doctor/SKILL.md` → *Adopter doc-budget advisory*, the reader-contract's one home):
+  the `claugentic-dev-harness:doctor` skill → *Adopter doc-budget advisory*, the reader-contract's one home):
   a **plain integer** → replace the number · an **object** → edit its `"max"` and leave
   `reportOnly` alone (that flag is a separate decision) · a **glob key** → the bump raises the
   cap for **every** file that glob matches, because the glob is the sole cap for its matches;

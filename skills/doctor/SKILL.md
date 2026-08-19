@@ -67,7 +67,9 @@ that matters here.
 - **`python scripts/claugentic-check_architecture_tree.py`** — exit **0 = green** · exit **1
   = breach** (a missing/stale entry or a zero-coverage glob-drift). It is one of the two
   hook-enforced gates (the doc-budget check is the other) in a repo whose pre-commit wrapper is
-  wired; here doctor just runs it ad-hoc and reports. **Always present, always run.**
+  wired; here doctor just runs it ad-hoc and reports. *(In the release payload AND `init`-delivered,
+  like the doc-budget gate.)* **If present:** run it. **If absent** — a repo `init` has not run
+  in — mark **N-A**, do not run, and do not substitute the plugin's own copy.
 - **`python scripts/check_versions_synced.py`** — *(harness-self — N-A in an adopter; its
   script is stripped from the release)*. **If the script is present:** exit **0 = green** · exit
   **1 = breach** (`plugin.json` ↔ `marketplace.json` version drift, or a malformed manifest).
@@ -203,7 +205,8 @@ Whether a plan is "cold" is **your judgment (`[J]`)**, not a script output — l
 ### 4. Init post-conditions re-asserted  *(read-only checks)*
 
 Confirm the adoption wiring `init` established is still intact (the canonical contract is
-`skills/init/SKILL.md` + `docs/claugentic-DECISIONS.md` → *The deterministic gates*; check, don't restate):
+the `claugentic-dev-harness:init` skill + the *deterministic-gates* shard indexed in
+`docs/claugentic-DECISIONS.md`; check, don't restate):
 
 - **Pre-commit hook wired — THREE healthy shapes.** Report green on any of:
   - **shared:** `.githooks/pre-commit` present **and** `git config core.hooksPath` = `.githooks`;

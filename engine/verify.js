@@ -28,9 +28,9 @@ export const meta = {
 // Pure functions only -- they reference solely their params and each other (no closure over
 // tool primitives), so the test harness can extract this block and evaluate it standalone.
 
-// The judge model family, defined ONCE (single source of truth). Later scripts copy this
-// block convention. A coded `model:` param is the wired cross-model spawn the prose used to
-// uphold; the same-model TAG (below) stays the per-run honesty guard.
+// The judge model, defined ONCE (single source of truth). It NAMES NO MODEL, deliberately: a
+// judge INHERITS the session's model. Independence here is of ROLE and CLEAN CONTEXT, not of
+// model; the same-model TAG (below) reports the relationship that actually resulted.
 const MODELS = { judge: null };
 
 // The bundled-agent namespace prefix -- the ONE source both nsAgent (which adds it) and
@@ -311,8 +311,8 @@ function dedupFindings(findings) {
 }
 
 // Derive the panel roster from the validated args: one lens-reviewer per in-scope module,
-// the yagni-sentinel, the honesty-reviewer IFF this is a trust surface (judge-pinned), and
-// the synthesizer-gate synthesis (judge-pinned). Logged up front and echoed in the result.
+// the yagni-sentinel, the honesty-reviewer IFF this is a trust surface, and the
+// synthesizer-gate synthesis. Logged up front and echoed in the result.
 function panelRoster(args) {
   const roster = [];
   for (const modulePath of modulesFor(args.dimensions)) {
@@ -353,7 +353,7 @@ function judgeOutcome(role, agentType, first, second) {
   const secondErr = second && second.err ? second.err : "null return (skipped or terminal error)";
   throw new Error(
     `verify panel: judge '${role}' (${agentType}) failed twice -- first: ${firstErr}; ` +
-      `respawn (no model override): ${secondErr}. Never a silent partial PASS.`,
+      `respawn: ${secondErr}. Never a silent partial PASS.`,
   );
 }
 
@@ -523,7 +523,7 @@ const SYNTHESIS_SCHEMA = {
 // imports, no filesystem, no env), so try-namespaced-then-retry-bare is the only implementable
 // form. It fires ONLY on a THROWN spawn failure: a null return is a legitimate agent outcome (a
 // skip or terminal error) and is passed through untouched, never retried. The retry spreads the
-// ORIGINAL opts, so a judge's `model:` pin survives it.
+// ORIGINAL opts.
 //
 // DO NOT thread this through a judge's one-respawn state machine (0041 S10b, D6). A namespace
 // retry must never consume the respawn budget, never set forcedSameModel (that flag feeds the
@@ -572,10 +572,10 @@ async function guardedPanelAgent(prompt, opts) {
   }
 }
 
-// Spawn a judge with the cross-model `model:` pin; one respawn without it on failure
-// (force-tagged same-model); the decision logic lives in the PURE judgeOutcome helper. The
-// attempt routes through the namespace fallback, which resolves INSIDE one attempt: a bare retry
-// therefore consumes no respawn budget and cannot influence forcedSameModel (0041 S10b, D6).
+// Spawn a judge; one respawn on failure (force-tagged same-model); the decision logic lives in
+// the PURE judgeOutcome helper. The attempt routes through the namespace fallback, which resolves
+// INSIDE one attempt: a bare retry therefore consumes no respawn budget and cannot influence
+// forcedSameModel (0041 S10b, D6).
 async function spawnJudge(role, agentType, prompt, schema) {
   const attempt = async (opts) => {
     try {
@@ -653,7 +653,7 @@ const panelTasks = [
 ];
 
 // The honesty reviewer (trust-surface only) is a JUDGE -- it fans out in the same panel,
-// but via spawnJudge so it carries the model: pin + the one-respawn-on-error contract.
+// but via spawnJudge so it carries the one-respawn-on-error contract.
 const hasHonesty = input.trustSurface === true;
 if (hasHonesty) {
   panelTasks.push(() =>

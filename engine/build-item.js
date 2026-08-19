@@ -11,11 +11,11 @@
 // re-triage on a new Tier-1/2 finding all belong to the orchestrator/skill, not the script).
 //
 // The two later stages (Verify, QA) are run via the ONE-LEVEL platform child call
-// `workflow({scriptPath}, childArgs)` -- so the panel/QA wiring (judge model pins, the
-// same-model tagging, the runtime finding shapes) has a SINGLE source of truth in
-// verify.js / qa.js; an inlined copy here would drift (DRY). build-item.js spawns NO judge
-// directly, so it carries no `MODELS` block -- only the run-level `sameModelTag` to fold the
-// children's self-reports into the terminal cross-model claim.
+// `workflow({scriptPath}, childArgs)` -- so the panel/QA wiring (the same-model tagging, the
+// runtime finding shapes) has a SINGLE source of truth in verify.js / qa.js; an inlined copy
+// here would drift (DRY). build-item.js spawns NO judge directly, so it carries no `MODELS`
+// block -- only the run-level `sameModelTag` to fold the children's self-reports into the
+// terminal cross-model claim.
 //
 // Distribution: read-from-install-path. Adopters invoke this from the version-stamped plugin
 // install dir (`${CLAUDE_PLUGIN_ROOT}/engine/build-item.js`); this repo dogfoods it via the
@@ -209,8 +209,9 @@ function resolveStageTimeouts(caps) {
 // renamed field here would silently diverge the contract). validateArgs guards every criterion
 // against this set so a typo'd spec fails loud, not silently unchecked.
 const CRITERION_KEYS = ["id", "feature", "flow", "expect", "states", "check"];
-// The criterion `check` enum (frozen -- qa.js CHECK_KINDS). `manual` needs a human -> the item
-// stays watched (Mode handling should have declined; the script re-validates and blocks).
+// The criterion `check` enum -- byte-identical to qa.js's CHECK_KINDS, pinned by
+// tests/workflows/cross-script.test.mjs (cross-script drift pin). `manual` needs a human -> the
+// item stays watched (Mode handling should have declined; the script re-validates and blocks).
 const CHECK_KINDS = ["e2e", "api", "manual"];
 
 // Validate the args contract at the boundary. Returns `{ ok, errors }` -- the control flow
@@ -744,7 +745,7 @@ function qaChildArgs(item, repo, criteria, builderFamily, iteration, qaBoot) {
 // imports, no filesystem, no env), so try-namespaced-then-retry-bare is the only implementable
 // form. It fires ONLY on a THROWN spawn failure: a null return is a legitimate agent outcome (a
 // skip or terminal error) and is passed through untouched, never retried. The retry spreads the
-// ORIGINAL opts, so a judge's `model:` pin survives it.
+// ORIGINAL opts.
 //
 // DO NOT thread this through a judge's one-respawn state machine (0041 S10b, D6). A namespace
 // retry must never consume the respawn budget, never set forcedSameModel (that flag feeds the

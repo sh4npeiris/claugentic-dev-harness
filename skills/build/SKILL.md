@@ -85,7 +85,7 @@ run** — earned per-repo, by evidence, never assumed:
   reversible judgments are flagged-and-continued, the irreversible class (c) is a return, never
   absorbed.)*
 
-Build-to-green is **a reduction of unwatched-run risk, never a substitute for the unbuilt deterministic trust-gates** (the land-gate hook · the secret-scan — `docs/claugentic-DECISIONS.md` → The deterministic gates; the characterization-enforcement hook was considered and **declined** — that discipline stays model-upheld by design).
+Build-to-green is **a reduction of unwatched-run risk, never a substitute for the unbuilt deterministic trust-gates** (the land-gate hook · the secret-scan — the *deterministic-gates* shard indexed in `docs/claugentic-DECISIONS.md`; the characterization-enforcement hook was considered and **declined** — that discipline stays model-upheld by design).
 
 **The unlock conditions — judgment with stated evidence.** These checks are the skill reading your repo and saying what it found — honestly labeled model judgment, never a mechanical gate:
 
@@ -303,8 +303,8 @@ per-slice Spec is the *step*-pruning gate, cheaper JIT). Then spawn **`claugenti
 adversarially critique it, **escalating to the diverse panel per the WORKFLOW Principles
 trigger**: a contested design fork or a trust/honesty surface adds **`claugentic-dev-harness:yagni-sentinel`** +
 **`claugentic-dev-harness:honesty-reviewer`**; a user-facing change also adds **`claugentic-dev-harness:product-designer`**. **Spawn the
-judge roles — `claugentic-dev-harness:synthesizer-gate` · `claugentic-dev-harness:honesty-reviewer`** — they run on the most capable available model (the `RUNNING AS:` self-report + structural clean-context independence live in
-**`docs/claugentic-WORKFLOW.md` → Principles → the reviews-run-on-the-most-capable-model principle** — point there, don't restate).
+judge roles — `claugentic-dev-harness:synthesizer-gate` · `claugentic-dev-harness:honesty-reviewer`** — their independence is of **role and clean context**, never of model; they inherit the session's tier, and the `RUNNING AS:` self-report + same-model tag disclose what resulted
+(**`docs/claugentic-WORKFLOW.md` → *Principles*** — point there, don't restate).
 Iterate the plan until the review verdict is **PASS**.
 
 **Narrate progress as completed beats only — never an ETA, never a "nearly done."** *"Planned
@@ -347,9 +347,9 @@ Dial the Verify depth per the **WORKFLOW's named triggers** (read them there —
 trigger **fans out** the `lens-reviewer`s + `yagni-sentinel`, and a trust/honesty/user-facing
 surface convenes the **diverse panel** per the WORKFLOW Principles — `synthesizer-gate`
 then synthesizes. **Spawn the judge roles — `claugentic-dev-harness:synthesizer-gate` · `claugentic-dev-harness:honesty-reviewer` ·
-`claugentic-dev-harness:finding-verifier`** — they run on the most capable available model (the `RUNNING AS:` self-report
-+ structural clean-context independence live in **`docs/claugentic-WORKFLOW.md` → Principles → the
-reviews-run-on-the-most-capable-model principle** — point there, don't restate). Run the
+`claugentic-dev-harness:finding-verifier`** — their independence is of **role and clean context**,
+never of model; they inherit the session's tier, and the `RUNNING AS:` self-report + same-model tag
+disclose what resulted (**`docs/claugentic-WORKFLOW.md` → *Principles*** — point there, don't restate). Run the
 **Definition-of-Done deterministic run-gates** (the canonical list lives in the WORKFLOW DoD —
 run it, don't restate it). **On the LAST slice of a multi-slice item's plan, make it the
 whole-feature closing pass** (WORKFLOW → *Stage 7, the whole-feature closing pass*): hand the
@@ -485,7 +485,7 @@ Carry each re-audit finding's **verification tag unchanged** — `(checked again
 `(could not confirm independently — model's assertion)` / `(⚠ not yet verified — re-run to
 confirm)` mean exactly what they mean in the `audit` skill: a reduction of false confidence by
 a re-check from a separate specialist agent with a clean context (the clean-context judge; it
-never sees the finder's rationale, so it can't rubber-stamp it — it runs the same capable model,
+never sees the finder's rationale, so it can't rubber-stamp it — it runs the same model family,
 so model blind spots aren't independent), **not** a deterministic guarantee. Don't upgrade the framing
 because it's the loop re-checking its own work.
 
@@ -688,4 +688,4 @@ that could drift from the backlog).
   "not yet," never a silent degrade to a weaker promise. Build-to-green, when it runs, is a
   reduction of unwatched-run risk, never a substitute for the unbuilt deterministic trust-gates
   (the clean-context judge stays a reduction of rubber-stamping risk, not a mechanical guarantee —
-  it runs the same capable model, so model blind spots aren't independent).
+  it runs the same model family, so model blind spots aren't independent).

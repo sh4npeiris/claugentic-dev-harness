@@ -232,7 +232,7 @@ checking is the QA workflow's job (`qa.js`); say so.**
 
 5. **Prose-orchestrated fallback** *(Workflow tool unavailable — the ONLY fallback trigger).* State
    to the user that the Workflow tool is unavailable, run the **audit SKILL's prose pipeline**
-   (`skills/audit/SKILL.md` → *Prose-orchestrated fallback*) with the **criteria as the lens
+   (the `claugentic-dev-harness:audit` skill → *Prose-orchestrated fallback*) with the **criteria as the lens
    source** — one cell per criterion, the same dedup → prune → one-verifier-per-finding path, with
    the PRUNE in its **conformance variant** (`synthesizer-gate` Mode 3 gap variant: no YAGNI, cut
    only duplicates and criterion-less findings, **never** a promised-but-missing behaviour, and

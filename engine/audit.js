@@ -18,13 +18,12 @@
 // move tests the judgment, not just inspects it.
 //
 // The headline guarantee this script makes mechanical: exactly ONE finding-verifier per
-// surviving finding (the prose's "re-check every finding" claim), with the cross-model judge
-// pinned as a literal `model:` parameter.
+// surviving finding (the prose's "re-check every finding" claim).
 
 export const meta = {
   name: "audit",
   description:
-    "Audit pipeline (FIND -> PRUNE -> VERIFY) as a Workflow script: lens fan-out per (module x dir) cell at the dialed depth, coded dedup, synthesis self-review prune (the test-baseline item never pruned), exactly one finding-verifier per surviving finding (judge-pinned cross-model), deterministic budget cap + resume. quick/standard/thorough -- thorough adds a whole-scope blind-spot sweep (FIND) and an adversarial yagni-sentinel prune (PRUNE). Returns the rendered backlog fence body (renderBacklogFence) for the skill to write between its backlog fence markers.",
+    "Audit pipeline (FIND -> PRUNE -> VERIFY) as a Workflow script: lens fan-out per (module x dir) cell at the dialed depth, coded dedup, synthesis self-review prune (the test-baseline item never pruned), exactly one finding-verifier per surviving finding, deterministic budget cap + resume. quick/standard/thorough -- thorough adds a whole-scope blind-spot sweep (FIND) and an adversarial yagni-sentinel prune (PRUNE). Returns the rendered backlog fence body (renderBacklogFence) for the skill to write between its backlog fence markers.",
 };
 
 // --- helpers ---
@@ -1335,7 +1334,7 @@ function auditEntry(rawArgs) {
 // imports, no filesystem, no env), so try-namespaced-then-retry-bare is the only implementable
 // form. It fires ONLY on a THROWN spawn failure: a null return is a legitimate agent outcome (a
 // skip or terminal error) and is passed through untouched, never retried. The retry spreads the
-// ORIGINAL opts, so a judge's `model:` pin survives it.
+// ORIGINAL opts.
 //
 // DO NOT thread this through a judge's one-respawn state machine (0041 S10b, D6). A namespace
 // retry must never consume the respawn budget, never set forcedSameModel (that flag feeds the
@@ -1356,12 +1355,12 @@ async function agentWithNamespaceFallback(prompt, opts) {
   }
 }
 
-// Spawn a judge (finding-verifier) with the cross-model `model:` pin; one respawn without it on
-// failure (the result then can't confirm a different family -> the run carries the same-model
-// tag); on a second failure the finding is marked deferred (never a silent skip). The verifier
-// fan-out scales with findings, not files, so this stays cheap. Each attempt routes through the
-// namespace fallback, which resolves INSIDE one attempt -- a bare retry therefore consumes none
-// of the one respawn and cannot influence the same-model tag (0041 S10b, D6).
+// Spawn a judge (finding-verifier); one respawn on failure (the result then can't confirm a
+// different family -> the run carries the same-model tag); on a second failure the finding is
+// marked deferred (never a silent skip). The verifier fan-out scales with findings, not files,
+// so this stays cheap. Each attempt routes through the namespace fallback, which resolves INSIDE
+// one attempt -- a bare retry therefore consumes none of the one respawn and cannot influence
+// the same-model tag (0041 S10b, D6).
 async function spawnVerifier(input) {
   const prompt = buildVerifierPrompt(input);
   const attempt = async (opts) => {
@@ -1659,7 +1658,7 @@ const normalizedDeferred = deferredFindings.map((f) => ({
 }));
 const toVerify = [...survivors, ...normalizedDeferred];
 
-// --- VERIFY: exactly ONE finding-verifier per finding, judge-pinned, in parallel. ---
+// --- VERIFY: exactly ONE finding-verifier per finding, in parallel. ---
 phase("Verify");
 const verifyTasks = toVerify.map((finding) => () =>
   spawnVerifier(buildVerifierInput(finding, excludeSet)),

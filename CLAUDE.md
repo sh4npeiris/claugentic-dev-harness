@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This repo builds the **`claugentic-dev-harness`** Claude Code plugin (a reusable, self-improving dev harness) and **dogfoods its own harness** — the workflow and roles below govern its own development. Standards and SOLID are **mandated and reviewed** (model-upheld: mandated here, audited by the architect/lens reviewers); the **mechanically enforced** gates are the two the pre-commit wrapper chains where wired — the architecture-tree check and the doc-budget check (per-repo caps; no config = no-op).
+This repo builds the **`claugentic-dev-harness`** Claude Code plugin (a reusable, self-improving dev harness) and **dogfoods its own harness** — the workflow and roles below govern its own development. Standards and SOLID are **mandated and reviewed** (model-upheld: mandated here, audited by the gate/lens reviewers); the **mechanically enforced** gates are the two the pre-commit wrapper chains where wired — the architecture-tree check and the doc-budget check (per-repo caps; no config = no-op).
 
 ## Engineering Principles (non-negotiable, in priority order)
 
@@ -10,7 +10,7 @@ This repo builds the **`claugentic-dev-harness`** Claude Code plugin (a reusable
 4. **YAGNI** — no speculative features or future-proofing not asked for.
 5. **Separation of concerns** — keep layers isolated.
 
-Always: **validate at boundaries, trust internal code · make invalid states unrepresentable · fail loudly (never swallow exceptions) · configurable over hardcoded · single source of truth.**
+Always: **validate at boundaries, trust internal code · make invalid states unrepresentable · fail loudly (never swallow exceptions) · configurable over hardcoded.**
 
 ## Harness Discipline
 
@@ -28,6 +28,6 @@ Substantial work follows the staged pipeline in **`docs/claugentic-WORKFLOW.md`*
 
 ## Definition of Done
 
-A slice **lands** only when its acceptance criteria are met, **no new tech debt** is introduced, and both gate groups pass: the **deterministic gates** (tests, architecture-tree, version-sync, lint/type/security) and the **reviewer sign-offs** (the in-scope `docs/claugentic-standards/` dimensions). **`docs/claugentic-WORKFLOW.md` → Definition of Done is the single source of truth** for the full gate list — don't restate it here (index, don't duplicate).
+A slice **lands** only when its acceptance criteria are met, **no new tech debt** is introduced, and both gate groups pass: the **deterministic gates** and the **reviewer sign-offs** (the in-scope `docs/claugentic-standards/` dimensions). **`docs/claugentic-WORKFLOW.md` → Definition of Done is the single source of truth** for the full gate list — don't restate it here (index, don't duplicate).
 
 The engineering quality bar is the in-scope `docs/claugentic-standards/` modules (entry point: `docs/claugentic-ENGINEERING_STANDARDS.md`) — a project-agnostic, ever-growing catch-all; the spec names the in-scope dimensions per slice and the reviewer audits against them.

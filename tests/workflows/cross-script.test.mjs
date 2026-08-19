@@ -70,6 +70,10 @@ const PINNED_HELPERS = [
   "bareAgentType",
   "namespaceFallbackNotice",
   "agentWithNamespaceFallback",
+  // The frozen acceptance-criterion `check` enum, copied into qa.js (validateCriteria) and
+  // build-item.js (validateArgs). Duplicated by the no-imports sandbox rule, so "frozen" only
+  // means anything if drift turns this red.
+  "CHECK_KINDS",
 ];
 
 for (const name of PINNED_HELPERS) {

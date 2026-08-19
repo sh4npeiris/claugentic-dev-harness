@@ -210,7 +210,7 @@ test("namespace fallback: the retry is NOT a model respawn in any engine script"
     assert.match(
       body,
       /\{ \.\.\.opts, agentType: bare/,
-      `engine/${script}: the retry must spread the ORIGINAL opts so the judge model: pin survives it`,
+      `engine/${script}: the retry must spread the ORIGINAL opts -- it must not rebuild them`,
     );
   }
 });

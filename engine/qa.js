@@ -12,7 +12,7 @@
 //     screenshots under `.qa-artifacts/<runLabel>/`. manual criteria are NEVER driven (listed
 //     for a human). Each fail folds to a lens-shaped UX finding (ux-broken-flow /
 //     ux-missing-{empty,loading,error}-state; route + evidence, no file:line), deduped on
-//     class+route, then EXACTLY ONE cross-model finding-verifier per surfaced finding (the
+//     class+route, then EXACTLY ONE finding-verifier per surfaced finding (the
 //     could-not-run finding stays exempt with its observed-this-run tag).
 //
 // Distribution: read-from-install-path. Adopters invoke this from the version-stamped plugin
@@ -32,7 +32,7 @@
 export const meta = {
   name: "qa",
   description:
-    "Runtime verification (QA) as a Workflow script. Boots the recorded run command detached, probes the readiness URL on a bounded schedule (readinessPlan -- never unbounded), and ALWAYS tears down via teardownPlan (explicit override > docker compose down > kill the recorded PID) in a finally so the port is freed on success, boot failure, and mid-run error alike. A boot that never answers within the bound (or a missing/malformed report) classifies `failed` (fail loud -- never default to success) and produces exactly one lens-shaped `qa-could-not-run-app` finding with the command + probe attempts + boot-log tail as evidence, tagged (observed this run -- boot log attached). When acceptance criteria are passed (full mode): one driver agent per drivable criterion runs SEQUENTIALLY in a real browser (Playwright via ToolSearch) or over HTTP (check:api), performs the flow, checks the expects + the named empty/loading/error states, and screenshots under the artifact dir; each criterion folds to a pass|fail|not-checkable verdict (manual criteria are NEVER driven -- listed for a human). Every fail becomes a lens-shaped UX finding (ux-missing-empty-state / ux-missing-loading-state / ux-missing-error-state / ux-broken-flow) and EVERY finding gets exactly one cross-model finding-verifier (model: MODELS.judge -- Refuted dropped+counted, Verified/Unconfirmed/deferred tagged; the could-not-run finding stays exempt). The run claims cross-model only on confirming self-reports.",
+    "Runtime verification (QA) as a Workflow script. Boots the recorded run command detached, probes the readiness URL on a bounded schedule (readinessPlan -- never unbounded), and ALWAYS tears down via teardownPlan (explicit override > docker compose down > kill the recorded PID) in a finally so the port is freed on success, boot failure, and mid-run error alike. A boot that never answers within the bound (or a missing/malformed report) classifies `failed` (fail loud -- never default to success) and produces exactly one lens-shaped `qa-could-not-run-app` finding with the command + probe attempts + boot-log tail as evidence, tagged (observed this run -- boot log attached). When acceptance criteria are passed (full mode): one driver agent per drivable criterion runs SEQUENTIALLY in a real browser (Playwright via ToolSearch) or over HTTP (check:api), performs the flow, checks the expects + the named empty/loading/error states, and screenshots under the artifact dir; each criterion folds to a pass|fail|not-checkable verdict (manual criteria are NEVER driven -- listed for a human). Every fail becomes a lens-shaped UX finding (ux-missing-empty-state / ux-missing-loading-state / ux-missing-error-state / ux-broken-flow) and EVERY finding gets exactly one finding-verifier (Refuted dropped+counted, Verified/Unconfirmed/deferred tagged; the could-not-run finding stays exempt). The run claims cross-model only on confirming self-reports.",
   // Bounded call count: boot + teardown + one driver per drivable criterion + one verifier per
   // surfaced finding -- no loops. The static cap below is a backstop; the structure already bounds
   // it (the per-run criteria/findings counts are the true bound, computed in code).
@@ -43,11 +43,10 @@ export const meta = {
 // Pure functions only -- they reference solely their params and each other (no closure over
 // tool primitives), so the test harness can extract this block and evaluate it standalone.
 
-// The judge model family, defined ONCE (single source of truth). Copied VERBATIM from
-// verify.js (Slice 2) / audit.js (Slice 3a) -- the shared cross-model contract, pinned
-// byte-identical across the workflow scripts by tests/workflows/cross-script.test.mjs. Slice 4b
-// uses MODELS.judge on every finding-verifier; in the boot-only vertical it stays defined here
-// so the copied block is whole (no partial-copy drift).
+// The judge model, defined ONCE (single source of truth). It NAMES NO MODEL, deliberately: a
+// judge INHERITS the session's model. Independence here is of ROLE and CLEAN CONTEXT, not of
+// model; the same-model TAG (below) reports the relationship that actually resulted. Pinned
+// byte-identical across the workflow scripts by tests/workflows/cross-script.test.mjs.
 const MODELS = { judge: null };
 
 // The bundled-agent namespace prefix -- the ONE source both nsAgent (which adds it) and
@@ -167,6 +166,7 @@ const NO_RUN_COMMAND_REASON =
 // verbatim). `e2e` = drive through a real browser (Playwright); `api` = HTTP-only (the driver's
 // Bash/curl); `manual` = NEVER executed -- listed for a human, verdict not-checkable (manual by
 // contract). Defined once; validateCriteria rejects anything else, naming the offending ids.
+// Copied byte-identical to build-item.js (cross-script drift pin).
 const CHECK_KINDS = ["e2e", "api", "manual"];
 
 // The product-ux state-bar checks a criterion may request (per docs/claugentic-standards/product-ux.md ->
@@ -440,7 +440,7 @@ const DRIVER_SCHEMA = {
   },
 };
 
-// The finding-verifier's verdict schema (Slice 4b -- runtime findings re-checked cross-model). The
+// The finding-verifier's verdict schema (Slice 4b -- runtime findings re-checked). The
 // self-reported model family is REQUIRED (the run claims cross-model only on a confirming report).
 // Same shape audit.js's VERIFIER_SCHEMA uses.
 const VERIFIER_SCHEMA = {
@@ -848,7 +848,7 @@ function driverPrompt(runConfig, criterion, runLabel, artifactDir) {
 // imports, no filesystem, no env), so try-namespaced-then-retry-bare is the only implementable
 // form. It fires ONLY on a THROWN spawn failure: a null return is a legitimate agent outcome (a
 // skip or terminal error) and is passed through untouched, never retried. The retry spreads the
-// ORIGINAL opts, so a judge's `model:` pin survives it.
+// ORIGINAL opts.
 //
 // DO NOT thread this through a judge's one-respawn state machine (0041 S10b, D6). A namespace
 // retry must never consume the respawn budget, never set forcedSameModel (that flag feeds the
@@ -946,12 +946,12 @@ function verifierPrompt(finding) {
   );
 }
 
-// Spawn one finding-verifier with the cross-model `model:` pin; one no-override respawn on failure
-// (the result then can't confirm a different family -> the run carries the same-model tag); a
-// second failure returns null (the finding is then marked deferred -- never a silent skip). Copied
-// in spirit from audit.js's spawnVerifier (runtime-shaped). Each attempt routes through the
-// namespace fallback, which resolves INSIDE one attempt -- a bare retry therefore consumes none
-// of the one respawn and cannot influence the same-model tag (0041 S10b, D6).
+// Spawn one finding-verifier; one respawn on failure (the result then can't confirm a different
+// family -> the run carries the same-model tag); a second failure returns null (the finding is
+// then marked deferred -- never a silent skip). Copied in spirit from audit.js's spawnVerifier
+// (runtime-shaped). Each attempt routes through the namespace fallback, which resolves INSIDE one
+// attempt -- a bare retry therefore consumes none of the one respawn and cannot influence the
+// same-model tag (0041 S10b, D6).
 async function spawnVerifier(finding) {
   const prompt = verifierPrompt(finding);
   const attempt = async (opts) => {
@@ -1154,7 +1154,7 @@ try {
     const driverFindings = dedupFindings(findingsFrom(verdicts));
     findings.push(...driverFindings);
 
-    // VERIFY: exactly one cross-model finding-verifier per surfaced finding (parallel fan-out).
+    // VERIFY: exactly one finding-verifier per surfaced finding (parallel fan-out).
     // The could-not-run finding (none here) would be exempt; driver findings are all re-checked.
     if (findings.length > 0) {
       phase("Verify");

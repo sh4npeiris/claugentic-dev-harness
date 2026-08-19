@@ -409,7 +409,8 @@ test("panelRoster derives one lens per module + yagni + synthesis (trustSurface 
   ]);
   // No honesty role when trustSurface is off.
   assert.ok(!roster.some((r) => r.role === "honesty"));
-  // The synthesis judge carries the model pin.
+  // The synthesis judge names NO model -- it inherits the session tier (d99b7dc: the harness
+  // cannot promise an adopter a tier they may not have). Hence `.model` undefined, asserted below.
   assert.equal(roster.find((r) => r.role === "synthesis").model, undefined); // inherits the session tier
 });
 
@@ -1057,7 +1058,7 @@ test("verify.js: the namespace fallback never sets forcedSameModel and never reu
   assert.ok(!/forcedSameModel/.test(body), "a namespace retry must not touch the same-model disclosure flag");
   assert.ok(!/:respawn/.test(body), "a namespace retry must NOT reuse the model-respawn label");
   assert.match(body, /:ns-fallback/, "the namespace retry must carry its own distinguishable label");
-  assert.match(body, /\.\.\.opts/, "the retry must spread the ORIGINAL opts so the judge model: pin survives it");
+  assert.match(body, /\.\.\.opts/, "the retry must spread the ORIGINAL opts -- it must not rebuild them");
   assert.match(body, /bareAgentType\(/, "the fallback name must be DERIVED, never a literal");
   // No fallback exists (a built-in, an already-bare id) -> RETHROW the original error. Re-spawning
   // the identical id would double every built-in spawn failure and swallow the real cause.
@@ -1107,7 +1108,7 @@ test("fallback (driven): a namespaced spawn that SUCCEEDS is one call, no retry,
   assert.deepEqual(s.logs, []);
 });
 
-test("fallback (driven): a THROWN namespaced spawn retries ONCE bare, keeping the model pin", async () => {
+test("fallback (driven): a THROWN namespaced spawn retries ONCE bare, spreading the ORIGINAL opts", async () => {
   const s = spies((n) => {
     if (n === 1) throw new Error("agent type not found");
     return { verdict: "CLEAN" };
@@ -1265,7 +1266,7 @@ test("spawnJudge (driven): the respawn is still there for a real failure, and tw
   const decision = await spawnJudge("synthesis", NS_LENS, "prompt", { type: "object" });
   assert.equal(decision.forcedSameModel, true, "a real respawn still force-tags same-model");
   assert.equal(s.calls[1].opts.label, "synthesis:respawn");
-  assert.equal(s.calls[1].opts.model, undefined, "the respawn still drops the model pin");
+  assert.equal(s.calls[1].opts.model, undefined, "no model is pinned anywhere -- the judge inherits the session tier");
 
   const dead = spies(() => null);
   const D = loadWrappers(["agentWithNamespaceFallback", "guardedPanelAgent", "spawnJudge"], dead);

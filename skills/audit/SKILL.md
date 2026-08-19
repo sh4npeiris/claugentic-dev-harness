@@ -292,10 +292,10 @@ read it there):
    criterion-less findings (every reason naming its criterion id), **never a promised-but-missing
    behaviour**, and **never add the test-baseline item** (it maps to no criterion).
 7. **VERIFY — re-check every surfaced finding** (all tiers, every level). Spawn one
-   `claugentic-dev-harness:finding-verifier` per finding — it **runs on the most capable available model** (the
-   `RUNNING AS:` self-report, the honest same-model reporting, and the structural clean-context independence
-   live in `docs/claugentic-WORKFLOW.md` → Principles → *the reviews-run-on-the-most-capable-model
-   principle* — read it there). Pass each verifier **only** `{claim (plain + technical),
+   `claugentic-dev-harness:finding-verifier` per finding — its independence is of **role and clean
+   context**, never of model: it inherits the session's tier, and the `RUNNING AS:` self-report +
+   same-model tag disclose what actually resulted (`docs/claugentic-WORKFLOW.md` → *Principles* —
+   read it there). Pass each verifier **only** `{claim (plain + technical),
    file:line, source module, confidence label, exclude-set}` and the refute-first posture — never
    the finder's rationale, never a lens verifying its own finding.
    Apply verdicts exactly as the script does (the *Item format* in Phase 3 is the verdict→tag map):

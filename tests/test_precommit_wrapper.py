@@ -1371,6 +1371,44 @@ class TestTheMergeCommitHook:
             + result.stderr
         )
 
+    def test_every_shipped_hook_is_mode_755_in_the_INDEX(self):
+        """A hook git cannot EXECUTE is a hook that does not run -- and git says so and carries on.
+        On Linux/macOS a non-executable hook prints "not set as executable" and is SKIPPED; the
+        commit or merge proceeds unchecked. Windows/Git-Bash ignores the bit, which is exactly why
+        this rots silently: the mode is invisible to the platform most of this repo is developed on,
+        and no other gate looks at it.
+
+        MEASURED, 2026-08-19: `.githooks/pre-merge-commit` shipped `100644` on `main` AND on the
+        built `release` branch, while its `pre-commit` sibling was `100755`. So the merge-commit
+        gate -- the headline fix of the release that carried it -- did not run on macOS or Linux, in
+        this repo or in any adopter's. The repo already KNEW the rule twice over: this suite's own
+        release test chmods 0o755 with the comment "git IGNORES a non-executable hook on
+        Linux/macOS", and `skills/init/SKILL.md` tells the adopter to `chmod +x` the merge sibling.
+        The harness simply did not do to itself what it instructs everyone else to do.
+
+        The INDEX mode is what is asserted, not the worktree's: the index is what `git archive`
+        writes into the release tree and what a clone checks out. Fix with
+        `git update-index --chmod=+x <path>`.
+
+        DERIVED from the directory, never hand-listed -- a hook added later is covered on arrival.
+        """
+        out = subprocess.run(
+            ["git", "ls-files", "-s", "--", ".githooks"],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+        entries = [line.split("\t", 1) for line in out.splitlines() if line.strip()]
+        modes = {path: meta.split()[0] for meta, path in entries}
+        assert modes, "no files tracked under .githooks/ -- this assertion is now vacuous"
+        not_executable = sorted(p for p, mode in modes.items() if mode != "100755")
+        assert not not_executable, (
+            "these hooks are tracked NON-EXECUTABLE, so git will skip them on Linux/macOS and the "
+            f"gates they chain will silently not run: {not_executable}. "
+            "Fix with `git update-index --chmod=+x <path>` (the index mode, not a worktree chmod)."
+        )
+
     def test_what_init_DOCUMENTS_matches_what_the_harness_SHIPS(self):
         # The parity that actually bites an adopter: they copy init's block, so if the shipped
         # hook and the documented one diverge, every repo init touches gets the stale one.
