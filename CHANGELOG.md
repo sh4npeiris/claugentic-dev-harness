@@ -38,6 +38,41 @@ this version publishes **and** they re-run `init`.
 
 ### Fixed
 
+- **The merge hook shipped NON-EXECUTABLE, so on macOS and Linux the merge gate did nothing.**
+  `.githooks/pre-merge-commit` was tracked mode `100644` while its `pre-commit` sibling was
+  `100755`. Git does not run a hook it cannot execute — it says so and carries on — so the
+  merge-commit gate above, **this release's headline fix, silently did not fire on POSIX**, in this
+  repo or in any adopter's. Windows and Git-Bash ignore the mode bit entirely, which is exactly why
+  it went unseen: it is invisible on the platform this harness is developed on, and no gate looked
+  at it.
+
+  Now `100755`, and **pinned across the whole `.githooks/` directory** — derived from the directory,
+  so a hook added later is covered on arrival, and asserted on the **index** mode, which is what
+  `git archive` writes into the release and what your clone checks out. Verified by making the
+  mutation and watching the pin go red.
+
+  **What it means for you:** if you installed a prior version and merge branches locally, your
+  budget and codebase-map gates were **not** running on conflict-free merges on macOS or Linux.
+  Re-run `init` after this version publishes to get the executable hook. A server-side PR merge
+  still runs no local hook at all — unchanged, and stated so nothing is read into this that is not
+  there.
+
+- **Twenty-two places still claimed a model pin that no longer exists.** The portability fix below
+  removed every `model:` — from all nine agents and from the engine — and then hedged **one** site.
+  Left standing across the engine, the agent files, the codebase map, the workflow doc and two
+  skills: *"judge-pinned"*, *"cross-model finding-verifier"*, *"model: opus"*, and *"every agent
+  runs the most capable available model"*. This harness's one stated invariant is that it never
+  claims more certainty than it has, and it was shipping claims of a **cross-model independence the
+  run does not have.**
+
+  Swept — 65 sites. What replaced them is what was always the real claim: **independence is of role
+  and clean context**, not of model — a separate agent, a clean contract, one lens, never the
+  builder's rationale or transcript — and the **same-model tag remains the computed disclosure** of
+  the relationship that actually resulted. Two passages were **deleted** rather than corrected,
+  because both were platform knowledge you already have: a model-tier/alias table, and a paragraph
+  about an experimental editor feature nothing here fires. The one real rule inside them — disclose
+  a model substitution in that run's own report — was kept and re-homed.
+
 - **An unrun trust-surface review no longer reads as a clean pass.** On a trust/honesty surface the
   panel convenes an honesty reviewer. If that judge failed twice, `engine/verify.js` reported
   `honesty: null` with **`panelDegraded: false`** and a **PASS** verdict — the adversarial review
@@ -149,7 +184,9 @@ this version publishes **and** they re-run `init`.
   Pinned with a non-vacuity twin (the same bytes *outside* a fence still breach) and a loophole
   guard (an **unclosed** fence is counted in full, the safe direction).
 
-- **The chained gates now run on a MERGE, not only on an ordinary commit.** git fires
+- **The chained gates now run on a MERGE, not only on an ordinary commit** — and, corrected
+  before release, they now run on **macOS and Linux too** (see *the merge hook shipped
+  non-executable*, below; on POSIX the first version of this fix did nothing). git fires
   `pre-merge-commit` — never `pre-commit` — when a conflict-free `git merge` creates its commit,
   and nothing wired that hook. So a ledger pushed past its cap on a branch **merged clean and
   landed completely unchecked**. Measured on git 2.55 before the fix: a 14,192-byte ledger against
