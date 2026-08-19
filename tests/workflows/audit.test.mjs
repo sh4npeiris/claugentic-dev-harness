@@ -185,8 +185,12 @@ test("extraction harness finds the marked block and all helper names", () => {
   }
 });
 
-test("MODELS.judge is pinned to 'opus' (cross-model contract, copied from verify.js)", () => {
-  assert.equal(H.MODELS.judge, "opus");
+test("MODELS.judge NAMES NO MODEL -- a judge inherits the session's tier (portability)", () => {
+  // The contract CHANGED, so this pin changed with it -- it is not a test edited to make a
+  // fix pass. Naming a tier assumed every adopter could reach it; one who cannot got a failed
+  // or silently degraded spawn. A harness must not promise a model it does not provision.
+  // Independence here is of ROLE and CLEAN CONTEXT; the same-model tag discloses the rest.
+  assert.equal(H.MODELS.judge, null);
 });
 
 test("TEST_BASELINE_CLASS is the documented never-prune key", () => {

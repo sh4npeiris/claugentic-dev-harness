@@ -13,6 +13,15 @@ tagged `vX.Y.Z`.
 
 ### Fixed
 
+- **The harness no longer names a model it cannot promise you.** Nine shipped agents pinned
+  `model: opus` and the engine pinned `MODELS = { judge: "opus" }` — so an adopter without that
+  tier got a failed or silently degraded spawn. **No model is named anywhere now:** a judge
+  **inherits the session's tier**, which is portable everywhere and means whatever you are driving
+  is what judges. Independence here was never of *model* — it is of **role and clean context** —
+  and the same-model tag already discloses the relationship that actually resulted, so nothing is
+  assumed away. Want judges on a stronger tier? Run the session on it; that is the one control
+  that works for every adopter.
+
 - **Seven trust-register defects — the harness claiming more than it did.** Found by `/product gap`
   against the product spec. `init`'s report said *"I did NOT change any of your code or overwrite your
   own files"* on the one path that overwrites yours (it branched on report groups, and the overwrite is

@@ -48,7 +48,7 @@ export const meta = {
 // byte-identical across the workflow scripts by tests/workflows/cross-script.test.mjs. Slice 4b
 // uses MODELS.judge on every finding-verifier; in the boot-only vertical it stays defined here
 // so the copied block is whole (no partial-copy drift).
-const MODELS = { judge: "opus" };
+const MODELS = { judge: null };
 
 // The bundled-agent namespace prefix -- the ONE source both nsAgent (which adds it) and
 // bareAgentType (which strips it) read, so the two can never disagree about what a namespaced id
@@ -972,7 +972,7 @@ async function spawnVerifier(finding) {
   };
   const first = await attempt({
     agentType: nsAgent("finding-verifier"),
-    model: MODELS.judge,
+    ...(MODELS.judge ? { model: MODELS.judge } : {}),
     schema: VERIFIER_SCHEMA,
     label: `qa:verify:${finding.criterionId || finding.issueClass}`,
     phase: "Verify",

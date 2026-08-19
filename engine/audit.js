@@ -31,12 +31,15 @@ export const meta = {
 // Pure functions only -- they reference solely their params and each other (no closure over
 // tool primitives), so the test harness can extract this block and evaluate it standalone.
 
-// The judge model, defined ONCE (single source of truth). `opus` is the MOST-CAPABLE tier
-// alias -- it auto-resolves to the current top model, never a frozen version; change here (and
-// the agents' `model:` frontmatter) if the top tier is ever renamed. Judges run the most
-// capable available model; review independence is of role + clean context, not of model. The
-// RUNNING AS / same-model tag (below) stays an honest per-run model-relationship reporter.
-const MODELS = { judge: "opus" };
+// The judge model, defined ONCE (single source of truth). It NAMES NO MODEL, deliberately.
+// Naming one assumes the reader can reach that tier: an adopter without it gets a failed or
+// silently degraded spawn, and a harness cannot promise a model it does not provision. So a
+// judge INHERITS the session's model -- portable everywhere, and whatever tier you are driving
+// is the tier that judges. Review independence here is of ROLE and CLEAN CONTEXT, not of model;
+// the RUNNING AS / same-model tag below reports the relationship that actually resulted, so a
+// same-family run is disclosed rather than assumed away. Want judges on a stronger tier? Run
+// the session on it -- that is the one control that works for every adopter.
+const MODELS = { judge: null };
 
 // The bundled-agent namespace prefix -- the ONE source both nsAgent (which adds it) and
 // bareAgentType (which strips it) read, so the two can never disagree about what a namespaced id
@@ -1237,7 +1240,7 @@ async function spawnVerifier(input) {
   };
   const first = await attempt({
     agentType: nsAgent("finding-verifier"),
-    model: MODELS.judge,
+    ...(MODELS.judge ? { model: MODELS.judge } : {}),
     schema: VERIFIER_SCHEMA,
     label: `verify:${input.sourceModule}`,
     phase: "Verify",

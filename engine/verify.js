@@ -31,7 +31,7 @@ export const meta = {
 // The judge model family, defined ONCE (single source of truth). Later scripts copy this
 // block convention. A coded `model:` param is the wired cross-model spawn the prose used to
 // uphold; the same-model TAG (below) stays the per-run honesty guard.
-const MODELS = { judge: "opus" };
+const MODELS = { judge: null };
 
 // The bundled-agent namespace prefix -- the ONE source both nsAgent (which adds it) and
 // bareAgentType (which strips it) read, so the two can never disagree about what a namespaced id
@@ -320,9 +320,9 @@ function panelRoster(args) {
   }
   roster.push({ role: "yagni", agentType: nsAgent("yagni-sentinel") });
   if (args.trustSurface) {
-    roster.push({ role: "honesty", agentType: nsAgent("honesty-reviewer"), model: MODELS.judge });
+    roster.push({ role: "honesty", agentType: nsAgent("honesty-reviewer"), ...(MODELS.judge ? { model: MODELS.judge } : {}) });
   }
-  roster.push({ role: "synthesis", agentType: nsAgent("synthesizer-gate"), model: MODELS.judge });
+  roster.push({ role: "synthesis", agentType: nsAgent("synthesizer-gate"), ...(MODELS.judge ? { model: MODELS.judge } : {}) });
   return roster;
 }
 
@@ -582,7 +582,7 @@ async function spawnJudge(role, agentType, prompt, schema) {
       return { out: null, err: e && e.message ? e.message : String(e) };
     }
   };
-  const first = await attempt({ agentType, model: MODELS.judge, schema, label: role });
+  const first = await attempt({ agentType, ...(MODELS.judge ? { model: MODELS.judge } : {}), schema, label: role });
   let decision = judgeOutcome(role, agentType, first);
   if (decision.needRetry) {
     const second = await attempt({ agentType, schema, label: `${role}:respawn` });

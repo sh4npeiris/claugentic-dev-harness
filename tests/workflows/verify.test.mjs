@@ -96,8 +96,12 @@ test("extraction harness finds the marked block and all helper names", () => {
   }
 });
 
-test("MODELS.judge is pinned to 'opus' (cross-model contract)", () => {
-  assert.equal(H.MODELS.judge, "opus");
+test("MODELS.judge NAMES NO MODEL -- a judge inherits the session's tier (portability)", () => {
+  // The contract CHANGED, so this pin changed with it -- it is not a test edited to make a
+  // fix pass. Naming a tier assumed every adopter could reach it; one who cannot got a failed
+  // or silently degraded spawn. A harness must not promise a model it does not provision.
+  // Independence here is of ROLE and CLEAN CONTEXT; the same-model tag discloses the rest.
+  assert.equal(H.MODELS.judge, null);
 });
 
 // -----------------------------------------------------------------------------
@@ -406,7 +410,7 @@ test("panelRoster derives one lens per module + yagni + synthesis (trustSurface 
   // No honesty role when trustSurface is off.
   assert.ok(!roster.some((r) => r.role === "honesty"));
   // The synthesis judge carries the model pin.
-  assert.equal(roster.find((r) => r.role === "synthesis").model, "opus");
+  assert.equal(roster.find((r) => r.role === "synthesis").model, undefined); // inherits the session tier
 });
 
 test("panelRoster includes the honesty judge when trustSurface is on", () => {
@@ -414,7 +418,7 @@ test("panelRoster includes the honesty judge when trustSurface is on", () => {
   const honesty = roster.find((r) => r.role === "honesty");
   assert.ok(honesty, "honesty role missing on a trust surface");
   assert.equal(honesty.agentType, "claugentic-dev-harness:honesty-reviewer");
-  assert.equal(honesty.model, "opus");
+  assert.equal(honesty.model, undefined); // inherits the session tier
 });
 
 test("parseArgs parses a JSON-string args delivery (the scriptPath boundary)", () => {
@@ -1028,7 +1032,7 @@ test("fallback (driven): a THROWN namespaced spawn retries ONCE bare, keeping th
   assert.equal(s.calls.length, 2, "exactly ONE retry");
   const retry = s.calls[1].opts;
   assert.equal(retry.agentType, "lens-reviewer", "the retry uses the DERIVED bare name");
-  assert.equal(retry.model, "opus", "the judge model: pin must survive the retry");
+  assert.equal(retry.model, "opus", "an EXPLICIT model on the call must survive the retry");
   assert.deepEqual(retry.schema, { type: "object" }, "the schema must survive the retry");
   assert.equal(retry.label, "lens:x:ns-fallback", "the retry carries its own distinguishable label");
   assert.ok(!/:respawn/.test(retry.label), "a namespace retry must never wear the model-respawn label");
@@ -1151,8 +1155,8 @@ test("spawnJudge (driven): a namespace fallback does NOT force same-model and do
   );
   assert.deepEqual(decision.out, { reported_model_family: "Opus 5", verdict: "CLEAN" });
   assert.equal(s.calls.length, 2, "the fallback resolved INSIDE the first attempt");
-  assert.equal(s.calls[0].opts.model, "opus", "attempt 1 carries the cross-model pin");
-  assert.equal(s.calls[1].opts.model, "opus", "so does its namespace fallback -- the pin is not dropped");
+  assert.equal(s.calls[0].opts.model, undefined, "no model is named -- the judge inherits");
+  assert.equal(s.calls[1].opts.model, undefined, "and its namespace fallback inherits too");
   assert.equal(s.calls[1].opts.label, "honesty:ns-fallback");
   assert.ok(
     !s.calls.some((c) => c.opts.label === "honesty:respawn"),

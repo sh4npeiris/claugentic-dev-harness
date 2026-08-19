@@ -18,6 +18,20 @@ but they can't (or don't want to) read code to verify the agent's claims. They n
 to be honest about what was checked versus what is the model's judgment. (Durable context:
 `docs/claugentic-PRODUCT.md`.)
 
+## Why this exists (the north star, and the test every addition must pass)
+
+**The agent already has the knowledge and the capability. What it lacks is a team.** So this
+harness supplies what a team supplies and nothing else: adversarial review, institutional memory,
+and the discipline to finish — never knowledge the model already has.
+
+That is a **falsifiable test for every future addition**: *does this supply something a team
+supplies, or is it compensating for a capability the model already has?* Compensations get
+deleted, not tuned.
+
+**Corollary, and it cuts against the instinct to add:** as models get more capable, this harness
+should get **THINNER, not thicker.** A rule written for a weaker model is debt once the model
+outgrows it.
+
 ## The job-to-be-done
 
 "When I build software with an AI agent, I want the work to follow a disciplined, reviewable
