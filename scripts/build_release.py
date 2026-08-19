@@ -441,7 +441,15 @@ def _bump_manifests(root: Path, version: str) -> None:
     written: list[str] = []
     try:
         for path, new_text in planned:
-            path.write_text(new_text, encoding="utf-8")
+            # newline="" disables universal-newline TRANSLATION on write. Without it Python
+            # rewrites every LF as CRLF on Windows, so a targeted one-field bump lands as a
+            # whole-file diff: the tree reads dirty after every --apply, and the tool then
+            # prints its own "the version bump is UNCOMMITTED" advisory over a change that is
+            # nothing but line endings. `.gitattributes` normalizes the committed blob either
+            # way, which is exactly why this survived -- the RELEASE was always correct and
+            # only the operator was misled. It also makes this function's own idempotency
+            # promise (a re-bump is "a no-op write of identical bytes") true on Windows.
+            path.write_text(new_text, encoding="utf-8", newline="")
             written.append(str(path))
     except OSError as exc:
         raise ValueError(
@@ -779,7 +787,7 @@ def _apply(bump: str | None = None) -> int:
         if bump is not None:
             for rel in VERSIONED_MANIFESTS:
                 (Path(tmp) / rel).write_text(
-                    (root / rel).read_text(encoding="utf-8"), encoding="utf-8"
+                    (root / rel).read_text(encoding="utf-8"), encoding="utf-8", newline=""
                 )
                 # Stage the overwrite: the release commit is `git commit` (no `-a`), so an unstaged
                 # working-tree edit would NOT be committed — the bumped manifests must be staged to

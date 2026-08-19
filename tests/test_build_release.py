@@ -48,13 +48,22 @@ _MARKETPLACE_MANIFEST_TEXT = (
 
 
 def _write_manifest_pair(root: Path, version: str = "0.3.1") -> None:
-    """Write a plugin.json + marketplace.json pair (both at `version`) under `root`."""
+    """Write a plugin.json + marketplace.json pair (both at `version`) under `root`.
+
+    LF, via `write_bytes` -- NOT `write_text`, which translates to CRLF on Windows and left this
+    whole fixture family platform-dependent. `.gitattributes` declares `eol=lf`, so an LF fixture
+    is what git actually checks out; a CRLF one modelled no real state. It also made
+    `test_same_version_is_idempotent_noop` pass on Windows for the WRONG REASON -- fixture and
+    bump shared the same translation, so byte-identity held without the bump preserving anything.
+    (Found 2026-08-19 when the bump was changed to stop emitting CRLF: that test went red, which is
+    the test doing its job a platform late.)
+    """
     (root / ".claude-plugin").mkdir(parents=True, exist_ok=True)
-    (root / br.PLUGIN_MANIFEST).write_text(
-        _PLUGIN_MANIFEST_TEXT.replace("0.3.1", version), encoding="utf-8"
+    (root / br.PLUGIN_MANIFEST).write_bytes(
+        _PLUGIN_MANIFEST_TEXT.replace("0.3.1", version).encode("utf-8")
     )
-    (root / br.MARKETPLACE_MANIFEST).write_text(
-        _MARKETPLACE_MANIFEST_TEXT.replace("0.3.1", version), encoding="utf-8"
+    (root / br.MARKETPLACE_MANIFEST).write_bytes(
+        _MARKETPLACE_MANIFEST_TEXT.replace("0.3.1", version).encode("utf-8")
     )
 
 
@@ -687,6 +696,56 @@ class TestReadManifestVersion:
             br._read_manifest_version(root)
 
 
+class TestBumpPreservesLineEndings:
+    """The bump is a one-FIELD edit; it must not become a whole-FILE edit.
+
+    `Path.write_text` opens in TEXT mode, so on Windows Python translates every newline to CRLF on
+    the way out. That turned the targeted `"version"` replace into a whole-file rewrite: the tree
+    read dirty after every `--apply`, and the tool then printed its own "the version bump is
+    UNCOMMITTED" advisory over a diff that was nothing but line endings. `.gitattributes`
+    normalizes the committed blob, so the RELEASE was always correct and only the OPERATOR was
+    misled -- which is why it survived this long, and why these pins are on BYTES: text mode is the
+    thing that hides it. Hit while cutting v0.5.3, alongside the sibling false alarm in the
+    drop-check; two misleading messages from one tool in one release is what made it worth fixing.
+    """
+
+    CRLF = b"\r\n"
+
+    def _seed(self, root):
+        """A repo-shaped fixture whose manifests are LF, so a CRLF byte can only come from the bump."""
+        repo = Path(br.__file__).resolve().parent.parent
+        for rel in br.VERSIONED_MANIFESTS:
+            dest = root / rel
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes((repo / rel).read_bytes().replace(self.CRLF, b"\n"))
+            assert self.CRLF not in dest.read_bytes(), "fixture must start LF or it proves nothing"
+
+    def test_the_bump_edits_one_field_and_leaves_line_endings_alone(self, tmp_path):
+        self._seed(tmp_path)
+        br._bump_manifests(tmp_path, "9.9.9")
+        for rel in br.VERSIONED_MANIFESTS:
+            data = (tmp_path / rel).read_bytes()
+            assert b'"version": "9.9.9"' in data, f"{rel} did not receive the bump"
+            assert self.CRLF not in data, (
+                f"{rel} gained CRLF -- the bump rewrote the whole file instead of one field. "
+                "write_text needs newline='' to disable universal-newline translation."
+            )
+
+    def test_re_bumping_the_SAME_version_is_byte_identical(self, tmp_path):
+        # The idempotency this function's docstring promises, asserted on BYTES rather than on the
+        # parsed version -- a CRLF rewrite satisfies the parse while breaking the promise, which is
+        # precisely how the defect hid.
+        self._seed(tmp_path)
+        br._bump_manifests(tmp_path, "9.9.9")
+        first = {rel: (tmp_path / rel).read_bytes() for rel in br.VERSIONED_MANIFESTS}
+        br._bump_manifests(tmp_path, "9.9.9")
+        for rel, before in first.items():
+            assert (tmp_path / rel).read_bytes() == before, (
+                f"{rel}: re-bumping to the same version was not byte-identical, so a retry after "
+                "an aborted publish leaves a spurious diff"
+            )
+
+
 class TestMechanizedDropCheck:
     """Plan 0034 Slice 7 / P1-3 — the mechanized drop-check as a SUBSET assertion:
     `origin/main`-not-HEAD ⊆ strip-set. `_dropped_shipped_paths` returns the SHIPPED paths in
@@ -828,7 +887,9 @@ class TestBumpManifests:
 
     def test_same_version_is_idempotent_noop(self, tmp_path):
         # A retry after an aborted publish re-runs cleanly: bumping to the SAME version rewrites
-        # identical bytes (the diff stays empty).
+        # identical bytes (the diff stays empty). On BYTES deliberately -- a line-ending rewrite
+        # satisfies every parse while breaking exactly this promise, and did, on Windows only,
+        # until the fixture above stopped being written in text mode.
         _write_manifest_pair(tmp_path, "0.4.0")
         before = (tmp_path / br.PLUGIN_MANIFEST).read_bytes()
         br._bump_manifests(tmp_path, "0.4.0")
