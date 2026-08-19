@@ -9,6 +9,28 @@ plugin is versioned with [SemVer](https://semver.org/). The authoritative
 version is `plugin.json`; each release is published on the `release` branch and
 tagged `vX.Y.Z`.
 
+## Unreleased
+
+### Fixed
+
+- **The chained gates now run on a MERGE, not only on an ordinary commit.** git fires
+  `pre-merge-commit` — never `pre-commit` — when a conflict-free `git merge` creates its commit,
+  and nothing wired that hook. So a ledger pushed past its cap on a branch **merged clean and
+  landed completely unchecked**. Measured on git 2.55 before the fix: a 14,192-byte ledger against
+  a 14,000-byte cap merged at exit 0; with the hook wired the same merge is refused, with the
+  gate's own reason on screen. `init` now writes `pre-merge-commit` in both hook homes (shared
+  `.githooks/`, solo `.git/hooks/`), and it **delegates to the wrapper rather than restating the
+  gate list** — one chain, two entry points, so a gate added later covers merges automatically and
+  the two can never drift.
+
+  Pinned behaviourally, not by inspection: a breach arriving by merge is refused, **and** a
+  non-vacuity twin removes only the merge hook and proves the same merge then lands — so the
+  refusal is this hook working, not the merge failing for an unrelated reason.
+
+  **Unchanged, and stated so nothing is read into this that is not there:** a **server-side PR
+  merge still runs no local hook at all**, and a merge that stops on conflicts commits through
+  `pre-commit` as it always did.
+
 ## 0.5.2
 
 **What this release is for, and what it does not do.** The through-line is that
