@@ -219,6 +219,22 @@ class TestDerivedHandListsEqualOld:
         }
     )
 
+    # The same discipline for the OTHER partition. `_ADDED_SINCE_MIGRATION` above is
+    # RECREATE-class only (it is subtracted against `_OLD_INIT_CREATES`); a `config`-class
+    # addition lands in `_DANGLE_EXCLUDED` instead, so it needs its own delta or the literal
+    # equality below would force an edit to the frozen snapshot.
+    _CONFIG_ADDED_SINCE_MIGRATION = frozenset(
+        {
+            # 2026-08-20 payload cleanup — the README diagrams' Excalidraw EDIT SOURCES, class
+            # `config`: stripped, never recreated, and legitimately non-dangling because no
+            # SHIPPED doc references a `.excalidraw` path (only the dev-only architecture tree
+            # does). Their rendered `.png` siblings still ship — the shipped README embeds
+            # those, not these.
+            "docs/diagrams/harness-journey.excalidraw",
+            "docs/diagrams/harness-usage-flow.excalidraw",
+        }
+    )
+
     # The mirror image: manifest paths REMOVED since those snapshots were frozen. Same
     # discipline as the additions — the snapshot above is never edited, the delta carries the
     # change, and a path that leaves a snapshot without a line here still fails these pins.
@@ -247,8 +263,11 @@ class TestDerivedHandListsEqualOld:
         )
 
     def test_dangle_excluded_derived_equals_old(self):
-        # LITERALLY equal — every `config` path is exactly the old `_DANGLE_EXCLUDED`.
-        assert csc._DANGLE_EXCLUDED == self._OLD_DANGLE_EXCLUDED
+        # Equal to the frozen snapshot PLUS exactly the declared `config`-class additions — a
+        # `config` path in neither set is an unexplained membership change and still fails loud.
+        assert csc._DANGLE_EXCLUDED == self._OLD_DANGLE_EXCLUDED | self._CONFIG_ADDED_SINCE_MIGRATION
+        # ...and the historical membership is still pinned IN FULL (nothing quietly left it).
+        assert self._OLD_DANGLE_EXCLUDED <= csc._DANGLE_EXCLUDED
 
     def test_recreated_derived_equals_old_modulo_phantom_charter(self):
         # The derived recreated set (init-seed ∪ init-gen ∪ recreate-on-demand) equals the old
@@ -277,8 +296,11 @@ class TestDerivedHandListsEqualOld:
             - self._OLD_DANGLE_EXCLUDED
             # The snapshots predate these paths, so the OLD computation can't classify them —
             # subtracting the declared additions is what keeps the two sides comparable (each
-            # addition's real class is pinned by its own test, not assumed here).
+            # addition's real class is pinned by its own test, not assumed here). BOTH
+            # partitions' deltas subtract here: a `config`-class addition is just as invisible
+            # to the frozen snapshots as a recreate-class one.
             - self._ADDED_SINCE_MIGRATION
+            - self._CONFIG_ADDED_SINCE_MIGRATION
         )
         assert csc.dangling_paths() == old_dangle
 

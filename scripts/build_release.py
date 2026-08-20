@@ -138,6 +138,12 @@ DEV_ONLY_PATH_CLASSES = {
     "pyproject.toml": "config",                        # pytest config
     ".gitignore": "config",
     ".gitattributes": "config",
+    # The Excalidraw EDIT SOURCES for the README diagrams. The rendered `.png` siblings SHIP (the
+    # shipped README embeds them); the sources are maintainer-only -- an adopter never opens them,
+    # and no SHIPPED doc points at a `.excalidraw` path (the one reference is the dev-only
+    # architecture tree). 80,438 B of an adopter's download for a file only the author edits.
+    "docs/diagrams/harness-journey.excalidraw": "config",
+    "docs/diagrams/harness-usage-flow.excalidraw": "config",
 }
 
 # Membership-preserving view of the manifest KEYS — the ship/strip classifier reasons over
