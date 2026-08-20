@@ -67,6 +67,80 @@ table · contamination note.
 
 ---
 
+### 2026-08-20 · v0.5.4-dev · standard · eval/fixture-defects/app (post-thinning ablation — NOT a release gate)
+
+- **Why this run exists:** the 2026-08-19 thinning cut the standards catalog **271,977 → 129,999 B
+  (−52%)**. The catalog is the audit's lens, so the cut carried a falsifiable prediction — *recall
+  holds on half the bytes because what was cut was encyclopedia, not checks.* This run is that test,
+  at the same dial, scope and procedure as the release-gate entries.
+- **Models — and the honest reading of `crossModel: true`:** the engine returned **`crossModel:
+  true`, sameModelTag null** — the first `true` since v0.5.0 — but it must NOT be read as
+  finder-vs-judge independence. All **31 sub-agents (5 lens finders, 1 synthesis, 25 verifiers)
+  self-reported Opus 5**; the `true` keys on `builderFamily`, which was the **orchestrator's**
+  family (Fable 5 — the session tier changed mid-day). So orchestrator↔judge is genuinely
+  cross-family; **finder↔judge is same-family (Opus↔Opus)**, which is the relationship that guards
+  rubber-stamping. Several verifiers' own `RUNNING AS` lines said exactly that. **The engine
+  semantics gap — `crossModel` keys on the orchestrator, not the finding-producer — is filed as a
+  Bug** (docs/claugentic-ROADMAP.md); read this run's precision figures as same-family. (Mechanism
+  note, verified from run metadata: the sub-agents resolved through the *installed 0.5.2* plugin's
+  agent registry, whose files still carry `model: opus` pins — d99b7dc's pin removal ships in
+  0.5.3+, which this machine had not reinstalled.)
+- **Run shape:** `COMPLETE` — 5/5 cells, **31 agents, 0 errors**, `verificationIncomplete: false`.
+  `lensCoverage` all `ran-found`: security 8 · testing 9 · maintainability-structure 11 ·
+  data-and-persistence 13 · reliability-resilience 10 (51 raw → 24 surfaced). Scratch worktree with
+  the answer key deleted from it, per the v0.5.3 procedure; only the *filename* `SEED_MANIFEST.md`
+  surfaced in agents' greps (main-checkout CWD residual, each disclosed), never a line of it.
+
+- **Recall: 9/10 — DOWN one seed from v0.5.3's 10/10. MAINT-1 missed.** Block threshold (−≥2 seeds)
+  not reached; the movement is in the blocking direction and is recorded, not smoothed. Map:
+
+  | Seed | manifest loc | finding | match |
+  |---|---|---|---|
+  | SEC-1 | `handlers.py:23` | #1 search f-string reads any table | exact |
+  | SEC-2 | `handlers.py:9` | #3 hardcoded admin token in source | exact |
+  | TEST-1 | `test_tasks.py:21` | #7 suite green on broken features (survivor M1 = set_status writes nothing) | tolerance — **subsumed, 2nd consecutive run; see below** |
+  | TEST-2 | `test_tasks.py:26` | #7 same item (survivor M5 = render_task_list gutted) | tolerance — **newly subsumed** (v0.5.3 gave it its own item) |
+  | MAINT-1 | `service.py:9` | — | **MISS** (#11 is the SQL-placement/layering defect, not the parse+query+render cohesion defect; graded per the v0.5.0 precedent, where the layering near-miss counted as a miss) |
+  | MAINT-2 | `handlers.py:6` | #10 STATUSES duplicated, diverged | exact |
+  | DP-1 | `db.py:32` | #15 project half-created | exact |
+  | DP-2 | `db.py:49` | #16 N+1 per task | exact |
+  | REL-1 | `handlers.py:40` | #22 outage reads as zero tasks | exact |
+  | REL-2 | `client.py:17` | #23 unbounded retry, no timeout | exact |
+
+- **The MAINT-1 attribution, weighed rather than assumed.** The obvious story — *the cut killed the
+  lens* — is measurably NOT supported: the condensed maintainability module still carries the exact
+  check the seed needs, verbatim ("*Does any class/function mix unrelated responsibilities (e.g.
+  HTTP parsing + business rules + SQL in one place)? (SRP)*"). And the seed is historically the
+  weakest of the ten: **v5.0.0-era run missed it with the FULL 272 KB catalog**; found in v0.5.2 and
+  v0.5.3; missed here. Two hits, two misses across four runs — a coin-flip seed, and this run's
+  finder spent its cohesion attention on the neighbouring SQL-placement finding instead. **The
+  trigger, recorded:** a second consecutive post-cut miss implicates the cut despite the surviving
+  check (the deleted Good-looks-like prose may have been doing priming work the check alone does
+  not), and the remedy then is restoring teeth to that one dimension — never re-inflating the catalog.
+- **The TEST-1 escalation the v0.5.3 entry promised has FIRED.** v0.5.3: "if the next run also
+  subsumes it, treat that as a recall regression forming." This run subsumed **both** TEST seeds
+  into one suite-wide mutation finding (#7) — excellent evidence quality (a 20-mutant run, 19
+  survivors, each named), but a reader working the backlog gets one item where the manifest expects
+  two discrete fixable defects. **Routed to the roadmap** per the entry's own rule: two instances is
+  evidence.
+- **Precision proxy: 24/24 (100%)** on the judged-real instrument — 0 pp. Same-family caveat above
+  applies. Cross-lens duplication recurred (the STATUSES divergence surfaced from both the security
+  lens, #6, and the maintainability lens, #10, with different `findingKey`s) — the v0.5.3 entry said
+  route it on a second occurrence; **routed**.
+- **Refute-rate: 1/25 (4%) — the first nonzero in the baseline's history, and it is GOOD news:** the
+  verifier killed a connection-leak claim by measurement (CPython refcounting closes the handle the
+  finding said leaked), which is the adversarial check visibly working rather than rubber-stamping.
+  Within the ±15 pp band.
+- **Contamination: canary ABSENT** (checked case-insensitively over the full run record). Fence
+  write: none — `docs/claugentic-ROADMAP.md` byte-untouched, verified.
+- **Verdict: the thinning HOLDS — with one honest asterisk.** 9 of 10 seeds on 48% of the lens
+  bytes, every exact-match seed identical to v0.5.3, precision flat, and the one miss is the
+  historically flakiest seed whose check survived the cut verbatim. No block threshold approached.
+  The asterisk: recall moved −1 for the first time since v0.5.0, on the first post-cut run — the
+  next run decides whether that was the coin-flip seed landing tails or the cut's first real cost.
+
+---
+
 ### 2026-08-19 · v0.5.3 · standard · eval/fixture-defects/app (release gate for v0.5.3)
 
 - **Models:** builder **Opus 5 (1M context)**; judges **inherit the session tier** — v0.5.3 removed the

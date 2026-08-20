@@ -34,6 +34,13 @@ Out-of-scope defects spotted mid-work, jotted here as **planless one-liners** so
 
 **First real-adopter feedback batch (2026-08-19, v0.5.3 in an external repo).** Four of five fixed 2026-08-19 (py-launcher probe + atomic-staging instruction + LF write guard + the charter-deletion caveat — each mutation-verified or live-reproduced; git history has the detail). One optional item remains:
 
+**From the post-thinning eval (2026-08-20, ablation run — evidence thresholds met, per the baseline's own escalation rules):**
+
+- **`crossModel` keys on the ORCHESTRATOR's family, not the finding-producer's** (`engine/audit.js` folds judge self-reports against `builderFamily` = the session model). Reachable over-claim: with a Fable session driving Opus sub-agents, the run printed `crossModel: true` while finder↔judge were BOTH Opus — the relationship that actually guards rubber-stamping. Fix: fold against the LENS agents' self-reported families (they already return `RUNNING AS`), or rename/caveat the claim. `eval/BASELINE.md` 2026-08-20 has the measured case.
+- **TEST-seed subsumption, 2nd consecutive run (the v0.5.3 entry's trigger FIRED):** both assert-nothing/self-mocking test seeds now land inside ONE suite-wide mutation finding — great evidence, but one backlog item where a reader needs two discrete fixes. Consider a synthesis rule: a suite-level finding lists its per-test sub-defects as checkable sub-items.
+- **Cross-lens same-defect duplication, 2nd occurrence** (v0.5.3: one duplicated-constant seed surfaced twice; now the STATUSES divergence surfaced from both the security and maintainability lenses with different `findingKey`s). Coded dedup keys on normalized issueClass and cannot see it. A location-overlap merge pass in PRUNE is now evidence-backed.
+- **Cohesion-seed watch (not yet a defect; the seed's id lives only in `eval/BASELINE.md`, per the containment pin):** first post-cut run missed it; its SRP check survived the cut verbatim and it is historically 2-hits-2-misses. **A second consecutive post-cut miss implicates the cut** — remedy is teeth in that ONE dimension, never re-inflating the catalog.
+
 - **WARN noise, works-as-designed but polishable** — 4 breach WARNs × ~230 chars per commit; ~600 of 935 stderr bytes are the identical remediation clause repeated per line. Optional: factor it to ONE trailing line (stateless, no information loss). Reject WARN-once-per-N (needs state; silences a standing breach).
 
 
