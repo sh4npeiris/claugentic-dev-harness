@@ -100,9 +100,12 @@ constraint has a model-upheld remainder, that half alone rides *Unpinnable resid
   a red run SPENDS that version — first re-run the failed run (safe by construction); otherwise bump
   forward, and never reuse a tag (deleting a failed tag is an outward, user-gated exception).
 - **Enforcement, stated exactly —** **Test-pinned (tooling half):** `tests/test_release_workflow.py` +
-  `tests/test_build_release.py::TestGatedPublishCommand`. **Model-upheld (branch half) — until `release`
-  is branch-protected**, verified 2026-08-12: no protection rule, no ruleset, so anyone with push rights
-  can still write it by hand. Read "one publisher" as a contract the tooling keeps, not a permission the
+  `tests/test_build_release.py::TestGatedPublishCommand`. **Model-upheld (branch half) — by decision (2026-08-20):**
+  the restrict-to-Actions-app ruleset is **inexpressible on a user-owned repo** (the app is not an
+  allowed bypass actor, API + UI verified; an active ruleset without it would block the workflow's own
+  publish push), and the alternatives (deploy-key publisher · org move) were declined without new
+  evidence — detail in `docs/RELEASE_CHECKLIST.md` → *Branch protection*. Re-verified 2026-08-20: no
+  protection rule, no ruleset, so anyone with push rights can still write it by hand. Read "one publisher" as a contract the tooling keeps, not a permission the
   platform enforces; "a red run publishes nothing" likewise holds only for failures BEFORE the branch
   push, which is the second-to-last step of the publish job.
 - **Provenance —** 2026-08-12: v0.5.1 published from an 11-day red-CI window; detail in git history.
