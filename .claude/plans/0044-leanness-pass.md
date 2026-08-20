@@ -1,7 +1,7 @@
 # 0044 — The leanness pass, eval-gated
 
-- **Status:** Reviewed — Stage-3 PASS (round 2; the two named line edits applied) · Slices 1a+1b spec'd, awaiting Stage-5 approval
-- **Resumable from:** Stage 5 approval on Slices 1a+1b.
+- **Status:** Approved (Stage 5, 2026-08-20, slices 1a+1b) — Implementing 1a
+- **Resumable from:** Slice 1a implementation (Stage 6) → Verify → Land → Slice 1b.
 - **Blockers:** none
 - **Flags:** drift-mode cadence settled as on-demand-only (reversible) · A-vs-A calibration settled as skip (reversible; pull-in condition recorded) · H (held-out test count, ~12) and the ΔF threshold (default **ΔF ≥ 2**) are pinned **together** by the Slice-1a implementer, re-pinnable only together, before any run, recorded in `BUILD_BASELINE.md`
 - **Disposition at close:** per `docs/claugentic-WORKFLOW.md` → Plan file lifecycle.
