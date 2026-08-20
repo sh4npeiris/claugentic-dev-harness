@@ -10,6 +10,7 @@ All external references point at THIS file — never link a shard path from outs
 - [deterministic-gates](claugentic-decisions/deterministic-gates.md) — The deterministic gates: tree check · version-sync · doc budgets & caps · one gate, one invariant.
 - [verify-roles](claugentic-decisions/verify-roles.md) — The verify/judge roles: skeptical clean-context review, refute-first, same-model tag honesty.
 - [audit](claugentic-decisions/audit.md) — The audit: lens fan-out · dedup · finding-verifier · tiered backlog · depth dial · rejected-findings fence.
+- [evals](claugentic-decisions/evals.md) — The evals: audit-path vs build-path instruments, calibration-before-measurement, pre-registered thresholds, no-coaching + containment.
 - [build-mode](claugentic-decisions/build-mode.md) — Build mode: backlog auto-drive, build-to-green, decision-gated autonomy.
 - [workflow-process](claugentic-decisions/workflow-process.md) — Workflow/process: stages & gates, DoD ownership, carry-forward + mirror-back, methodology toolbox & charter, plan lifecycle, scope-agnostic rule.
 - [roles-review](claugentic-decisions/roles-review.md) — Roles & review: roster postures, diverse panel, craft-is-first-class, lens coverage, runtime-qa, worktree hygiene.

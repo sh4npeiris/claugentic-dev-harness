@@ -16,14 +16,26 @@ constraint has a model-upheld remainder, that half alone rides *Unpinnable resid
 
 ## `eval/` source stays OUT of the tree gate's `INCLUDE_GLOBS`
 
-- **Invariant —** `eval/**` (`fixture-defects/app/*.py`, `fixture-app/*.py`) must never enter
-  `INCLUDE_GLOBS` (today `scripts/**/*.py` + `engine/**/*.js`). `glob_drift` short-circuits whenever
-  the globs already match ≥1 file (they do), so eval source is invisible to the gate by design.
+- **Invariant —** `eval/**` (`fixture-defects/app/*.py`, `fixture-app/*.py`, `fixture-build/**/*.py`)
+  must never enter `INCLUDE_GLOBS` (today `scripts/**/*.py` + `engine/**/*.js`). `glob_drift`
+  short-circuits whenever the globs already match ≥1 file (they do), so eval source is invisible to
+  the gate by design. **Second subject, and it is a DIFFERENT path:** no `INCLUDE_GLOBS` entry may
+  reach a build-eval run worktree's `out/*.py` either — widening to `**/*.py` while still excluding
+  `eval/` would satisfy the first clause and break the eval, **which is why that half now carries its
+  own pin** (`tests/test_eval_trap_manifest.py`; before it, that widening was green-and-broken).
+  **The pin matches with `fnmatch`, not git's pathspec engine, so it catches `**/*.py` and MISSES
+  `**/out/*.py` and `out/**/*.py` (measured 2026-08-20).** The fixture-SOURCE half is model-upheld.
 - **Why —** the eval is a measurement fixture, not shipped code: presence/staleness-checking the
   seeded-defect files would force them into the index (leaking the answer key into a read-first doc)
-  and the zero-coverage drift census would fire on intentional fixtures. Both disarm the exam.
+  and the zero-coverage drift census would fire on intentional fixtures. Third dependent, added
+  2026-08-20: the build eval's frozen plan slice takes the architecture tree out of the builder's
+  scope, which reconciles with the shipped `implementer` contract (it mandates tree updates on file
+  adds) **only** while nothing under a run worktree's `out/` is watched. All three disarm the exam.
 - **Provenance —** carried as tree-entry rationale until 2026-06-24 (plan 0024 S1), then evicted here
-  as the durable "must hold" so the tree index stays a thin pointer.
+  as the durable "must hold" so the tree index stays a thin pointer. Extended 2026-08-20 (plan 0044
+  S1a) when the build eval added a third dependent and a new tree of eval Python under `eval/fixture-build/`; the `out/` half is
+  now pinned red-on-break by `tests/test_eval_trap_manifest.py`, and this entry keeps the two halves
+  the pin cannot state — the rationale, and the fixture-source half no test holds.
 
 ---
 

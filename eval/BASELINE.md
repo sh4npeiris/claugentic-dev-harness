@@ -32,7 +32,34 @@ baseline entry records whether any contamination was declared.
 ## The measurement procedure (single source of truth)
 
 1. **Scratch worktree/branch** at the release-candidate commit (the eval's writes never
-   land on `main`).
+   land on `main`), **with every answer-bearing file deleted from it** before the run.
+   **This step is the ONE home of the deletion class; the build eval cites it rather than
+   restating it.** The class has TWO clauses, and they are deliberately different widths:
+   - **(i) ANSWER-BEARING content — broad, repo-wide, and the safety-critical half.** Every
+     tracked file that carries either exam's id vocabulary, its per-flaw remedy vocabulary,
+     or a description of either exam's planted flaws **in prose** — found by grep at run
+     time, which is the authority; any list printed here is illustrative at the moment it was
+     printed. It covers this file and `SEED_MANIFEST.md`, and since 2026-08-20 the build
+     eval's answer key, its `checks/` and `calibration/` directories, its results ledger, its
+     procedure doc, its manifest-integrity test (whose denylist is a plaintext enumeration of
+     remedy vocabulary for all ten flaw classes), **every file under `.claude/plans/`** — a
+     live plan enumerates the flaws in prose, carries no ids, and is TRACKED, so it lands in
+     every run worktree where no id scan can see it — **and
+     `docs/claugentic-decisions/evals.md`**. Aim the grep at those last two first: they carry
+     answers in prose with nothing mechanical watching.
+   - **(ii) files that merely NAME a deleted path — NON-TRANSITIVE, and scoped to the test
+     suite.** This clause exists to keep the post-deletion gate reachable, not to purge
+     citations. **Do not close it transitively: measured 2026-08-20, iterating “delete
+     everything naming something deleted” to a fixpoint reached 98 paths and removed
+     `CLAUDE.md`, the agents, the engine and `docs/claugentic-standards/` — the treatment the
+     build eval exists to measure. One pass over the tests, no closure.**
+
+   That group is not optional politeness: the build fixture's trap classes ARE these seed
+   classes, so its material describes the same ten flaws in different words and would
+   pre-brief a run that grepped it (measured precedent: v0.5.2's run surfaced manifest lines
+   through a repo-rooted grep). **Each exam removes the other's answer material; the two
+   procedures are not otherwise symmetric** — the build eval additionally requires a green
+   suite after its deletions, and this one does not.
 2. **Invoke the audit skill at dial `standard`**, scoped to `eval/fixture-defects/app/`
    — the skill invokes `engine/audit.js`. If the Workflow tool is unavailable in the
    session, **abort and note it**: a prose-orchestrated run is not comparable to a scripted
@@ -52,6 +79,11 @@ baseline entry records whether any contamination was declared.
    clock-free; the orchestrator stamps the `{{DATE}}` placeholder). Then **revert the
    audit's fence write** in `docs/claugentic-ROADMAP.md` — the eval backlog never lands there.
 6. **Record the contamination check**: did the canary appear in any output? (Expected: no.)
+   **The filename-only-disclosure precedent, stated here because it is a procedure rule and
+   was previously readable only inside the entries below the stop line:** an agent whose grep
+   surfaces an answer key's *path* discloses that in its own output and states it did not open
+   the file; the run is recorded with that residual named, not as clean. A **content** hit is
+   different — it discards the run. Both evals follow this; `eval/BUILD_BASELINE.md` cites it.
 
 **One calibration allowance, recorded honestly.** If the first run's recall is `< 5/10`,
 the **seeds** (never the audit) may be revised once for defensibility — make the seeded
