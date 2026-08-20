@@ -1,7 +1,7 @@
 # 0044 — The leanness pass, eval-gated
 
 - **Status:** Draft
-- **Resumable from:** Slice 1 design pending the build-eval design panel synthesis; then Stage 2b advisory panel → Stage 3 review.
+- **Resumable from:** Stage 2b advisory panel on the refined draft (Slice-1 design folded in) → Stage 3 review.
 - **Blockers:** none
 - **Flags:** none
 - **Disposition at close:** per `docs/claugentic-WORKFLOW.md` → Plan file lifecycle.
@@ -83,9 +83,51 @@ Per slice: the 8 gates run as **individual commands, exit codes read directly** 
 - [ ] **Slice 4 — skills cut, full appetite.** Contract inventory per skill → cut narration AND (where the team-function test demands) behaviour, breaking changes recorded for 0.6.0; init (80.5K) first.
 - [ ] **Slice 5 — WORKFLOW re-cut + cap lowering.** Thin further, lower the 77,500 cap to fit, update the byte pin same commit.
 
-## Slice 1 design — build-path eval (panel synthesis)
+## Slice 1 design — "Trap-Gauntlet" build-path eval (panel synthesis, 2026-08-20)
 
-_Pending: the 3-design/3-judge/1-synthesis panel (run `wf_6b606d54-78f`) — folded in verbatim on completion._
+_Produced by a 3-design / 3-judge / 1-synthesis panel (7 agents, 0 errors); all three judges independently ranked the same chassis first (27–28/30). Settled — the rejected alternatives are listed at the end so they are not re-proposed._
+
+**Home:** `eval/fixture-build/` + `eval/BUILD_BASELINE.md` (sibling of `eval/BASELINE.md`). LF, ASCII. Model-upheld procedure — never a CI gate. One question per run: *did swapping catalog variant A for variant B change what the implement path actually ships?*
+
+### Fixture artifacts
+
+1. **`TASK_SPEC.md`** — builder-visible, byte-identical in both arms. Domain: **"spendlog"**, a small expense tracker in stdlib Python + sqlite3 — a fresh domain (not the audit fixture's task tracker) so fixture shape can't prime a builder. Quality-blind PM-voiced requirements R1–R9 (CSV budget import creating budget+expense rows in one call · expense listing with budget names · merchant search from a raw query-string term · operator-configured service token check · query-param-driven monthly HTML report · category validation at add AND grouping in report · dashboard running total · over-budget webhook notify where the endpoint "may be slow or down" — the one reliability sentence allowed · tests covering the import write path and the renderer). It **pins the public surface only** — files `out/{db,importer,handlers,report,notify,test_spendlog}.py`, function signatures, the two-table sqlite schema — so held-out checks can import any faithful implementation; internal structure is never pinned (the MAINT traps live in function bodies and cross-file duplication, where pins dictate nothing). Names the five deep standards modules as in-scope dimensions — identical text in both arms; only module CONTENT varies.
+2. **`plan-slice.md`** — a frozen, template-shaped approved-plan slice pointing at TASK_SPEC, copied into each arm worktree's `.claude/plans/` so the **shipped `implementer.md` contract is exercised verbatim** ("the plan + spec live in a `.claude/plans/` file") — the eval measures the role as shipped, no wrapper-prompt departure.
+3. **`TRAP_MANIFEST.md`** — the hidden answer key: **ten traps, exactly two per deep module, the SAME frozen classes as the audit eval's seeds** (provenance predates the cut question — the exam wasn't authored to flatter either arm). One integrity-tested table `| id | module | spec req | harm line | check | tag |`; the **harm line** is the admissibility rule (the user-visible bug a person would file — a trap defensible only as "the catalog says so" is inadmissible). Eight `[D]`, at most two `[J]` (both MAINT — kept deliberately: MAINT is the ablation's one post-cut miss, precisely the prose-sensitive dimension a build eval must not drop). Traps: SQL interpolation in search · hardcoded token · assert-nothing test (mutation probe: gut the write path, arm's own tests stay green) · self-patching test · one function parsing+querying+rendering (`[J]`, rule stated in the row) · category set defined twice (`[D]` grep, `[J]` fallback) · partial write on mid-import failure (fault injection) · N+1 in the listing (sqlite `trace_callback` query counter) · DB error swallowed as success-shaped 0 (corrupt-DB probe) · webhook with no timeout/unbounded retry (never-responding socket + 5s watchdog). Own canary: `the seeded-trap crimson-giraffe canary has leaked into the run`.
+4. **`checks/`** — the measurement instrument, **catalog-free by construction** (zero references to `docs/claugentic-standards/`; grep-verifiable it would compute identical results if the catalog did not exist): `test_heldout.py` (~12 behavioral happy-path pytest tests — proves a WORKING artifact; no style assertions) · `fakes.py` (fault-injection fakes: blocking `urlopen`, raise-on-Nth-write connection, corrupt-DB handle, injection payloads) · `run_sweep.py` (drives held-out tests + spec-compliance + ten trap probes against a worktree's `out/`; **computes facts, never scores**; also builds the blind `[J]` pack — six `out/` dirs shuffled under opaque names, comment-line-only redaction, every redaction logged, mapping sealed) · `mutation_probe.py` (the vacuous-test detector). Binary-safe LF writes throughout.
+5. **`tests/test_eval_trap_manifest.py`** — fixture integrity on main (mirrors `tests/test_eval_manifest.py`): ten rows two-per-module, every `[D]` names a runnable probe, every `[J]` states its rule, **plus the no-coaching lint** — TASK_SPEC must not contain remedy vocabulary (denylist: transaction, atomic, rollback, parameterized, injection, N+1, join, timeout, backoff, retry, secret, hardcode, single source of truth, assert, mock, patch — except the one allowed "slow or down" sentence).
+6. **`eval/BUILD_BASELINE.md`** — procedure (single source of truth) + append-only entries, newest first, human-stamped. Two standing rules: **(a) the trap manifest and a catalog cut never change in the same release** (no cut author tunes the exam they sit); **(b) the decision rule is pre-registered** — thresholds fixed before any run.
+
+### Arms & materialization
+
+Arm A = the RC commit's `docs/claugentic-standards/` (130,019 B today). Arm B = any variant (the ~60K candidate, names-only, absent) as a wholesale directory swap — the names-only ablation's own mechanism, so constraint 7 holds by construction. **K=3 runs per arm — six scratch worktrees** at the RC commit; copy `plan-slice.md` → `.claude/plans/`; apply the **deletion set** to every builder worktree, verified with `ls` before spawn: `TRAP_MANIFEST.md` · `checks/` · `eval/BASELINE.md` · `eval/BUILD_BASELINE.md` · **`eval/fixture-defects/` wholesale** (SEED_MANIFEST is a near-answer-key — the trap classes ARE the seed classes; its symmetric leak would bias toward a false PASS) · `tests/test_eval_manifest.py` + `tests/test_eval_trap_manifest.py` (they reference deleted files — leaving them leaks the denylist as coaching AND breaks the implementer's own full-suite gate). Post-deletion `pytest` must be green before spawn. **Held constant:** RC commit, spec, plan slice, unmodified `implementer.md` (its "self-apply the Auditor checks" step IS the treatment), spawn prompt, session tier (all six runs one sitting, **interleaved A1 B1 A2 B2 A3 B3** so tier drift can't masquerade as an arm effect). **The only difference between arms is the bytes inside `docs/claugentic-standards/`.**
+
+### Metrics & the pre-registered decision rule
+
+- **Functional pass rate** `F(X,k)` over ~12 held-out tests — **floor rule leads the verdict:** mean `F < 0.8` → that arm "did not reliably produce a working artifact," stated FIRST, before any trap arithmetic.
+- **Spec compliance** `S(X,k)` scored separately — an interface-naming drift can never masquerade as a quality delta. UNCHECKABLE (probe can't bind) counts as FELL-IN with the raw evidence printed; human may overrule with a recorded judgment, never silently.
+- **Per-trap 2-of-3 majority** → arm score `M(X)` ∈ 0..10; **decision figures `Δ = M(A) − M(B)`** and `ΔF` (held-out test counts).
+- **BLOCK the cut iff `Δ ≥ 2` OR `ΔF ≥ 2`** (mirrors the audit eval's ≥2-seed rule). `Δ ∈ {0,1}` → "no regression detected at this K" — the cut may proceed, watched by the next drift run; **never phrased as equivalence shown**.
+- **Recorded, not gated:** `flap(X)` (traps not unanimous within an arm) · **intra-arm `spread(X)` printed beside Δ** — a delta inside the measured spread is called noise by the entry itself · **catalog-read attribution** per transcript ("catalog unread" is never recorded as "catalog unneeded").
+- Every entry carries the verbatim caveat: *"K=3 per arm is a tripwire, not a proof: it can catch a gross regression (≥2 traps) but cannot rule out a subtle one… A null result means no regression was detected at this K — never that the cut is safe in general."*
+
+### Procedure (condensed; BUILD_BASELINE.md carries the full numbered form)
+
+Fix + record arm identities → build six worktrees, swap B's catalog, apply + verify the deletion set, post-deletion pytest green → spawn fresh clean-context `implementer` per run (writes scoped to `out/`, no commits, transcripts + `RUNNING AS` retained), interleaved one sitting → `run_sweep.py` per worktree from the MAIN checkout → blind `[J]` grading (one grader, shuffled sealed pack, file:line citations required; unsupported citation = discounted) → grade + attribution → **contamination sweep**: grep all transcripts+outputs for crimson-giraffe, purple-elephant, TRAP_MANIFEST content lines AND SEED_MANIFEST content lines (filename-only sightings disclosed per the v0.5.3 precedent; a content hit discards that run) → floor rule → decision rule → append entry → remove worktrees, `ROADMAP.md` byte-untouched. **One calibration allowance** (mirrors the audit eval): if the first outing saturates in either direction for BOTH arms, the spec/traps (never the catalog, never the implementer) may be re-sharpened once, recorded. **Cheap drift mode:** K=1, single arm, ~1 implementer + scripts.
+
+### Cost & circularity
+
+~**8 agents / ~1.5–2.5M tokens** per full two-arm comparison (6 implementers — the only heavy spend — + 1 blind grader + orchestrator; the sweep is scripts) vs the audit eval's ~31 agents. Arm A's builders read ~2× arm B's catalog bytes — noted so token counts are never misread as an efficiency finding. Circularity defense, five layers: outcome-anchored checks (every failure is user-visible harm) · the harm-line admissibility rule · frozen provenance + no-tuning rule · blind `[J]` grading · symmetric held-out tests. **Honest residual, stated never smoothed:** traps and catalog share subject matter; the defense is that checks measure the FAILURE, not the vocabulary — a cut that keeps the teeth and sheds the prose can score 10/10.
+
+### Settled by the panel — do not re-propose
+
+Audit-as-instrument corroboration layer (~20–40 agents, zero gate power — one-line extension only) · 20-agent blind pairwise judge panel (self-demoting; YAGNI) · K=1 with immediate block (decision-on-noise both directions given the MAINT-1 coin-flip record) · convergent-deficit rule (structural false-PASS bias) · dropping MAINT traps (the ablation's one cost landed exactly there) · task-tracker domain reuse (priming adjacency) · wrapper-prompt spec delivery (must measure the shipped contract) · whole-run sealed arm blinding (the build can't be blind to its own treatment) · auto-editing code lines in redaction (comment lines only; code flagged for human review).
+
+### Open questions (carried to the Stage-5 approval)
+
+1. **Drift-mode cadence** — K=1 build drift check at every release (~1 implementer, ~300–400K tokens) vs only when a cut is pending. Owner's spend-vs-currency call.
+2. **A-vs-A calibration run first** (6 more builders measuring the empirical noise floor under identical catalogs) vs relying on the real comparison's intra-arm spread. Optional insurance, not a requirement — planner's default: **skip it; the K=3 spread line covers it** (flag, reversible).
+3. **H (~12 held-out tests) and the ΔF≥2 threshold are pinned together** in BUILD_BASELINE.md by the slice implementer (authoring-time call, flag-level).
 
 ---
 
