@@ -8,7 +8,9 @@
 >
 > **Sibling:** the *engineering-methodology* record is `docs/claugentic-CHARTER.md` (the optional
 > living per-work-type methodology record — different concern, different reader:
-> `implementer`/`synthesizer-gate`, not `product-designer`).
+> `implementer`/`synthesizer-gate`, not `product-designer`). **Absent in THIS repo** — `init`
+> creates it on demand from the `claugentic-_CHARTER.md` seed; until then the harness follows
+> its default grain, and nothing here should be read as pointing at a file you can open.
 
 ## The user (across the whole harness)
 
@@ -103,8 +105,9 @@ step-level mechanics; this is the product-level note.
 
 The flagship Stage-1 product brief. Build mode is a **thin orchestration layer** over the
 [`WORKFLOW.md`](claugentic-WORKFLOW.md) pipeline and the [`audit`](../skills/audit/SKILL.md)
-skill — it does not invent process, it **drives** it. This section is product-level (flows ·
-states · what-good-feels-like · honesty); the skill file owns the step-level mechanics.
+skill — it does not invent process, it **drives** it. This section is product-level (the job ·
+which states must exist · what-good-feels-like · honesty); the skill file owns the step-level
+mechanics **and the copy**, and this file does not restate them.
 
 ## User & job-to-be-done
 
@@ -123,94 +126,36 @@ The whole design tension is **autonomy vs. control**: build enough that the user
 clicking "next" forever, but pause at exactly the moments where a human judgment is
 load-bearing — and nowhere else (decision-fatigue is a failure mode, not a safety feature).
 
-## The two modes (one seam)
+## Where the mechanics live (not here)
 
-- **Watched (the default).** Auto-drives Plan → Review → Implement → Verify between the real
-  human gates, and **pauses** at: (1) triage selection, (2) the spec, before any code
-  (Stage 5) — **per item as you go, or pre-satisfied per item up front in one approval
-  sitting** when the user asks to *spec everything first* (the batch ask), (3) before land /
-  any irreversible action.
-- **`build-to-green` (requestable, evidence-checked).** Governed by the **who-watches axis**
-  (the contract lives in `skills/build/SKILL.md` → Mode handling): watched stays the default;
-  an unwatched build-to-green run unlocks per-repo only on three evidence-stated conditions
-  (CI running the deterministic gates · a test baseline on the touched code · an approved spec
-  with testable acceptance criteria) plus the engine being installed (`engine/build-item.js`).
-  Anything unmet → an honest decline naming exactly what's missing, offering the watched run — never
-  silently degrading to a weaker promise. Build-to-green is a reduction of unwatched-run risk,
-  never a substitute for the unbuilt deterministic trust-gates.
-
-## The key flows (end-to-end)
-
-1. **Triage** — present the audit's tiered backlog; the user **picks** the items to build.
-   Then "start now?" Nothing is built before this yes.
-2. **Per-item build** — for each chosen item, auto-drive the pipeline to the next gate,
-   pausing only at spec-approval and any irreversible action. The item's **tag selects the
-   discipline** (`refactor` → characterization-tests-first, `bug` → reproduce-first, etc. —
-   see WORKFLOW's tag→discipline table). **Spec-approval has two rhythms:** as-we-go (the
-   default — each item's spec is approved when its turn comes) or, on the **batch ask**
-   (*"spec everything first"*), one **roster-first approval sitting** up front that approves
-   the whole list before anything builds; then the run has only the lighter per-item land
-   confirms + the safety pauses left.
-3. **Re-audit → continue-or-re-triage** — after each item, a **scoped re-audit** over the
-   touched `(module|dir)` cells (honest scope — cross-file fallout beyond those cells is
-   owned by the closing full audit; the harness has no dependency graph and claims none). If
-   nothing material surfaced, **auto-continue** the agreed list. If material new/obsoleted
-   work surfaced, **pause to re-triage** — the user re-picks before more is built.
-4. **Stop / done** — when the agreed list is worked through, one **full audit** confirms
-   Tier-1+2 empty → the terminal "Sound on the audited dimensions" signal. Stop.
-5. **Build-to-green ask** — if the user asks for an unwatched run, check the
-   unlock conditions with stated evidence; unmet → decline honestly (naming exactly what's
-   missing) and offer the watched run.
-
-**Guardrails (both modes, non-negotiable):** hard-stop + ask before any **irreversible
-action** (push to a shared remote, deploy, delete data, spend money, external side-effect);
-**never invent scope** — a genuinely-new feature it discovers goes to ROADMAP for the user's
-approval, it is **not built**.
+**The mode axis, the flows, and every pause's copy live in [`skills/build/SKILL.md`](../skills/build/SKILL.md).**
+That file owns the who-watches axis and its unlock conditions (*Mode handling*), the
+triage → per-item engine → loop → stop procedure (steps 1-11), the batch-approval sitting,
+and the verbatim wording each pause and each state uses. This file restates none of it: a
+paraphrase one level up drifts (it already had, on how many pauses there are and what they
+gate), and a second, drifted copy of a trust surface is the exact failure this product exists
+to prevent. What stays here is the product truth the skill does not carry — the job above,
+which states must exist, what "good" feels like, and the failure modes to design against.
 
 ## The states each flow needs (especially the non-happy ones)
 
-A surface is only finished when none of these is a blank screen or a dead end.
+A surface is only finished when none of these is a blank screen or a dead end. **The exact
+wording of each is the skill's**; what this list fixes is that the state must exist at all.
 
-- **Empty backlog / Tier-1+2 already empty at start** — there is nothing to build. Don't
-  enter the build loop or manufacture work. Say it plainly, reusing the audit's terminal
-  phrasing: *"Sound on the audited dimensions — what remains is optional polish; you don't
-  need to keep re-auditing."* Offer the real next step (start something new, or stop).
-- **The checkpoint / decision state** — the pause itself, the product's core interaction.
-  At each pause the user sees **what was just done, what's being decided now, and the
-  options** in plain English:
-  - *Triage* — the tiered list to pick from.
-  - *Spec approval (Stage 5)* — the spec's plain-English block first (*what this builds ·
-    what "done" means for you · what you're accepting*); no code before the yes.
-  - *The approval-mode ask (batch spec-approval)* — when the user says *"spec everything
-    first,"* the spec pauses are front-loaded into **one roster-first sitting**: a scannable
-    list of every item (what it builds · what you're accepting, one line each) with the full
-    triad beneath each to drill into; approve / adjust / drop per item, then it builds the
-    approved list. Honest at the ask — and echoed at the sitting close — about what batch does *not* remove (still confirm each
-    landing, anything irreversible still stops, a later item re-confirms if the ground
-    shifted) and the neutral sunk-cost fact (a dropped item's planning is already spent). The
-    durable approval mark rides the plan file's `Status` line. As-we-go stays the default.
-  - *Irreversible hard-stop* — name the exact action and its consequence, and wait. Never
-    proceed on silence.
-- **An item FAILS mid-build** — the Verify gate fails, implementation can't complete, or a
-  slice won't land clean. Build mode **pauses honestly** and reports *what failed and why in
-  plain English* — it does **not** barrel on to the next item, and does **not** dress a
-  failed slice as done. Offer the real options (retry, skip this item and continue the rest,
-  or stop). A half-done slice never lands (WORKFLOW: slice lands vertically complete or not
-  at all).
-- **Re-triage interruption** — a scoped re-audit surfaced new critical work. Pause, show
-  what changed (new/obsoleted items), and let the user re-pick before building more — framed
-  as the safety feature it is, not an error.
-- **The long-running "working" state** — between gates, the user sees **honest progress
-  narration**: completed beats only (*"planned it · built it · running the checks…"*), reusing
-  the audit's "completed-beat per item, **never an ETA**" discipline. No fake ETA, no "nearly
+- **Empty backlog / already-sound at start** — nothing to build. Say so plainly and offer the
+  real next step; never enter the build loop, never manufacture work.
+- **The checkpoint / decision state** — the pause itself, the product's core interaction: what
+  was just done, what is being decided now, and the options, in plain English.
+- **An item FAILS mid-build** — report what failed and why in plain English; nothing partial
+  lands, the run does not barrel on, and a failed slice is never dressed as done.
+- **Re-triage interruption** — new important work surfaced; pause and let the user re-pick,
+  framed as the safety feature it is, not an error.
+- **The long-running "working" state** — completed-beat narration only. No ETA, no "nearly
   finished," no silent multi-minute stall.
-- **The terminal "Tier-1+2 empty — done" state** — the honest success signal. One **full**
-  audit confirms it; surface the audit's *"Sound on the audited dimensions"* phrasing,
-  scoped honestly to the audited dimensions (not "your app is perfect / bug-free").
-- **The build-to-green decline state** — honest about *exactly which* unlock conditions this
-  repo hasn't met (per-condition evidence lines, per `skills/build/SKILL.md` → Mode handling),
-  and offers the watched run as the live, trustworthy alternative. Not an apology, not a vague
-  "coming soon" — a clear, true, per-condition reason.
+- **The terminal "done" state** — the honest success signal, scoped to the audited dimensions
+  and the covered cells; never "your app is perfect."
+- **The build-to-green decline state** — per-condition, evidenced, and offering the watched run
+  as the live alternative; never an apology, never a vague "coming soon."
 
 ## What "good" feels like
 
@@ -236,7 +181,7 @@ The four experience qualities, in priority order:
    dimension-scoped Verify/terminal signal — never asserted over a failure.
 3. **Decision-fatigue from too many checkpoints** — so many pauses the user rubber-stamps
    without reading, which silently destroys the value of every gate. *Defend:* pause **only**
-   at the three load-bearing gates (triage · spec · irreversible) and auto-drive everything
+   at the load-bearing gates the skill enumerates, and auto-drive everything
    between; auto-continue the agreed list unless something material changed. *The in-sitting
    variant (batch spec-approval):* front-loading every spec into one sitting risks the same
    rubber-stamping **within** the sitting — a wall of N full specs the user skims and waves
@@ -250,9 +195,8 @@ The four experience qualities, in priority order:
 Build mode rides on the audit's **model-upheld** verification — only the architecture-tree and
 doc-budget gates are mechanically enforced, and only where the commit hook is wired — and is
 **watched by default** (an unwatched build-to-green run is earned per-repo, never assumed).
-Four user-facing surfaces are the
-over-claim hotspots; the exact honest wording for each is owned by its source of truth, not
-restated here:
+Four user-facing surfaces are the over-claim hotspots; the exact honest wording for each is
+owned by its source of truth, not restated here:
 
 - **"verified / done / safe" copy** — reviewer judgment plus the deterministic gates that exist,
   not a mechanical proof (`skills/build/SKILL.md` → Verify · Guardrails).
@@ -260,7 +204,7 @@ restated here:
   unwatched-run risk, never a substitute for the unbuilt trust-gates (`skills/build/SKILL.md` →
   Mode handling).
 - **The "Tier-1+2 empty" success claim** — scoped to the **audited dimensions** and covered
-  cells: "sound on what we checked," never "bug-free" or "perfect" (`skills/build/SKILL.md` → step 10).
+  cells: "sound on what we checked," never "bug-free" or "perfect" (`skills/build/SKILL.md` → step 11, *Stop / done*).
 - **The re-audit verification tags** — carried through from the audit unchanged
   (`skills/audit/SKILL.md` → verification tags).
 

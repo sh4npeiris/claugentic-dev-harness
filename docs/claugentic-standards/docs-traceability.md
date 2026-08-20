@@ -1,19 +1,17 @@
 ---
 module: docs-traceability
 title: Docs & Traceability
-version: 0.2.0
 status: draft
 iso_25010: [maintainability]
 load_scope:
   keywords: [docs, readme, comment, docstring, adr, architecture-tree]
   globs: ["docs/**", "**/*.md"]
-last_reviewed: 2026-08-18
 ---
 
 # Docs & Traceability — the change is explainable, the architecture is navigable
 
 > **Loads when:** changes add, move, or remove files (ARCHITECTURE_TREE.md); introduce non-trivial decisions (DECISIONS.md); modify public APIs or non-obvious logic (docstrings/comments); or touch onboarding/runbook documentation.
-> **ISO/IEC 25010:** maintainability · **Status:** draft · **v0.2.0**
+> **ISO/IEC 25010:** maintainability · **Status:** draft
 
 Each entry below is one **auditable dimension**. Per change, the reviewer applies the
 *relevant* ones **fully** (select-don't-skip), right-sized to the change — never
@@ -35,7 +33,7 @@ gold-plating an irrelevant one, never skipping a relevant one.
 ## Decision traceability (DECISIONS.md)
 
 - **Good looks like —** Every non-trivial choice (library selection, pattern choice, schema decision, API contract) is recorded as a dated one-liner in `docs/claugentic-DECISIONS.md` in the same commit that introduces the decision. Future agents consult it before re-litigating a past choice.
-- **Auditor checks —** Review the diff for non-trivial decisions not yet recorded `[J]`; confirm `claugentic-DECISIONS.md` entry is dated and includes the rationale, not just the choice `[J]`.
+- **Auditor checks —** Review the diff for non-trivial decisions not yet recorded `[J]`; confirm `docs/claugentic-DECISIONS.md` entry is dated and includes the rationale, not just the choice `[J]`.
 - **Confidence —** `judgment` — what counts as "non-trivial" is a reviewer call.
 - **Tradeoff (plain English) —** A decisions log prevents the same debate from happening three times with three different outcomes; it costs 30 seconds per decision. Without it, future agents re-open closed decisions and introduce inconsistency.
 - **Sources —** Michael Nygard "Documenting Architecture Decisions" (https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions) — the original ADR essay; CLAUDE.md harness discipline.
@@ -45,7 +43,7 @@ gold-plating an irrelevant one, never skipping a relevant one.
 ## Load-bearing invariant traceability (INVARIANTS.md)
 
 - **Good looks like —** A constraint that *must stay true or something breaks* — and whose rationale is non-obvious from the code — is recorded in `docs/claugentic-INVARIANTS.md` as a standing entry: the **invariant** (what must hold), the **why** (the rationale / blast radius if violated), and **dated provenance** (when, and what failure or near-miss, motivated it). The file is **lazily created** — it exists only once a repo has its first load-bearing invariant to record (an empty repo has none, and that is correct). It is **user-owned documentation, not a gate**: nothing mechanically verifies the invariants hold — the value is that the *next* change near a constraint reads *why before touching it*. Distinct from `docs/claugentic-DECISIONS.md` (a historical "what we chose and why," read when revisiting a choice): an invariant is **live** — read every time code in its blast radius changes.
-- **Auditor checks —** `[J]` Did this change establish a non-obvious constraint that future code could silently violate (an ordering dependency, a "these two values must move together," an assumption a caller relies on) — and if so, is it captured in `docs/claugentic-INVARIANTS.md` with its why + dated provenance? `[J]` Did this change *touch the blast radius of an existing recorded invariant* — and if so, does it still hold (and is the entry still accurate)? `[J]` Is each entry genuinely load-bearing (a real "or it breaks"), not a restatement of a style preference or a decision that belongs in `claugentic-DECISIONS.md`? `[J]` **Is the constraint already held where it BITES?** A red-first pin plus a do-not-revert comment at the call site records a constraint inside the path a future change must edit; this ledger is for the ones **no pin can hold** — a cross-file ordering, a "these two must move together", a rationale with no code to attach to. Prefer the pin, and say in the slice that you did. **This is an admission test on the CONSTRAINT, never on the ledger's free bytes:** a genuinely un-pinnable invariant is filed even when the file sits at its band, and the recourse is then the condensation / escape-valve ladder, never a skipped entry. *(0041 S10b, 2026-08-17: the D6 trust-surface constraint — a namespace retry must not consume the respawn budget, set the forced-same-model flag, or reuse the respawn label — was discharged as behaviourally-driven pins plus a call-site comment, and the invariants ledger stayed untouched. The rule that produced that call had been living only in the plan file, which is deleted at plan close.)*
+- **Auditor checks —** `[J]` Did this change establish a non-obvious constraint that future code could silently violate (an ordering dependency, a "these two values must move together," an assumption a caller relies on) — and if so, is it captured in `docs/claugentic-INVARIANTS.md` with its why + dated provenance? `[J]` Did this change *touch the blast radius of an existing recorded invariant* — and if so, does it still hold (and is the entry still accurate)? `[J]` Is each entry genuinely load-bearing (a real "or it breaks"), not a restatement of a style preference or a decision that belongs in `docs/claugentic-DECISIONS.md`? `[J]` **Is the constraint already held where it BITES?** A red-first pin plus a do-not-revert comment at the call site records a constraint inside the path a future change must edit; this ledger is for the ones **no pin can hold** — a cross-file ordering, a "these two must move together", a rationale with no code to attach to. Prefer the pin, and say in the slice that you did. **This is an admission test on the CONSTRAINT, never on the ledger's free bytes:** a genuinely un-pinnable invariant is filed even when the file sits at its band, and the recourse is then the condensation / escape-valve ladder, never a skipped entry. *(0041 S10b, 2026-08-17: the D6 trust-surface constraint — a namespace retry must not consume the respawn budget, set the forced-same-model flag, or reuse the respawn label — was discharged as behaviourally-driven pins plus a call-site comment, and the invariants ledger stayed untouched. The rule that produced that call had been living only in the plan file, which is deleted at plan close.)*
 - **Confidence —** `judgment` — there is no gate; whether a constraint is load-bearing, and whether a change threatens one, is a reviewer call. (Deliberately ungated: a stale or missing invariant entry is a documentation gap, not a build failure — wiring a check here would over-engineer a doc into machinery.)
 - **Tradeoff (plain English) —** Writing down the handful of "this must stay true or X breaks" rules — with the story of the failure that taught you each one — means the next person (or agent) reads the landmine *before* stepping on it, instead of re-discovering it in production. The cost is a few lines per genuine invariant; the file stays tiny because most code carries none. Over-record it and it becomes noise nobody trusts — only truly load-bearing constraints earn an entry.
 - **Sources —** the claugentic-dev-harness invariants discipline (independently converged on by multiple adopter projects); D. Parnas, "On the Criteria To Be Used in Decomposing Systems into Modules" (the assumptions a module's clients rely on are exactly its load-bearing invariants); M. Nygard, "Documenting Architecture Decisions" (the sibling ADR practice this complements).
@@ -121,5 +119,5 @@ gold-plating an irrelevant one, never skipping a relevant one.
 
 - **Additive floor:** add dimensions as you discover them; **never delete** one. This catalog is meant to become "every standard we can think of."
 - **Right-size:** apply only *relevant* dimensions per change (`KISS`/`YAGNI`); never skip a relevant one. Relevance is a per-change judgment — see `README.md`.
-- **Novel patterns allowed** when they add clear value — justify (problem → why existing patterns fall short → benefit) and record in `claugentic-DECISIONS.md`. Unconventional ≠ wrong.
+- **Novel patterns allowed** when they add clear value — justify (problem → why existing patterns fall short → benefit) and record in `docs/claugentic-DECISIONS.md`. Unconventional ≠ wrong.
 - **Every dimension carries a Confidence tag** so the harness can separate what it *proved* (deterministic gates) from what it *asserts* (judgment). Trust the oracle, not the model's word.

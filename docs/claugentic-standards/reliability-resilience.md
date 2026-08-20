@@ -1,19 +1,17 @@
 ---
 module: reliability-resilience
 title: Reliability & Resilience
-version: 0.1.0
 status: draft
 iso_25010: [reliability]
 load_scope:
   keywords: [error, exception, retry, timeout, circuit-breaker, idempotent, concurrency, async, thread, race, deadlock, backpressure, upgrade, migration, reconcile, installer]
   globs: ["src/**"]
-last_reviewed: 2026-06-04
 ---
 
 # Reliability & Resilience — guard against failure, partial state, and contention
 
 > **Loads when:** the change touches error handling, I/O with external systems, concurrent or async code, retries, timeouts, or shared mutable state.
-> **ISO/IEC 25010:** reliability · **Status:** draft · **v0.1.0**
+> **ISO/IEC 25010:** reliability · **Status:** draft
 
 Each entry below is one **auditable dimension**. Per change, the reviewer applies the
 *relevant* ones **fully** (select-don't-skip), right-sized to the change — never
@@ -27,7 +25,7 @@ gold-plating an irrelevant one, never skipping a relevant one.
 - **Auditor checks —** Scan call sites for bare `except`/`catch` blocks that discard the exception or swallow it silently `[J]`; check that partial-state scenarios (e.g. write A succeeds, write B fails) leave the system in a consistent, recoverable state `[J]`; verify error messages identify the cause and suggest a remedy `[J]`.
 - **Confidence —** `judgment` — requires a reviewer to trace failure paths through the logic; no gate can prove completeness.
 - **Tradeoff (plain English) —** Explicit error handling makes failures visible and debuggable. The cost is more code and more test cases. Skipping it means silent data corruption or misleading success responses that are far harder to diagnose in production.
-- **Sources —** "Fail loudly, fail fast" — Release It! (Michael Nygard, 2nd ed., §4); ENGINEERING_STANDARDS.md § Correctness & resilience.
+- **Sources —** "Fail loudly, fail fast" — Release It! (Michael Nygard, 2nd ed., §4).
 
 ---
 
@@ -111,7 +109,7 @@ gold-plating an irrelevant one, never skipping a relevant one.
 - **Auditor checks —** Identify shared mutable state in the diff (class-level variables, singletons, module globals) `[J]`; verify access is serialized or the object is documented thread-local `[J]`; check async code for unguarded concurrent writes to shared collections `[J]`; verify channels/queues have bounded capacity or explicit backpressure `[J]`.
 - **Confidence —** `judgment` — concurrency bugs require mental model tracing; no static gate reliably catches all races.
 - **Tradeoff (plain English) —** Concurrency gives throughput but introduces non-deterministic failure modes that are hard to reproduce and debug. Explicit locking and immutability add overhead but make behavior predictable.
-- **Sources —** Java Concurrency in Practice (Goetz et al.), §1; Python `asyncio` docs — "Synchronization Primitives"; ENGINEERING_STANDARDS.md § Resources & concurrency.
+- **Sources —** Java Concurrency in Practice (Goetz et al.), §1; Python `asyncio` docs — "Synchronization Primitives".
 
 ---
 
@@ -121,7 +119,7 @@ gold-plating an irrelevant one, never skipping a relevant one.
 - **Auditor checks —** Grep diff for `open(`, connection acquire, thread/process spawn calls `[D]`; verify each is wrapped in a context manager or explicit `finally` block `[J]`; check for in-memory collections that grow without a cap or eviction policy `[J]`.
 - **Confidence —** `judgment` — structural presence of `with`/`finally` is grep-able `[D]`, but correctness of scope requires review.
 - **Tradeoff (plain English) —** Resource leaks are invisible at small scale and catastrophic under load — connections pool exhausts, memory spikes, file descriptor limit hits. The fix (context managers) is cheap; the leak is expensive.
-- **Sources —** PEP 343 — The "with" Statement; ENGINEERING_STANDARDS.md § Resources & concurrency.
+- **Sources —** PEP 343 — The "with" Statement.
 
 ---
 
@@ -129,5 +127,5 @@ gold-plating an irrelevant one, never skipping a relevant one.
 
 - **Additive floor:** add dimensions as you discover them; **never delete** one. This catalog is meant to become "every standard we can think of."
 - **Right-size:** apply only *relevant* dimensions per change (`KISS`/`YAGNI`); never skip a relevant one. Relevance is a per-change judgment — see `README.md`.
-- **Novel patterns allowed** when they add clear value — justify (problem → why existing patterns fall short → benefit) and record in `claugentic-DECISIONS.md`. Unconventional ≠ wrong.
+- **Novel patterns allowed** when they add clear value — justify (problem → why existing patterns fall short → benefit) and record in `docs/claugentic-DECISIONS.md`. Unconventional ≠ wrong.
 - **Every dimension carries a Confidence tag** so the harness can separate what it *proved* (deterministic gates) from what it *asserts* (judgment). Trust the oracle, not the model's word.

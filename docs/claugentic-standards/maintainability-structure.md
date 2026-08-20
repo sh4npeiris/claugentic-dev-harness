@@ -2,19 +2,17 @@
 # ── Module contract (copied from _TEMPLATE.md) ──
 module: maintainability-structure
 title: Maintainability & Structure
-version: 0.1.0
 status: draft
 iso_25010: [maintainability]
 load_scope:
   keywords: [refactor, architecture, module, layer, service, pattern, coupling, cohesion, naming, dead-code, complexity, types]
   globs: ["src/**", "lib/**", "**/*.ts", "**/*.js"]
-last_reviewed: 2026-06-04
 ---
 
 # Maintainability & Structure — is this code shaped so the next change is cheap?
 
 > **Loads when:** new/changed code introduces or reshapes structure — modules, layers, services, interfaces, abstractions; refactors; anything where SOLID, layering, design-pattern choice, coupling/cohesion, type-safety, naming, or code-health is in play.
-> **ISO/IEC 25010:** Maintainability (modularity, reusability, analysability, modifiability, testability) · **Status:** draft · **v0.1.0**
+> **ISO/IEC 25010:** Maintainability (modularity, reusability, analysability, modifiability, testability) · **Status:** draft
 
 Each entry below is one **auditable dimension**. Per change, the reviewer applies the
 *relevant* ones **fully** (select-don't-skip), right-sized to the change — never
@@ -49,7 +47,7 @@ can prove it · `[J]` needs a reviewer's eye.
 
 ## Design-pattern catalog (use the right one — or justify a novel one)
 
-- **Good looks like —** When a recurring problem appears, a **named, established pattern** is applied deliberately (not cargo-culted): **persistence/data** — Repository, Unit-of-Work, Specification, Data Mapper, Gateway; **behavioral** — Strategy, Observer, Mediator, Template Method, Command; **creational** — Factory / Abstract Factory, Builder, Dependency Injection; **structural** — Decorator, Adapter, Facade, Proxy, Composite; **resilience/distributed** — Circuit-Breaker, Bulkhead, Saga (orchestration/choreography), Transactional Outbox, Retry, Timeout. A pattern is used where it earns its keep, named in code/comments/commit, and not layered on where a plain function would do (over-engineering is itself a smell). A **novel** pattern is allowed only with a written justification (problem → why existing patterns fall short → benefit) recorded in `claugentic-DECISIONS.md`.
+- **Good looks like —** When a recurring problem appears, a **named, established pattern** is applied deliberately (not cargo-culted): **persistence/data** — Repository, Unit-of-Work, Specification, Data Mapper, Gateway; **behavioral** — Strategy, Observer, Mediator, Template Method, Command; **creational** — Factory / Abstract Factory, Builder, Dependency Injection; **structural** — Decorator, Adapter, Facade, Proxy, Composite; **resilience/distributed** — Circuit-Breaker, Bulkhead, Saga (orchestration/choreography), Transactional Outbox, Retry, Timeout. A pattern is used where it earns its keep, named in code/comments/commit, and not layered on where a plain function would do (over-engineering is itself a smell). A **novel** pattern is allowed only with a written justification (problem → why existing patterns fall short → benefit) recorded in `docs/claugentic-DECISIONS.md`.
 - **Auditor checks —** `[J]` Does the chosen pattern actually fit the problem, or is it pattern-for-pattern's-sake (e.g. a Factory that only ever makes one type, a Strategy with one strategy)? `[J]` Is data access behind a **Repository** (collection-like interface) rather than ORM/SQL scattered through services? `[J]` Where multiple writes must commit together, is **Unit-of-Work / transaction** boundary explicit? `[J]` For cross-service writes, is **Saga + Outbox** used instead of an unsafe dual-write? `[J]` For unreliable I/O, are **Circuit-Breaker / Bulkhead / Timeout / Retry** present where apt (cross-ref `reliability-resilience`)? `[J]` If a pattern is novel/unconventional, is the justification recorded?
 - **Confidence —** `judgment`
 - **Tradeoff (plain English) —** Reaching for a well-known pattern means the next engineer recognizes the shape instantly and the solution is battle-tested. The cost is indirection — and forcing a pattern where none is needed makes simple code harder to read, so match the pattern to the problem.
@@ -136,5 +134,5 @@ can prove it · `[J]` needs a reviewer's eye.
 
 - **Additive floor:** add dimensions as you discover them; **never delete** one. This catalog is meant to become "every standard we can think of."
 - **Right-size:** apply only *relevant* dimensions per change (`KISS`/`YAGNI`); never skip a relevant one. Relevance is a per-change judgment — see `README.md`.
-- **Novel patterns allowed** when they add clear value — justify (problem → why existing patterns fall short → benefit) and record in `claugentic-DECISIONS.md`. Unconventional ≠ wrong.
+- **Novel patterns allowed** when they add clear value — justify (problem → why existing patterns fall short → benefit) and record in `docs/claugentic-DECISIONS.md`. Unconventional ≠ wrong.
 - **Every dimension carries a Confidence tag** so the harness can separate what it *proved* (deterministic gates) from what it *asserts* (judgment). Trust the oracle, not the model's word.

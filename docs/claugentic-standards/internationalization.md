@@ -1,19 +1,17 @@
 ---
 module: internationalization
 title: Internationalization
-version: 0.1.0
 status: draft
 iso_25010: [interaction-capability]
 load_scope:
   keywords: [i18n, l10n, locale, timezone, translation, encoding, currency, rtl]
   globs: ["**/locales/**", "**/i18n/**"]
-last_reviewed: 2026-06-04
 ---
 
 # Internationalization — correct behaviour across locales, timezones, and scripts
 
 > **Loads when:** changes touch locale handling, date/number/currency formatting, string translation pipelines, timezone logic, character encoding, or RTL layout.
-> **ISO/IEC 25010:** interaction-capability · **Status:** draft · **v0.1.0**
+> **ISO/IEC 25010:** interaction-capability · **Status:** draft
 >
 > **Accessibility** (WCAG, keyboard nav, contrast, screen-reader) is covered in `product-ux.md` — cross-reference that module; do not duplicate those standards here.
 
@@ -87,5 +85,5 @@ gold-plating an irrelevant one, never skipping a relevant one.
 
 - **Additive floor:** add dimensions as you discover them; **never delete** one. This catalog is meant to become "every standard we can think of."
 - **Right-size:** apply only *relevant* dimensions per change (`KISS`/`YAGNI`); never skip a relevant one. Relevance is a per-change judgment — see `README.md`.
-- **Novel patterns allowed** when they add clear value — justify (problem → why existing patterns fall short → benefit) and record in `claugentic-DECISIONS.md`. Unconventional ≠ wrong.
+- **Novel patterns allowed** when they add clear value — justify (problem → why existing patterns fall short → benefit) and record in `docs/claugentic-DECISIONS.md`. Unconventional ≠ wrong.
 - **Every dimension carries a Confidence tag** so the harness can separate what it *proved* (deterministic gates) from what it *asserts* (judgment). Trust the oracle, not the model's word.

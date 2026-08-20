@@ -6,7 +6,12 @@
 
 Releases are also gated by the **Definition of Done** in [`docs/claugentic-WORKFLOW.md`](claugentic-WORKFLOW.md#definition-of-done) — run the deterministic gates **and** the reviewer sign-offs there; this file does not restate them.
 
-**Step 0 — what a release actually reaches.** Nothing merged to `main` reaches an **existing** adopter until this version **publishes** AND they **re-run `init`** in their own repo — neither precondition is automatic. Say so wherever you announce the change; a payload edit alone changes nothing in a repo that has not re-run `init`.
+**Step 0 — what a release actually reaches, in two halves.** Nothing merged to `main` reaches an **existing** adopter until this version **publishes** and they **update the installed plugin** — neither is automatic. Past that point the payload splits, and the halves arrive differently:
+
+- **Plugin-resident** — the skills, the bundled agents, `engine/*.js`, and the SessionStart hook are read from the install path, so a change to them takes effect on the plugin update alone. **No re-init needed.**
+- **Copy-on-init** — the `docs/claugentic-standards/` catalog, `WORKFLOW.md`, `ENGINEERING_STANDARDS.md`, `PLAYBOOK.md`, the two templates, and the two gate scripts delivered into the adopter's `scripts/` live as **stamped copies in their repo**. A change to any of those reaches them **only when they re-run `init`** (`skills/init/SKILL.md` owns the managed set and its never-clobber verdicts).
+
+Say which half your change is in wherever you announce it — "it published" is not "they have it," and for the copy-on-init half it isn't even close.
 
 ## The release — four steps
 

@@ -1,19 +1,17 @@
 ---
 module: testing
 title: Testing
-version: 0.1.0
 status: draft
 iso_25010: [maintainability, reliability, functional-suitability]
 load_scope:
   keywords: [test, spec, coverage, mock, stub, fixture, characterization, regression, snapshot, e2e, mutation]
   globs: ["**/*.test.*", "**/*.spec.*", "**/test/**", "**/__tests__/**"]
-last_reviewed: 2026-06-04
 ---
 
 # Testing — does the suite actually prove the behavior, and will it catch the next regression?
 
 > **Loads when:** any change that adds, edits, or deletes tests; any behavior change that *should* be tested; refactors of legacy/untested code (characterization first); UI work (visual + a11y); flaky-test triage; or coverage/CI-gate changes.
-> **ISO/IEC 25010:** Maintainability (testability, analysability, modifiability), with Reliability and Functional-suitability — cross-cutting; tests are the safety net every other dimension leans on. · **Status:** draft · **v0.1.0**
+> **ISO/IEC 25010:** Maintainability (testability, analysability, modifiability), with Reliability and Functional-suitability — cross-cutting; tests are the safety net every other dimension leans on. · **Status:** draft
 
 Each entry below is one **auditable dimension**. Per change, the reviewer applies the
 *relevant* ones **fully** (select-don't-skip), right-sized to the change — never
@@ -155,5 +153,5 @@ The governing rule across every dimension: **trust the oracle, not the author's 
 
 - **Additive floor:** add dimensions as you discover them; **never delete** one. This catalog is meant to become "every standard we can think of."
 - **Right-size:** apply only *relevant* dimensions per change (`KISS`/`YAGNI`); never skip a relevant one. Relevance is a per-change judgment — see `README.md`.
-- **Novel patterns allowed** when they add clear value — justify (problem → why existing patterns fall short → benefit) and record in `claugentic-DECISIONS.md`. Unconventional ≠ wrong.
+- **Novel patterns allowed** when they add clear value — justify (problem → why existing patterns fall short → benefit) and record in `docs/claugentic-DECISIONS.md`. Unconventional ≠ wrong.
 - **Every dimension carries a Confidence tag** so the harness can separate what it *proved* (deterministic gates) from what it *asserts* (judgment). Trust the oracle, not the model's word.

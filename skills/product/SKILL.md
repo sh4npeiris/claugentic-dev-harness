@@ -131,8 +131,9 @@ phase genuinely needs the user — it stays a conversation.**
    the six frozen keys `id, feature, flow, expect, states, check`; non-empty `flow` and `expect`;
    `states` ⊆ `{empty, loading, error}`; `check` ∈ `{e2e, api, manual}`; **ids unique**. On any
    violation, **stop and name the offending criterion id and the exact problem**, fix it, and
-   re-validate — never write a malformed criteria block (the gap check and `qa.js` both consume it,
-   and a pytest pins the frozen field names). Any **adopted** proposal's suggested criterion goes
+   re-validate — never write a malformed criteria block: the gap check and `qa.js` both consume it,
+   and `qa.js` re-validates at its boundary and **refuses the whole run** rather than silently
+   dropping a bad criterion, so a malformed block costs you the QA pass. Any **adopted** proposal's suggested criterion goes
    through this same validation before it can land.
 
 7. **Write `docs/claugentic-PRODUCT_SPEC.md`** — **user-owned: NO managed stamp** (`init` never refreshes it).

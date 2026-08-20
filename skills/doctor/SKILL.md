@@ -257,9 +257,9 @@ the `claugentic-dev-harness:init` skill + the *deterministic-gates* shard indexe
   EXACTLY** — `.githooks/pre-commit` is the source of truth; read it rather than paraphrasing it.
   Iterate the candidates **in order, `python3` then `python`**, and **EXECUTE each** with
   `-c 'import sys; sys.exit(0 if sys.version_info >= (3, 7) else 1)'`, stopping at the first that
-  exits 0. (The candidate order and the 3.7 floor restated here are **test-pinned to the hook** —
-  `tests/test_precommit_wrapper.py` turns red if either home drifts; when the hook's floor moves,
-  this section moves in the same change.) **Never `command -v` / `where` / a bare PATH lookup:** resolution-without-execution is
+  exits 0. (The candidate order and the 3.7 floor are restated here for reading convenience only —
+  the wrapper on disk is the authority; if the two ever disagree, believe the wrapper.)
+  **Never `command -v` / `where` / a bare PATH lookup:** resolution-without-execution is
   precisely the Windows-Store-stub false negative — a `python3` shim that resolves, exits
   non-zero, and commonly sits *beside* a working `python` — that this probe exists to defeat.
   - **Probe through `sh` where you have it** (`sh -c '…'`), because the hook's PATH view is not
@@ -278,9 +278,10 @@ the `claugentic-dev-harness:init` skill + the *deterministic-gates* shard indexe
     gate's literal `WARN:` line, and nothing here produced one. Keep the remedy in the hook's own
     register: **"install Python 3 — the gate resumes on the next commit; no re-init needed."**
     Never point at `/claugentic-dev-harness:init`; re-running init installs no runtime, and the
-    hook's own notice deliberately doesn't say it either (a test pins that wording).
+    hook's own notice deliberately doesn't say it either — read the wrapper's skip message and
+    reuse its wording rather than inventing one.
   - **Not a treat.** Doctor reports it and stops — installing a runtime is outside the
-    bounded-mechanical set, the same boundary the stamped-fence row draws (that set stays four).
+    bounded-mechanical set, the same boundary the stamped-fence row draws.
 - **Managed-file stamps** present and **parseable** — a managed doc/tree's stamp line carries a
   parseable-semver on line 1 (the never-clobber upsert marker).
 - **Stamped fence vs the installed plugin** *(read-only — not a gate)* — compare the CLAUDE.md
@@ -289,10 +290,8 @@ the `claugentic-dev-harness:init` skill + the *deterministic-gates* shard indexe
   the adopter repo — an adopter has no `.claude-plugin/` of its own). Stamp **<** plugin =
   **skew**. **Doctor REPORTS it; the remedy is for YOU to re-run
   `/claugentic-dev-harness:init`** (its never-clobber upsert re-stamps the fence) — **this is
-  not one of doctor's applied treats** (see *Treat* — that set is exactly four **in count**,
-  though the re-wire treat's BOUNDARY grew in 0041 S6: it may now offer to un-ignore the
-  wrapper, an action `init` itself refuses to take. Count unchanged, scope not; and init's
-  repo-wide blast radius does not meet the treat boundary). The comparison is `[D]` **only where
+  not one of doctor's applied treats** (see *Treat*): `init`'s repo-wide blast radius does not
+  meet the treat boundary. The comparison is `[D]` **only where
   both values are readable and both parse as numeric semver**; a missing fence, an unreadable
   manifest, or a non-numeric version is **N-A — never a guess and never a breach.** (The
   SessionStart advisor surfaces the same skew as a one-line user-facing nudge; this is the

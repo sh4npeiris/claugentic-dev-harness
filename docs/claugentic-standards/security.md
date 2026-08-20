@@ -2,19 +2,17 @@
 # ── Module contract: every docs/claugentic-standards/ module copies this frontmatter ──
 module: security
 title: Security & Privacy
-version: 0.1.0
 status: draft
 iso_25010: [security]
 load_scope:
   keywords: [auth, authz, login, token, password, secret, crypto, session, encryption, pii, injection, csrf, ssrf, cors, dependency]
   globs: ["**/auth/**", "**/*login*", "**/middleware/**", "**/*.env*", "**/security/**"]
-last_reviewed: 2026-06-04
 ---
 
 # Security & Privacy — keep untrusted input, attackers, and regulators from turning code into a breach
 
 > **Loads when:** a change touches authentication/authorization, sessions/tokens, secrets or crypto, input handling or query/command construction, cross-origin/redirect/outbound-fetch behavior, deserialization, dependencies, or any personal/regulated data (PII, student, health, payment).
-> **ISO/IEC 25010:** Security (confidentiality, integrity, non-repudiation, accountability, authenticity) · **Status:** draft · **v0.1.0**
+> **ISO/IEC 25010:** Security (confidentiality, integrity, non-repudiation, accountability, authenticity) · **Status:** draft
 
 Each entry below is one **auditable dimension**. Per change, the reviewer applies the
 *relevant* ones **fully** (select-don't-skip), right-sized to the change — never
@@ -191,5 +189,5 @@ sink, a new data field), not by how big the diff is. A one-line change can be in
 
 - **Additive floor:** add dimensions as you discover them; **never delete** one. This catalog is meant to become "every standard we can think of."
 - **Right-size:** apply only *relevant* dimensions per change (`KISS`/`YAGNI`); never skip a relevant one. Relevance is a per-change judgment — see `README.md`.
-- **Novel patterns allowed** when they add clear value — justify (problem → why existing patterns fall short → benefit) and record in `claugentic-DECISIONS.md`. Unconventional ≠ wrong.
+- **Novel patterns allowed** when they add clear value — justify (problem → why existing patterns fall short → benefit) and record in `docs/claugentic-DECISIONS.md`. Unconventional ≠ wrong.
 - **Every dimension carries a Confidence tag** so the harness can separate what it *proved* (deterministic gates) from what it *asserts* (judgment). Trust the oracle, not the model's word.

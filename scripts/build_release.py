@@ -505,7 +505,7 @@ def _dropped_shipped_paths(root: Path, strip: list[str]) -> list[str]:
     Scope, honestly: this is a path-SET subset guard, NOT a total drop guarantee — it cannot
     see a dropped COMMIT whose file also legitimately changed elsewhere. The manual
     `git range-diff` drop-check stays as defense-in-depth (docs/RELEASE_CHECKLIST.md)."""
-    # `--diff-filter=A` against the UPSTREAM..HEAD direction is the ABSENCE test the docstring
+    # `--diff-filter=D` from UPSTREAM to HEAD is the ABSENCE test the docstring
     # states: a path present on UPSTREAM_REF and ABSENT from HEAD. A plain `diff --name-only`
     # reports every path whose CONTENT differs, so the ordinary pre-tag state -- the bump commit
     # sitting on HEAD, unpushed -- read as "3 SHIPPED files would be dropped", which is both
