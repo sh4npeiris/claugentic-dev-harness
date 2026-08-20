@@ -43,7 +43,7 @@ Executable code = the gate scripts (`scripts/`) + the Workflow choreography (`en
 ## docs/claugentic-standards/ — the modular quality catalog
 
 - `docs/claugentic-standards/_TEMPLATE.md` — open to author/audit a module: the module contract (frontmatter schema + per-dimension structure: good / auditor-checks / confidence / tradeoff / sources).
-- `docs/claugentic-standards/README.md` — open for standards governance: catalog index + meta-rules (select-don't-skip, additive, novel-patterns), the two-tier model, versioning, module-status index.
+- `docs/claugentic-standards/README.md` — open for standards governance: catalog roster + meta-rules (select-don't-skip, additive, novel-patterns), the two-tier model, versioning; per-module status lives in each module's frontmatter.
 - `docs/claugentic-standards/security.md` — **(deep)** authN/authZ, secrets, injection/OWASP, supply-chain, privacy/PII, encryption, compliance; ASVS 5.0 / NIST-grounded.
 - `docs/claugentic-standards/maintainability-structure.md` — **(deep)** SOLID, Clean/Hexagonal/Onion layers, design-pattern catalog, code-health/smells/dead-code, type safety.
 - `docs/claugentic-standards/testing.md` — **(deep)** test pyramid, characterization/golden-master, mutation, test-diff review, visual/a11y testing, determinism, coverage.

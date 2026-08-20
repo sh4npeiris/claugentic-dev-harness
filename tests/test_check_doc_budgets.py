@@ -1166,14 +1166,18 @@ class TestProductionConfig:
         assert isinstance(self._config(), dict)
 
     def test_the_migrated_caps_are_exactly_the_five_entries(self):
-        # The values this repo ran on before the caps became data — pinned so the migration
-        # can be proven byte-equivalent and a later drift is deliberate, never accidental.
+        # Every cap this repo runs on, pinned byte-exactly so a drift is deliberate, never
+        # accidental — the "one harness-self extra" the escape-valve ladder's rung 2 names:
+        # a cap edit lands here in the same commit. WORKFLOW joined 2026-08-19 after the
+        # north-star thinning pass, sized at the ~80% band per the cap-band rule
+        # (docs/claugentic-decisions/doc-lifecycle.md), never at its measured size.
         assert self._config() == {
             "CLAUDE.md": 6000,
             "docs/claugentic-DECISIONS.md": 3500,
             "docs/claugentic-decisions/*.md": 14000,
             "docs/claugentic-ROADMAP.md": 14000,
             "docs/claugentic-INVARIANTS.md": 20000,
+            "docs/claugentic-WORKFLOW.md": 77500,
             "docs/claugentic-standards/*.md": 60000,
         }
 

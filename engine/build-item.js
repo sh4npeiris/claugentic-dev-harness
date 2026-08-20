@@ -1,92 +1,74 @@
 // engine/build-item.js -- the build-to-green inner loop as an executable Workflow script.
 //
-// The engine the earned build-to-green mode unlocks: take ONE approved item and iterate
-//   implement (worktree) -> deterministic gates -> Verify panel -> QA flows -> fix
-// until everything is green or the iteration/budget cap hits. The script NEVER lands,
-// pushes, or merges by construction -- but it DOES branch and commit (the implementer works
-// in an isolated worktree; the branch is the durable artifact), so the guarantee is SCOPE,
-// not abstinence from git: it writes ONLY its own work branch, never the base branch or a
-// remote. EVERY terminal status is a
-// return-to-orchestrator (the before-land pause, the irreversible hard-stop, and the
-// re-triage on a new Tier-1/2 finding all belong to the orchestrator/skill, not the script).
+// Take ONE approved item and iterate implement (worktree) -> deterministic gates -> Verify panel ->
+// QA flows -> fix until green or the iteration/budget cap hits. It NEVER lands, pushes or merges by
+// construction -- but it DOES branch and commit (the implementer works in an isolated worktree; the
+// branch is the durable artifact), so the guarantee is SCOPE, not abstinence from git: it writes ONLY
+// its own work branch, never the base branch or a remote. EVERY terminal status is a
+// return-to-orchestrator -- the before-land pause, the irreversible hard-stop and the re-triage on a
+// new Tier-1/2 finding all belong to the orchestrator/skill, not the script.
 //
-// The two later stages (Verify, QA) are run via the ONE-LEVEL platform child call
-// `workflow({scriptPath}, childArgs)` -- so the panel/QA wiring (the same-model tagging, the
-// runtime finding shapes) has a SINGLE source of truth in verify.js / qa.js; an inlined copy
-// here would drift (DRY). build-item.js spawns NO judge directly, so it carries no `MODELS`
-// block -- only the run-level `sameModelTag` to fold the children's self-reports into the
-// terminal cross-model claim.
+// Verify and QA run via the ONE-LEVEL child call `workflow({scriptPath}, childArgs)`, so that wiring
+// has a SINGLE source of truth in verify.js / qa.js -- an inlined copy would drift (DRY). This script
+// spawns NO judge directly, so it carries no `MODELS` block; only the run-level `sameModelTag`, to
+// fold the children's self-reports into the terminal cross-model claim.
 //
-// Distribution: read-from-install-path. Adopters invoke this from the version-stamped plugin
-// install dir (`${CLAUDE_PLUGIN_ROOT}/engine/build-item.js`); this repo dogfoods it via the
-// repo-local `./engine/build-item.js` (the working tree IS the plugin source). Never copied
-// into an adopter repo (no managed-stamp/refresh surface) -- see docs/claugentic-DECISIONS.md -> Plugin identity & distribution.
+// Distribution: read-from-install-path -- adopters invoke
+// `${CLAUDE_PLUGIN_ROOT}/engine/build-item.js`; this repo dogfoods `./engine/build-item.js`. Never
+// copied into an adopter repo -- see docs/claugentic-DECISIONS.md -> Plugin identity & distribution.
 //
-// Workflow-script constraints (the tool runs this inside its sandbox): NO imports, NO
-// filesystem APIs, NO wall-clock / randomness (the orchestrator stamps times AFTER the run).
-// Only the tool primitives `agent()`/`parallel()`/`pipeline()`/`phase()`/`log()`/`args`/`budget`
-// + the one-level `workflow()` child call. Pure decision logic lives in the marked
-// `// --- helpers ---` block and is unit-tested by tests/workflows/build-item.test.mjs
-// (extract-and-eval), so the prose->script move tests the judgment, not just inspects it.
+// Sandbox constraints: NO imports, NO filesystem, NO wall-clock/randomness (the orchestrator stamps
+// times AFTER the run). Only `agent()`/`parallel()`/`pipeline()`/`phase()`/`log()`/`args`/`budget`
+// + the one-level `workflow()` child call. Pure decision logic lives in the marked helpers block,
+// unit-tested by tests/workflows/build-item.test.mjs (extract-and-eval).
 //
-// Per-stage duration bound (caps.stageTimeouts) -- the THREE-WAY enforcement register (the
-// honesty contract; the three bounded stages do NOT enforce equally, and the copy must say so).
-// The script has no wall-clock, so it CANNOT time a stage itself; the only lever is the Bash
-// tool's `timeout` parameter on the commands the stage agents run -- a PER-COMMAND bound, NEVER a
-// stage wall-clock total (a gates stage of k commands can legitimately take ~kxbound plus the
-// agent's reasoning). The register:
-//   - gates    -- agent-applied per-command Bash-tool timeout + a MECHANICAL red decision: a
-//                timed-out command reports exitCode 124 (the named no-exit-observed convention)
-//                and `gatesGreen` reads that reported code as red. Strongest.
-//   - qaBoot   -- a MECHANICAL clamp in qa.js (parseRunArgs Math.min <= 300s) + an agent-executed
-//                bounded readiness probe. Mechanical bound, agent-executed probe.
+// Per-stage duration bound (caps.stageTimeouts) -- the THREE-WAY enforcement register, and an
+// honesty contract: the three bounded stages do NOT enforce equally and the copy must say so. The
+// script has no wall-clock, so it CANNOT time a stage; the only lever is the Bash tool's `timeout`
+// parameter -- PER-COMMAND, NEVER a stage total (k commands can legitimately take ~kxbound):
+//   - gates         -- agent-applied per-command timeout + a MECHANICAL red decision: a timed-out
+//                      command reports exitCode 124 (the named no-exit-observed convention) and
+//                      `gatesGreen` reads that code as red. Strongest.
+//   - qaBoot        -- a MECHANICAL clamp in qa.js (parseRunArgs Math.min <= 300s) + an
+//                      agent-executed bounded readiness probe.
 //   - implement/fix -- an INSTRUCTION-ONLY anti-hang nudge: IMPLEMENT_SCHEMA has NO exit-code
-//                channel, so there is no mechanical consumer; a runaway is left to surface
-//                downstream (the gates stage + the iteration cap) WHEN it manifests there --
-//                nothing in this stage bounds it. Model-upheld end to end (NOT "fail-closed").
-// Residual: a single legitimate command that genuinely exceeds the Bash-tool 600s hard max cannot
-// be bounded-and-completed in one foreground call -- that repo's suite must be split, or it is not
-// bounded-runnable. No mechanism here bounds a stage's TOTAL wall-clock.
+//                      channel, so nothing mechanical consumes it and a runaway only surfaces
+//                      downstream (gates + the iteration cap) WHEN it manifests there. Nothing in
+//                      this stage bounds it -- model-upheld end to end, NOT "fail-closed".
+// Residual: one legitimate command past the Bash-tool 600s hard max cannot be bounded-and-completed
+// in a single foreground call -- split that suite, or it is not bounded-runnable. No mechanism here
+// bounds a stage's TOTAL wall-clock.
 
 export const meta = {
   name: "build-item",
   description:
     "The build-to-green engine: one approved item iterated implement (implementer in a worktree) -> deterministic gates (an agent runs the repo's gate commands; pass/fail is exit codes) -> Verify panel (the verify.js child workflow) -> QA flows (the qa.js child workflow, only when machine-checkable acceptance criteria exist) -> fix, until green or the iteration/budget cap. The script NEVER lands/pushes/merges and writes ONLY its own work branch (the implementer does branch and commit there) -- every terminal status is a return-to-orchestrator: green (the before-land pause is the orchestrator's), needs-irreversible (the irreversible hard-stop), new-tier12 (a finding outside the item -- re-triage), not-green (the cap: 'not green; here is the residual', nothing partial landed), blocked (a boundary error, e.g. a manual criterion or criteria with no run-app command). A green close-out claims only 'passed the deterministic gates and the reviewers' audit on this run' -- a reduction of unwatched-run risk, never a substitute for the unbuilt deterministic trust-gates, never 'proven correct'.",
-  // Bounded call count: per iteration = 1 implement/fix + 1 gates agent + 1 verify child + (<=1
-  // qa child) -- no unbounded loops (maxIterations caps it). The static budget below is a
-  // backstop; caps.maxIterations is the true bound, enforced in code by nextAction.
+  // Bounded call count: per iteration = 1 implement/fix + 1 gates agent + 1 verify child + (<=1 qa
+  // child), and maxIterations caps the loop. The static budget is a backstop; caps.maxIterations is
+  // the true bound, enforced in code by nextAction.
   budget: { agents: 60 },
 };
 
 // --- helpers ---
-// Pure functions only -- they reference solely their params and each other (no closure over
-// tool primitives), so the test harness can extract this block and evaluate it standalone.
+// Pure functions only -- no closure over tool primitives, so the harness can extract and eval this
+// block standalone.
 
-// The verbatim same-model disclosure tag. Defined once; never reconstructed by hand at a call
-// site, so the wording cannot drift (honesty trust surface). Copied verbatim from verify.js.
+// The verbatim same-model disclosure tag. Defined once, never rebuilt at a call site (honesty trust
+// surface -- the wording cannot drift). Copied verbatim from verify.js.
 const SAME_MODEL_TAG =
   "same-model review on this run -- the judge and the builder are the same model family here.";
 
-// The bundled-agent namespace prefix -- the ONE source both nsAgent (which adds it) and
-// bareAgentType (which strips it) read, so the two can never disagree about what a namespaced id
-// looks like. Copied byte-identical across the workflow scripts (cross-script drift pin).
+// The bundled-agent namespace prefix -- the ONE source nsAgent adds and bareAgentType strips, so
+// the two can never disagree. Copied byte-identical across the four scripts (drift pin).
 const AGENT_NAMESPACE = "claugentic-dev-harness";
 
-// Bundled agents resolve as `<AGENT_NAMESPACE>:<agent>` for an installed adopter (bare names
-// resolve only when dogfooded with project-local .claude/agents/). Namespace every custom-agent
-// spawn; built-ins (general-purpose, ...) stay bare. Namespaced stays what the engine WRITES --
-// the spawn wrapper below the helpers block retries bare ONCE on a thrown spawn failure, and
-// DERIVES that bare name rather than storing it. Pure -> unit-tested.
+// Namespace every custom-agent spawn; built-ins (general-purpose, ...) stay bare. Namespaced is
+// what the engine WRITES -- the spawn wrapper below derives the bare fallback. See verify.js.
 const nsAgent = (name) => `${AGENT_NAMESPACE}:${name}`;
 
-// Strip EVERY leading `<AGENT_NAMESPACE>:` prefix from an agent id, yielding the bare name a
-// project-local .claude/agents/ dir resolves -- the D6 fallback target, DERIVED at runtime so no
-// bare agent name is ever written as a literal in engine source. Total and IDEMPOTENT
-// (bareAgentType(bareAgentType(x)) === bareAgentType(x)), so a doubly-namespaced id can never be
-// half-stripped. An id with no prefix comes back UNCHANGED, and "unchanged" IS the "no fallback
-// exists" signal the caller tests by comparison -- a built-in like general-purpose, or another
-// plugin's namespace, which is not ours to strip; a non-string maps to "". Copied byte-identical
-// across the workflow scripts (cross-script drift pin).
+// Strip EVERY leading `<AGENT_NAMESPACE>:` prefix -- the D6 fallback target, DERIVED at runtime.
+// Total and IDEMPOTENT; an unprefixed id comes back UNCHANGED, and "unchanged" IS the caller's
+// "no fallback exists" signal. Copied byte-identical from verify.js (drift pin; full contract there).
 function bareAgentType(agentType) {
   const prefix = `${AGENT_NAMESPACE}:`;
   let bare = typeof agentType === "string" ? agentType : "";
@@ -96,10 +78,8 @@ function bareAgentType(agentType) {
   return bare;
 }
 
-// The one-line notice a namespace fallback logs before its single bare retry. Pure (message only
-// -- the caller owns log() and the retry), so the wording is unit-pinnable from the helpers
-// block. It states the trust boundary in the run log itself: a namespace retry is NOT a model
-// respawn. Copied byte-identical across the workflow scripts (cross-script drift pin).
+// The notice a namespace fallback logs before its single bare retry -- it states the trust boundary
+// in the log: a namespace retry is NOT a model respawn. Copied byte-identical (drift pin).
 function namespaceFallbackNotice(agentType, bare, err) {
   const detail = err && err.message ? err.message : String(err);
   return (
@@ -109,24 +89,20 @@ function namespaceFallbackNotice(agentType, bare, err) {
   );
 }
 
-// The verbatim UNRESOLVED disclosure tag -- the THIRD state, distinct from SAME_MODEL_TAG. When a
-// judge's self-reported family can't be recognized, the run is reported as unresolved (the
-// conservative same-model trust floor still holds -- no cross-model claim) rather than ASSERTED to
-// be same-model fact. Defined once so the wording cannot drift (honesty trust surface). Copied
-// byte-identical across the workflow scripts (cross-script drift pin). Carried here so the copied
-// sameModelTag below stays byte-identical and evaluable, even though this script spawns no judge.
+// The verbatim UNRESOLVED disclosure tag -- the THIRD state: an unrecognized judge family is
+// REPORTED unresolved (the same-model trust floor holds, no cross-model claim), never ASSERTED as
+// same-model fact. Honesty trust surface; copied byte-identical (drift pin). Carried here -- this
+// script spawns no judge -- so the copied sameModelTag below stays byte-identical and evaluable.
 const UNRESOLVED_FAMILY_TAG =
   "could not resolve the judge's model family on this run -- no cross-model claim is made (treated as the same-model trust floor, not asserted as fact).";
 
-// The recognized model families -- the ONE named source the modelFamily regex derives from (single
-// source of truth: a new family is added HERE, never in a hand-built regex). Copied byte-identical
-// across the workflow scripts (cross-script drift pin).
+// The recognized model families -- the ONE source the modelFamily regex derives from: a new family
+// is added HERE, never in a hand-built regex. Copied byte-identical (drift pin).
 const KNOWN_FAMILIES = ["fable", "opus", "sonnet", "haiku"];
 
-// Normalize a self-reported model family to a canonical lowercase token. First KNOWN_FAMILIES
-// match wins (the regex derives from that one named source -- no second hand-built family list);
-// empty / unknown -> null (conservative -- an unresolved family degrades to the trust floor, never
-// to a false cross-model claim). Copied verbatim from verify.js.
+// Normalize a self-reported model family to a canonical lowercase token. First KNOWN_FAMILIES match
+// wins; empty/unknown -> null (the conservative trust floor, never a false cross-model claim).
+// Copied verbatim from verify.js.
 function modelFamily(report) {
   if (typeof report !== "string") {
     return null;
@@ -135,12 +111,10 @@ function modelFamily(report) {
   return match ? match[1].toLowerCase() : null;
 }
 
-// The disclosure decision -- THREE states, one rule (detection included). The distinction is
-// between a MISSING self-report (the deliberate no-report / forced-respawn floor) and a PRESENT
-// self-report that FAILED to resolve (a genuine "could not resolve the family"). Copied verbatim
-// from verify.js (see there for the full state table). This script spawns no judge -- but its
-// CHILDREN do, so the run-level cross-model claim in the terminal report derives from the
-// children's self-reports via this one rule.
+// The disclosure decision -- THREE states, one rule; a MISSING self-report (the no-report floor) is
+// distinct from a PRESENT one that FAILED to resolve. Copied verbatim from verify.js (state table).
+// This script spawns no judge, but its CHILDREN do -- the terminal report's run-level cross-model
+// claim derives from their self-reports via this rule.
 function sameModelTag(builderFamily, judgeFamily) {
   const judgeReported = typeof judgeFamily === "string" && judgeFamily.trim().length > 0;
   if (!judgeReported) {
@@ -154,10 +128,9 @@ function sameModelTag(builderFamily, judgeFamily) {
   return b === j ? SAME_MODEL_TAG : null;
 }
 
-// Normalize the args boundary. A scriptPath invocation delivers `args` as a JSON STRING
-// (observed runtime behavior, 2026-06-11); an inline script may receive the object itself.
-// Accept both; an unparseable string fails loud -- never a silent empty-args run. Copied
-// verbatim from verify.js (modulo the script-name string the cross-script drift pin allows).
+// Normalize the args boundary: a scriptPath invocation delivers `args` as a JSON STRING (observed
+// 2026-06-11), an inline script the object itself. Unparseable fails loud. Copied verbatim from
+// verify.js (modulo the script-name string the cross-script drift pin allows).
 function parseArgs(raw) {
   if (typeof raw === "string") {
     try {
@@ -169,54 +142,51 @@ function parseArgs(raw) {
   return raw;
 }
 
-// The default iteration cap when caps.maxIterations is absent -- matches the SKILL's bounded
-// 2-3 implement->verify attempts (docs/claugentic-WORKFLOW.md / skills/build SKILL step 6).
+// The default iteration cap when caps.maxIterations is absent -- the SKILL's bounded 2-3
+// implement->verify attempts (docs/claugentic-WORKFLOW.md / skills/build SKILL step 6).
 const DEFAULT_MAX_ITERATIONS = 3;
 
-// The Bash-tool hard max for a single command's `timeout` parameter (600000ms = 600s). The single
-// ceiling constant -- referenced, never re-hardcoded as a bare 600. validateArgs rejects (never
-// silently clamps) a stageTimeout above it: a "configurable 800" that can't be honored is a lie.
+// The Bash-tool hard max for a single command's `timeout` (600000ms = 600s) -- the one ceiling
+// constant, referenced and never re-hardcoded as a bare 600. validateArgs REJECTS a stageTimeout
+// above it rather than silently clamping: a "configurable 800" that can't be honored is a lie.
 const MAX_STAGE_TIMEOUT_SEC = 600;
 
 // Per-stage DISTINCT defaults (a gate suite and a boot probe have very different legitimate
 // durations). implement/gates default to the loosest-safe Bash-tool max; `qaBoot` has NO engine
-// default (`null` = not set) -- qa.js owns the boot default (60s) and clamp (300s), so no
-// 60/300 literal is duplicated into this script (DRY) and the engine's boot default is unchanged.
+// default (`null` = unset) -- qa.js owns the boot default and clamp, so no literal is duplicated
+// into this script (DRY).
 const DEFAULT_STAGE_TIMEOUTS = { implement: MAX_STAGE_TIMEOUT_SEC, gates: MAX_STAGE_TIMEOUT_SEC, qaBoot: null };
 
 // The exact key set for caps.stageTimeouts -- a typo'd stage (`qaboot`, `implment`) must fail loud,
-// never silently fall back to the default (the frozen-criterion exact-key precedent below). DERIVED
-// from DEFAULT_STAGE_TIMEOUTS (single source of truth -- a new stage is added in ONE place, never a
-// second hand-maintained list that must agree with it forever).
+// never silently fall back to the default. DERIVED from DEFAULT_STAGE_TIMEOUTS, so a new stage is
+// added in ONE place and never in a second list that must agree with it forever.
 const STAGE_TIMEOUT_KEYS = Object.keys(DEFAULT_STAGE_TIMEOUTS);
 
-// Resolve the per-stage duration bounds from caps.stageTimeouts (per-stage distinct defaults).
-// PURE -- the boundary already validated/rejected out-of-range values (validateArgs), so there is
-// NO clamping here; this just applies the defaults. implement/gates default to MAX_STAGE_TIMEOUT_SEC;
-// `qaBoot` stays `null` when unset (qa.js stays the sole boot default-and-clamp owner).
+// Resolve the per-stage duration bounds from caps.stageTimeouts. PURE -- validateArgs already
+// rejected out-of-range values, so there is NO clamping here, just the defaults: implement/gates ->
+// MAX_STAGE_TIMEOUT_SEC, `qaBoot` -> null when unset (qa.js stays the sole boot clamp owner).
 function resolveStageTimeouts(caps) {
   const st = caps && typeof caps.stageTimeouts === "object" && caps.stageTimeouts !== null ? caps.stageTimeouts : {};
-  // No re-validation here: validateArgs already rejected every invalid value at the boundary (the
-  // script throws before this helper runs), so re-checking the predicate would (a) duplicate the
-  // boundary contract (DRY) and (b) silently fall back to the default on a bad type -- contradicting
-  // both this function's own no-clamping rule and the slice's fail-loud register. An explicit-null
-  // value is impossible to reach (validateArgs only accepts positive integers or `undefined`).
+  // No re-validation: the boundary already rejected every invalid value and the script throws
+  // before this runs, so re-checking would duplicate that contract (DRY) AND silently fall back to
+  // the default on a bad type -- against both the no-clamping rule and the fail-loud register. An
+  // explicit null is unreachable (only positive integers or `undefined` get through).
   const pick = (key) => (st[key] !== undefined ? st[key] : DEFAULT_STAGE_TIMEOUTS[key]);
   return { implement: pick("implement"), gates: pick("gates"), qaBoot: pick("qaBoot") };
 }
 
-// The frozen acceptance-criterion field names (must match qa.js's frozen schema EXACTLY -- a
-// renamed field here would silently diverge the contract). validateArgs guards every criterion
-// against this set so a typo'd spec fails loud, not silently unchecked.
+// The frozen acceptance-criterion field names -- must match qa.js's frozen schema EXACTLY, or the
+// contract silently diverges. validateArgs guards every criterion against this set, so a typo'd
+// spec fails loud rather than going silently unchecked.
 const CRITERION_KEYS = ["id", "feature", "flow", "expect", "states", "check"];
-// The criterion `check` enum -- byte-identical to qa.js's CHECK_KINDS, pinned by
-// tests/workflows/cross-script.test.mjs (cross-script drift pin). `manual` needs a human -> the
-// item stays watched (Mode handling should have declined; the script re-validates and blocks).
+// The criterion `check` enum -- byte-identical to qa.js's CHECK_KINDS (cross-script drift pin).
+// `manual` needs a human -> the item stays watched (Mode handling should have declined; the script
+// re-validates and blocks).
 const CHECK_KINDS = ["e2e", "api", "manual"];
 
-// Validate the args contract at the boundary. Returns `{ ok, errors }` -- the control flow
-// throws on a non-empty error list (fail loud; nothing defaults silently). Empty gateCommands
-// is an ERROR by design: zero gates would make a "green" verdict a lie.
+// Validate the args contract at the boundary. Returns `{ ok, errors }`; the control flow throws on
+// a non-empty list (fail loud, nothing defaults silently). Empty gateCommands is an ERROR by
+// design: zero gates would make a "green" verdict a lie.
 function validateArgs(args) {
   const errors = [];
   if (!args || typeof args !== "object") {
@@ -243,7 +213,7 @@ function validateArgs(args) {
           errors.push(`${at}: each criterion must be an object`);
           return;
         }
-        // Frozen-schema guard: exactly the six keys -- a renamed/extra field is a contract drift.
+        // Frozen-schema guard: exactly the six keys -- a renamed/extra field is contract drift.
         const keys = Object.keys(c).sort();
         const expected = [...CRITERION_KEYS].sort();
         if (keys.length !== expected.length || !expected.every((k, idx) => k === keys[idx])) {
@@ -290,9 +260,9 @@ function validateArgs(args) {
       ) {
         errors.push("caps.maxIterations, when provided, must be a positive integer");
       }
-      // stageTimeouts (per-stage duration bound, seconds). Fail loud, never silent-clamp: a non-object,
-      // any unknown key (exact-key set -- a typo'd stage can't fall back to default), a non-integer or
-      // <=0 value, or a value > MAX_STAGE_TIMEOUT_SEC (a bound the Bash tool can't honor is rejected).
+      // stageTimeouts (per-stage bound, seconds). Fail loud, never silent-clamp: a non-object, any
+      // unknown key (exact-key set -- a typo'd stage can't fall back to the default), a non-integer
+      // or <=0 value, or a value > MAX_STAGE_TIMEOUT_SEC (a bound the Bash tool can't honor).
       const st = args.caps.stageTimeouts;
       if (st !== undefined && st !== null) {
         if (typeof st !== "object" || Array.isArray(st)) {
@@ -322,8 +292,8 @@ function validateArgs(args) {
   return { ok: errors.length === 0, errors };
 }
 
-// Resolve the iteration cap from caps.maxIterations (default 3). PURE -- the boundary already
-// validated the type; this just applies the default.
+// Resolve the iteration cap from caps.maxIterations (default 3). PURE -- the boundary validated
+// the type; this applies the default.
 function maxIterationsFor(caps) {
   if (caps && typeof caps.maxIterations === "number" && Number.isInteger(caps.maxIterations) && caps.maxIterations >= 1) {
     return caps.maxIterations;
@@ -331,18 +301,17 @@ function maxIterationsFor(caps) {
   return DEFAULT_MAX_ITERATIONS;
 }
 
-// Which acceptance criteria can never be attempted unwatched (a `check: "manual"` criterion
-// needs a human mid-run). Returns the offending ids -- a non-empty result is a terminal
-// `blocked` (Mode handling should have declined; the script re-validates, never silently
-// waives a manual criterion). PURE.
+// Which acceptance criteria can never be attempted unwatched (a `check: "manual"` one needs a human
+// mid-run). Returns the offending ids; a non-empty result is a terminal `blocked` -- the script
+// re-validates and never silently waives a manual criterion. PURE.
 function criteriaBlockers(criteria) {
   const list = Array.isArray(criteria) ? criteria : [];
   return list.filter((c) => c && c.check === "manual").map((c, i) => (c && c.id != null ? c.id : `criteria[${i}]`));
 }
 
-// Join the plugin root and a child-workflow script name into the scriptPath for the one-level
-// `workflow()` child call. Throws on an empty/whitespace root (fail loud -- a missing pluginRoot
-// would silently resolve to a relative path and run the WRONG script, or none). PURE.
+// Join the plugin root and a child-workflow script name into the `workflow()` child scriptPath.
+// Throws on an empty/whitespace root: a missing pluginRoot would silently resolve to a relative
+// path and run the WRONG script, or none. PURE.
 function childScriptPath(pluginRoot, name) {
   if (typeof pluginRoot !== "string" || pluginRoot.trim().length === 0) {
     throw new Error(`childScriptPath: pluginRoot is empty -- cannot resolve the '${name}' child workflow path`);
@@ -355,9 +324,8 @@ function childScriptPath(pluginRoot, name) {
 }
 
 // Decide whether the deterministic gates are green from the gates agent's per-command results.
-// Returns `{ green, failures }` -- a missing/non-numeric exitCode counts as a FAILURE (fail loud,
-// never fail-open: a malformed result must never read as a pass). green iff every command
-// reported exitCode === 0. PURE.
+// Returns `{ green, failures }`; green iff EVERY command reported exitCode === 0. A missing or
+// non-numeric exitCode is a FAILURE -- never fail-open, a malformed result is not a pass. PURE.
 function gatesGreen(results) {
   const list = Array.isArray(results) ? results : null;
   if (list === null) {
@@ -375,12 +343,10 @@ function gatesGreen(results) {
   return { green: failures.length === 0, failures };
 }
 
-// Decide whether the QA stage is green from qa.js's verdicts. Returns `{ green, failures }`.
-// Anything other than a `pass` verdict -- including `not-checkable` and the could-not-run finding
-// (which surfaces as a fail/non-pass) -- counts as a FAILURE: a broken boot may be the
-// implementer's regression, fixable in-loop, never a silent skip. An empty verdicts list with no
-// findings is treated as green-or-not-applicable by the CALLER (qaGreen is only consulted when QA
-// actually ran). PURE.
+// Decide whether the QA stage is green from qa.js's verdicts. Returns `{ green, failures }`. Anything
+// but a `pass` -- including `not-checkable` and the could-not-run finding -- is a FAILURE: a broken
+// boot may be the implementer's regression, fixable in-loop, never a silent skip. An empty verdicts
+// list is green-or-not-applicable to the CALLER (this is consulted only when QA ran).
 function qaGreen(qaResult) {
   if (!qaResult || typeof qaResult !== "object") {
     return { couldNotRun: true, green: false, failures: [{ criterionId: "(qa)", reason: "QA stage returned no usable result" }] };
@@ -407,10 +373,9 @@ function qaGreen(qaResult) {
 }
 
 // The tier-1/2 subset of an implementer's out-of-scope findings -- these escalate to the
-// orchestrator (a finding OUTSIDE the item; never folded silently into the item's fix brief).
-// Tier 3 (polish) is ignored here (it is roadmap noise, not a build interrupt). A finding with a
-// missing/invalid tier is treated as in-scope-of-escalation (tier <= 2) conservatively -- an
-// unclassified important finding must never be silently dropped. PURE.
+// orchestrator, never fold silently into the item's fix brief. Tier 3 is roadmap noise, not a build
+// interrupt. A missing/invalid tier escalates conservatively: an unclassified important finding
+// must never be silently dropped. PURE.
 function outOfScopeTier12(findings) {
   const list = Array.isArray(findings) ? findings : [];
   return list.filter((f) => {
@@ -424,9 +389,9 @@ function outOfScopeTier12(findings) {
 // The priority-ordered decision for one iteration's folded state. The order is LOAD-BEARING:
 //   irreversibleNeeded > new-tier12 > green > cap-stop > fix.
 // An irreversible need or a new Tier-1/2 finding interrupts EVEN a green run (the orchestrator
-// must decide). green requires gates green  and  verify PASS  and  QA green-or-not-applicable. Otherwise,
-// at/over the cap -> cap-stop (report the residual; nothing partial lands); else fix. Throws on a
-// malformed state (a missing required field is a caller bug, not a default). PURE.
+// decides). green requires gates green AND verify PASS AND QA green-or-not-applicable; else at/over
+// the cap -> cap-stop (report the residual, nothing partial lands), else fix. Throws on a malformed
+// state -- a missing required field is a caller bug, not a default. PURE.
 function nextAction(state) {
   if (!state || typeof state !== "object") {
     throw new Error("nextAction: state must be an object");
@@ -461,10 +426,9 @@ function nextAction(state) {
   return "fix";
 }
 
-// Build the residual report at the cap (the "not green; here is the residual" contract). PURE --
-// collects the failing gates, the open verify findings, and the failing QA criteria into one
-// structured object the orchestrator surfaces to the user. Nothing here lands; the branch is left
-// for inspection.
+// Build the residual report at the cap (the "not green; here is the residual" contract). PURE:
+// collects the failing gates, open verify findings, and failing QA criteria into one structured
+// object the orchestrator surfaces. Nothing lands; the branch is left for inspection.
 function residualReport(state) {
   const s = state && typeof state === "object" ? state : {};
   const r = {
@@ -475,24 +439,22 @@ function residualReport(state) {
     iterationsUsed: typeof s.iteration === "number" ? s.iteration : 0,
   };
   // The floor: "here is the residual" must never hand back nothing. A stage can report red with no
-  // finding (verify forces CHANGES_REQUIRED for a no-showed lens on an empty findings list) -- say
-  // so plainly rather than ship a silent empty residual. Assigned, never pushed: no caller mutation.
+  // finding (verify forces CHANGES_REQUIRED for a no-showed lens on an empty list) -- say so
+  // plainly rather than ship a silent empty residual. Assigned, never pushed: no caller mutation.
   if (r.failingGates.length === 0 && r.openFindings.length === 0 && r.failingCriteria.length === 0 && r.stageCouldNotRun.length === 0) {
     r.stageCouldNotRun = ["not green, but no stage named a failure -- a stage returned a red verdict with no findings; re-run and inspect the branch, the residual could not be attributed"];
   }
   return r;
 }
 
-// Fold one iteration's residual into the next iteration's fix brief (PURE). The fix agent gets
-// the failing gate output tails + the open verify findings + the failing QA criteria -- exactly
-// the work that is still red, nothing else. An empty residual means there is nothing to fix
-// (the caller would not be in `fix` then) -- returns an empty brief honestly.
+// Fold one iteration's residual into the next iteration's fix brief (PURE): the failing gate output
+// tails + the open verify findings + the failing QA criteria -- exactly what is still red, nothing
+// else. An empty residual returns an empty brief honestly.
 function foldResidual(gates, verifyResult, qa) {
   const failingGates = gates && Array.isArray(gates.failures) ? gates.failures : [];
-  // A null stage result means the stage DID NOT RUN (a child workflow threw / returned null) --
-  // an infrastructure failure, NOT a clean stage. Folding zero findings for it would hand the
-  // next fix iteration an empty brief for a problem code cannot fix (the 2026-06-12 Verify
-  // panel's must-fix) -- so the fold carries an explicit could-not-run entry instead.
+  // A null stage result means the stage DID NOT RUN -- an infrastructure failure, NOT a clean
+  // stage. Folding zero findings would hand the next fix iteration an empty brief for a problem
+  // code cannot fix (2026-06-12 Verify panel must-fix), so it carries a could-not-run entry.
   const stageCouldNotRun = [];
   const verifyFindings = Array.isArray(verifyResult && verifyResult.findings)
     ? verifyResult.findings.filter((f) => f && f.status !== "met")
@@ -511,28 +473,25 @@ function foldResidual(gates, verifyResult, qa) {
   return { failingGates, verifyFindings, failingCriteria, stageCouldNotRun };
 }
 
-// The run-level cross-model claim for the terminal report, folded from the children's
-// self-reported judge families. `confirmed` ONLY when every child that ran reported a confirming
-// different-family judge; otherwise the verbatim same-model tag. A child that did not run (e.g.
-// QA skipped with no criteria) contributes no judge report and never blocks a confirmation on its
-// own -- only a present-but-same/unresolved report does. PURE.
+// The run-level cross-model claim for the terminal report, folded from the children's self-reported
+// judge families. `confirmed` ONLY when every child that ran reported a confirming different-family
+// judge; otherwise the disclosure tag. A child that did not run contributes no report and never
+// blocks a confirmation -- only a present same/unresolved one does.
 //
-// ABSENCE is a SHORTER ARRAY, never a null ENTRY. Every entry is a signal from a child that ran:
-// the three call sites below push an explicit `null` to mean "ran, did NOT confirm a different
-// family", and sameModelTag() already maps that to the conservative floor. Filtering entries out
-// here conflated the two, so one confirming family beside a deliberate non-confirming null read as
-// `confirmed` -- the run over-reported cross-model review on the honesty surface. Do not re-add a
-// filter (0041 S10a, D2).
+// ABSENCE is a SHORTER ARRAY, never a null ENTRY. Every entry signals a child that RAN: the three
+// call sites below push an explicit `null` meaning "ran, did NOT confirm a different family", which
+// sameModelTag maps to the conservative floor. Filtering entries conflated the two, so one confirming
+// family beside a deliberate null read as `confirmed` -- the run over-reported cross-model review on
+// the honesty surface. Do not re-add a filter (0041 S10a, D2). PURE.
 function crossModelClaim(builderFamily, judgeFamilies) {
   const reports = Array.isArray(judgeFamilies) ? judgeFamilies : [];
   if (reports.length === 0) {
     return SAME_MODEL_TAG; // no child reported at all -> never claim cross-model
   }
-  // THREE states in, three states out. `sameModelTag` already distinguishes "same family"
-  // from "a present report I could not resolve"; collapsing both to SAME_MODEL_TAG asserted
-  // same-model as FACT on runs that only failed to identify the judge -- a false statement on
-  // the one surface built to prevent over-claiming. Precedence: a confirmed same-family judge
-  // is the more specific finding, so it wins over an unresolved one.
+  // THREE states in, three states out. sameModelTag already separates "same family" from "a present
+  // report I could not resolve"; collapsing both to SAME_MODEL_TAG asserted same-model as FACT on
+  // runs that merely failed to identify the judge -- a false statement on the one surface built to
+  // prevent over-claiming. Precedence: a confirmed same-family judge is more specific, so it wins.
   let unresolved = false;
   for (const j of reports) {
     const tag = sameModelTag(builderFamily, j);
@@ -552,9 +511,9 @@ function crossModelClaim(builderFamily, judgeFamilies) {
 // Structured-output schemas as JSON Schema object literals (no imports). The Workflow tool
 // validates each agent's structured output against these at the tool-call layer.
 
-// The implementer/fixer agent's report. The BRANCH is the durable artifact (a torn-down worktree
-// is recreated from it). outOfScopeFindings + irreversibleNeeded are the escalation channels --
-// the implementer REPORTS them, it never builds out-of-scope or performs anything irreversible.
+// The implementer/fixer agent's report. The BRANCH is the durable artifact (a torn-down worktree is
+// recreated from it). outOfScopeFindings + irreversibleNeeded are the escalation channels: the
+// implementer REPORTS them, never building out-of-scope or performing anything irreversible.
 const IMPLEMENT_SCHEMA = {
   type: "object",
   required: ["summary", "branch", "touchedFiles", "modelFamily"],
@@ -587,7 +546,7 @@ const IMPLEMENT_SCHEMA = {
 };
 
 // The deterministic-gates agent's report: one entry per gateCommand with its RAW exit code (the
-// prompt demands the actual exit code, not an opinion) + an output tail for the fix brief.
+// prompt demands the actual code, not an opinion) + an output tail for the fix brief.
 const GATES_SCHEMA = {
   type: "object",
   required: ["results"],
@@ -607,14 +566,11 @@ const GATES_SCHEMA = {
   },
 };
 
-// Build the implement/fix agent's prompt. Iteration 1 IMPLEMENTS the spec from scratch; later
-// iterations FIX the named residual on the same branch. The standing rules are identical on both
-// paths -- they are the engine's non-negotiable safety contract (no scope invention, nothing
-// irreversible, update the tree, commit on the work branch). The branch is the durable artifact.
-// `implementTimeoutSec` is the per-command anti-hang bound -- an INSTRUCTION-ONLY nudge here:
-// IMPLEMENT_SCHEMA has no exit-code channel, so there is no mechanical consumer; a runaway is left to
-// surface downstream (the gates stage + the iteration cap) WHEN it manifests there -- nothing in this
-// stage bounds it (model-upheld, NOT a mechanical fail-closed).
+// Build the implement/fix agent's prompt. Iteration 1 IMPLEMENTS the spec; later iterations FIX the
+// named residual on the same branch. The standing rules are identical on both paths -- the engine's
+// non-negotiable safety contract. `implementTimeoutSec` is the per-command anti-hang bound, an
+// INSTRUCTION-ONLY nudge: IMPLEMENT_SCHEMA has no exit-code channel, so nothing mechanical consumes
+// it and a runaway only surfaces downstream. Model-upheld, NOT a mechanical fail-closed.
 function implementPrompt(item, repo, residual, branch, implementTimeoutSec) {
   const isFirst = residual == null;
   const standingRules =
@@ -649,12 +605,11 @@ function implementPrompt(item, repo, residual, branch, implementTimeoutSec) {
   );
 }
 
-// Build the deterministic-gates agent's prompt -- run EVERY gate command in the worktree and
-// return the RAW exit code per command (pass/fail is exit codes, not opinion -- this is the
-// mechanical-once-invoked stage). The output tail feeds the fix brief on a red gate.
-// `gatesTimeoutSec` is the per-command Bash-tool `timeout` bound; a timed-out command observes NO
-// real exit code, so it is reported as the named 124 timeout convention (the one allowed
-// non-observed code) -> `gatesGreen` reads it as red (mechanical). PER-COMMAND, never a stage total.
+// Build the deterministic-gates agent's prompt -- run EVERY gate command in the worktree and return
+// the RAW exit code per command (pass/fail is exit codes, not opinion: the mechanical-once-invoked
+// stage). The output tail feeds the fix brief on a red gate. `gatesTimeoutSec` is the per-command
+// Bash-tool `timeout`, never a stage total; a timed-out command observes NO real exit code, so it
+// reports the named 124 convention -> `gatesGreen` reads it as red (mechanical).
 function gatesPrompt(repo, branch, worktreePath, gatesTimeoutSec) {
   return (
     `Build-to-green -- DETERMINISTIC GATES. Run each command below in the work tree for branch \`${branch}\`` +
@@ -672,22 +627,20 @@ function gatesPrompt(repo, branch, worktreePath, gatesTimeoutSec) {
   );
 }
 
-// The verify panel's dimension set when the item names none -- the ONE named source (a re-inlined
-// literal at the call site is what this replaced). Configurable here, never at a call site.
+// The verify panel's dimension set when the item names none -- the ONE named source, replacing a
+// re-inlined literal at the call site. Configurable here, never at a call site.
 const DEFAULT_VERIFY_DIMENSIONS = ["maintainability-structure", "testing"];
 
-// Build the verify.js child-workflow args (a PURE builder, extracted from the inline call so the
-// threading is unit-testable -- the qaChildArgs shape below). Returns `{ args, defaulted }`, where
-// `defaulted` names every substitution that is INVISIBLE downstream. specPath's fallback is
-// deliberately absent: the substituted VALUE ("(spec provided inline)") states itself in the prompt
-// it lands in, so it needs no second announcement.
+// Build the verify.js child-workflow args (a PURE builder, so the threading is unit-testable).
+// Returns `{ args, defaulted }`, where `defaulted` names every substitution that is INVISIBLE
+// downstream. specPath's fallback is deliberately absent: the substituted VALUE states itself in the
+// prompt it lands in.
 //
-// The substitutions were inline ternaries at the workflow() call site and were applied SILENTLY:
-// an item naming no dimensions got a two-dimension panel while the run reported nothing about the
-// narrowed coverage, and a non-boolean `trustSurface` was coerced to false -- and that flag is what
-// decides whether the trust-surface lens spawns at all. The VALUES are unchanged (trustSurface
-// stays fail-closed on a bad value); what changed is that the call site now logs them
-// (0041 S10a, D5). `builderFamily` arrives already resolved by the caller, matching qaChildArgs.
+// These were inline ternaries at the call site, applied SILENTLY: an item naming no dimensions got a
+// two-dimension panel with nothing reported about the narrowed coverage, and a non-boolean
+// `trustSurface` was coerced to false -- the flag that decides whether the trust-surface lens spawns
+// at all. The VALUES are unchanged (trustSurface stays fail-closed); what changed is that the call
+// site now LOGS them (0041 S10a, D5). `builderFamily` arrives resolved.
 function verifyChildArgs(item, diffRef, builderFamily) {
   const named = Array.isArray(item.dimensions) ? item.dimensions : [];
   const defaulted = [];
@@ -701,8 +654,8 @@ function verifyChildArgs(item, diffRef, builderFamily) {
     );
   }
   if (item.trustSurface !== undefined && typeof item.trustSurface !== "boolean") {
-    // `typeof null` is "object" -- name the common "unset" serialization honestly, or the log
-    // reads as a caller error for a benign shape.
+    // `typeof null` is "object" -- name the common "unset" serialization honestly, or the log reads
+    // as a caller error for a benign shape.
     const kind = item.trustSurface === null ? "null" : typeof item.trustSurface;
     defaulted.push(
       `trustSurface -- the item's value is ${kind}, not a boolean; treated as false, so the trust-surface lens does NOT spawn`,
@@ -720,10 +673,9 @@ function verifyChildArgs(item, diffRef, builderFamily) {
   };
 }
 
-// Build the qa.js child-workflow args (a PURE builder, extracted from the inline call so the
-// threading is unit-testable). `readinessTimeoutSec` is included ONLY when `qaBoot != null`
-// (pass-through-when-set): when unset, the key is omitted so qa.js applies its own 60s default --
-// qa.js stays the sole boot default-and-clamp owner (no 60/300 literal duplicated here).
+// Build the qa.js child-workflow args (a PURE builder, so the threading is unit-testable).
+// `readinessTimeoutSec` rides ONLY when `qaBoot != null`; unset, the key is omitted so qa.js applies
+// its own default -- qa.js stays the sole boot default-and-clamp owner (no literal duplicated here).
 function qaChildArgs(item, repo, criteria, builderFamily, iteration, qaBoot) {
   const out = {
     criteria,
@@ -739,19 +691,15 @@ function qaChildArgs(item, repo, criteria, builderFamily, iteration, qaBoot) {
 }
 // --- end helpers ---
 
-// The D6 namespace fallback -- the ONE spawn seam every namespaced agent call goes through.
-// Bundled agents resolve as `<AGENT_NAMESPACE>:<agent>` for an installed adopter and only as BARE
-// names in a project-local dogfood session; this sandbox cannot detect which world it is in (no
-// imports, no filesystem, no env), so try-namespaced-then-retry-bare is the only implementable
-// form. It fires ONLY on a THROWN spawn failure: a null return is a legitimate agent outcome (a
-// skip or terminal error) and is passed through untouched, never retried. The retry spreads the
-// ORIGINAL opts.
+// The D6 namespace fallback -- the ONE spawn seam every namespaced agent call goes through. The
+// sandbox cannot tell an installed adopter (namespaced ids resolve) from a project-local dogfood
+// (only bare names do), so: try namespaced, retry bare ONCE on a THROWN spawn failure, spreading the
+// ORIGINAL opts. A null return is a legitimate outcome -- passed through, never retried.
 //
-// DO NOT thread this through a judge's one-respawn state machine (0041 S10b, D6). A namespace
-// retry must never consume the respawn budget, never set forcedSameModel (that flag feeds the
-// same-model disclosure), never swallow a two-failure throw, and never reuse the `:respawn`
-// label -- it carries its own `:ns-fallback` label so the run log can tell the two apart.
-// Copied byte-identical across the workflow scripts (cross-script drift pin).
+// DO NOT thread this through a judge's one-respawn state machine (0041 S10b, D6): a namespace retry
+// consumes no respawn budget, never sets forcedSameModel (that flag feeds the same-model
+// disclosure), never swallows a two-failure throw, and carries its own `:ns-fallback` label, never
+// `:respawn`. Copied byte-identical across the workflow scripts (drift pin); rationale in verify.js.
 async function agentWithNamespaceFallback(prompt, opts) {
   try {
     return await agent(prompt, opts);
@@ -782,14 +730,14 @@ const item = input.item;
 const repo = input.repo;
 const criteria = Array.isArray(item.acceptanceCriteria) ? item.acceptanceCriteria : [];
 const maxIterations = maxIterationsFor(input.caps);
-// The per-stage duration bounds -- see the three-way register in the header. (qaBoot stays null when
-// unset -> qa.js's own default.)
+// The per-stage duration bounds -- see the three-way register in the header (qaBoot stays null when
+// unset -> qa.js's own default).
 const stageTimeouts = resolveStageTimeouts(input.caps);
 const builderFamily = input.builderFamily;
 
-// Boundary blocks (terminal `blocked` -- never an unwatched run that can't honestly complete):
-//   - a manual criterion needs a human (Mode handling should have declined; re-validate here).
-//   - criteria present with no run-the-app command => criteria that can't be attempted.
+// Boundary blocks (terminal `blocked` -- never an unwatched run that can't honestly complete): a
+// manual criterion needs a human (re-validated here), or criteria present with no run-the-app
+// command, which therefore can't be attempted.
 {
   const manualIds = criteriaBlockers(criteria);
   if (manualIds.length > 0) {
@@ -822,7 +770,7 @@ log(
     (criteria.length > 0 ? `${criteria.length} acceptance criteria (QA will run).` : "no acceptance criteria (QA not run -- reported, not silent)."),
 );
 
-// The implement-once / fix-loop. Iteration 1 implements; later iterations fix the named residual.
+// The implement-once / fix-loop: iteration 1 implements, later iterations fix the named residual.
 // The branch is the durable artifact threaded across iterations.
 let branch = null;
 let worktreePath = null;
@@ -843,15 +791,15 @@ for (let iteration = 1; iteration <= maxIterations; iteration++) {
   iterationsUsed = iteration;
   phase(`iteration-${iteration}`);
 
-  // 1. Implement (iteration 1) or Fix (later) -- implementer in a worktree (first only;
-  //    later iterations reuse the branch). agent() returns null AND can throw -- guard both.
+  // 1. Implement (iteration 1) or Fix (later) -- implementer in a worktree (first only; later
+  //    iterations reuse the branch). A spawn can return null AND can throw -- guard both.
   let report = null;
   try {
     report = await agentWithNamespaceFallback(implementPrompt(item, repo, residual, branch, stageTimeouts.implement), {
       agentType: nsAgent("implementer"),
       // Worktree ownership: the platform auto-reclaims an UNCHANGED worktree; a changed one
-      // survives every terminal return -- the ORCHESTRATOR reclaims it after land (green) or
-      // keeps it for inspection (cap-stop/escalation). The BRANCH is the durable artifact.
+      // survives every terminal return, and the ORCHESTRATOR reclaims it after land or keeps it
+      // for inspection. The BRANCH is the durable artifact.
       ...(iteration === 1 ? { isolation: "worktree" } : {}),
       schema: IMPLEMENT_SCHEMA,
       label: iteration === 1 ? "build:implement" : `build:fix:${iteration}`,
@@ -862,7 +810,7 @@ for (let iteration = 1; iteration <= maxIterations; iteration++) {
     report = null;
   }
   if (report == null) {
-    // The implementer never reported -- we cannot proceed honestly (no branch, no work). This is a
+    // The implementer never reported -- no branch, no work, so we cannot proceed honestly. A
     // terminal blocked, not a silent retry: a null implement is a build failure to surface.
     terminal = {
       status: "blocked",
@@ -877,8 +825,8 @@ for (let iteration = 1; iteration <= maxIterations; iteration++) {
   if (report.worktreePath) worktreePath = report.worktreePath;
   const implementerFamily = typeof report.modelFamily === "string" ? report.modelFamily : "";
 
-  // Escalations from the implementer BEFORE the gates -- an irreversible need or a new Tier-1/2
-  // out-of-scope finding returns to the orchestrator (never folded silently into the item).
+  // Escalations from the implementer BEFORE the gates: an irreversible need or a new Tier-1/2
+  // out-of-scope finding returns to the orchestrator, never folded silently into the item.
   if (report.irreversibleNeeded) {
     terminal = {
       status: "needs-irreversible",
@@ -902,7 +850,7 @@ for (let iteration = 1; iteration <= maxIterations; iteration++) {
   }
 
   // 2. Deterministic gates -- an agent runs every gate command; pass/fail is exit codes (mechanical
-  //    once invoked). A null/throwing gates agent fails the gates loud (never fail-open).
+  //    once invoked). A null/throwing gates agent fails the gates loud, never fail-open.
   phase(`iteration-${iteration}-gates`);
   let gatesReport = null;
   try {
@@ -919,14 +867,14 @@ for (let iteration = 1; iteration <= maxIterations; iteration++) {
   lastGates = gatesGreen(gatesReport ? gatesReport.results : null);
   log(`build-item: iteration ${iteration} gates ${lastGates.green ? "GREEN" : `RED (${lastGates.failures.length} failing)`}.`);
 
-  // 3. Verify panel -- the one-level verify.js child workflow (single source of truth for the
-  //    panel; an inlined copy would drift -- DRY). The diff scope is the branch vs the base branch.
-  //    The builder family is the implementer's self-report, falling back to args.builderFamily.
+  // 3. Verify panel -- the one-level verify.js child workflow (the panel's single source of truth;
+  //    an inlined copy would drift -- DRY). Diff scope is branch vs base branch; the builder family
+  //    is the implementer's self-report, falling back to args.builderFamily.
   phase(`iteration-${iteration}-verify`);
   let verifyResult = null;
   const verifyChild = verifyChildArgs(item, `${repo.baseBranch}...${branch}`, implementerFamily || builderFamily);
-  // Every value the builder substituted for the item's own is REPORTED here -- a narrowed panel or
-  // a disarmed trust-surface lens must never be a silent default (0041 S10a, D5).
+  // Every substituted value is REPORTED here -- a narrowed panel or a disarmed trust-surface lens
+  // must never be a silent default (0041 S10a, D5).
   for (const note of verifyChild.defaulted) {
     log(`build-item: verify args defaulted -- ${note}`);
   }
@@ -941,11 +889,9 @@ for (let iteration = 1; iteration <= maxIterations; iteration++) {
   // Capture the child's judge self-report for the run-level cross-model claim.
   if (verifyResult && verifyResult.crossModel) {
     if (verifyResult.crossModel.claimed === true) {
-      // The child confirmed cross-model -- record a placeholder confirming family (a non-null,
-      // resolvable-different token). The child already computed the claim; we mirror it.
-      // Mirror the child's ACTUAL confirming judge families -- a synthetic token would fail
-      // modelFamily resolution and permanently read as non-confirming (the engine dogfood's
-      // escalated Tier-2: the run-level claim could never report confirmed).
+      // Mirror the child's ACTUAL confirming judge families. A synthetic token would fail
+      // modelFamily resolution and read as non-confirming forever -- the engine dogfood's escalated
+      // Tier-2, where the run-level claim could never report confirmed.
       const childJudges = Array.isArray(verifyResult.crossModel.judges)
         ? verifyResult.crossModel.judges
         : [];
@@ -964,9 +910,9 @@ for (let iteration = 1; iteration <= maxIterations; iteration++) {
   }
   log(`build-item: iteration ${iteration} verify ${verifyPass ? "PASS" : "CHANGES_REQUIRED/unavailable"}.`);
 
-  // 4. QA flows -- only when machine-checkable criteria exist. The qa.js child workflow drives the
-  //    criteria against the running app; could-not-run is a FAILURE (fixable in-loop, never a
-  //    silent skip). No criteria -> the stage is reported-not-run, never silently absent.
+  // 4. QA flows -- only when machine-checkable criteria exist. The qa.js child workflow drives them
+  //    against the running app; could-not-run is a FAILURE (fixable in-loop, never a silent skip).
+  //    No criteria -> the stage is reported-not-run, never silently absent.
   let qaGreenOrNA = true;
   if (criteria.length > 0) {
     phase(`iteration-${iteration}-qa`);
@@ -983,11 +929,10 @@ for (let iteration = 1; iteration <= maxIterations; iteration++) {
     lastQa = qaGreen(qaResult);
     qaGreenOrNA = lastQa.green;
     if (qaResult && qaResult.crossModel) {
-      // qa.js exposes only its folded string, not per-judge reports. A CONFIRMED qa fold
-      // already required all-confirming different-family judges inside the child -- it has no
-      // family token to mirror, so it contributes NOTHING to the engine-level family fold
-      // (never a manufactured token, never a false non-confirming null). Anything but
-      // confirmed pushes the conservative non-confirming signal.
+      // qa.js exposes only its folded string, not per-judge reports. A CONFIRMED fold already
+      // required all-confirming different-family judges inside the child and has no family token to
+      // mirror, so it contributes NOTHING here -- never a manufactured token, never a false
+      // non-confirming null. Anything but confirmed pushes the conservative signal.
       if (qaResult.crossModel === "confirmed") {
         qaConfirmedCrossModel = true;
       } else {
@@ -1000,8 +945,8 @@ for (let iteration = 1; iteration <= maxIterations; iteration++) {
     log(`build-item: iteration ${iteration} -- QA not run -- no acceptance criteria on this item.`);
   }
 
-  // 5. Decide -- the priority-ordered nextAction (escalations were already returned above; this
-  //    folds gates/verify/qa into green | cap-stop | fix).
+  // 5. Decide -- the priority-ordered nextAction (escalations already returned above; this folds
+  //    gates/verify/qa into green | cap-stop | fix).
   const decision = nextAction({
     iteration,
     maxIterations,
@@ -1017,8 +962,8 @@ for (let iteration = 1; iteration <= maxIterations; iteration++) {
     break;
   }
   if (decision === "cap-stop") {
-    // The SAME fold the fix brief gets (DRY) -- so the residual the USER sees carries the explicit
-    // could-not-run entries a crashed verify/qa stage would have handed the next iteration.
+    // The SAME fold the fix brief gets (DRY), so the residual the USER sees carries the explicit
+    // could-not-run entries a crashed verify/qa stage would hand the next iteration.
     const folded = foldResidual(lastGates, lastVerify, lastQa);
     terminal = {
       status: "not-green",
@@ -1043,8 +988,8 @@ const crossModel = crossModelClaim(builderFamily, judgeFamilies);
 
 // Assemble the terminal report. Every status below is a RETURN -- the script never lands/pushes.
 if (terminal == null) {
-  // The loop ran to the cap without a terminal branch (defensive -- nextAction would have set
-  // cap-stop). Treat as not-green with the last residual so we never return a silent partial.
+  // Defensive: the loop ran to the cap without a terminal branch (nextAction would have set
+  // cap-stop). Treat as not-green with the last residual -- never a silent partial.
   const folded = foldResidual(lastGates, lastVerify, lastQa);
   terminal = {
     status: "not-green",

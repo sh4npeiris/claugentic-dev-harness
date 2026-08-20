@@ -15,32 +15,29 @@ load_scope:                    # how the harness decides to pull this module int
 
 > **Loads when:** <plain-English — the kinds of changes that bring this module into scope.>
 > **ISO/IEC 25010:** <characteristic(s)> · **Status:** <stub|draft|stable>
-
-Each entry below is one **auditable dimension**. Per change, the reviewer applies the
-*relevant* ones **fully** (select-don't-skip), right-sized to the change — never
-gold-plating an irrelevant one, never skipping a relevant one.
+> Method, tags and the honesty register: `README.md` → *Reading a module*.
+> <Optional fourth line: ONE governing rule specific to THIS module. Omit if there isn't one.>
 
 ---
 
 ## <Dimension name>
 
-- **Good looks like —** <the target state, concrete and observable.>
-- **Auditor checks —** <what to look for and where, phrased as checks. Tag **each check exactly one** of `[D]` (a gate can prove it) or `[J]` (needs a reviewer's eye) — never both. If a check is provable *with* tooling but judgment *without*, split it into a `[D]` check and a `[J]` check.>
-- **Confidence —** `deterministic` (a gate proves it — name it) · `judgment` (reviewer call) · `mixed` (some checks each — the per-check `[D]`/`[J]` tags are authoritative). *Drives the scorecard's "verified vs asserted" split — the harness must be honest about what it proved vs what it's vouching for.* The dimension-level label summarizes; the per-check tags are the source of truth.
-- **Tradeoff (plain English) —** <1–2 sentences a non-engineer understands: what this buys, what it costs, what breaks if you skip it.>
-- **Sources —** <authoritative reference(s) the standard is grounded in.>
-- **Motivating incident —** <the concrete failure, near-miss, or recurring pain this dimension/rule prevents — what makes a rule un-cargo-cultable, and what makes it safe to delete once its cause is gone. **Expected on a NEW dimension; not required and not enforced** — the existing catalog mostly omits it (see the authoring rule below).>
+- **Good looks like —** <the target state — **only** where it carries a threshold, a named primitive, or a house preference the heading and the checks do not. **Omit the bullet otherwise**: a sentence that restates the heading is dead context.>
+- **Auditor checks —** <what to look for and where, phrased as checks. Tag **each check exactly one** of `[D]` (a gate can prove it — name it) or `[J]` (needs a reviewer's eye) — never both; split a check that is `[D]` with tooling and `[J]` without. **These tags ARE the confidence record** — there is no dimension-level Confidence line.>
+- **Honesty register —** <only where the dimension must state what it deliberately does NOT prove or gate. Never compress this distinction away; compress the words around it.>
+- **Incident —** <the concrete dated failure this rule prevents — the rule and a short dated pointer, never the retelling. **Expected on a NEW dimension; not required, not enforced.**>
 
 <!-- repeat the block above, one per dimension -->
 
 ---
 
-## Authoring rules (the catalog meta-rules — do not delete)
+## Authoring rules
 
 - **Additive floor:** add dimensions as you discover them; **never delete** one. This catalog is meant to become "every standard we can think of."
-- **Right-size:** apply only *relevant* dimensions per change (`KISS`/`YAGNI`); never skip a relevant one. Relevance is a per-change judgment — see `README.md`.
+- **Right-size:** apply only *relevant* dimensions per change (`KISS`/`YAGNI`); never skip a relevant one — `README.md` → *Reading a module*.
 - **Novel patterns allowed** when they add clear value — justify (problem → why existing patterns fall short → benefit) and record in `docs/claugentic-DECISIONS.md`. Unconventional ≠ wrong.
-- **Every dimension carries a Confidence tag** so the harness can separate what it *proved* (deterministic gates) from what it *asserts* (judgment). Trust the oracle, not the model's word.
-- **A NEW dimension should cite its motivating incident** — the concrete failure/near-miss/recurring pain it prevents; that is what makes a rule un-cargo-cultable and safe to delete once its cause is gone. **Aspirational, not a gate, and the catalog does not currently meet it:** 3 of 117 dimensions carry one (measured 2026-08-19). Whether to backfill the rest or drop the expectation is undecided — don't read the line above as a rule the catalog holds.
+- **Every check carries a `[D]`/`[J]` tag**, so the harness separates what it *proved* from what it *asserts*. Trust the oracle, not the model's word.
+- **Write for a capable model: NAME the convention, don't TEACH it.** No exposition, no bibliography, no plain-English gloss of a term the reviewer already knows. A module earns bytes only where it (a) names a check the model would otherwise **skip**, (b) sets a **threshold or house preference** it cannot infer, or (c) records a **defect class this project actually hit**. Everything else is encyclopedia — charged to every review that loads the module. *(2026-08-19: the catalog was cut by more than half on exactly this rule — per-dimension Tradeoff prose, Sources lists, the duplicated preamble and this block duplicated per module all went. Do not re-inflate.)*
+- **A NEW dimension should cite its dated motivating incident** — that is what makes a rule un-cargo-cultable and safe to delete once its cause is gone. **Aspirational, not a gate, and the catalog does not meet it:** only a minority carry one (`grep -c '\*\*Incident —\*\*' docs/claugentic-standards/*.md`). Whether to backfill the rest or drop the expectation is undecided — don't read the line above as a rule the catalog holds.
 
-> Governance (two-tier model · managed-copy rules · versioning): see `docs/claugentic-standards/README.md`.
+> Governance (two-tier model · managed-copy rules · versioning · the honesty register): `README.md`.

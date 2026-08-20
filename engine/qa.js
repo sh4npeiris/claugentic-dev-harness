@@ -1,74 +1,53 @@
-// engine/qa.js -- runtime verification (QA) as an executable Workflow script.
+// engine/qa.js -- runtime verification (QA) as an executable Workflow script. Two modes, selected by
+// whether acceptance criteria are passed (the full contract is `meta.description` below):
+//   boot-only (no criteria) -- boot with the recorded run command, probe a readiness URL within a
+//     bounded wait, ALWAYS tear down (the port is verifiably freed), and on a boot failure surface
+//     the evidence-carrying `qa-could-not-run-app` finding -- never a skip, never a pass.
+//   full (criteria passed) -- boot, then one driver agent PER DRIVABLE criterion, run SEQUENTIALLY
+//     (criteria mutate shared app state); manual criteria are NEVER driven. Each fail folds to a
+//     lens-shaped UX finding (route + evidence, no file:line), deduped on class+route, then EXACTLY
+//     ONE finding-verifier per surfaced finding (could-not-run stays exempt with its own tag).
 //
-// Two modes, selected by whether acceptance criteria are passed:
-//   boot-only (no criteria) -- the BOOT VERTICAL: start the app with the recorded run command,
-//     probe a readiness URL within a bounded wait, ALWAYS tear down (the port is verifiably
-//     freed), and on a boot failure surface the explicit, evidence-carrying "could not run the
-//     app" finding (issueClass `qa-could-not-run-app`) -- never a silent skip, never a fake pass.
-//   full (criteria passed) -- boot, then one driver agent PER DRIVABLE criterion, run
-//     SEQUENTIALLY (criteria mutate shared app state): Playwright via ToolSearch for check:e2e,
-//     Bash HTTP for check:api; it performs the flow, checks the expects + the named
-//     empty/loading/error states (loading may honestly be "too fast to observe"), and
-//     screenshots under `.qa-artifacts/<runLabel>/`. manual criteria are NEVER driven (listed
-//     for a human). Each fail folds to a lens-shaped UX finding (ux-broken-flow /
-//     ux-missing-{empty,loading,error}-state; route + evidence, no file:line), deduped on
-//     class+route, then EXACTLY ONE finding-verifier per surfaced finding (the
-//     could-not-run finding stays exempt with its observed-this-run tag).
+// Distribution: read-from-install-path -- adopters invoke `${CLAUDE_PLUGIN_ROOT}/engine/qa.js`; this
+// repo dogfoods `./engine/qa.js`. Never copied into an adopter repo -- see
+// docs/claugentic-DECISIONS.md -> Plugin identity & distribution.
 //
-// Distribution: read-from-install-path. Adopters invoke this from the version-stamped plugin
-// install dir (`${CLAUDE_PLUGIN_ROOT}/engine/qa.js`); this repo dogfoods it via the
-// repo-local `./engine/qa.js` (the working tree IS the plugin source). Never copied into an
-// adopter repo (no managed-stamp/refresh surface) -- see docs/claugentic-DECISIONS.md -> Plugin identity & distribution.
-//
-// Workflow-script constraints (the tool runs this inside its sandbox): NO imports, NO
-// filesystem APIs, NO wall-clock / randomness (the orchestrator stamps times AFTER the run).
-// Only the tool primitives `agent()`/`parallel()`/`phase()`/`log()`/`args`. The script itself
-// has NO Bash and NO clock -- all file/process/clock work happens inside the agents it spawns
-// (the boot agent starts the app and probes it; the teardown agent stops it). Call count is
-// structurally bounded (boot + teardown = 2 in boot-only mode) -- no loops. Pure decision logic
-// lives in the marked `// --- helpers ---` block and is unit-tested by tests/workflows/qa.test.mjs
-// (extract-and-eval), so the prose->script move tests the judgment, not just inspects it.
+// Sandbox constraints: NO imports, NO filesystem, NO wall-clock/randomness (the orchestrator stamps
+// times AFTER the run). Only `agent()`/`parallel()`/`phase()`/`log()`/`args`. The script itself has
+// NO Bash and NO clock -- all file/process/clock work happens inside the agents it spawns. Call
+// count is structurally bounded (boot + teardown = 2 in boot-only mode) -- no loops. Pure decision
+// logic lives in the marked helpers block, unit-tested by tests/workflows/qa.test.mjs.
 
 export const meta = {
   name: "qa",
   description:
     "Runtime verification (QA) as a Workflow script. Boots the recorded run command detached, probes the readiness URL on a bounded schedule (readinessPlan -- never unbounded), and ALWAYS tears down via teardownPlan (explicit override > docker compose down > kill the recorded PID) in a finally so the port is freed on success, boot failure, and mid-run error alike. A boot that never answers within the bound (or a missing/malformed report) classifies `failed` (fail loud -- never default to success) and produces exactly one lens-shaped `qa-could-not-run-app` finding with the command + probe attempts + boot-log tail as evidence, tagged (observed this run -- boot log attached). When acceptance criteria are passed (full mode): one driver agent per drivable criterion runs SEQUENTIALLY in a real browser (Playwright via ToolSearch) or over HTTP (check:api), performs the flow, checks the expects + the named empty/loading/error states, and screenshots under the artifact dir; each criterion folds to a pass|fail|not-checkable verdict (manual criteria are NEVER driven -- listed for a human). Every fail becomes a lens-shaped UX finding (ux-missing-empty-state / ux-missing-loading-state / ux-missing-error-state / ux-broken-flow) and EVERY finding gets exactly one finding-verifier (Refuted dropped+counted, Verified/Unconfirmed/deferred tagged; the could-not-run finding stays exempt). The run claims cross-model only on confirming self-reports.",
   // Bounded call count: boot + teardown + one driver per drivable criterion + one verifier per
-  // surfaced finding -- no loops. The static cap below is a backstop; the structure already bounds
-  // it (the per-run criteria/findings counts are the true bound, computed in code).
+  // surfaced finding -- no loops. The static cap is a backstop; the per-run criteria/findings counts
+  // are the true bound, computed in code.
   budget: { agents: 40 },
 };
 
 // --- helpers ---
-// Pure functions only -- they reference solely their params and each other (no closure over
-// tool primitives), so the test harness can extract this block and evaluate it standalone.
+// Pure functions only -- no closure over tool primitives, so the harness can extract and eval this
+// block standalone.
 
-// The judge model, defined ONCE (single source of truth). It NAMES NO MODEL, deliberately: a
-// judge INHERITS the session's model. Independence here is of ROLE and CLEAN CONTEXT, not of
-// model; the same-model TAG (below) reports the relationship that actually resulted. Pinned
-// byte-identical across the workflow scripts by tests/workflows/cross-script.test.mjs.
+// The judge model, defined ONCE. It NAMES NO MODEL deliberately: a judge INHERITS the session's
+// model, so independence is of ROLE and CLEAN CONTEXT, not of model, and the same-model TAG below
+// reports what actually resulted. Pinned byte-identical (drift pin).
 const MODELS = { judge: null };
 
-// The bundled-agent namespace prefix -- the ONE source both nsAgent (which adds it) and
-// bareAgentType (which strips it) read, so the two can never disagree about what a namespaced id
-// looks like. Copied byte-identical across the workflow scripts (cross-script drift pin).
+// The bundled-agent namespace prefix -- the ONE source nsAgent adds and bareAgentType strips, so
+// the two can never disagree. Copied byte-identical across the four scripts (drift pin).
 const AGENT_NAMESPACE = "claugentic-dev-harness";
 
-// Bundled agents resolve as `<AGENT_NAMESPACE>:<agent>` for an installed adopter (bare names
-// resolve only when dogfooded with project-local .claude/agents/). Namespace every custom-agent
-// spawn; built-ins (general-purpose, ...) stay bare. Namespaced stays what the engine WRITES --
-// the spawn wrapper below the helpers block retries bare ONCE on a thrown spawn failure, and
-// DERIVES that bare name rather than storing it. Pure -> unit-tested.
+// Namespace every custom-agent spawn; built-ins (general-purpose, ...) stay bare. Namespaced is
+// what the engine WRITES -- the spawn wrapper below derives the bare fallback. See verify.js.
 const nsAgent = (name) => `${AGENT_NAMESPACE}:${name}`;
 
-// Strip EVERY leading `<AGENT_NAMESPACE>:` prefix from an agent id, yielding the bare name a
-// project-local .claude/agents/ dir resolves -- the D6 fallback target, DERIVED at runtime so no
-// bare agent name is ever written as a literal in engine source. Total and IDEMPOTENT
-// (bareAgentType(bareAgentType(x)) === bareAgentType(x)), so a doubly-namespaced id can never be
-// half-stripped. An id with no prefix comes back UNCHANGED, and "unchanged" IS the "no fallback
-// exists" signal the caller tests by comparison -- a built-in like general-purpose, or another
-// plugin's namespace, which is not ours to strip; a non-string maps to "". Copied byte-identical
-// across the workflow scripts (cross-script drift pin).
+// Strip EVERY leading `<AGENT_NAMESPACE>:` prefix -- the D6 fallback target, DERIVED at runtime.
+// Total and IDEMPOTENT; an unprefixed id comes back UNCHANGED, and "unchanged" IS the caller's
+// "no fallback exists" signal. Copied byte-identical from verify.js (drift pin; full contract there).
 function bareAgentType(agentType) {
   const prefix = `${AGENT_NAMESPACE}:`;
   let bare = typeof agentType === "string" ? agentType : "";
@@ -78,10 +57,8 @@ function bareAgentType(agentType) {
   return bare;
 }
 
-// The one-line notice a namespace fallback logs before its single bare retry. Pure (message only
-// -- the caller owns log() and the retry), so the wording is unit-pinnable from the helpers
-// block. It states the trust boundary in the run log itself: a namespace retry is NOT a model
-// respawn. Copied byte-identical across the workflow scripts (cross-script drift pin).
+// The notice a namespace fallback logs before its single bare retry -- it states the trust boundary
+// in the log: a namespace retry is NOT a model respawn. Copied byte-identical (drift pin).
 function namespaceFallbackNotice(agentType, bare, err) {
   const detail = err && err.message ? err.message : String(err);
   return (
@@ -91,28 +68,24 @@ function namespaceFallbackNotice(agentType, bare, err) {
   );
 }
 
-// The verbatim same-model disclosure tag. Defined once; never reconstructed by hand at a call
-// site, so the wording cannot drift (honesty trust surface). Copied verbatim from verify.js.
+// The verbatim same-model disclosure tag. Defined once, never rebuilt at a call site (honesty trust
+// surface -- the wording cannot drift). Copied verbatim from verify.js.
 const SAME_MODEL_TAG =
   "same-model review on this run -- the judge and the builder are the same model family here.";
 
-// The verbatim UNRESOLVED disclosure tag -- the THIRD state, distinct from SAME_MODEL_TAG. When a
-// judge's self-reported family can't be recognized, the run is reported as unresolved (the
-// conservative same-model trust floor still holds -- no cross-model claim) rather than ASSERTED to
-// be same-model fact. Defined once so the wording cannot drift (honesty trust surface). Copied
-// byte-identical across the workflow scripts (cross-script drift pin).
+// The verbatim UNRESOLVED disclosure tag -- the THIRD state: an unrecognized judge family is
+// REPORTED unresolved (the same-model trust floor holds, no cross-model claim), never ASSERTED as
+// same-model fact. Honesty trust surface; copied byte-identical (drift pin).
 const UNRESOLVED_FAMILY_TAG =
   "could not resolve the judge's model family on this run -- no cross-model claim is made (treated as the same-model trust floor, not asserted as fact).";
 
-// The recognized model families -- the ONE named source the modelFamily regex derives from (single
-// source of truth: a new family is added HERE, never in a hand-built regex). Copied byte-identical
-// across the workflow scripts (cross-script drift pin).
+// The recognized model families -- the ONE source the modelFamily regex derives from: a new family
+// is added HERE, never in a hand-built regex. Copied byte-identical (drift pin).
 const KNOWN_FAMILIES = ["fable", "opus", "sonnet", "haiku"];
 
-// Normalize a self-reported model family to a canonical lowercase token. First KNOWN_FAMILIES
-// match wins (the regex derives from that one named source -- no second hand-built family list);
-// empty / unknown -> null (conservative -- an unresolved family degrades to the trust floor, never
-// to a false cross-model claim). Copied verbatim from verify.js.
+// Normalize a self-reported model family to a canonical lowercase token. First KNOWN_FAMILIES match
+// wins; empty/unknown -> null (the conservative trust floor, never a false cross-model claim).
+// Copied verbatim from verify.js.
 function modelFamily(report) {
   if (typeof report !== "string") {
     return null;
@@ -121,10 +94,8 @@ function modelFamily(report) {
   return match ? match[1].toLowerCase() : null;
 }
 
-// The disclosure decision -- THREE states, one rule (detection included). The distinction is
-// between a MISSING self-report (the deliberate no-report / forced-respawn floor) and a PRESENT
-// self-report that FAILED to resolve (a genuine "could not resolve the family"). Copied verbatim
-// from verify.js (see there for the full state table).
+// The disclosure decision -- THREE states, one rule; a MISSING self-report (the no-report floor) is
+// distinct from a PRESENT one that FAILED to resolve. Copied verbatim from verify.js (state table).
 function sameModelTag(builderFamily, judgeFamily) {
   const judgeReported = typeof judgeFamily === "string" && judgeFamily.trim().length > 0;
   if (!judgeReported) {
@@ -138,46 +109,40 @@ function sameModelTag(builderFamily, judgeFamily) {
   return b === j ? SAME_MODEL_TAG : null;
 }
 
-// The readiness-probe defaults and the hard cap. The wait is ALWAYS bounded: the timeout is
-// clamped to [interval, READINESS_TIMEOUT_CAP] and attempts derive from it -- never zero, never
-// unbounded (the qa.js flakiness mitigation -- see plan Risks).
+// The readiness-probe defaults and hard cap. The wait is ALWAYS bounded: the timeout clamps to
+// [interval, READINESS_TIMEOUT_CAP] and attempts derive from it -- never zero, never unbounded.
 const READINESS_TIMEOUT_DEFAULT_SEC = 60;
 const READINESS_TIMEOUT_CAP_SEC = 300;
 const READINESS_PROBE_INTERVAL_SEC = 2;
 
-// The issueClass of the explicit "could not run the app" finding -- a boot FACT of this run, not
-// a claim about the code. Tagged (observed this run -- boot log attached), NEVER
-// (checked against the code). Defined once so the class string can't drift.
+// The issueClass of the "could not run the app" finding -- a boot FACT of this run, not a claim
+// about the code, so it carries the observed-this-run tag and NEVER (checked against the code).
 const COULD_NOT_RUN_CLASS = "qa-could-not-run-app";
 
-// The verbatim observed-this-run verification tag the could-not-run finding carries -- a boot
-// fact, distinct from the audit's code-checked tags. Defined once (honesty trust surface).
+// The verbatim observed-this-run tag the could-not-run finding carries -- a boot fact, distinct
+// from the audit's code-checked tags. Defined once (honesty trust surface).
 const OBSERVED_THIS_RUN_TAG = "(observed this run -- boot log attached)";
 
-// The verbatim no-run-command reason -- the could-not-run finding's reason when no runnable
-// command was recorded/passed. Names the durable home (CLAUDE.md's detected-tooling block) so
-// the fix is actionable. Defined once.
+// The verbatim no-run-command reason. Names the durable home (CLAUDE.md's detected-tooling block)
+// so the fix is actionable. Defined once.
 const NO_RUN_COMMAND_REASON =
   'no run command recorded -- add a "Run the app:" line to CLAUDE.md\'s detected-tooling block (or pass runCommand)';
 
 // -- Slice 4b -- flow-driving constants --
 
-// The acceptance-criterion `check` enum (FROZEN -- Slice 6's PRODUCT_SPEC_TEMPLATE carries it
-// verbatim). `e2e` = drive through a real browser (Playwright); `api` = HTTP-only (the driver's
-// Bash/curl); `manual` = NEVER executed -- listed for a human, verdict not-checkable (manual by
-// contract). Defined once; validateCriteria rejects anything else, naming the offending ids.
-// Copied byte-identical to build-item.js (cross-script drift pin).
+// The acceptance-criterion `check` enum (FROZEN -- PRODUCT_SPEC_TEMPLATE carries it verbatim).
+// `e2e` = a real browser (Playwright); `api` = HTTP-only (the driver's Bash/curl); `manual` = NEVER
+// executed, listed for a human, verdict not-checkable. validateCriteria rejects anything else,
+// naming the offending ids. Copied byte-identical to build-item.js (drift pin).
 const CHECK_KINDS = ["e2e", "api", "manual"];
 
-// The product-ux state-bar checks a criterion may request (per docs/claugentic-standards/product-ux.md ->
-// "Loading / empty / error states"). Subset of these three; an empty array = no state checks.
-// FROZEN with the schema. validateCriteria rejects any other value.
+// The product-ux state-bar checks a criterion may request (docs/claugentic-standards/product-ux.md
+// -> "Loading / empty / error states"). An empty array = no state checks. FROZEN with the schema.
 const STATE_KINDS = ["empty", "loading", "error"];
 
-// The runtime-finding issue classes, one per failed state-check kind + the broken-flow class.
-// Lens-shaped findings join the same dedup -> finding-verifier path as code-audit findings; these
-// fixed class strings let dedupFindings key on (issueClass + route) and let the seeded-defect
-// acceptance assert on exact classes. Defined once so the strings can't drift.
+// The runtime-finding issue classes, one per failed state-check kind + the broken-flow class. These
+// fixed strings let dedupFindings key on (issueClass + route) and let the seeded-defect acceptance
+// assert on exact classes; lens-shaped findings then join the same dedup -> verifier path.
 const UX_ISSUE_CLASS = {
   empty: "ux-missing-empty-state",
   loading: "ux-missing-loading-state",
@@ -185,18 +150,16 @@ const UX_ISSUE_CLASS = {
   flow: "ux-broken-flow",
 };
 
-// The verbatim verdict-for-a-manual-criterion text -- a manual criterion is NEVER driven; it is
-// listed for a human with this exact reason. Defined once (honesty trust surface -- a manual
-// criterion must never read as silently dropped or as a pass).
+// The verbatim verdict-for-a-manual-criterion text -- NEVER driven, listed for a human with this
+// exact reason (honesty trust surface: never silently dropped, never a pass).
 const MANUAL_NOT_CHECKABLE_REASON = "manual by contract";
 
-// The verbatim not-checkable reason when the session has no Playwright browser tooling -- every
-// e2e verdict degrades to this, never a silent pass. Defined once.
+// The verbatim not-checkable reason when the session has no Playwright tooling -- every e2e verdict
+// degrades to this, never a pass.
 const BROWSER_UNAVAILABLE_REASON = "browser tooling unavailable in this session";
 
-// Normalize the args boundary -- copied verbatim from verify.js. A scriptPath invocation delivers
-// `args` as a JSON STRING (observed runtime behavior, 2026-06-11); an inline script may receive
-// the object itself. Accept both; an unparseable string fails loud -- never a silent empty-args run.
+// Normalize the args boundary (copied verbatim from verify.js): a scriptPath invocation delivers
+// `args` as a JSON STRING (observed 2026-06-11), an inline script the object. Unparseable = loud.
 function parseArgs(raw) {
   if (typeof raw === "string") {
     try {
@@ -208,14 +171,11 @@ function parseArgs(raw) {
   return raw;
 }
 
-// Validate + normalize the run args at the boundary (FROZEN contract -- Slice 5b builds against
-// it). Returns `{ runConfig, errors }`:
-//   - `errors` is every shape error (fail loud -- the caller maps a missing/empty runCommand or
-//     appUrl to the could-not-run FINDING, not a silent throw: a QA run that can't run reports it).
-//   - `runConfig` is the normalized config (defaults applied, readinessTimeoutSec clamped to the
-//     cap) -- usable only when errors is empty.
-// The 4b-reserved fields (criteria/artifactDir/runLabel) are accepted and threaded but unused in
-// boot-only mode (absent/empty criteria => a boot-only run -- the seam for 4b).
+// Validate + normalize the run args at the boundary (FROZEN contract). Returns `{ runConfig, errors }`:
+//   - `errors` is every shape error. The caller maps a missing/empty runCommand or appUrl to the
+//     could-not-run FINDING, not a silent throw: a QA run that can't run reports that it can't run.
+//   - `runConfig` is normalized (defaults applied, readinessTimeoutSec clamped) -- usable only when
+//     errors is empty. Absent/empty criteria => a boot-only run.
 function parseRunArgs(args) {
   const errors = [];
   if (!args || typeof args !== "object") {
@@ -267,9 +227,8 @@ function parseRunArgs(args) {
   return { runConfig, errors };
 }
 
-// Is this run command a docker compose invocation? `docker compose ...` (v2) or `docker-compose ...`
-// (v1) at the start of the command, case-insensitive, whitespace-tolerant. Drives the default
-// teardown (`docker compose down`) and the detached-start convention (compose uses `-d`).
+// Is this a docker compose invocation? `docker compose` (v2) or `docker-compose` (v1) at the start,
+// case-insensitive, whitespace-tolerant. Drives the default teardown and the `-d` detached start.
 function isComposeCommand(runCommand) {
   if (typeof runCommand !== "string") {
     return false;
@@ -277,9 +236,8 @@ function isComposeCommand(runCommand) {
   return /^\s*docker(\s+compose|-compose)\b/i.test(runCommand);
 }
 
-// The bounded readiness probe plan (PURE -- the boot agent executes it). Derives the probe
-// schedule from the validated timeout: probe every interval up to the bound, ALWAYS at least one
-// attempt, never unbounded. Returns `{ intervalSec, timeoutSec, maxAttempts }`.
+// The bounded readiness probe plan (PURE -- the boot agent executes it): probe every interval up to
+// the bound, ALWAYS >=1 attempt, never unbounded. Returns `{ intervalSec, timeoutSec, maxAttempts }`.
 function readinessPlan(runConfig) {
   const timeoutSec =
     runConfig && typeof runConfig.readinessTimeoutSec === "number" && runConfig.readinessTimeoutSec > 0
@@ -291,9 +249,8 @@ function readinessPlan(runConfig) {
   return { intervalSec, timeoutSec, maxAttempts };
 }
 
-// Classify the boot agent's structured report into `ready` / `failed`. FAIL LOUD: a missing or
-// malformed report (not an object, or `ready` not strictly true) classifies `failed` -- the boot
-// outcome NEVER defaults to success on a degraded report.
+// Classify the boot agent's report into `ready` / `failed`. FAIL LOUD: missing or malformed (not an
+// object, or `ready` not strictly true) is `failed` -- the outcome NEVER defaults to success.
 function bootOutcome(report) {
   if (!report || typeof report !== "object") {
     return "failed";
@@ -301,13 +258,13 @@ function bootOutcome(report) {
   return report.ready === true ? "ready" : "failed";
 }
 
-// The teardown instruction (PURE -- the teardown agent executes it). Runs on success, boot
-// failure, and mid-run error alike (the control flow wraps it in a finally). Precedence:
+// The teardown instruction (PURE -- the teardown agent executes it). Runs on success, boot failure
+// and mid-run error alike (the control flow wraps it in a finally). Precedence:
 //   1. an explicit teardownCommand wins (the user's recorded stop command);
 //   2. else `docker compose down` when the run command is a compose invocation;
 //   3. else kill the PID the boot agent recorded (a backgrounded dev-server).
-// A failed boot that still recorded a PID yields a kill (a half-started process must be reaped --
-// never leak a port). Returns `{ method, command? , pid? }`.
+// A failed boot that recorded a PID still yields a kill -- a half-started process must be reaped,
+// never leak a port. Returns `{ method, command? , pid? }`.
 function teardownPlan(runConfig, bootReport) {
   if (runConfig && typeof runConfig.teardownCommand === "string" && runConfig.teardownCommand.length > 0) {
     return { method: "command", command: runConfig.teardownCommand };
@@ -319,17 +276,15 @@ function teardownPlan(runConfig, bootReport) {
   if (pid != null) {
     return { method: "kill", pid };
   }
-  // No override, not compose, no recorded PID -- nothing to stop (the app never started a
-  // process we can name). Honest: the teardown agent reports it as a no-op, never a silent skip.
+  // No override, not compose, no recorded PID -- nothing to stop. The teardown agent reports it as
+  // a no-op, never a silent skip.
   return { method: "none" };
 }
 
-// Build the one lens-shaped "could not run the app" finding (PURE). Either a no-run-command
-// boundary failure (no boot report) or a boot that never answered. issueClass is the fixed
-// COULD_NOT_RUN_CLASS; confidence is 'deterministic' (an observed boot fact of THIS run);
-// evidence carries the command + probe attempts + the boot-log tail; the verification tag is the
-// observed-this-run tag (NOT a code-checked claim). A QA run that didn't run reports that it
-// didn't run.
+// Build the one lens-shaped "could not run the app" finding (PURE) -- either a no-run-command
+// boundary failure (no boot report) or a boot that never answered. Fixed COULD_NOT_RUN_CLASS;
+// confidence 'deterministic' (an observed boot fact of THIS run); evidence = command + probe
+// attempts + boot-log tail; the observed-this-run tag, NOT a code-checked claim.
 function couldNotRunFinding(runConfig, report) {
   const command = runConfig && runConfig.runCommand ? runConfig.runCommand : null;
   const appUrl = runConfig && runConfig.appUrl ? runConfig.appUrl : null;
@@ -357,9 +312,8 @@ function couldNotRunFinding(runConfig, report) {
 // Structured-output schemas as JSON Schema object literals (no imports). The Workflow tool
 // validates each agent's structured output against these at the tool-call layer.
 
-// The boot agent's report: did it start, did it become ready, the recorded PID + log path, the
-// log tail (last <=50 lines, on failure), and the probe-attempt count. `ready` and `started` are
-// the load-bearing booleans bootOutcome reads.
+// The boot agent's report: started, ready, the recorded PID + log path, the log tail (last <=50
+// lines, on failure), and the probe-attempt count. bootOutcome reads `ready` / `started`.
 const BOOT_SCHEMA = {
   type: "object",
   required: ["started", "ready", "attempts"],
@@ -376,8 +330,8 @@ const BOOT_SCHEMA = {
   },
 };
 
-// The teardown agent's report: did it stop the app, and is the port verifiably free afterwards
-// (the teardown contract -- a port still bound is a leaked process, reported loudly).
+// The teardown agent's report: did it stop the app, and is the port verifiably free afterwards --
+// a port still bound is a leaked process, reported loudly.
 const TEARDOWN_SCHEMA = {
   type: "object",
   required: ["toreDown"],
@@ -388,10 +342,9 @@ const TEARDOWN_SCHEMA = {
   },
 };
 
-// The driver agent's per-criterion report (Slice 4b). One driver per drivable criterion: it
-// performs the flow, evaluates each expect, runs the requested state checks, and records the
-// screenshots it saved. `notCheckable` is the honest escape hatch (browser tooling unavailable /
-// a step that cannot be performed at all) -- verdictFor folds it to not-checkable, never a pass.
+// The driver agent's per-criterion report. One driver per drivable criterion: it performs the flow,
+// evaluates each expect, runs the requested state checks, and records the screenshots it saved.
+// `notCheckable` is the honest escape hatch -- verdictFor folds it to not-checkable, never a pass.
 const DRIVER_SCHEMA = {
   type: "object",
   required: ["steps", "expects", "states", "screenshots"],
@@ -440,9 +393,9 @@ const DRIVER_SCHEMA = {
   },
 };
 
-// The finding-verifier's verdict schema (Slice 4b -- runtime findings re-checked). The
-// self-reported model family is REQUIRED (the run claims cross-model only on a confirming report).
-// Same shape audit.js's VERIFIER_SCHEMA uses.
+// The finding-verifier's verdict schema (runtime findings re-checked). The self-reported model
+// family is REQUIRED -- the run claims cross-model only on a confirming report. Same shape as
+// audit.js's VERIFIER_SCHEMA.
 const VERIFIER_SCHEMA = {
   type: "object",
   required: ["runningAs", "verdict", "evidence", "plainLine"],
@@ -456,11 +409,10 @@ const VERIFIER_SCHEMA = {
 
 // -- Slice 4b -- flow-driving helpers (pure; the driver/verifier agents execute the I/O) --
 
-// Validate the acceptance criteria at the boundary against the FROZEN schema (field names are
-// frozen: id/feature/flow/expect/states/check). FAIL LOUD: returns every error naming the
-// offending id (or index when the id itself is missing/duplicate) -- invalid input is NEVER
-// silently filtered (a dropped criterion would be a silently-unchecked promise). An empty/absent
-// list is valid (=> a boot-only run -- the seam stays open). Returns string[] (empty = valid).
+// Validate the acceptance criteria against the FROZEN schema (id/feature/flow/expect/states/check).
+// FAIL LOUD: every error names the offending id (or index when the id is missing/duplicate) -- never
+// silently filtered, since a dropped criterion is a silently-unchecked promise. An empty/absent list
+// is valid (=> boot-only). Returns string[] (empty = valid).
 function validateCriteria(criteria) {
   const errors = [];
   if (criteria === undefined || criteria === null) {
@@ -508,9 +460,9 @@ function validateCriteria(criteria) {
   return errors;
 }
 
-// Partition the validated criteria into the drivable set (e2e|api -- one driver each, run
-// SEQUENTIALLY: criteria mutate app state, so parallel drivers would interfere) and the manual
-// set (NEVER driven -- listed for a human). PURE. Returns `{ drivable, manual }`.
+// Partition the validated criteria into drivable (e2e|api -- one driver each, run SEQUENTIALLY:
+// criteria mutate app state, so parallel drivers would interfere) and manual (NEVER driven, listed
+// for a human). PURE. Returns `{ drivable, manual }`.
 function criterionPlan(criteria) {
   const list = Array.isArray(criteria) ? criteria : [];
   return {
@@ -519,13 +471,13 @@ function criterionPlan(criteria) {
   };
 }
 
-// Fold one driver agent's structured report into a verdict: `pass` / `fail` / `not-checkable`
-// (+ reason). Precedence (FAIL LOUD -- never default to pass):
-//   - missing/malformed report => not-checkable (loudly -- the driver did not report)
-//   - the driver flagged the run unexecutable (e.g. browser tooling unavailable) => not-checkable + reason
-//   - ANY failed step, failed expect, or state verdict 'fail' => fail
-//   - all steps ok  and  all expects ok  and  no state-fail => pass
-//   - otherwise (some checks were themselves not-checkable, none failed) => not-checkable
+// Fold one driver report into a verdict: `pass` / `fail` / `not-checkable` (+ reason).
+// Precedence (FAIL LOUD -- never default to pass):
+//   - missing/malformed report                                  => not-checkable (loudly)
+//   - the driver flagged the run unexecutable (no browser, ...)  => not-checkable + reason
+//   - ANY failed step, failed expect, or state verdict 'fail'    => fail
+//   - all steps ok AND all expects ok AND no state-fail          => pass
+//   - otherwise (some checks not-checkable, none failed)         => not-checkable
 function verdictFor(report, requestedStates) {
   if (!report || typeof report !== "object") {
     return { verdict: "not-checkable", reason: "the driver returned no usable report" };
@@ -541,10 +493,9 @@ function verdictFor(report, requestedStates) {
   }
   const steps = Array.isArray(report.steps) ? report.steps : [];
   const expects = Array.isArray(report.expects) ? report.expects : [];
-  // Only the criterion's REQUESTED states bear on the verdict -- a driver may report extra
-  // state observations (they are informational evidence), but an unrequested state check can
-  // never fail a criterion that did not ask for it (the 2026-06-12 dogfood: AC-3 with
-  // states:[] failed on checks it never requested).
+  // Only the criterion's REQUESTED states bear on the verdict: extra observations are
+  // informational evidence, and an unrequested check can never fail a criterion that did not ask
+  // for it (2026-06-12 dogfood: AC-3 with states:[] failed on checks it never requested).
   const requested = Array.isArray(requestedStates) ? requestedStates : [];
   const states = (Array.isArray(report.states) ? report.states : []).filter(
     (s) => s && requested.includes(s.state),
@@ -561,21 +512,20 @@ function verdictFor(report, requestedStates) {
   if (allStepsOk && allExpectsOk && !stateNotCheckable) {
     return { verdict: "pass", reason: null };
   }
-  // No hard failure, but something could not be checked (a state was too-fast-to-observe / a
-  // surface was unreachable). Honest: not-checkable, never a pass and never a fail.
+  // No hard failure, but something could not be checked (too-fast-to-observe / unreachable
+  // surface). Honest: not-checkable, never a pass and never a fail.
   return {
     verdict: "not-checkable",
     reason: "some checks could not be performed (see the per-check evidence)",
   };
 }
 
-// Map a failed criterion's driver report to lens-shaped runtime findings (PURE). One finding per
-// failure kind: a failed FLOW (step/expect failure) => ux-broken-flow; a failed STATE check => the
-// state's ux-missing-*-state class. `confidence: 'deterministic'` for an observed protocol fact
-// (a 404/500, an element provably absent); `'judgment'` for an interpretive call. Runtime findings
-// cite the route + evidence; `file:line` is intentionally ABSENT (the runtime observes the
-// product, not the source -- the verifier locates the code itself). Only `fail` verdicts yield
-// findings (pass / not-checkable do not).
+// Map a failed criterion's driver report to lens-shaped runtime findings (PURE). One per failure
+// kind: a failed FLOW (step/expect) => ux-broken-flow; a failed STATE check => that state's
+// ux-missing-*-state class. `deterministic` for an observed protocol fact (a 404/500, an element
+// provably absent), `judgment` for an interpretive call. Findings cite route + evidence; `file:line`
+// is deliberately ABSENT -- the runtime observes the product, and the verifier locates the code.
+// Only `fail` verdicts yield findings.
 function findingsFrom(verdicts) {
   const findings = [];
   for (const v of Array.isArray(verdicts) ? verdicts : []) {
@@ -640,11 +590,10 @@ function findingsFrom(verdicts) {
   return findings;
 }
 
-// Merge duplicate runtime findings -- keyed on issueClass + route (the audit's same-class dedup
-// rule, route-scoped because the runtime observes a product surface, not a file:line). Same class
-// at the same route merges (union of criterionIds + screenshots, first concrete plainEnglish,
-// weakest confidence wins). Distinct classes -- or the same class at a different route -- stay
-// separate. PURE; preserves first-seen order.
+// Merge duplicate runtime findings, keyed on issueClass + route (the audit's same-class rule,
+// route-scoped because the runtime observes a surface, not a file:line). Same class at the same
+// route merges (union of criterionIds + screenshots, first concrete plainEnglish, weakest
+// confidence wins); distinct classes, or the same class elsewhere, stay separate. First-seen order.
 function dedupFindings(findings) {
   const byKey = new Map();
   for (const finding of Array.isArray(findings) ? findings : []) {
@@ -676,9 +625,9 @@ function dedupFindings(findings) {
 }
 
 // Normalize ONE artifact-path segment (PURE): lowercase, non-[a-z0-9._-] -> '-', collapsed, so a
-// free-text label or id can never escape the artifact dir or break the path. It is the only escape
-// guard on the two live legs -- both the runLabel: the boundary normalization in run() (which
-// artifacts.dir reuses) and driverPrompt's shotDir. Idempotent, so the second one is a no-op.
+// free-text label or id can never escape the artifact dir or break the path. The ONLY escape guard
+// on both live legs (the boundary normalization artifacts.dir reuses, and driverPrompt's shotDir);
+// idempotent, so the second application is a no-op.
 function sanitizeForPath(s) {
   return String(s == null ? "" : s)
     .trim()
@@ -690,16 +639,15 @@ function sanitizeForPath(s) {
     .replace(/-{2,}/g, "-");
 }
 
-// Apply the finding-verifier verdicts to the surfaced runtime findings (PURE). Mirrors audit.js's
+// Apply the finding-verifier verdicts to the surfaced runtime findings (PURE) -- audit.js's
 // applyVerdicts mapping, runtime-shaped:
-//   Verified   -> kept, verificationTag (checked against the code) + evidence
-//   Unconfirmed-> kept, verificationTag (could not confirm independently -- model's assertion)
-//   Refuted    -> dropped + counted; its verifier's self-report still rides out in refutedRunningAs
-//                 (a reviewer that decided what reaches the backlog stays in the cross-model fold)
-//   no verdict -> kept, verificationTag (! not yet verified -- re-run to confirm)  [deferred]
-// The COULD-NOT-RUN finding is EXEMPT: it carries its own observed-this-run boot-fact tag and is
-// passed through untouched (a boot fact, not a code claim). `results` is aligned to `findings`
-// (results[i] verifies findings[i]); the could-not-run finding is matched by issueClass, not index.
+//   Verified    -> kept + tag (checked against the code) + evidence
+//   Unconfirmed -> kept + tag (could not confirm independently -- model's assertion)
+//   Refuted     -> dropped + counted; its verifier's self-report still rides out in refutedRunningAs,
+//                  so a reviewer that decided what reaches the backlog stays in the cross-model fold
+//   no verdict  -> kept + tag (! not yet verified -- re-run to confirm)  [deferred]
+// The COULD-NOT-RUN finding is EXEMPT (a boot fact, not a code claim), passed through untouched with
+// its own tag and matched by issueClass, not index. `results` is aligned to `findings`.
 function applyVerifierVerdicts(findings, results) {
   const kept = [];
   const refutedRunningAs = [];
@@ -714,7 +662,7 @@ function applyVerifierVerdicts(findings, results) {
     if (verdict === "Refuted") {
       refutedCount += 1;
       // A verifier that RAN and refuted pushes its report (null = ran, no self-report -> the
-      // conservative floor). Never filter this list: absence is a shorter ARRAY, not a null entry.
+      // conservative floor). Never filter: absence is a shorter ARRAY, not a null entry.
       refutedRunningAs.push(result && result.runningAs != null ? result.runningAs : null);
       return; // dropped
     }
@@ -744,11 +692,10 @@ function applyVerifierVerdicts(findings, results) {
   return { kept, refutedCount, refutedRunningAs };
 }
 
-// The error-partition predicate: which boundary errors become the honest could-not-run
-// FINDING (missing run inputs) vs which throw (caller-contract bugs). Lives in the helpers
-// block so the producer (parseRunArgs message prefixes) / consumer (the partition) string
-// contract is pinned by tests -- a reworded message must turn a test red, never silently
-// reroute a missing runCommand into a throw.
+// The error-partition predicate: which boundary errors become the honest could-not-run FINDING
+// (missing run inputs) vs which throw (caller-contract bugs). In the helpers block so the producer
+// (parseRunArgs message prefixes) / consumer string contract is test-pinned -- a reworded message
+// must turn a test red, never silently reroute a missing runCommand into a throw.
 function isRunInputError(msg) {
   return (
     typeof msg === "string" &&
@@ -756,16 +703,12 @@ function isRunInputError(msg) {
   );
 }
 
-// The ONE source of the artifact-dir shape: default + trailing-separator trim. driverPrompt and
-// the top-level artifactDir both derive from this (and artifacts.dir reuses the already-normalized
-// top-level value). BOTH segments of the artifact path are normalized once at
-// the boundary -- the dir here, the runLabel through sanitizeForPath -- which is what makes the
-// save-path and the report-path convergent. Add a THIRD segment and it must normalize there too.
-//
-// This was documented as the one source while having ZERO call sites; four places re-implemented
-// it inconsistently, so the claim was false and the copies had already drifted. The trim covers
-// BOTH separators (build-item.js's childScriptPath does the same): a `/`-only trim left a trailing
-// backslash on a Windows-style dir, which then joined as `out\qa\/<label>` (0041 S10a, D3).
+// The ONE source of the artifact-dir shape: default + trailing-separator trim. driverPrompt and the
+// top-level artifactDir both derive from it. BOTH path segments normalize once at the boundary --
+// the dir here, the runLabel through sanitizeForPath -- which is what makes the save-path and the
+// report-path convergent; a THIRD segment must normalize there too. It once carried this claim with
+// ZERO call sites while four places re-implemented it, already drifted. The trim covers BOTH
+// separators: a `/`-only trim left a backslash that joined as `out\qa\/<label>` (0041 S10a, D3).
 function artifactBase(dir) {
   // Trim FIRST, then default: defaulting first is NOT idempotent (an all-separator dir trims to
   // "" and a second application substitutes the default), and the driver path applies this twice.
@@ -773,8 +716,8 @@ function artifactBase(dir) {
   return trimmed.length ? trimmed : ".qa-artifacts";
 }
 
-// Map a THROWN boot-agent error to the same failed-boot report shape a returned failure uses --
-// one downstream path (bootOutcome -> couldNotRunFinding), pure so the mapping is unit-pinned.
+// Map a THROWN boot-agent error to the same failed-boot report shape a returned failure uses -- one
+// downstream path (bootOutcome -> couldNotRunFinding), pure so the mapping is unit-pinned.
 function bootReportFromError(err) {
   const msg = err && err.message ? err.message : String(err);
   return {
@@ -785,17 +728,15 @@ function bootReportFromError(err) {
   };
 }
 
-// Build the driver agent's prompt for one criterion (Slice 4b). The agent reaches the session's
-// Playwright tools via ToolSearch (workflow agents load deferred MCP tools that way), drives the
-// flow, evaluates the expects, runs the requested state checks, and saves screenshots under the
-// artifact dir (the script itself has no filesystem -- the agent does the saving). The state-check
-// semantics are stated inline so the agent applies the product-ux bar, not its own guess.
+// Build the driver agent's prompt for one criterion. The agent reaches Playwright via ToolSearch,
+// drives the flow, evaluates the expects, runs the requested state checks, and saves screenshots
+// under the artifact dir (the script has no filesystem). The state-check semantics are stated inline
+// so the agent applies the product-ux bar, not its own guess.
 //
-// PURE (params + sanitizeForPath + artifactBase + one const), so it lives INSIDE the helpers block
-// on purpose: below the block nothing could see it, and the prompt shipped for three releases with
-// its narrowing STATES SCOPE clause emitted BEFORE the role framing and glued to it with no
-// separator (`...never as a states[] entry.Runtime QA -- FLOW-DRIVING...`). Two prior patches to
-// this same line did not catch it. Do not move it back out (0041 S10a, D3).
+// PURE, so it lives INSIDE the helpers block ON PURPOSE: below the block nothing could test it, and
+// the prompt shipped for three releases with its narrowing STATES SCOPE clause emitted BEFORE the
+// role framing and glued to it with no separator (`...never as a states[] entry.Runtime QA --
+// FLOW-DRIVING...`), through two prior patches. Do not move it back out (0041 S10a, D3).
 function driverPrompt(runConfig, criterion, runLabel, artifactDir) {
   const isApi = criterion.check === "api";
   const shotDir = `${artifactBase(artifactDir)}/${sanitizeForPath(runLabel) || "run"}`;
@@ -842,19 +783,15 @@ function driverPrompt(runConfig, criterion, runLabel, artifactDir) {
 
 // --- end helpers ---
 
-// The D6 namespace fallback -- the ONE spawn seam every namespaced agent call goes through.
-// Bundled agents resolve as `<AGENT_NAMESPACE>:<agent>` for an installed adopter and only as BARE
-// names in a project-local dogfood session; this sandbox cannot detect which world it is in (no
-// imports, no filesystem, no env), so try-namespaced-then-retry-bare is the only implementable
-// form. It fires ONLY on a THROWN spawn failure: a null return is a legitimate agent outcome (a
-// skip or terminal error) and is passed through untouched, never retried. The retry spreads the
-// ORIGINAL opts.
+// The D6 namespace fallback -- the ONE spawn seam every namespaced agent call goes through. The
+// sandbox cannot tell an installed adopter (namespaced ids resolve) from a project-local dogfood
+// (only bare names do), so: try namespaced, retry bare ONCE on a THROWN spawn failure, spreading the
+// ORIGINAL opts. A null return is a legitimate outcome -- passed through, never retried.
 //
-// DO NOT thread this through a judge's one-respawn state machine (0041 S10b, D6). A namespace
-// retry must never consume the respawn budget, never set forcedSameModel (that flag feeds the
-// same-model disclosure), never swallow a two-failure throw, and never reuse the `:respawn`
-// label -- it carries its own `:ns-fallback` label so the run log can tell the two apart.
-// Copied byte-identical across the workflow scripts (cross-script drift pin).
+// DO NOT thread this through a judge's one-respawn state machine (0041 S10b, D6): a namespace retry
+// consumes no respawn budget, never sets forcedSameModel (that flag feeds the same-model
+// disclosure), never swallows a two-failure throw, and carries its own `:ns-fallback` label, never
+// `:respawn`. Copied byte-identical across the workflow scripts (drift pin); rationale in verify.js.
 async function agentWithNamespaceFallback(prompt, opts) {
   try {
     return await agent(prompt, opts);
@@ -870,9 +807,8 @@ async function agentWithNamespaceFallback(prompt, opts) {
 }
 
 // Build the boot agent's prompt from the validated run config + the bounded readiness plan. The
-// agent (not the script) has Bash: it starts the command detached and probes the URL. When
-// `runLabel` is null the agent ALSO stamps one (`qa-<timestamp>`) -- the script has no clock, so
-// the artifact-dir leaf is generated here and threaded back to the drivers.
+// agent (not the script) has Bash. When `runLabel` is null the agent ALSO stamps one
+// (`qa-<timestamp>`) -- the script has no clock -- and it is threaded back to the drivers.
 function bootPrompt(runConfig, plan, runLabel) {
   const compose = isComposeCommand(runConfig.runCommand);
   const startHint = compose
@@ -899,8 +835,8 @@ function bootPrompt(runConfig, plan, runLabel) {
   );
 }
 
-// Build the teardown agent's prompt from the (pure) teardown plan. The agent has Bash; it
-// executes the planned method and verifies the port is free.
+// Build the teardown agent's prompt from the (pure) teardown plan. The agent has Bash; it executes
+// the planned method and verifies the port is free.
 function teardownPrompt(runConfig, plan) {
   let instruction;
   if (plan.method === "command") {
@@ -922,10 +858,9 @@ function teardownPrompt(runConfig, plan) {
   );
 }
 
-// Build the finding-verifier's CLEAN-CONTEXT input for a runtime finding (Slice 4b). The verifier
-// gets the claim + route + evidence (NEVER the driver's rationale) and locates the implicated code
-// itself to attempt a refutation. Runtime findings have no file:line -- the route + observed
-// evidence are the anchor.
+// Build the finding-verifier's CLEAN-CONTEXT input for a runtime finding: the claim + route +
+// evidence, NEVER the driver's rationale. Runtime findings have no file:line -- the route + observed
+// evidence are the anchor, and the verifier locates the implicated code itself.
 function verifierPrompt(finding) {
   const ev = finding && finding.evidence ? finding.evidence : {};
   const shots = Array.isArray(ev.screenshots) ? ev.screenshots : [];
@@ -947,11 +882,10 @@ function verifierPrompt(finding) {
 }
 
 // Spawn one finding-verifier; one respawn on failure (the result then can't confirm a different
-// family -> the run carries the same-model tag); a second failure returns null (the finding is
-// then marked deferred -- never a silent skip). Copied in spirit from audit.js's spawnVerifier
-// (runtime-shaped). Each attempt routes through the namespace fallback, which resolves INSIDE one
-// attempt -- a bare retry therefore consumes none of the one respawn and cannot influence the
-// same-model tag (0041 S10b, D6).
+// family -> the same-model tag); a second failure returns null and the finding is marked deferred,
+// never a silent skip. audit.js's spawnVerifier, runtime-shaped. Each attempt routes through the
+// namespace fallback, which resolves INSIDE one attempt -- a bare retry consumes none of the one
+// respawn and cannot influence the same-model tag (0041 S10b, D6).
 async function spawnVerifier(finding) {
   const prompt = verifierPrompt(finding);
   const attempt = async (opts) => {
@@ -986,9 +920,8 @@ async function spawnVerifier(finding) {
 
 // -- Top-level control flow (Workflow scripts run in an async context; no module wrapper). --
 
-// Validate at the boundary. A missing/empty runCommand or appUrl is NOT a silent throw -- it is
-// the could-not-run finding (a QA run that can't run reports that it can't run). Any OTHER shape
-// error (bad types on the optional fields) fails loud -- those are caller-contract bugs.
+// Validate at the boundary. A missing/empty runCommand or appUrl is NOT a throw -- it is the
+// could-not-run finding (a QA run that can't run reports it). Any OTHER shape error fails loud.
 const input = parseArgs(args);
 const { runConfig, errors } = parseRunArgs(input);
 
@@ -999,9 +932,9 @@ if (otherErrors.length > 0) {
   throw new Error(`qa args invalid:\n  - ${otherErrors.join("\n  - ")}`);
 }
 
-// Validate the acceptance criteria at the boundary (FROZEN schema). Invalid criteria are a
-// caller-contract bug (a malformed spec) -- fail loud naming the offending ids, NEVER silently
-// filter (a dropped criterion is a silently-unchecked promise). An absent/empty list => boot-only.
+// Validate the acceptance criteria (FROZEN schema). Invalid criteria are a caller-contract bug --
+// fail loud naming the offending ids, NEVER silently filter (a dropped criterion is a
+// silently-unchecked promise). An absent/empty list => boot-only.
 {
   const criteriaErrors = validateCriteria(runConfig ? runConfig.criteria : []);
   if (criteriaErrors.length > 0) {
@@ -1010,8 +943,8 @@ if (otherErrors.length > 0) {
 }
 
 // No runnable command/URL -- emit the could-not-run finding and stop (never a fake pass, never a
-// silent skip). There is nothing to tear down (nothing was started). Mode is the criteria-derived
-// mode so a full run that lacks a command still reports honestly that it could not run.
+// silent skip); nothing was started, so nothing to tear down. Mode stays criteria-derived so a full
+// run lacking a command still reports honestly that it could not run.
 if (runInputErrors.length > 0) {
   log(`qa: cannot run -- ${runInputErrors.join("; ")}. Emitting the could-not-run finding.`);
   const finding = couldNotRunFinding(runConfig, null);
@@ -1037,12 +970,11 @@ if (runInputErrors.length > 0) {
 const criteria = runConfig.criteria;
 const mode = criteria.length > 0 ? "full" : "boot-only";
 const { drivable, manual } = criterionPlan(criteria);
-// Normalized ONCE here, at the boundary, through the one source -- every consumer below (the
-// driver prompt's save dir, the returned artifacts.dir) reuses this value rather than re-deriving
-// the default or the trim (0041 S10a, D3).
+// Normalized ONCE here, through the one source -- every consumer below (the driver prompt's save
+// dir, the returned artifacts.dir) reuses this value, never re-deriving it (0041 S10a, D3).
 const artifactDir = artifactBase(runConfig.artifactDir);
-// The script has no clock: a runLabel from args wins; else the boot agent stamps `qa-<timestamp>`
-// (threaded below). A null here means "ask the boot agent to generate one".
+// The script has no clock: a runLabel from args wins, else the boot agent stamps `qa-<timestamp>`.
+// A null here means "ask the boot agent to generate one".
 let runLabel = runConfig.runLabel && runConfig.runLabel.length > 0 ? runConfig.runLabel : null;
 const manualCriteria = manual.map((c) => ({
   id: c.id,
@@ -1060,10 +992,9 @@ log(
       : "."),
 );
 
-// --- Boot + teardown, with teardown ALWAYS in the finally (success, boot failure, mid-run
-// error alike -- the port is freed no matter how the run exits). The try body holds the
-// flow-driving stage (criteria -> drivers -> findings -> cross-model verify) when criteria are
-// present; boot-only when none. ---
+// --- Boot + teardown, with teardown ALWAYS in the finally (success, boot failure, mid-run error
+// alike -- the port is freed however the run exits). The try body holds the flow-driving stage
+// (criteria -> drivers -> findings -> cross-model verify) when criteria are present. ---
 let bootReport = null;
 let findings = [];
 let verdicts = [];
@@ -1074,9 +1005,8 @@ let allScreenshots = [];
 
 phase("Boot");
 try {
-  // agent() returns null on skip/terminal error -- and can THROW. Both shapes are the same
-  // honest failure: a null/malformed/thrown boot classifies failed and becomes the
-  // could-not-run finding, never an uncaught crash with no finding.
+  // A skip/terminal error returns null, and a spawn can THROW. Both are the same honest failure:
+  // null/malformed/thrown classifies failed and becomes the could-not-run finding, never a crash.
   try {
     bootReport = await agent(bootPrompt(runConfig, plan, runLabel), {
       agentType: "general-purpose",
@@ -1097,10 +1027,9 @@ try {
     // Last-ditch deterministic label so screenshots still have a home if the agent omitted one.
     runLabel = "qa-run";
   }
-  // Normalize ONCE here, at the same boundary the artifact dir is normalized at: driverPrompt is
-  // the only other caller that runs this value through sanitizeForPath, so joining it raw into
-  // artifacts.dir below would cite a directory the driver never wrote to (sanitizeForPath is
-  // idempotent, so the second application inside driverPrompt is a no-op) (0041 S10a, D3).
+  // Normalize ONCE here, at the same boundary the artifact dir is normalized at: joining it raw
+  // into artifacts.dir below would cite a directory the driver never wrote to. sanitizeForPath is
+  // idempotent, so driverPrompt's second application is a no-op (0041 S10a, D3).
   runLabel = sanitizeForPath(runLabel) || "qa-run";
 
   const outcome = bootOutcome(bootReport);
@@ -1113,14 +1042,13 @@ try {
     log(`qa boot READY after ${bootReport && bootReport.attempts != null ? bootReport.attempts : "?"} probe(s).`);
   }
 
-  // -- Flow-driving (full mode only, and only when the app booted): one runtime-qa driver agent
-  // per drivable criterion, run SEQUENTIALLY (criteria mutate app state -- parallel drivers would
-  // interfere). The DRIVE step is the QA-judgment seam (runs-correct vs reads-correct, the
-  // safety/negative-path push, the intent-vs-behavior line) -- so it spawns the `runtime-qa`
-  // specialist, NOT the bare general-purpose used for the mechanical boot/teardown lifecycle.
-  // Each driver's report folds to a pass|fail|not-checkable verdict; every fail becomes a
-  // lens-shaped UX finding. A boot failure already produced the could-not-run finding; we do NOT
-  // drive against a dead app (every e2e verdict would be a false fail). --
+  // -- Flow-driving (full mode, booted app only): one driver agent per drivable criterion, run
+  // SEQUENTIALLY (criteria mutate app state -- parallel drivers would interfere). DRIVE is the
+  // QA-judgment seam (runs-correct vs reads-correct, the negative-path push, intent-vs-behavior), so
+  // it spawns the `runtime-qa` specialist, NOT the general-purpose used for the mechanical
+  // boot/teardown lifecycle. Each report folds to pass|fail|not-checkable; every fail becomes a
+  // lens-shaped UX finding. We do NOT drive against a dead app -- every e2e verdict would be a false
+  // fail, and the could-not-run finding already stands. --
   if (mode === "full" && ready) {
     phase("Drive");
     for (const criterion of drivable) {
@@ -1142,20 +1070,20 @@ try {
           if (!allScreenshots.includes(s)) allScreenshots.push(s);
         }
       }
-      // The route the criterion landed on -- the appUrl is the honest default anchor (drivers
-      // observe a surface, not a file:line). A criterion may report a more specific route.
+      // The route the criterion landed on -- appUrl is the honest default anchor (drivers observe
+      // a surface, not a file:line). A criterion may report a more specific route.
       const route = report && typeof report.route === "string" && report.route.length > 0 ? report.route : runConfig.appUrl;
       verdicts.push({ id: criterion.id, feature: criterion.feature, check: criterion.check, verdict, reason, route, report });
       log(`qa criterion ${criterion.id} -> ${verdict}${reason ? ` (${reason})` : ""}.`);
     }
 
-    // Shape the fails into lens-shaped findings, dedup by class+route, then add them to the
-    // findings list ALONGSIDE any could-not-run finding (which, here, there is none -- boot was ready).
+    // Shape the fails into lens-shaped findings, dedup by class+route, then add them alongside any
+    // could-not-run finding (none here -- boot was ready).
     const driverFindings = dedupFindings(findingsFrom(verdicts));
     findings.push(...driverFindings);
 
-    // VERIFY: exactly one finding-verifier per surfaced finding (parallel fan-out).
-    // The could-not-run finding (none here) would be exempt; driver findings are all re-checked.
+    // VERIFY: exactly one finding-verifier per surfaced finding (parallel fan-out). The
+    // could-not-run finding (none here) would be exempt; driver findings are all re-checked.
     if (findings.length > 0) {
       phase("Verify");
       const toVerify = findings;
@@ -1169,9 +1097,9 @@ try {
       refutedRunningAs = applied.refutedRunningAs;
     }
   } else if (mode === "full" && !ready) {
-    // Full run requested, but the app never booted -- the could-not-run finding stands and NO
-    // criterion was driven (driving a dead app would manufacture false fails). Every drivable
-    // criterion is reported not-checkable with the boot-failure reason -- honest, never a pass.
+    // Full run requested but the app never booted: the could-not-run finding stands and NO
+    // criterion was driven (a dead app manufactures false fails). Every drivable criterion is
+    // reported not-checkable with the boot-failure reason -- honest, never a pass.
     for (const criterion of drivable) {
       verdicts.push({
         id: criterion.id,
@@ -1186,9 +1114,9 @@ try {
   }
 } finally {
   phase("Teardown");
-  // A throwing teardown inside a finally would REPLACE the boot exception (JS try/finally
-  // semantics) and the operator would debug the wrong failure -- so teardown failures are
-  // caught, logged loudly, and never allowed to mask the original root cause.
+  // A throwing teardown inside a finally would REPLACE the boot exception (JS try/finally) and the
+  // operator would debug the wrong failure -- so teardown failures are caught and logged loudly,
+  // never allowed to mask the original root cause.
   try {
     const td = teardownPlan(runConfig, bootReport);
     const teardownReport = await agent(teardownPrompt(runConfig, td), {
@@ -1211,23 +1139,20 @@ try {
   }
 }
 
-// The run's cross-model claim -- `confirmed` ONLY when EVERY re-checkable finding's verifier
-// returned a confirming self-report of a different family than the builder; otherwise the
-// disclosure tag for WHY. The non-confirmed tag is now THREE-state: a present-but-UNRESOLVED
-// verifier family yields UNRESOLVED_FAMILY_TAG (reported unresolved, never asserted same-model
-// fact); a resolved-same (or missing-report) verifier yields SAME_MODEL_TAG. The could-not-run
-// finding is exempt -- it carries no verifier self-report. The builder family is the orchestrator's
-// session family (passed as args.builderFamily when known).
+// The run's cross-model claim -- `confirmed` ONLY when EVERY re-checkable finding's verifier returned
+// a confirming different-family self-report; otherwise the THREE-state disclosure tag for WHY:
+// UNRESOLVED_FAMILY_TAG for a present-but-unresolved family (reported, never asserted same-model
+// fact), SAME_MODEL_TAG for a resolved-same or missing report. The could-not-run finding is exempt.
 const builderFamily = typeof input.builderFamily === "string" ? input.builderFamily : "";
 const reCheckable = findings.filter((f) => f.issueClass !== COULD_NOT_RUN_CLASS);
-// EVERY verifier that RAN votes -- the survivors' own reports PLUS `refutedRunningAs`, the reports of
-// the verifiers whose finding was Refuted. A refuting verifier decided what reached the backlog, so
-// excluding it would let a same-model reviewer do the deciding under a cross-model banner.
+// EVERY verifier that RAN votes -- the survivors' reports PLUS `refutedRunningAs`. A refuting
+// verifier decided what reached the backlog, so excluding it would let a same-model reviewer do the
+// deciding under a cross-model banner.
 const judgeReports = reCheckable.map((f) => f.verifierRunningAs).concat(refutedRunningAs);
 const allConfirmingDifferentFamily =
   judgeReports.length > 0 && judgeReports.every((r) => r != null && sameModelTag(builderFamily, r) === null);
-// Observability: a verifier self-report that is present but does not resolve to a KNOWN family is
-// LOGGED, never silently degraded -- and taints the disclosure to UNRESOLVED, not asserted same-model.
+// Observability: a present verifier self-report that does not resolve to a KNOWN family is LOGGED,
+// never silently degraded, and taints the disclosure to UNRESOLVED, not asserted same-model.
 let sawUnresolved = false;
 for (const reported of judgeReports) {
   if (typeof reported === "string" && reported.trim().length > 0 && modelFamily(reported) === null) {
@@ -1244,8 +1169,8 @@ const crossModel = allConfirmingDifferentFamily
     ? UNRESOLVED_FAMILY_TAG
     : SAME_MODEL_TAG;
 
-// The three states are resolved directly above; hardcoding one of them into the sentence a
-// human actually reads is the exact over-claim this register exists to prevent.
+// The three states are resolved directly above; hardcoding one into the sentence a human actually
+// reads is the exact over-claim this register exists to prevent.
 const recheckLabel =
   crossModel === "confirmed"
     ? "the cross-model re-check"
@@ -1270,8 +1195,8 @@ const bootOnlySummary = ready
     "emitted with boot-log evidence, and teardown still ran. This is reported, not a pass and not a silent skip.";
 
 return {
-  // full mode "ran" = the app was ready AND criteria were actually exercised;
-  // boot-only "ran" = the app booted. A manual-only run drives nothing -> ran false, honest.
+  // full "ran" = ready AND criteria actually exercised; boot-only "ran" = the app booted. A
+  // manual-only run drives nothing -> ran false, honestly.
   ran: mode === "full" ? ready && verdicts.length > 0 : ready,
   mode,
   boot: {
@@ -1285,7 +1210,7 @@ return {
   findings,
   refutedCount,
   manualCriteria,
-  // artifactDir is already artifactBase-normalized at the boundary -- no second default, no second trim.
+  // artifactDir is already artifactBase-normalized at the boundary -- no second default or trim.
   artifacts: { dir: mode === "full" ? `${artifactDir}/${runLabel}` : null, screenshots: allScreenshots },
   crossModel: mode === "full" ? crossModel : SAME_MODEL_TAG,
   summary: mode === "full" ? fullSummary : bootOnlySummary,

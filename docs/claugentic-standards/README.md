@@ -1,66 +1,41 @@
 # Engineering Standards — Catalog
 
-The multi-lens quality bar, as **scoped modules**. A module loads only when a change
-touches its concern (see each module's `load_scope`), so the catalog can grow toward
-"every standard we can think of" **without bloating any single review**. Anchored to
-**ISO/IEC 25010:2023**.
+The multi-lens quality bar as **scoped modules**, anchored to **ISO/IEC 25010:2023**. A module loads only when a change touches its concern (its `load_scope`), so the catalog can grow toward "every standard we can think of" without bloating any single review.
 
-- **Entry point:** `docs/claugentic-ENGINEERING_STANDARDS.md` (thin — points here).
-- **Module contract:** every module copies `_TEMPLATE.md`.
-- **Who uses it:** the spec (Stage 4) names the in-scope modules/dimensions; `implementer` builds to them; `synthesizer-gate` audits against them (see `docs/claugentic-WORKFLOW.md` → Definition of Done).
+- **Entry point:** `docs/claugentic-ENGINEERING_STANDARDS.md` (thin). **Module contract + authoring rules:** `_TEMPLATE.md`.
+- **Who uses it:** the spec (Stage 4) names the in-scope dimensions; `implementer` builds to them and self-applies their *Auditor checks* before handing off; `lens-reviewer` / `synthesizer-gate` audit against them (`docs/claugentic-WORKFLOW.md` → Definition of Done).
+- **The roster is this directory.** Each module's ISO characteristic, `load_scope` and `status` live in its own frontmatter — read them there, so no index can drift. All are `draft` today.
+- **Reserved — named, no file yet** (authored just-in-time when pulled in): `architecture-styles` (Flexibility) · `capabilities/` (Redis, queues, object-storage, third-party-apis, sidecars, ml, search).
 
-## How to use this catalog (meta-rules)
+## Reading a module
 
-- **Select, don't skip.** For a given change, the architect picks the dimensions that are *relevant* and meets each one **fully** — no debt. Don't gold-plate irrelevant dimensions (that's its own waste — respect `KISS`/`YAGNI`), but **never skip a relevant one.** Relevance is a per-change judgment.
-- **`load_scope.globs` is an advisory relevance HINT, not a gate.** Each module's `load_scope.globs` (often defaulting to `src/**`) just suggests which changed files pull the module in; the `lens-reviewer` is told its module explicitly when invoked, so a non-matching default (e.g. a repo whose code isn't under `src/`) does **not** break anything or silently drop the lens — it's a hint to be refined per repo, never a hard filter.
-- **No hard "N/A" caps in the dimensions.** Don't mark a dimension *permanently* irrelevant — a stack grows into things, and a cap would mislead a future agent. A repo's *current* applicability is captured in a **Current scope** section that the `init` skill **seeds per-repo in the adopter's `CLAUDE.md` `harness:` section** (a local, non-managed spot — a non-capping, growing snapshot of which dimensions are live in that codebase today); this plugin ships the global catch-all only and does **not** ship that section populated. Ultimate relevance is always a per-change judgment.
-- **Additive, not subtractive.** You may **add** dimensions/standards as you discover them; **don't remove** existing ones. This is meant to become "every standard we can think of."
-- **Not confined — to this list or to known patterns.** Exceed the list when a change warrants it. Prefer established design patterns, but you **may invent a novel pattern** when it adds clear value — justify the problem, why existing patterns fall short, and the benefit, and record it in `docs/claugentic-DECISIONS.md`. Unconventional ≠ wrong.
-- **The spec names the in-scope dimensions.** Stage 4 records which dimensions apply to a slice and the target bar; Stage 7 audits against them; "done" = they pass (see **Definition of Done** in `docs/claugentic-WORKFLOW.md`).
+Every `##` heading is one **auditable dimension**. The core bullets, where each carries weight:
+
+- **Good looks like —** the target state, present **only** where it carries something the heading and the checks do not: a threshold, a named primitive, a house preference. Absent on the many dimensions where the name already says it.
+- **Auditor checks —** *the bar the reviewer applies.* Each check is tagged **exactly one** of `[D]` (a gate can prove it — name it) or `[J]` (needs a reviewer's eye), never both; a check that is `[D]` with tooling and `[J]` without is split in two. **These per-check tags are the catalog's confidence record** — there is no dimension-level Confidence line, and no honest reading of a dimension without them.
+- **Honesty register —** where a dimension must state what it deliberately does **not** prove or gate.
+- **Incident —** the concrete dated failure this dimension prevents, on the minority that have one (`grep -l '\*\*Incident —\*\*' docs/claugentic-standards/*.md`). An incident is what makes a rule un-cargo-cultable — and what makes it safe to delete once its cause is gone.
+
+**Select, don't skip.** Apply the *relevant* dimensions, each **fully** — no debt; never gold-plate an irrelevant one (`KISS`/`YAGNI`), never skip a relevant one. Relevance is a per-change judgment.
+
+**No permanent "N/A".** Don't cap a dimension as irrelevant forever — a stack grows into things, and a cap misleads a future agent. A repo's *current* applicability is the **Current scope** snapshot `init` seeds in the adopter's `CLAUDE.md` `harness:` block (local, non-managed, non-capping).
+
+**Not confined — to this list or to known patterns.** Exceed the list when a change warrants it; a novel pattern is allowed on the terms `_TEMPLATE.md` → *Authoring rules* sets.
+
+## Honesty register — what this catalog can actually prove
+
+- **A `[D]` tag describes what is provable *in principle*.** A `[D]` check is *proven* only where the adopter has the tool wired (linter / scanner / test runner / CI). Without it the audit cannot run the check and reports it as the model's **judgment (`[J]`)**, not a verified fact. What is *actually* proven on a repo depends on that repo's tooling.
+- **A `draft` module's specific claims are model-asserted** — thresholds, named tools, cited standards — checked independently only when it is promoted to `stable` or pulled into real work.
+- **`load_scope.globs` is an advisory HINT, not a gate.** It only suggests which changed files pull a module in; `lens-reviewer` is told its module explicitly at invocation, so a non-matching default (a repo whose code isn't under `src/`) never breaks anything and never silently drops the lens.
 
 ## Two-tier knowledge: global (synced) vs local (stays put)
 
-Standards are **copied into each adopting repo on init**, not read from the plugin at runtime (copy-on-init — see `docs/claugentic-DECISIONS.md` → "Managed docs are adopter-aware").
-
-- **Global modules — this directory.** Universal standards. They are **bundled in the plugin** (the source of truth) and **copied by the `init` skill** into the adopter's local `docs/claugentic-standards/`, version-stamped and headed **"managed — do not edit."** Agents read the **local copy**. They are **pristine**: a hand-edit inside an adopting repo is lost whenever a newer plugin version's copy replaces it — **never hand-edit a managed copy.** **Which one you're looking at depends on the repo:** in the **`claugentic-dev-harness` plugin repo** these modules ARE the editable source (no stamp — edit them here); in an **adopter repo** they are **managed copies** (version-stamped, overwritten on re-init) — to change a standard, edit the **plugin**, not the copy, and re-init to propagate — which from an adopter repo means **proposing the change upstream** (`docs/claugentic-WORKFLOW.md` → *The learning loop* names the channel; stage it in `CANDIDATES.md` first).
-- **Local artifacts — the adopting repo (`${CLAUDE_PROJECT_DIR}`).** The **Current scope** snapshot (which dimensions are live in this repo), `CANDIDATES.md` (lessons awaiting promotion — a local buffer **created on first use**, not shipped empty), and repo lessons in `CLAUDE.md` / `docs/claugentic-DECISIONS.md`. These **never propagate** to other repos.
-- **Promotion path.** A lesson that's *universal* is staged in `CANDIDATES.md` (born the first time you stage a lesson there), reviewed, then promoted upstream into a global module — so every repo gets it on its next plugin update. A lesson that's *repo-specific* stays local. This is the two-tier learning loop; the promotion is manual (see `docs/claugentic-WORKFLOW.md` → learning loop).
+- **Global — this directory.** Bundled in the plugin (the source of truth) and **copied into the adopter's `docs/claugentic-standards/` by `init`** — copy-on-init, never read from the plugin at runtime (`docs/claugentic-DECISIONS.md` → “Managed docs are adopter-aware”). Copies are version-stamped and headed **“managed — do not edit”**; agents read the local copy. **Never hand-edit one** — a newer plugin version replaces it. In the **plugin repo** these files ARE the editable source (no stamp); in an **adopter repo** they are managed copies, so changing a standard means proposing it **upstream** and re-initing to propagate.
+- **Local — the adopting repo (`${CLAUDE_PROJECT_DIR}`).** The **Current scope** snapshot, `CANDIDATES.md` (lessons awaiting promotion — a buffer **created on first use**, not shipped empty), and repo lessons in `CLAUDE.md` / `docs/claugentic-DECISIONS.md`. These **never propagate**.
+- **Promotion path — manual.** A *universal* lesson is staged in `CANDIDATES.md`, reviewed, then promoted upstream into a global module, reaching every repo on its next plugin update (`docs/claugentic-WORKFLOW.md` → *The learning loop*). A *repo-specific* lesson stays local.
 
 ## Versioning
 
-A module carries **no version of its own.** The only version that means anything is the plugin
-release stamped on line 1 of an adopter's managed copy: newer plugin versions carry updated
-**global** modules, and **local** artifacts are never touched.
+A module carries **no version of its own.** The only version that means anything is the plugin release stamped on line 1 of an adopter's managed copy.
 
-## Module index
-
-Each module's status lives in its own frontmatter — **all are currently `draft`** — read it there, so this index can't drift.
-
-### Authored modules
-
-| Module | ISO/IEC 25010 |
-|---|---|
-| `security` | Security |
-| `maintainability-structure` | Maintainability |
-| `testing` | Maintainability · Reliability · Functional-suitability |
-| `product-ux` | Interaction Capability |
-| `data-and-persistence` | Reliability · Maintainability |
-| `reliability-resilience` | Reliability |
-| `performance-efficiency` | Performance Efficiency |
-| `observability-ops` | Reliability |
-| `api-and-contracts` | Compatibility |
-| `internationalization` | Interaction Capability |
-| `docs-traceability` | Maintainability |
-
-> ⚠️ **Before trusting a citation.** A `draft` module's citations are **model-asserted** — a starting point, not confirmed fact. They are independently checked when the module is promoted to `stable` or pulled into real work. Treat a draft module's specific source references accordingly.
-
-### Reserved — named, not yet authored
-
-| Module | ISO/IEC 25010 | Status |
-|---|---|---|
-| `architecture-styles` *(reserved)* | Flexibility | reserved — no file yet (authored when a change pulls it in) |
-| `capabilities/` *(reserved)* — Redis, queues, object-storage, third-party-apis, sidecars, ml, search | (various) | reserved — no files yet (authored just-in-time when an audit pulls one in) |
-
-> **Status legend** (per `_TEMPLATE.md`): `stub` = listed, unwritten · `draft` = written, citations model-asserted, not yet battle-tested · `stable` = dogfooded. (`reserved` rows above are named but have no file yet.)
->
-> **`[D]` vs `[J]` — what the audit can actually prove.** A `[D]` (deterministic) check is only **proven** when the adopter has the relevant tool wired (linter / scanner / test runner / CI). Without that tool present, the audit can't run it — it falls back to reporting that check as the **model's judgment (`[J]`)**, not a verified fact. So a module's `[D]` tags describe what's *provable in principle*; what's *actually proven* on a given repo depends on its tooling.
+**Status legend:** `stub` = listed, unwritten · `draft` = written, model-asserted, not battle-tested · `stable` = dogfooded · `reserved` = named above, no file yet.

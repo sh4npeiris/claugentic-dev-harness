@@ -8,59 +8,59 @@ Substantial work flows through a pipeline: **Triage → Discuss → Plan → Rev
 
 ## Your three leverage points
 
-The whole system is built so you steer **what gets built and what "done" means** — with product judgment. Approving the spec is the steering point; you set intent and bless the plan, and the harness carries the code-shaped detail from there:
+You steer **what gets built and what "done" means** — with product judgment. You set intent and bless the plan; the harness carries the code-shaped detail from there.
 
-1. **Brainstorm at Discuss.** Tell the harness *who the user is* and *what "good" means* for this product. The more context here, the better everything downstream. This is your Product-Designer seat.
+1. **Brainstorm at Discuss.** Tell the harness *who the user is* and *what "good" means*. The more context here, the better everything downstream. This is your Product-Designer seat.
 2. **Approve the Spec.** Nothing gets built before you sign off on *what* will be built and *what "done" means*. You approve intent, not code. This is your steering wheel.
 3. **Approve lessons.** When the harness says "I think this should become a standard," you keep or kill it. That's how the standards stay *yours*.
 
 ### How to approve a spec (you don't need to read the code)
 
-When the agent hands you a spec to approve, read the plain-English part and ask yourself:
+Read the plain-English part and ask four questions:
 
 - **Does this match what I asked for?**
 - **Is anything I care about missing?**
 - **Are the risks ones I'm OK with?**
 - **What does it explicitly NOT do?** (a good spec says so.)
 
-If any answer is "no," say **"this is missing X, please revise"** — you don't have to fix it yourself. And the technical detail below the plain-English block is for the agent and reviewer to check against — **you are not expected to read it.**
-
-Everything else — reading code, writing it, reviewing it — the harness fans out to specialists so your attention stays on decisions.
+If any answer is "no," say **"this is missing X, please revise"** — you don't have to fix it yourself. The technical detail below the plain-English block is for the agent and reviewer to check against; **you are not expected to read it.** Everything else — reading, writing, and reviewing code — fans out to specialists so your attention stays on decisions.
 
 ## Why it's trustworthy
 
 Three moves make the output worth trusting:
 
-1. **A different, skeptical agent reviews the work** and tries to refute it. The author is the worst judge of their own work, so the harness never lets the agent that wrote something be the one that signs off on it.
-2. **Anything that can be checked mechanically is checked, not believed** — a test, a `grep`, a web-lookup. Models produce confident, professional-looking errors; a deterministic check doesn't care how confident the prose is.
-3. **It's honest about its limits.** Where a claim *can't* be checked mechanically, the harness labels the finding as judgment, not proof — so you always know which is which.
+1. **A different, skeptical agent reviews the work** and tries to refute it — the author is the worst judge of their own work, so the agent that wrote something never signs it off.
+2. **Anything checkable mechanically is checked, not believed** — a test, a `grep`, a web-lookup. Models produce confident, professional-looking errors; a deterministic check doesn't care how confident the prose is.
+3. **It's honest about its limits.** Where a claim *can't* be checked mechanically, the finding is labelled judgment, not proof — so you always know which is which.
 
 ## How to start work
 
-**To start anything — a backlog item or a brand-new project — just tell the agent in plain English what you want** (e.g. "Let's do Tier-1 item 1" or "I want to build X"). It will ask you questions (Discuss), then write a plan and spec for you to approve before any code. That's the go-button: you describe what you want, it drives the workflow.
+**To start anything — a backlog item or a brand-new project — just tell the agent in plain English what you want** (e.g. "Let's do Tier-1 item 1" or "I want to build X"). It asks you questions (Discuss), then writes a plan and spec for you to approve before any code.
 
 **If the agent starts writing code without asking you product questions first, say "use the workflow"** — it should pause and ask.
 
 ## Using the audit (`/claugentic-dev-harness:audit`)
 
-Run it as a **periodic snapshot**, not a treadmill: the **engineering backlog regenerates** (it doesn't pile up — the separate **product backlog**, written by `/claugentic-dev-harness:product` gap mode, regenerates independently and is never touched by an audit), **Tier 3 is optional polish**, and an **empty Tier 1 + Tier 2 means the code is sound** — your signal to stop, not a prompt to invent work. It **auto-sizes** its effort to the repo (override with `quick` / `standard`). And it doesn't just *assert* its findings: **every surfaced finding (all tiers) gets re-checked** — a separate specialist agent with a clean context (the clean-context judge; it never sees the finder's rationale, so it can't rubber-stamp it), reads the actual code and tries to disprove each one, so false alarms are dropped and each survivor is tagged with what came back. (If a run's budget stops short of re-checking them all, it says so and tells you to re-run — an unchecked finding is never quietly counted as checked.) *(That's an honest reduction of false confidence — a reduction of rubber-stamping risk, not an absolute guarantee; the reviewer and the builder are usually the same model family, so their blind spots aren't independent — the run says so when that happens.)* *(Full operating rules live in the skill's own "How to use it".)*
+Run it as a **periodic snapshot, not a treadmill.** The **engineering backlog regenerates** rather than piling up (the separate **product backlog**, written by `/claugentic-dev-harness:product` gap mode, regenerates independently and is never touched by an audit), **Tier 3 is optional polish**, and an **empty Tier 1 + Tier 2 means the code is sound** — your signal to stop, not a prompt to invent work. It **auto-sizes** its effort to the repo (override with `quick` / `standard`).
 
-Once the engineering backlog is written, starting an item is the same go-button as everything else: **tell the agent "let's do Tier-1 item 1"** (or whichever) in plain English, and it runs the workflow from Discuss. To work **more than one** item, the go-button is **`/claugentic-dev-harness:build`**: name several items or a whole tier ("build all of Tier-1"), confirm the order, and it works them one by one to the honest "sound on the audited dimensions" stop-signal. **`build` reads three sources** — the engineering backlog, the product backlog, and the durable `Bugs` jottings — and presents one worklist interleaved by tier, each item tagged with where it came from (run `/claugentic-dev-harness:product` to populate the product backlog first if you want it folded in) — re-checking the code it just touched between items and pausing for you only when new important work surfaces (and never for anything irreversible without asking). You can approve each spec as its turn comes, or say **"spec everything first"** to plan the whole list and approve it in **one sitting** before any building begins.
+It doesn't just *assert* its findings: **every surfaced finding, all tiers, gets re-checked** by a separate specialist agent with a clean context — it never sees the finder's rationale, so it can't rubber-stamp it — which reads the actual code and tries to disprove each one. False alarms are dropped; each survivor is tagged with what came back. If a run's budget stops short of re-checking them all, it says so and tells you to re-run; an unchecked finding is never quietly counted as checked. *(A reduction of rubber-stamping risk, not a guarantee: reviewer and builder are usually the same model family, so their blind spots aren't independent — the run says so when that happens. Full operating rules live in the skill's own "How to use it".)*
+
+The **go-button** is one item: name it and say "build this" -- the agent drives it through the workflow. To work **more than one**, use **`/claugentic-dev-harness:build`** — name several items or a whole tier ("build all of Tier-1"), confirm the order, and it works them one by one to the honest "sound on the audited dimensions" stop-signal. **`build` reads three sources** — the engineering backlog, the product backlog, and the durable `Bugs` jottings — and presents one worklist interleaved by tier, each item tagged with where it came from (run `/claugentic-dev-harness:product` first if you want the product backlog folded in). It re-checks the code it just touched between items, pauses for you only when new important work surfaces, and never does anything irreversible without asking. Approve each spec as its turn comes, or say **"spec everything first"** to plan the whole list and approve it in **one sitting** before any building begins.
 
 ## Two utilities: health and tidy-up (`:doctor`, `:condense`)
 
-Two skills keep the harness *itself* healthy in your repo — reach for them when you want them, not on a schedule:
+Two skills keep the harness *itself* healthy — reach for them when you want them, not on a schedule:
 
-- **`/claugentic-dev-harness:doctor`** — a read-only health snapshot: it reports a green / warn / breach picture of the harness's own gates, plans, and wiring in your repo, and only ever acts on your explicit approval. Run it when you want to know "is my harness set up right?"
-- **`/claugentic-dev-harness:condense`** — the harness keeps a few managed ledgers (DECISIONS, ROADMAP, and friends) lean by a byte budget; when one gets **near** its budget you'll get a warning, and if it goes **over** the commit stops until it's tidied (both only where `init` wired the commit hook — see *Under the hood* below). `:condense` does that tidy-up *for* you: it classifies every entry first, then proposes a diff you approve before anything is written — nothing is deleted without your say-so, and git history keeps the full record.
+- **`/claugentic-dev-harness:doctor`** — a read-only health snapshot: green / warn / breach across the harness's own gates, plans, and wiring in your repo. It only ever acts on your explicit approval. Run it to answer "is my harness set up right?"
+- **`/claugentic-dev-harness:condense`** — the harness keeps a few managed ledgers (DECISIONS, ROADMAP, and friends) lean by a byte budget: **near** its budget warns, **over** it stops the commit until tidied (both only where `init` wired the commit hook — see *Under the hood*). `:condense` does that tidy-up *for* you — it classifies every entry first, then proposes a diff you approve before anything is written. Nothing is deleted without your say-so, and git history keeps the full record.
 
 ## How the pipelines run (the short version)
 
-The choreography you read about above is now **executable scripts** the skills run, not just prose the agent must remember:
+The choreography above is **executable scripts** the skills run, not just prose the agent must remember:
 
-- **The pipelines are code.** The audit, the review panel, and the build loop ship as Workflow scripts (`engine/verify.js` · `audit.js` · `qa.js` · `build-item.js`). The honest formula: *the skill invokes the script, and the script then runs the fan-out / clean-context re-check / panel mechanically.* If the Workflow tool isn't available in a session, the skill **says so**, runs the prose path, and tags the run "prose-orchestrated" — never claiming the script guarantees. See [`WORKFLOW.md`](claugentic-WORKFLOW.md) + the skills. *(These `engine/*.js` scripts live in the **installed plugin** and are run from there via the Workflow tool — they are not files in your repo.)*
+- **The pipelines are code.** The audit, the review panel, and the build loop ship as Workflow scripts (`engine/verify.js` · `audit.js` · `qa.js` · `build-item.js`). The honest formula: *the skill invokes the script, and the script then runs the fan-out / clean-context re-check / panel mechanically.* If the Workflow tool isn't available in a session, the skill **says so**, runs the prose path, and tags the run "prose-orchestrated" — never claiming the script guarantees. *(These `engine/*.js` scripts live in the **installed plugin** and are run from there — they are not files in your repo.)*
 - **Autonomy is earned.** The default run is **watched** (you're present; you approve the spec). **Build-to-green** (the loop iterates unwatched until gates + acceptance criteria pass, pausing at release) is *earned per-repo* — only with CI + a test baseline + a testable spec. It is **a reduction of unwatched-run risk, never a substitute for the unbuilt deterministic trust-gates.** See `skills/build/SKILL.md`.
-- **The harness can run your app (QA).** It boots the app and drives each spec'd flow the way that criterion says to be checked — in a real browser for an `e2e` criterion, over plain HTTP for an `api` one — checking the empty/loading/error states you named. A criterion marked `manual` is **never driven**; it's listed for you to check. A QA pass that **couldn't run** says so — never a silent skip. See [`WORKFLOW.md`](claugentic-WORKFLOW.md) → the QA gate.
+- **The harness can run your app (QA).** It boots the app and drives each spec'd flow the way that criterion says to be checked — a real browser for an `e2e` criterion, plain HTTP for an `api` one — checking the empty/loading/error states you named. A criterion marked `manual` is **never driven**; it's listed for you to check. A QA pass that **couldn't run** says so — never a silent skip. See [`WORKFLOW.md`](claugentic-WORKFLOW.md) → the QA gate.
 - **A product layer.** A `product-spec` flow rebuilds `docs/claugentic-PRODUCT_SPEC.md` with testable acceptance criteria; a `product-gap` audit checks intent vs. what's built. See `skills/product/SKILL.md`.
 - **A measured harness.** A release-time **drift check** re-runs an audit over a seeded-defect fixture and compares the score to a baseline — a **drift detector, not a quality guarantee**. *(Measured in the harness's own repo — `eval/BASELINE.md` — not part of your install.)*
 
@@ -72,22 +72,21 @@ Ask the agent to **explain what it just did and why** — it's built to teach yo
 
 ## Under the hood (optional — you don't need this to drive it)
 
-**The patterns that produce quality.** These are *how* the harness aims past "standard practice":
+**The patterns that produce quality.** How the harness aims past "standard practice":
 
 - **Fan-out** — many specialists in parallel, each on one piece (speed + focus).
-- **Author → adversarial verify** — one agent writes; a *different, skeptical* agent tries to **refute** it. The model that wrote something is the worst judge of it. *This is the core trust move.*
-- **Trust the oracle, not the model** — wherever a fact can be checked mechanically (a test, a `grep`, a web-lookup), check it that way. Models produce confident, professional-looking errors; deterministic checks don't.
 - **Effort dial** — match review depth to the change's risk; don't run the whole machine on a typo.
-- **Diverse panel + clean-context judge** — a contested or trust-touching change is critiqued by several *different* lenses at once (a skeptic, an over-claim checker, a product eye), and each gating judge is a separate specialist agent working from a clean-context input contract — it never sees the builder's rationale, so it can't rubber-stamp it. Fewer shared blind spots than one reviewer who saw the reasoning (independence of role + clean context, not of model — they run the same model family).
-- **Structure long runs to keep caches warm** — each subagent starts with a fresh prompt cache, and the platform's prompt-caching reuses a stable prefix (its cached entries expire after a short idle window). So a long multi-agent run goes faster when it's structured to reuse that warm prefix — batch a specialist's work rather than scattering it across long gaps, and take task breaks at natural boundaries. This is a *speed* lever, not a correctness one; the harness's fan-out and slice-complete grain already tend to produce it.
+- **Diverse panel + clean-context judge** — *Why it's trustworthy* scaled up: a contested or trust-touching change is critiqued by several *different* lenses at once (a skeptic, an over-claim checker, a product eye), each gating judge working from a clean-context input contract. Fewer shared blind spots than one reviewer who saw the reasoning — independence of role + clean context, **not of model** (they run the same model family).
+- **Structure long runs to keep caches warm** — a subagent's prompt cache starts fresh and expires after a short idle window, so batch a specialist's work rather than scattering it across long gaps. A *speed* lever, not a correctness one; fan-out and slice grain already tend to produce it.
 
-**When the commit-time checks run — at commit, not while you edit.** Two run there, chained into one hook **wherever `init` wired that hook** (a repo that kept its own architecture tree has no commit hook at all — there both checks are on-demand), and the same pair also runs when a `git merge` commits cleanly: the architecture-tree check and the **doc-budget check** (which measures your ledgers against the caps `init` seeded in `.claude/claugentic-doc-budgets.json` — a ledger near its cap prints a warning and lets the commit through; one over it stops the commit until you condense — that is the nudge `/claugentic-dev-harness:condense` above answers). The rest of this section is about the tree check. The harness keeps an architecture tree (`docs/claugentic-ARCHITECTURE_TREE.md`): a one-line-per-file index the agents use to find the right file without reading the whole codebase. When you add or move a source file you update that tree, and a **pre-commit gate** checks it is current — it runs at **`git commit` time, not live while you edit.** That's a deliberate design, not a limitation: a commit-time check is **deterministic** (the same result on every machine with a working Python — without one the gate skips loudly and the commit passes) and **portable** (no editor- or session-specific tooling to install), so the tree can't quietly drift out of step with the code. If you'd rather catch a stale tree the moment you save, you can wire **your own** optional editor/`PostToolUse` hook to run the same check in-session — that's yours to add, not something the harness ships.
+**When the commit-time checks run — at commit, not while you edit.** Two checks are chained into one hook **wherever `init` wired that hook** (a repo that kept its own architecture tree has no commit hook at all — there both are on-demand), and the same pair also runs when a `git merge` commits cleanly:
 
-**A few terms you'll see.**
+- **The doc-budget check** measures your ledgers against the caps `init` seeded in `.claude/claugentic-doc-budgets.json`. Near its cap prints a warning and lets the commit through; over it stops the commit until you condense — the nudge `:condense` above answers.
+- **The architecture-tree check.** The harness keeps a tree (`docs/claugentic-ARCHITECTURE_TREE.md`): a one-line-per-file index the agents use to find the right file without reading the whole codebase. When you add or move a source file you update the tree, and this gate checks it is current.
 
-- **Characterization / golden-master test** — a test that captures what the code *currently does*, so you can change it and prove the behavior didn't move. The safety net for touching legacy code.
-- **Idempotent** — doing it twice is the same as doing it once (safe to retry).
-- **Gate / fitness function** — an automatic check that *enforces* a standard; it can't be argued around.
-- **Lens** — one quality viewpoint (security, performance, UX…); the harness reviews through several at once.
-- **Dual-layer output** — every finding stated technically *and* in plain English ("what this means for you").
+Commit time is deliberate: it's **deterministic** (same result on every machine with a working Python — without one the gate skips *loudly* and the commit passes) and **portable** (no editor- or session-specific tooling), so the tree can't quietly drift out of step with the code. To catch a stale tree the moment you save, wire **your own** editor/`PostToolUse` hook to run the same check in-session — yours to add, not something the harness ships.
+
+**Two terms you'll see.**
+
 - **Slice** — one unit of work small enough to finish completely in a single session, with no half-done leftovers.
+- **Dual-layer output** — every finding stated technically *and* in plain English ("what this means for you").
