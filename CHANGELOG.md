@@ -9,6 +9,76 @@ plugin is versioned with [SemVer](https://semver.org/). The authoritative
 version is `plugin.json`; each release is published on the `release` branch and
 tagged `vX.Y.Z`.
 
+## 0.5.4
+
+**What this release is for.** Two things, and the second is why you should take it
+promptly. The harness **got 28% smaller** without losing a check — and the first
+real-world install found three defects, all fixed here. One of them means your
+commit gates may not have been running at all.
+
+### Fixed
+
+- **If only the `py` launcher is on your PATH, both commit gates were silently skipped.**
+  The hook probed `python3` and `python` — not `py`, which is the *only* interpreter on a
+  common Windows Python install. Reproduced end to end: a planted always-fail gate never
+  ran and the commit landed. The hook now probes `py` last (Unix behaviour unchanged; the
+  existing 3.7+ check already rejects a Python-2 launcher), and a test pins that the gates
+  **run** — mutation-verified, so the pin goes red if the candidate list ever regresses.
+
+  **You are affected if** your machine has `py` but not `python`/`python3`. Re-run `init`
+  after updating; the notice now names all three candidates.
+
+- **`init` never told you to stage what it delivered.** It writes a rewired commit hook
+  *plus* new files (the gate script, the caps config). `git add -u` or `git commit -a`
+  stages the hook and **misses the untracked new files** — so teammates get a wrapper
+  chaining a script their checkout doesn't have. Reproduced. `init`'s report now prints the
+  exact `git add …` for everything it touched, and warns that `-u`/`-a` won't cover it.
+  (Shared mode only — solo mode deliberately tracks nothing.)
+
+- **The hook could be written with Windows line endings, breaking it on Linux/macOS.** The
+  shipped file was always LF, but `init` has the agent *write* the hook, and a text-mode
+  write on Windows emits CRLF. Real `dash` rejects that with a syntax error while Git Bash
+  accepts it — so it works for whoever ran `init` and breaks for everyone else. There is
+  now an explicit LF rule on all three hook-write paths with a post-write byte check, and
+  `/doctor` gained a CRLF probe on the wired hook.
+
+- **Deleting `docs/claugentic-CHARTER.md` blocked your commits**, even though the docs call
+  the charter optional. The budget gate fail-louds on a *missing* budgeted file — correct
+  behaviour, and its error already names the one-line fix — but "an absent charter changes
+  nothing" was false on a repo that had run `init`. Both places that made the claim now say
+  to remove its caps line too.
+
+### Changed
+
+- **The harness is 28% smaller: 1.04 MB → 0.75 MB of shipped prose and code**, and the
+  standards catalog — the lens every audit reviews through — went **272 KB → 130 KB**.
+  Nothing was cut that does work: **all 117 dimension headings, all 117 auditor-check
+  bullets, all 476 `[D]`/`[J]` tags, every threshold and every recorded incident survive
+  verbatim.** What went was the bibliography nothing cited, tradeoff essays, prose restating
+  a heading, and the same preamble repeated eleven times.
+
+  **Verified, not asserted:** the seeded-defect eval re-ran against the halved catalog and
+  held **9 of 10** — every exact-match seed identical to the previous release. The one miss
+  is the historically flakiest seed (missed twice before, including with the *full*
+  catalog), and the check it needs survived the cut word for word. Recorded honestly in
+  `eval/BASELINE.md`, including what would make us conclude the cut was wrong.
+
+- **`docs/claugentic-WORKFLOW.md` finally has a byte cap** (77,500 — it lands at 81%). It
+  was the one large managed doc whose growth nothing bounded.
+
+- **Smaller download:** the diagrams' Excalidraw edit sources no longer ship (80 KB an
+  adopter never opens). The rendered PNGs still ship — the README embeds them.
+
+### Known
+
+- **The two README diagrams are drawn at v0.4.1 and awaiting a redraw.** Four labels are
+  wrong; the README captions state each correction inline and say which is drift and which
+  was wrong when drawn. The PNGs are also 40% of the download — the redraw fixes both.
+- **`crossModel` reports the relationship between the *orchestrator* and the judges**, not
+  between the finder and the judges. On a mixed-tier session that can read as independence
+  the run didn't have. The disclosure is still computed from real self-reports, never
+  assumed — but read it with that scope. Tracked with its measured case.
+
 ## 0.5.3
 
 **What this release is for.** Two threads. The first is **the harness saying only what it
