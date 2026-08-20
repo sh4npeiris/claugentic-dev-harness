@@ -27,9 +27,42 @@ The skills, in the order you use them. Type the **full** name (`/claugentic-dev-
 
 Here's how those commands fit together — install once, discover work, build it through a reviewed pipeline, and keep it healthy:
 
-![The claugentic-dev-harness command map — install then /init scaffolds your repo; /audit (existing code) or /product (new project) feed a backlog you pick from; /build works each item through plan → your approval → build → verify → land into a landed change; /doctor and /condense keep the harness healthy. You can also skip the finders and just describe what you want.](docs/diagrams/harness-usage-flow.png)
+```mermaid
+flowchart TD
+    INSTALL["Install<br/>/plugin marketplace add<br/>then /plugin install"]
+    INIT["/init<br/>scaffolds the harness into your repo<br/>RE-RUN after every plugin update"]
+    AUDIT["/audit<br/>a plain-English backlog —<br/>every finding independently re-checked"]
+    PRODUCT["/product<br/>captures the spec,<br/>proposes bolder framing"]
+    SPEC["docs/claugentic-PRODUCT_SPEC.md"]
+    GAP["/product gap mode<br/>audits the code against the spec"]
+    BACKLOG["Backlog<br/>docs/claugentic-ROADMAP.md"]
+    PICK["You pick what to build"]
+    BUILD["/build<br/>plan → review → YOUR APPROVAL<br/>→ build → verify → land"]
+    LANDED["A landed change —<br/>tested, reviewed, documented"]
+    ASK["Or skip the finders —<br/>just tell the agent what you want"]
 
-> *Diagram rendered at **v0.4.1** (2026-07-06) and awaiting a redraw. Read these two labels from the text here, not the picture: `/init` is **re-run after each plugin update**, not once (see [Updating](#updating)); and `/doctor` is read-only in its **diagnose** pass — it can also treat a small, bounded set of fixes, always on your approval. Both were already true when the diagram was drawn, so this is a drawing error, not drift.*
+
+    INSTALL --> INIT
+    INIT --> ASK
+    ASK -->|"the same reviewed pipeline"| BUILD
+    INIT -->|"an existing codebase"| AUDIT
+    INIT -->|"a new project"| PRODUCT
+    AUDIT --> BACKLOG
+    PRODUCT --> SPEC
+    SPEC --> GAP
+    GAP --> BACKLOG
+    BACKLOG --> PICK
+    PICK --> BUILD
+    BUILD --> LANDED
+
+    subgraph HEALTH["Keep it healthy — run either anytime"]
+        DOCTOR["/doctor<br/>a read-only DIAGNOSE; it can also treat<br/>a small, bounded set of fixes —<br/>always on your approval"]
+        CONDENSE["/condense<br/>keep the managed docs lean"]
+    end
+    DOCTOR -->|"budget advisory on a warning"| CONDENSE
+```
+
+Everything those commands produce — the backlog, the spec, the plans, the docs — is written into **your own repo**, as plain files you can read, edit and commit.
 
 ---
 
@@ -68,8 +101,51 @@ The harness's whole pitch is honesty, so here's the straight version:
 
 Here's the full lifecycle of a substantial change — what `:build` runs each item through, and how every landed change feeds back to improve the harness itself:
 
-![The claugentic-dev-harness pipeline — a change flows through four beats: FRAME (triage → discuss → plan → review → spec), APPROVE (your sign-off, with no code before it), BUILD (implement → verify against the Definition of Done: mechanical [D] gates plus reviewer [J] sign-offs), and CLOSE (land → retrospect). A methodology charter fits the approach to the work, and a Stage-9 learning loop promotes lessons back into the standards, agents, and workflow.](docs/diagrams/harness-journey.png)
+```mermaid
+flowchart TD
+    subgraph BEAT1["FRAME — converge on what to build, and how"]
+        S0["0 Triage<br/>is this substantial?"]
+        S1["1 Discuss & brainstorm"]
+        S2["2 Plan<br/>2a draft → 2b advisory panel → 2c incorporate"]
+        S3["3 Review the plan — GATE"]
+        S4["4 Spec — per slice"]
+    end
 
-> *Diagram rendered at **v0.4.1** (2026-07-06) and awaiting a redraw. Two corrections, one of each kind: its Definition-of-Done box omits the **doc-budget check**, which has *since* become one of the two commit-time gates described above — real drift; and every `_CHARTER.md` label on it should read `docs/claugentic-CHARTER.md` (`_CHARTER.md` is only the shipped seed it is copied from), which was already true when the diagram was drawn.*
+    subgraph BEAT2["APPROVE"]
+        S5["5 You sign off on the spec<br/>NO CODE BEFORE THIS"]
+    end
+
+    subgraph BEAT3["BUILD"]
+        S6["6 Implement — one slice"]
+        S7["7 Verify — GATE, effort-dialed"]
+    end
+
+    subgraph BEAT4["CLOSE"]
+        S8["8 Land"]
+        S9["9 Retrospect"]
+    end
+
+    S0 -->|"yes"| S1
+    S1 --> S2
+    S2 --> S3
+    S3 --> S4
+    S3 -->|"changes required"| S2
+    S4 --> S5
+    S5 --> S6
+    S6 --> S7
+    S7 -->|"changes required"| S6
+    S7 --> S8
+    S8 --> S9
+    S0 -->|"no — small or local: skip to Implement + Verify"| S6
+
+    DOD["Definition of Done<br/>[D] deterministic: tests · codebase-map · doc-budget · lint / type / security<br/>[J] judgment: in-scope standards reviewers · runtime QA<br/>plus acceptance criteria met, and no new tech debt"]
+    S7 -.-> DOD
+
+    CHARTER["docs/claugentic-CHARTER.md — optional<br/>records the approach chosen per work-type"]
+    CHARTER -.-> S2
+
+    LOOP["The learning loop — promotes the lessons<br/>back into the standards, the agent roles<br/>and the workflow itself"]
+    S9 --> LOOP
+```
 
 **Requires** `git` and **Python 3** (for the two commit-time checks; without them the agent maintains the map by hand and the caps go unchecked). Public + **Apache-2.0** — install at **user scope** to use it across all your repos. `init` generates a file-by-file map of your repo at `docs/claugentic-ARCHITECTURE_TREE.md` — unless you tell it to keep a map you already have, which leaves the codebase-map check off too.

@@ -142,11 +142,15 @@ import build_release as br  # the SINGLE ship classifier — see module docstrin
 # Binary shipped assets — SKIPPED from the text scan (see `_read_shipped_texts`)
 # ─────────────────────────────────────────────────────────────────────────────
 # A shipped file whose lowercased suffix is in this denylist is a legitimate BINARY asset
-# (an image / font / archive — e.g. the README's `docs/diagrams/*.png` flow diagrams). It has
-# no TEXT for any pass to scan (all four text passes operate on decoded `{path: text}`), so it
-# is skipped from the text map rather than UTF-8-decoded (a PNG's `0x89` magic byte is not valid
-# UTF-8 and would fail-loud). The skip is by KNOWN-BINARY EXTENSION ONLY — a non-binary-extension
-# file that fails to decode is genuine corruption and STILL fails loud (see `_read_shipped_texts`).
+# (an image / font / archive — e.g. a PNG that a shipped README embeds). It has no TEXT for any
+# pass to scan (all four text passes operate on decoded `{path: text}`), so it is skipped from
+# the text map rather than UTF-8-decoded (a PNG's `0x89` magic byte is not valid UTF-8 and would
+# fail-loud). The skip is by KNOWN-BINARY EXTENSION ONLY — a non-binary-extension file that fails
+# to decode is genuine corruption and STILL fails loud (see `_read_shipped_texts`).
+# HONEST SCOPE: NO binary currently ships. The original case — the README's two PNG flow diagrams
+# — was retired 2026-08-20 in favour of inline mermaid, so the real tree no longer exercises this
+# path; the guard stays for the next binary asset that ships, and its unit tests drive it from
+# synthetic fixtures rather than from the live ship set.
 BINARY_EXTENSIONS = frozenset(
     {
         ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".bmp",  # images
@@ -498,9 +502,10 @@ def _shipped_files(root: Path) -> list[str]:
 def _read_shipped_texts(root: Path, ship: list[str]) -> dict[str, str]:
     """Read each shipped TEXT file's content (UTF-8) into the scan map.
 
-    Known-binary shipped ASSETS (suffix in `BINARY_EXTENSIONS` — e.g. the README's
-    `docs/diagrams/*.png` diagrams) are SKIPPED: they are legitimate shipped files with no text
-    for any pass to scan, and UTF-8-decoding one (a PNG's `0x89` magic byte) would fail-loud.
+    Known-binary shipped ASSETS (suffix in `BINARY_EXTENSIONS` — e.g. a PNG a shipped README
+    embeds) are SKIPPED: they are legitimate shipped files with no text for any pass to scan,
+    and UTF-8-decoding one (a PNG's `0x89` magic byte) would fail-loud. None ships today (see
+    `BINARY_EXTENSIONS`); the skip is kept for the next one.
 
     The fail-loud-on-read/decode-error contract holds for TEXT files (everything NOT in the
     binary denylist): a file in the ship set that cannot be read, or a non-binary-extension file

@@ -219,22 +219,6 @@ class TestDerivedHandListsEqualOld:
         }
     )
 
-    # The same discipline for the OTHER partition. `_ADDED_SINCE_MIGRATION` above is
-    # RECREATE-class only (it is subtracted against `_OLD_INIT_CREATES`); a `config`-class
-    # addition lands in `_DANGLE_EXCLUDED` instead, so it needs its own delta or the literal
-    # equality below would force an edit to the frozen snapshot.
-    _CONFIG_ADDED_SINCE_MIGRATION = frozenset(
-        {
-            # 2026-08-20 payload cleanup — the README diagrams' Excalidraw EDIT SOURCES, class
-            # `config`: stripped, never recreated, and legitimately non-dangling because no
-            # SHIPPED doc references a `.excalidraw` path (only the dev-only architecture tree
-            # does). Their rendered `.png` siblings still ship — the shipped README embeds
-            # those, not these.
-            "docs/diagrams/harness-journey.excalidraw",
-            "docs/diagrams/harness-usage-flow.excalidraw",
-        }
-    )
-
     # The mirror image: manifest paths REMOVED since those snapshots were frozen. Same
     # discipline as the additions — the snapshot above is never edited, the delta carries the
     # change, and a path that leaves a snapshot without a line here still fails these pins.
@@ -263,11 +247,12 @@ class TestDerivedHandListsEqualOld:
         )
 
     def test_dangle_excluded_derived_equals_old(self):
-        # Equal to the frozen snapshot PLUS exactly the declared `config`-class additions — a
-        # `config` path in neither set is an unexplained membership change and still fails loud.
-        assert csc._DANGLE_EXCLUDED == self._OLD_DANGLE_EXCLUDED | self._CONFIG_ADDED_SINCE_MIGRATION
-        # ...and the historical membership is still pinned IN FULL (nothing quietly left it).
-        assert self._OLD_DANGLE_EXCLUDED <= csc._DANGLE_EXCLUDED
+        # LITERALLY equal to the frozen snapshot — no `config`-class path has entered or left the
+        # manifest since it was taken, so any membership change here is unexplained and fails
+        # loud. A future `config` addition declares itself in its own delta set (the discipline
+        # `_ADDED_SINCE_MIGRATION` follows for the recreate partition), never by editing this
+        # snapshot.
+        assert csc._DANGLE_EXCLUDED == self._OLD_DANGLE_EXCLUDED
 
     def test_recreated_derived_equals_old_modulo_phantom_charter(self):
         # The derived recreated set (init-seed ∪ init-gen ∪ recreate-on-demand) equals the old
@@ -294,13 +279,10 @@ class TestDerivedHandListsEqualOld:
             - self._OLD_INIT_CREATES
             - self._OLD_HARNESS_SELF_SCRIPTS
             - self._OLD_DANGLE_EXCLUDED
-            # The snapshots predate these paths, so the OLD computation can't classify them —
+            # The snapshots predate this path, so the OLD computation can't classify it —
             # subtracting the declared additions is what keeps the two sides comparable (each
-            # addition's real class is pinned by its own test, not assumed here). BOTH
-            # partitions' deltas subtract here: a `config`-class addition is just as invisible
-            # to the frozen snapshots as a recreate-class one.
+            # addition's real class is pinned by its own test, not assumed here).
             - self._ADDED_SINCE_MIGRATION
-            - self._CONFIG_ADDED_SINCE_MIGRATION
         )
         assert csc.dangling_paths() == old_dangle
 
@@ -555,11 +537,16 @@ class TestMainExitCodes:
 class TestReadShippedTextsBinarySkip:
     """`_read_shipped_texts` — binary shipped ASSETS are skipped; text corruption still fails LOUD.
 
-    The README ships binary PNG diagrams (`docs/diagrams/*.png`). Reading a PNG as UTF-8 raises
-    `UnicodeDecodeError` on its `0x89` magic byte, so a known-binary-extension file must be SKIPPED
-    from the text map (it has no text for any pass to scan). Crucially the skip is by KNOWN-BINARY
-    EXTENSION ONLY: a non-binary-extension file that fails to UTF-8-decode is genuine corruption and
-    STILL fails loud — that fail-loud-on-corruption contract must not be masked."""
+    Reading a PNG as UTF-8 raises `UnicodeDecodeError` on its `0x89` magic byte, so a
+    known-binary-extension shipped file must be SKIPPED from the text map (it has no text for any
+    pass to scan). Crucially the skip is by KNOWN-BINARY EXTENSION ONLY: a non-binary-extension
+    file that fails to UTF-8-decode is genuine corruption and STILL fails loud — that
+    fail-loud-on-corruption contract must not be masked.
+
+    The bug this captures was live when the README embedded two PNG flow diagrams; those were
+    retired 2026-08-20 for inline mermaid, so NO binary ships today. These fixtures are synthetic
+    by construction (`tmp_path`, never the live ship set), so the guard stays exercised and the
+    next shipped binary lands on a tested path."""
 
     # A minimal real PNG header — the exact bytes that broke the live scan (magic byte 0x89).
     _PNG_BYTES = b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"

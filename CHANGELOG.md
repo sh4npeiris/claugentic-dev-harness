@@ -66,14 +66,14 @@ commit gates may not have been running at all.
 - **`docs/claugentic-WORKFLOW.md` finally has a byte cap** (77,500 — it lands at 81%). It
   was the one large managed doc whose growth nothing bounded.
 
-- **Smaller download:** the diagrams' Excalidraw edit sources no longer ship (80 KB an
-  adopter never opens). The rendered PNGs still ship — the README embeds them.
+- **Smaller download: the two README diagrams are now inline Mermaid, not images.** 956 KB
+  of PNG and Excalidraw — roughly half the payload — is gone; GitHub renders the diagrams
+  natively. The real win is maintainability: a rendered image can't be diffed, grepped or
+  corrected, which is how four of its labels went wrong and stayed wrong. Those four labels
+  are fixed in the new diagrams, and the next one is a one-line change.
 
 ### Known
 
-- **The two README diagrams are drawn at v0.4.1 and awaiting a redraw.** Four labels are
-  wrong; the README captions state each correction inline and say which is drift and which
-  was wrong when drawn. The PNGs are also 40% of the download — the redraw fixes both.
 - **`crossModel` reports the relationship between the *orchestrator* and the judges**, not
   between the finder and the judges. On a mixed-tier session that can read as independence
   the run didn't have. The disclosure is still computed from real self-reports, never

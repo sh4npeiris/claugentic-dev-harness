@@ -171,8 +171,9 @@ def _shipped_texts() -> dict[str, str]:
     """Every SHIPPED TEXT file's content, keyed by repo-relative path.
 
     Reuses the ONE ship classifier (`br.classify`) AND the scanner's `_read_shipped_texts` — the
-    single source of the "skip known-binary shipped assets (e.g. `docs/diagrams/*.png`), fail-loud
-    on text corruption" contract — so this scan reads exactly the text files the gate scans."""
+    single source of the "skip known-binary shipped assets (e.g. a PNG a shipped README embeds),
+    fail-loud on text corruption" contract — so this scan reads exactly the text files the gate
+    scans."""
     root = _repo_root()
     ship = list(br.classify(br._tracked_files())[0])
     return csc._read_shipped_texts(root, ship)

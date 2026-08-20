@@ -199,12 +199,6 @@ class TestManifestMigration:
             # plan 0041 Slice 4 — the per-repo doc-budget caps config (`init-gen`): the
             # harness's own harness-tuned caps must not ship into adopter repos.
             ".claude/claugentic-doc-budgets.json",
-            # 2026-08-20 payload cleanup (`config`): the Excalidraw EDIT SOURCES for the README
-            # diagrams. Their rendered `.png` siblings still ship (the shipped README embeds
-            # them); the sources are maintainer-only, no SHIPPED doc references a `.excalidraw`
-            # path, and they cost an adopter 80,438 B of a file only the author ever opens.
-            "docs/diagrams/harness-journey.excalidraw",
-            "docs/diagrams/harness-usage-flow.excalidraw",
         }
     )
 
@@ -212,11 +206,11 @@ class TestManifestMigration:
     # since the snapshot, each with the change that removed it. Same discipline — the frozen
     # snapshot is never edited, the delta carries the change, and a path that leaves the
     # manifest without a line here still fails loud.
-    # SIBLING: `test_check_shipped_content.TestDerivedHandListsEqualOld` carries the same deltas,
-    # SPLIT BY PARTITION: `_ADDED_SINCE_MIGRATION` (recreate-class) and
-    # `_CONFIG_ADDED_SINCE_MIGRATION` (config-class -> dangle-excluded), plus `_REMOVED_SINCE_MIGRATION`
-    # carries the same delta for that module's frozen hand-lists — deliberately restated rather
-    # than imported (each is local build-history), so a new entry updates BOTH.
+    # SIBLING: `test_check_shipped_content.TestDerivedHandListsEqualOld` carries the same deltas —
+    # `_ADDED_SINCE_MIGRATION` (recreate-class additions) and `_REMOVED_SINCE_MIGRATION` — for that
+    # module's frozen hand-lists, deliberately restated rather than imported (each is local
+    # build-history), so a new entry updates BOTH. A `config`-class addition would land in that
+    # module's `_DANGLE_EXCLUDED` partition and would need its own delta there.
     POST_MIGRATION_REMOVALS = frozenset(
         {
             # plan 0041 Slice 6 — the doc-budget gate SHIPS. Its `self-gate` rationale
