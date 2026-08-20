@@ -3,6 +3,8 @@
 **This file is OPTIONAL and defaults-safe. Leave it empty and nothing changes** — every
 kind of work you haven't recorded here falls back to the harness's default per-work
 judgment. Nothing in it is required; there is **no "pick your methodology" gate**.
+**Deleting the file instead?** Also delete its line from `.claude/claugentic-doc-budgets.json` —
+the doc-budget gate fail-louds on a missing budgeted file (its error names this same fix).
 
 The harness fits the approach to the **nature of the work at hand**, per work-item, from
 its toolbox of established practices (`docs/claugentic-WORKFLOW.md` → *Choosing the approach

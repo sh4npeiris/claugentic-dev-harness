@@ -54,9 +54,10 @@ content, **stop and report rather than guess.**
   you used in the report.
 - **Confirm the target repo root** (the adopter's `${CLAUDE_PROJECT_DIR}` / current repo).
 - **Verify Python** (both commit-time gates need it): try `--version` on `python`, `python3`, `py` and
-  **record which one works**. **None found ⇒ report and continue** — the gates won't run until Python
-  is installed, and the agent can fall back to **`Glob`** to maintain the tree. A missing interpreter
-  is not fatal to scaffolding.
+  **record which one works — report-only; the wrapper self-probes at commit time, nothing is baked
+  into the hook**. **None found ⇒ report and continue** — the gates won't run until Python
+  is installed, and the agent can fall back to **`Glob`** to maintain the tree; not fatal to
+  scaffolding.
 - **Resolve the harness mode — Shared (default) or Solo / local-only.** It governs four later
   divergences (steps 3, 5b, 5c, 6), so settle it **here**, before step 3 writes any managed docs.
   - **Read the recorded mode FIRST (re-run idempotency).** Before any prompt, read the
@@ -286,8 +287,8 @@ For the running scenarios:
 
 **The gate runs once per `git commit`, not per agent action** — the tree only has to be correct at the
 durable handoff, and the agent is in-context at commit time to describe a new file. A **git**
-pre-commit hook is a *different* system from Claude Code's `.claude/settings.json` hooks: git triggers
-it, so there is **zero per-tool-use overhead**. (`init` writes **no** tree hooks into
+pre-commit hook is not a Claude Code `.claude/settings.json` hook — git triggers it; **zero
+per-tool-use overhead**. (`init` writes **no** tree hooks into
 `.claude/settings.json`; the SessionStart advisor stays plugin-bundled in `plugin.json`.)
 
 **Gate ON** (Fresh, Mature-no-tree, Replace) ⇒ wire it, init-managed (it travels with the repo, one
@@ -296,9 +297,9 @@ not set `core.hooksPath`**: a kept non-backtick tree must never be policed by a 
 would false-flag it (the measured fenced-diagram 0%-coverage regression); it stays model-upheld via the
 CLAUDE.md authority anchor, and the gate-off choice is recorded on step 4's `Architecture tree:` line.
 
-- **Gate ON, step 1 — write `.githooks/pre-commit`**, the same wrapper this harness ships in its own
-  `.githooks/pre-commit`: repo root via `git rev-parse --show-toplevel` (worktree-safe), an interpreter
-  **probe** over `python3` then `python`, then **both chained gates** —
+- **Gate ON, step 1 — write `.githooks/pre-commit`**, the wrapper this harness itself ships: repo
+  root via `git rev-parse --show-toplevel` (worktree-safe), an interpreter
+  **probe** over `python3` then `python` then `py`, then **both chained gates** —
   `scripts/claugentic-check_architecture_tree.py --staged` and
   `scripts/claugentic-check_doc_budgets.py` (no args — it reads none; step 3 delivered it and step 7b
   wrote the caps it reads) — where **exit 1 from either aborts the commit**.
@@ -329,15 +330,16 @@ CLAUDE.md authority anchor, and the gate-off choice is recorded on step 4's `Arc
      # "no Python". Python 2 answers `-c ""` happily then dies on the gate with a SyntaxError, so
      # the probe asserts the VERSION the gate scripts record for themselves (`# Python 3.7+`).
      # Raise this floor only when a hook-wired gate raises its own.
+     # `py` (the Windows launcher) is tried LAST; the same probe rejects a Python-2 default.
      PY=
-     for cand in python3 python; do
+     for cand in python3 python py; do
        if "$cand" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 7) else 1)' >/dev/null 2>&1; then
          PY=$cand
          break
        fi
      done
      if [ -z "$PY" ]; then
-       printf '%s\n' "claugentic gates SKIPPED: no working Python 3.7+ on PATH (tried python3, python) - install Python 3 and the gates resume on your next commit (no re-init needed)" >&2
+       printf '%s\n' "claugentic gates SKIPPED: no working Python 3.7+ on PATH (tried python3, python, py) - install Python 3 (or expose an existing install on PATH) and the gates resume on your next commit (no re-init needed)" >&2
        exit 0
      fi
      # Run ONE gate with the args given. A gate script not in this checkout is a skip, not a
@@ -370,8 +372,11 @@ CLAUDE.md authority anchor, and the gate-off choice is recorded on step 4's `Arc
      exit $rc
      ```
   **Make it executable** (`chmod +x .githooks/pre-commit`; git tracks the bit so a clone inherits it).
+  **LF RULE — binds every hook write in this skill:** write with LF newlines — never a text-mode
+  write on Windows (e.g. Python `write_text` without `newline="\n"`) — and verify the file has no
+  `\r\n` bytes before reporting the hook wired (a CRLF wrapper is a `dash` syntax error Git-Bash masks).
 
-  **Then write its merge sibling, `.githooks/pre-merge-commit`, and `chmod +x` it too.** git fires
+  **Then write its merge sibling, `.githooks/pre-merge-commit` (LF rule), and `chmod +x` it too.** git fires
   **`pre-merge-commit`** for a conflict-free `git merge` — **never `pre-commit`** — so without it
   neither gate runs on a merge result (measured, git 2.55: an over-cap ledger merges clean and lands
   unchecked). It **delegates, it does not duplicate** — one chain, two entry points, so a gate added to
@@ -381,16 +386,14 @@ CLAUDE.md authority anchor, and the gate-off choice is recorded on step 4's `Arc
      exec "$(dirname "$0")/pre-commit" "$@"
      ```
   **Unchanged limits, state them:** a **server-side PR merge runs no local hook at all**, and a merge
-  that stops on conflicts commits through `pre-commit` anyway. The wrapper probes for itself, so a repo
-  with no Python at `init` time still gets the hook: it skips (loudly) until Python is installed, then
-  gates with no re-run needed.
+  that stops on conflicts commits through `pre-commit` anyway. The wrapper probes for itself: a no-Python repo still
+  gets the hook — it skips (loudly) until Python arrives, then gates with no re-run needed.
 
-  **Line endings — shared mode only.** The wrapper is a multi-line `sh` script; on a CRLF-normalizing
-  checkout it becomes a **parse error** for every teammate whose `/bin/sh` is `dash` — a blocked commit
-  with a raw shell error. So **append `.githooks/** text eol=lf` to `.gitattributes`**
-  (append-if-line-absent; create the file if absent; never rewrite an existing line, and never impose a
-  repo-global `* text=auto` — that is the adopter's call). **Solo mode: do NOT** — `.gitattributes` is
-  tracked, and the solo hook lives at `.git/hooks/pre-commit`, which git never normalizes.
+  **Line endings — shared mode only.** Even an LF-written wrapper re-checks-out CRLF under a
+  normalizing config — the same `dash` failure, per teammate — so **append `.githooks/** text eol=lf`
+  to `.gitattributes`** (append-if-line-absent; create the file if absent; never rewrite an existing
+  line, never impose a repo-global `* text=auto` — the adopter's call). **Solo mode: do NOT** —
+  `.gitattributes` is tracked, and `.git/hooks/` is never normalized by git.
 - **Gate ON, step 2 — run `git config core.hooksPath .githooks`**, pointing git at the tracked hook
   directory so the hook fires on every commit in this clone, and via its `pre-merge-commit` sibling on a
   conflict-free `git merge` too.
@@ -498,7 +501,7 @@ CLAUDE.md authority anchor, and the gate-off choice is recorded on step 4's `Arc
 > **Solo divergence (b) — pre-commit hook → `.git/hooks/pre-commit`, NOT `.githooks/` +
 > `core.hooksPath`.** In **solo mode** with the gate **ON**, write the **same wrapper** (run-logic
 > byte-identical to the shared one above) to **`.git/hooks/pre-commit`** and **`chmod +x`** it — plus
-> the merge sibling **`.git/hooks/pre-merge-commit`**, the same delegating `exec`, also `chmod +x`,
+> the merge sibling **`.git/hooks/pre-merge-commit`**, the same delegating `exec`, also `chmod +x` (LF rule),
 > because git fires *that* on a conflict-free merge. `.git/` is never tracked, so this places **no
 > tracked file** and needs **no shared git config**: **do NOT run `git config core.hooksPath
 > .githooks`** and **do NOT create a tracked `.githooks/` directory**. `core.hooksPath` stays at its git
@@ -906,14 +909,17 @@ Then emit the clear summary, grouped. **The group names are the contract:**
   **architecture-tree choice**, and any **competing way-of-work doc**: name it, state the harvest
   outcome, confirm **it was NOT deleted**, and list whatever a harvest promoted.
 
+**Then — SHARED MODE ONLY — print the exact `git add <path> <path> …` command** covering every path
+this run created or modified (the groups above enumerate them), warning that `git add -u` /
+`git commit -a` will MISS the newly created files — untracked (never in solo: zero new tracked paths).
+
 **One caution to raise — build-time content scanners that read `docs/`.** A repo-wide content scanner
 can ingest harness prose and **fail the build on a string it was never meant to read** (real adopter
 incident: a CSS-utility scanner globbing the whole repo broke that project's build until `docs/` was
-excluded). **Raise it whenever one is present, even if step 8 reported nothing** — it names its own
-sources, because step 8's gate-oriented scan would never surface one: a Tailwind/UnoCSS
+excluded). **Raise it whenever one is present, even if step 8 reported nothing** — it names its own sources: a Tailwind/UnoCSS
 `content`/`include` glob over the repo · a docs/search-index build · a generator reading `**/*.md`.
-Fix: **exclude `docs/` from the scanner's globs.** No mechanical check does this — `init` neither reads
-nor edits your build config, so it is deliberately a prose flag.
+Fix: **exclude `docs/` from the scanner's globs.** No mechanical check does this — `init` never reads or
+edits your build config; deliberately a prose flag.
 
 **A repo already at the installed version reports** "already at the installed version — nothing to
 refresh."; otherwise the Refreshed group lists what moved.

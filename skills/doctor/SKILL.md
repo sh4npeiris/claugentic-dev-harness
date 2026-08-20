@@ -166,6 +166,10 @@ own, and stated here, is the **health verdict**:
     file directly and **skips a non-executable hook silently**.
   - **`.githooks/pre-commit` is git-ignored** — the chain depends on a file no teammate ever gets.
     `git check-ignore -v .githooks/pre-commit` names the offending rule; report both.
+  - **CRLF bytes in the wired wrapper** *(`[D]` — read the bytes)* — any `\r\n` in the active hook
+    file is a flag: a strict POSIX `sh` (dash) rejects a CRLF script outright while Git-Bash tolerates
+    it — the writer's machine works, POSIX teammates' commits die on a raw syntax error. Fix: rewrite
+    the file with LF endings.
   - **Husky present but not installed in this clone** — a `.husky/` directory (marker or not) while
     `core.hooksPath` is **unset or points elsewhere**: git runs `.git/hooks/`, so husky's hooks *and* any
     chained gate are inert until `npm install` runs husky's `prepare`. The ordinary fresh-clone state,
@@ -179,7 +183,7 @@ own, and stated here, is the **health verdict**:
 - **Commit-hook interpreter health** *(`[D]` at doctor-run time — scope note below)* — the wrapper picks
   the interpreter every chained gate runs on, so one it cannot find leaves the gate installed and inert.
   **Replicate the wrapper's probe EXACTLY**: `.githooks/pre-commit` is the authority — read it, don't
-  paraphrase it. Candidates **in order, `python3` then `python`**, each **EXECUTED** with
+  paraphrase it. Candidates **in order, `python3` then `python` then `py`**, each **EXECUTED** with
   `-c 'import sys; sys.exit(0 if sys.version_info >= (3, 7) else 1)'`, first exit 0 wins. **Never
   `command -v` / `where` / a bare PATH lookup** — resolution-without-execution is precisely the
   Windows-Store-stub false negative (a `python3` shim that resolves, exits non-zero, and sits *beside* a
@@ -247,7 +251,7 @@ never written to a fence, never accumulated;** re-running regenerates it from sc
 | adopter doc-budget advisory | `[J]` advisory (read-only — not a gate) on a `[D]` byte figure; N-A if no caps config |
 | landed plan present · cold / stale plan | `[J]` classification |
 | init post-condition | read-only check |
-| hook wiring (shared / solo / **husky-chained**) | `[D]` marker + `core.hooksPath` + git index mode + `check-ignore`; `[J]` whether an `exit` above the marker is *unconditional*. Healthy only when hooksPath resolves to husky; an absent `Husky chain:` record proves nothing |
+| hook wiring (shared / solo / **husky-chained**) | `[D]` marker + `core.hooksPath` + git index mode + `check-ignore` + CRLF byte-check; `[J]` whether an `exit` above the marker is *unconditional*. Healthy only when hooksPath resolves to husky; an absent `Husky chain:` record proves nothing |
 | commit-hook interpreter | `[D]` probe **at doctor-run time** — candidates EXECUTED, never resolved; flag = SKIPPED, and it speaks only for the shell doctor ran in |
 | stamped fence vs installed plugin | `[D]` read-only — not a gate: stamp vs `plugin.json` version (N-A if either is unreadable/non-numeric); remedy = you re-run `init` |
 | Stage-9 harvest signal | `[J]` soft advisory |

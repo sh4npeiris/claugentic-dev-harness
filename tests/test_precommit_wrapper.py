@@ -166,21 +166,25 @@ def _write_executable(path: Path, text: str) -> None:
 
 @pytest.fixture
 def env_without_python(sh, tmp_path) -> dict[str, str]:
-    """A copy of the process env whose PATH resolves NO `python`/`python3` — but still `git`.
+    """A copy of the process env whose PATH resolves NO interpreter candidate — but still `git`.
 
-    Built by dropping every PATH entry that holds a python executable (portable via
-    `os.pathsep`). On Linux that usually drops `/usr/bin`, which also holds `git`, so a `git`
-    shim is written back into a scratch dir. Both halves are then VERIFIED through `sh`, and an
-    environment that cannot be built fails LOUD — a PATH that still resolved python would make
-    the skip-notice cases green for the wrong reason.
+    Built by dropping every PATH entry that holds a python executable — or a `py` launcher,
+    which joined the wrapper's candidate list with Fix A: on a real Windows box `py.exe` lives
+    in `C:/Windows`, so without stripping it too every "no interpreter" case would silently
+    exercise the GATING branch (portable via `os.pathsep`). On Linux the strip usually drops
+    `/usr/bin`, which also holds `git`, so a `git` shim is written back into a scratch dir.
+    Both halves are then VERIFIED through `sh`, and an environment that cannot be built fails
+    LOUD — a PATH that still resolved a candidate would make the skip-notice cases green for
+    the wrong reason.
     """
     env = dict(os.environ)
     kept = []
+    candidates = ("python", "python3", "py", "python.exe", "python3.exe", "py.exe")
     for entry in env.get("PATH", "").split(os.pathsep):
         if not entry:
             continue
         directory = Path(entry)
-        if any((directory / name).exists() for name in ("python", "python3", "python.exe", "python3.exe")):
+        if any((directory / name).exists() for name in candidates):
             continue
         kept.append(entry)
     path = os.pathsep.join(kept)
@@ -198,9 +202,9 @@ def env_without_python(sh, tmp_path) -> dict[str, str]:
         "could not build a python-free PATH that still resolves `git` — the wrapper would exit "
         "at its root guard and this battery would assert the wrong branch."
     )
-    for name in ("python3", "python"):
+    for name in ("python3", "python", "py"):
         assert not _sh_resolves(sh, env, name), (
-            f"`{name}` is still resolvable after stripping python-bearing PATH entries — the "
+            f"`{name}` is still resolvable after stripping candidate-bearing PATH entries — the "
             "missing-interpreter cases would pass vacuously."
         )
     return env
@@ -258,6 +262,34 @@ def stub_python3_beside_working_python(sh, env_without_python, tmp_path) -> Simp
         "candidate fails and the NEXT one works."
     )
     return SimpleNamespace(env=env, log=log)
+
+
+@pytest.fixture
+def py_launcher_only(sh, env_without_python, tmp_path) -> dict[str, str]:
+    """THE Fix-A shape (reproduced on a real adopter box): the ONLY interpreter answers to `py`.
+
+    Windows' installer registers the `py` launcher without putting any `python`/`python3` on
+    PATH. Before `py` joined the candidate list the wrapper skipped BOTH gates -- loudly, but
+    the commit landed. The shim execs the real interpreter (the working-`python` idiom above);
+    `python`/`python3` stay absent (verified by `env_without_python` itself), and the shim is
+    VERIFIED runnable through `sh` at the wrapper's own floor -- otherwise the case silently
+    degrades into the absent-interpreter branch and passes for the wrong reason.
+    """
+    env = dict(env_without_python)
+    bin_dir = tmp_path / "_py_bin"
+    bin_dir.mkdir(exist_ok=True)
+    _write_executable(
+        bin_dir / "py", f'#!/bin/sh\nexec "{Path(sys.executable).as_posix()}" "$@"\n'
+    )
+    env["PATH"] = os.pathsep.join([str(bin_dir), env["PATH"]])
+    resolved = _sh_resolves(sh, env, "py")
+    assert "_py_bin" in resolved, f"`py` did not resolve to the shim (got {resolved!r})"
+    probe = "py -c 'import sys; sys.exit(0 if sys.version_info >= (3, 7) else 1)'"
+    assert _sh_runs(sh, env, probe) == 0, (
+        "the `py` shim fails the wrapper's own probe -- this fixture's whole point is that the "
+        "LAST candidate is the one that works."
+    )
+    return env
 
 
 @pytest.fixture
@@ -406,7 +438,7 @@ class TestUnreachableInfrastructurePasses:
         # commit`, who may not have the plugin installed at all — so never "re-run init").
         hook_repo.gate("raise SystemExit(1)")
         stderr = _run_hook(sh, hook_repo.root, env_without_python).stderr
-        assert "python3, python" in stderr
+        assert "python3, python, py" in stderr
         assert "3.7" in stderr
         assert "install Python 3" in stderr
         # ...and it must NOT send a teammate to the slash command: `init` does not bake the
@@ -477,6 +509,16 @@ class TestTheInterpreterIsProbedNotPicked:
         assert hook_repo.gate_ran(), "the gate never ran — the wrapper gave up on the stub"
         assert SKIP_NOTICE not in result.stderr  # ...and it did not claim there was no Python
         assert stub_python3_beside_working_python.log.exists()  # the stub WAS tried first
+
+    def test_a_py_only_path_still_gates(self, sh, hook_repo, py_launcher_only):
+        # Fix A's pin: with `py` the LAST candidate, a py-only box RUNS the gates -- the planted
+        # always-fail gate must FAIL the commit. Before the fix the wrapper skipped loudly here
+        # and the commit landed (reproduced: both planted gates never ran).
+        hook_repo.gate("print('tree is stale')\nraise SystemExit(1)\n")
+        result = _run_hook(sh, hook_repo.root, py_launcher_only)
+        assert result.returncode == 1, result.stdout + result.stderr
+        assert "tree is stale" in result.stdout
+        assert SKIP_NOTICE not in result.stderr  # it gated; it never claimed "no Python"
 
     def test_the_fallback_does_not_weaken_a_red_gate(
         self, sh, hook_repo, stub_python3_beside_working_python
@@ -844,7 +886,7 @@ class TestTemplateParity:
         # seam, call-site args, the skip notice).
         logic = _run_logic(_wrapper_template())
         assert len(logic) >= 12, logic
-        assert any("for cand in python3 python" in line for line in logic)
+        assert any("for cand in python3 python py" in line for line in logic)
         assert any("sys.version_info >= (3, 7)" in line for line in logic)
         assert any("run_gate()" in line for line in logic)
         assert any('[ ! -f "$root/$gate" ]' in line for line in logic)
@@ -929,8 +971,8 @@ class TestTemplateParity:
         floor = FLOOR_RE.search(hook)
         assert floor, "the hook must state its floor as a version tuple"
         assert f"sys.version_info >= ({floor.group(1)}, {floor.group(2)})" in doctor
-        assert re.search(r"for cand in python3 python", hook), "candidate order is the hook's"
-        assert "`python3` then `python`" in doctor
+        assert re.search(r"for cand in python3 python py", hook), "candidate order is the hook's"
+        assert "`python3` then `python` then `py`" in doctor
 
 
 # ─────────────────────────────────────────────────────────────────────────────
