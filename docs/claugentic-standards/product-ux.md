@@ -19,7 +19,7 @@ load_scope:
 
 ## Information architecture & navigation
 
-- **Auditor checks —** `[J]` nav model consistent across screens (same affordances in the same places) · `[J]` every screen answers "where am I / where can I go" · `[J]` labels match user language (card-sort/tree-test evidence if available) · `[D]` routes and internal links resolve — no orphan routes, link-check in CI.
+- **Auditor checks —** `[D]` routes and internal links resolve — no orphan routes, link-check in CI · `[J]` nav model consistent across screens, and every screen answers "where am I / where can I go" · `[J]` labels match user language (card-sort/tree-test evidence if available).
 
 ## Design system & design tokens (single source of truth for look-and-feel)
 
@@ -32,7 +32,7 @@ load_scope:
 
 ## Optimistic UI & rollback
 
-- **Auditor checks —** `[J]` local state updates before the server responds where latency would otherwise hurt · `[J]` explicit rollback on error (cache revert / previous-value restore) · `[J]` destructive or irreversible actions excluded from optimism · `[D]` where the library ships optimistic APIs (TanStack Query `onMutate`/`onError`), the rollback handler is present.
+- **Auditor checks —** `[D]` where the library ships optimistic APIs (TanStack Query `onMutate`/`onError`), the rollback handler is present · `[J]` explicit rollback on error (cache revert / previous-value restore) · `[J]` destructive or irreversible actions excluded from optimism.
 
 ## Perceived performance & micro-interactions
 
@@ -40,7 +40,7 @@ load_scope:
 
 ## Visual hierarchy, consistency & brand (look-and-feel)
 
-- **Auditor checks —** `[J]` a single clear primary action and a sensible scan order · `[D]` raw design-value lint (the shared `no-hardcoded-design-values` gate — see *Design system & tokens*) · `[J]` spacing/type/color drawn from the scale with intent, not literals that happen to match · `[J]` matches the established brand/voice and sibling screens · `[J]` alignment and grouping clean (Gestalt proximity/similarity), with adequate whitespace.
+- **Auditor checks —** `[D]` raw design-value lint (the shared `no-hardcoded-design-values` gate — see *Design system & tokens*) · `[J]` a single clear primary action and a sensible scan order · `[J]` spacing/type/color drawn from the scale with intent, not literals that happen to match · `[J]` alignment and grouping clean (Gestalt proximity/similarity), with adequate whitespace.
 
 ## Aesthetic & motion craft (is it beautiful and does it feel alive — not just usable?)
 
@@ -59,15 +59,15 @@ load_scope:
 
 ## Ethical engagement (habit-forming without dark patterns)
 
-- **Auditor checks —** `[J]` no flow relies on tricking, shaming or trapping the user to hit a metric · `[J]` cancel/unsubscribe/opt-out as discoverable and easy as the opposite action · `[J]` urgency/scarcity/social-proof cues truthful · `[J]` consent defaults user-favorable (no pre-ticked data sharing) · `[D]` cookie/consent flows meet "reject as easy as accept" where regulated (consent-mode/CMP config).
+- **Auditor checks —** `[D]` cookie/consent flows meet "reject as easy as accept" where regulated (consent-mode/CMP config) · `[J]` cancel/unsubscribe/opt-out as discoverable and easy as the opposite action · `[J]` urgency/scarcity/social-proof cues truthful, consent defaults user-favorable (no pre-ticked sharing).
 
 ## User-flow completeness (no dead ends)
 
-- **Auditor checks —** `[J]` a way forward AND a way out from every state, traced end-to-end · `[J]` the success state explicit with a next action, not a silent close · `[J]` cancel/back non-destructive and predictable · `[J]` an interrupted flow resumes without silent data loss · `[D]` all CTA targets resolve (link/route check — see *Information architecture*).
+- **Auditor checks —** `[D]` all CTA targets resolve (link/route check — see *Information architecture*) · `[J]` a way forward AND a way out from every state, traced end-to-end, with the success state explicit · `[J]` an interrupted flow resumes without silent data loss.
 
 ## Edge-case & resilient UX (offline / slow / flaky network)
 
-- **Auditor checks —** `[J]` an offline/connection-loss path exists (detect + message + recover) · `[D]` double-submit prevented (button disabled or request de-duped while pending) · `[J]` layout survives extreme content — overflow handled, no clipping/overlap · `[J]` long lists windowed/paginated, no unbounded DOM · `[J]` network timeouts bounded with a user-visible retry.
+- **Auditor checks —** `[D]` double-submit prevented (button disabled or request de-duped while pending) · `[J]` an offline/connection-loss path exists (detect + message + recover), with bounded timeouts and a user-visible retry · `[J]` layout survives extreme content — overflow handled, no clipping · `[J]` long lists windowed/paginated, no unbounded DOM.
 
 ## Accessibility (WCAG 2.2 AA — keyboard, contrast, screen reader, focus)
 

@@ -19,7 +19,7 @@ load_scope:
 
 ## Schema design & normalization
 
-- **Auditor checks —** `[D]` columns that should be mandatory carry `NOT NULL` · `[J]` no accidental duplication (same fact in two tables, no sync path) · `[J]` status/type columns constrained (enum/FK/check), not free strings · `[J]` each denormalization has a stated read-path justification **and** a consistency mechanism, recorded in `docs/claugentic-DECISIONS.md`.
+- **Auditor checks —** `[D]` columns that should be mandatory carry `NOT NULL`; status/type columns constrained (enum/FK/check), not free strings · `[J]` each denormalization has a stated read-path justification **and** a consistency mechanism, recorded in `docs/claugentic-DECISIONS.md`.
 
 ## Indexing strategy
 
@@ -32,7 +32,7 @@ load_scope:
 ## Transactions & isolation levels
 
 - **Good looks like —** The isolation level is **chosen, not defaulted-by-accident** — know the engine's default (PostgreSQL/Oracle = Read Committed) and raise it for invariants that read-then-write across rows. Transactions stay **short**: no network calls, no user think-time inside an open one.
-- **Auditor checks —** `[J]` related writes wrapped in one transaction, so a mid-failure cannot leave half-applied state · `[J]` the level fits the invariant — would the default's anomalies (non-repeatable read, phantom, write skew) break this logic? · `[J]` `SERIALIZABLE` paths retry on serialization failure.
+- **Auditor checks —** `[J]` the level fits the invariant — would the default's anomalies (non-repeatable read, phantom, write skew) break this logic? · `[J]` `SERIALIZABLE` paths retry on serialization failure.
 
 ## Concurrency control — optimistic vs. pessimistic locking (lost-update protection)
 
@@ -41,7 +41,7 @@ load_scope:
 
 ## N+1 queries & ORM pitfalls
 
-- **Auditor checks —** `[D]` a regression test asserts a bounded query count for the hot endpoint · `[J]` no loop over rows touches a lazy relation — spot via query-count assertions or echo/SQL logs · `[J]` big reads streamed or chunked, not loaded as objects · `[J]` the generated SQL for a critical path actually read.
+- **Auditor checks —** `[D]` a regression test asserts a **bounded query count** for the hot endpoint · `[J]` no loop over rows touches a lazy relation · `[J]` the generated SQL for a critical path actually read.
 
 ## Connection pooling & resource lifecycle
 
@@ -54,7 +54,7 @@ load_scope:
 
 ## Read replicas & replication lag
 
-- **Auditor checks —** `[D]` replication lag monitored with an alert · `[J]` read-after-write flows read the primary or a lag-bounded path · `[J]` the write→primary / read→replica split explicit — no writes to a read replica · `[J]` a stale or unavailable replica falls back to primary.
+- **Auditor checks —** `[D]` replication lag monitored with an alert · `[J]` read-after-write flows read the primary or a lag-bounded path · `[J]` a stale or unavailable replica falls back to primary.
 
 ## Query optimization (EXPLAIN, no `SELECT *`)
 
@@ -62,7 +62,7 @@ load_scope:
 
 ## Referential integrity
 
-- **Auditor checks —** `[D]` relationship columns carry actual FK constraints in the schema, not integrity hoped-for in code · `[J]` each FK's on-delete/on-update action intentional — no accidental cascade, no orphans left · `[J]` integrity that must be app-enforced is enforced on **all** write paths.
+- **Auditor checks —** `[D]` relationship columns carry actual FK constraints in the schema, not integrity hoped-for in code · `[J]` each FK's on-delete/on-update action intentional — no accidental cascade, no orphans · `[J]` app-enforced integrity enforced on **all** write paths.
 
 ## Idempotent writes
 
@@ -71,6 +71,6 @@ load_scope:
 
 ## Backup before destructive migration
 
-- **Auditor checks —** `[D]` the runbook/PR requires a snapshot before the destructive step runs · `[D]` evidence backups are restore-tested, not just taken · `[J]` the destructive step reversible or staged (rename/keep, drop after soak) · `[J]` mass data mutations batched and interruptible.
+- **Auditor checks —** `[D]` the runbook/PR requires a snapshot before the destructive step runs, and backups are **restore-tested**, not just taken · `[J]` the step reversible or staged (rename/keep, drop after soak) · `[J]` mass mutations batched and interruptible.
 
 > Authoring rules `_TEMPLATE.md` · governance `README.md`
