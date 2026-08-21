@@ -9,6 +9,62 @@ plugin is versioned with [SemVer](https://semver.org/). The authoritative
 version is `plugin.json`; each release is published on the `release` branch and
 tagged `vX.Y.Z`.
 
+## 0.6.0
+
+**What this release is for.** The harness got leaner where it could be *measured* to stay
+just as sharp, and it grew a new way to measure that — the first eval that watches the
+**build** path, not just the audit path. This is the release where the harness started
+proving its own diet instead of asserting it.
+
+### Added
+
+- **A build-path eval (`eval/fixture-build/`).** Until now the only eval measured whether the
+  audit still *finds* seeded defects. This one measures whether the *implement* path still
+  *produces* good code when the standards catalog is cut — the question that actually decides
+  whether a cut costs you anything. It is a fixed programming task an implementer agent builds
+  from a frozen plan, graded mechanically against ten outcome-anchored traps, and — crucially —
+  **the exam proves itself before it is used**: a clean reference must score perfectly and ten
+  single-defect mutants must each trip exactly their own alarm, so a broken probe can't wave a
+  bad cut through. It is dev-only (adopters download none of it). Procedure in
+  `eval/BUILD_BASELINE.md`; the honest reading of every run in `eval/BUILD_ENTRIES.md`.
+
+### Changed
+
+- **The standards catalog is 31% smaller: 132,203 → 91,478 B**, and it lost nothing that does
+  work — **every dimension heading (124, text-identical), every auditor check with its `[D]`/`[J]`
+  tag, every threshold, every recorded incident, every honesty register.** What went was the
+  per-check prose explaining concepts a capable model already holds. **Verified, not asserted:**
+  a standard audit over the seeded-defect fixture, using the cut catalog as its lens, scored
+  **10 of 10 recall — up one seed** from the last measured run on the *full* catalog (`eval/BASELINE.md`,
+  2026-08-21). The build-path eval **saturated** (both the full and cut catalogs produced flawless
+  work at top-tier builder strength), so the cut landed on the detection evidence plus a
+  pre-registered no-regression rule — recorded honestly, including what the eval could *not* show.
+
+- **The specialist role prompts and the six skills are trimmed to their working density** —
+  roster −6.3% (91,314 → 85,583 B), skills −4.8% (199,932 → 190,336 B). Narration and copy
+  restated from the workflow doc went; **every mode contract, output string, engine argument,
+  fence marker, and user-decision gate stayed** — checked by an 18-item single-source-contract
+  survival grep and, for the roster, by three direct probes confirming the cut reviewers still
+  find defects, still block a flawed plan, and still refute a plausible-but-wrong claim. These
+  cuts are deliberately conservative: the safe band was harvested to its ceiling and no further,
+  because a role or skill prompt that can't be output-measured is not cut on faith.
+
+### Fixed
+
+- **The verification-tag string is now one spelling everywhere.** The audit backlog's
+  "not-yet-verified" tag was rendered with an em-dash and a warning glyph in one skill and with
+  plain ASCII in the engine and the others — two spellings of the same published claim. Normalized
+  to the ASCII form the engine emits, swept across every surface that renders it.
+
+### Deferred (named, not hidden)
+
+- The **init split** (the scaffolding skill is 40% of the skills corpus; splitting it into a lean
+  skill plus an on-demand reference would cut ~45 KB from what an agent loads whenever init is
+  merely *considered*) is a structural refactor of the contract-dense scaffolding command, held
+  for a later release rather than rushed in beside a release you're about to depend on.
+- **Re-sharpening the build exam** so it can discriminate at top-tier builder strength (it
+  saturated this release) — a recorded roadmap item, gated on a proposed cut deeper than this one.
+
 ## 0.5.4
 
 **What this release is for.** Two things, and the second is why you should take it

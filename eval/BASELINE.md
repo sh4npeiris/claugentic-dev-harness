@@ -99,6 +99,38 @@ table · contamination note.
 
 ---
 
+### 2026-08-21 . v0.6.0 . standard . eval/fixture-defects/app (release gate for v0.6.0 -- the DEEP-CUT catalog)
+
+- **Why this run exists:** v0.6.0 ships the deep-cut standards catalog (132,203 -> 91,478 B,
+  -30.8%; plan 0044 S2a). This is the release-gate detection measurement -- does the audit still
+  find the seeded defects with the catalog cut by nearly a third? It was run as the detection half
+  of the 0044 S2b decision sitting (`eval/BUILD_ENTRIES.md` entry 3 carries the build-path half).
+- **Models:** 36 agents, deep dial, `crossModel: true / sameModelTag: null`. Per the recorded
+  engine-semantics bug (`docs/claugentic-ROADMAP.md`), `crossModel` keys on the ORCHESTRATOR family,
+  not the finder/judge; read the finder<->judge relationship as same-family. The recall COUNT is
+  unaffected by that caveat.
+- **Run shape:** `COMPLETE`, 5/5 cells, 36 agents, 0 errors. Scope = a scratch worktree copy of
+  `eval/fixture-defects/app` with every answer-bearing file deleted (the class-derived deletion set);
+  the deep-cut catalog was the lens. `lensCoverage` all `ran-found`: security 8 . testing 8 .
+  maintainability-structure 9 . data-and-persistence 14 . reliability-resilience 11 (50 raw -> 30 surfaced).
+
+- **Recall: 10/10 -- UP from the post-thinning ablation's 9/10 (which ran on the FULL 130K catalog).**
+  Every seed hit, including the historically coin-flip cohesion seed (missed on the full catalog in
+  the ablation) and both assert-nothing test seeds as DISCRETE findings (#8 coverage-of-behavior and
+  #9 mocks-the-function-under-test -- no subsumption, resolving the standing concern the v0.5.3 and
+  v0.5.4-dev entries flagged). Every seed matched exact or within line tolerance.
+- **Precision proxy: 30/30 (100%)** -- 0 refuted on the judged-real instrument; same-family caveat above.
+- **Refute-rate: 0/30.** The verifiers confirmed all 30 (each an independent refute-first pass).
+- **Contamination: both canaries ABSENT; zero answer-key ids and zero key filenames** across the run.
+  Fence write reverted (`docs/claugentic-ROADMAP.md` byte-untouched).
+- **Verdict: the deep cut PASSES the detection gate -- recall 10/10 on 69% of the prior catalog
+  bytes, up one seed from the last measured run.** The honest limit: this measures DETECTION; the
+  OUTPUT-quality half (0044 S2b build eval) SATURATED at Opus builder strength (both catalogs 10/10),
+  so the cut landed on this detection evidence plus the pre-registered no-regression rule, not on a
+  build-path delta. Drift-block threshold (recall down >=2 seeds) not approached.
+
+---
+
 ### 2026-08-20 · v0.5.4-dev · standard · eval/fixture-defects/app (post-thinning ablation — NOT a release gate)
 
 - **Why this run exists:** the 2026-08-19 thinning cut the standards catalog **271,977 → 129,999 B
