@@ -18,26 +18,26 @@ load_scope:
 
 ## Minimal & consistent contracts
 
-- **Auditor checks —** Scan new endpoints for fields that belong to internal domain models but have no external consumer `[J]`; check that path segments, query-param names, and JSON keys follow the project's established casing convention `[D via lint/schema tool if configured, otherwise J]`; verify HTTP verbs are used semantically (GET = safe+idempotent, POST = create, PUT/PATCH = update, DELETE = remove) `[J]`.
+- **Auditor checks —** `[J]` no new endpoint exposes internal domain fields with no external consumer · `[D]` path segments, query-param names and JSON keys follow the project's casing convention, where a lint/schema tool is configured · `[J]` otherwise that convention is checked by eye against the surface the endpoint joins · `[J]` HTTP verbs semantic: GET safe+idempotent, POST create, PUT/PATCH update, DELETE remove.
 
 ## Idempotency of mutating endpoints
 
-- **Auditor checks —** Identify mutating endpoints in the diff `[D via HTTP verb]`; verify each either documents idempotency naturally or accepts an `Idempotency-Key` / equivalent header and deduplicates on it `[J]`; check the deduplication store has an appropriate TTL `[J]`.
+- **Auditor checks —** `[D]` mutating endpoints in the diff enumerated by HTTP verb · `[J]` each is naturally idempotent or accepts an `Idempotency-Key` and deduplicates on it · `[J]` the dedup store has a TTL.
 
 ## Versioning & backward compatibility
 
-- **Auditor checks —** Identify any removed or renamed request/response fields in the diff `[J]`; verify the change is either backward-compatible (field is new and optional) or introduced under a new version path `[J]`; check that the version scheme is consistent with existing endpoints `[J]`; confirm deprecated fields carry a documented sunset date if applicable `[J]`.
+- **Auditor checks —** `[J]` removed or renamed request/response fields identified in the diff · `[J]` each change is backward-compatible (new and optional) or lands under a new version path · `[J]` the version scheme matches existing endpoints · `[J]` deprecated fields carry a documented sunset date.
 
 ## Pagination & bounded responses
 
-- **Auditor checks —** Identify list endpoints in the diff `[D via route glob]`; verify each applies `.limit()` / slice / cursor before returning `[J]`; check that the API schema documents the pagination contract (fields, max page size) `[J]`; flag endpoints where `limit` is accepted from the caller but has no server-side cap `[J]`.
+- **Auditor checks —** `[D]` list endpoints in the diff enumerated by route glob · `[J]` each applies `.limit()` / slice / cursor before returning · `[J]` the schema documents the pagination contract (fields, max page size) · `[J]` a caller-supplied `limit` has a server-side cap.
 
 ## Rate limiting & backpressure
 
-- **Auditor checks —** Identify new public-facing endpoints in the diff `[J]`; verify rate-limiting middleware or decorator is applied `[J]`; check that `429` responses include a `Retry-After` header `[J]`; confirm the limit is configured externally (not hardcoded) `[J]`.
+- **Auditor checks —** `[J]` new public-facing endpoints carry rate-limiting middleware · `[J]` `429` responses include `Retry-After` · `[J]` the limit is configured externally, not hardcoded.
 
 ## Clear & stable error shapes
 
-- **Auditor checks —** Scan new error-return paths in the diff for consistency with the project's error envelope schema `[J]`; check that 5xx responses do not leak stack traces or internal paths in the response body `[J]`; verify status codes are semantically appropriate for the error condition `[J]`; confirm error codes are documented `[J]`.
+- **Auditor checks —** `[J]` new error paths match the project's error envelope · `[J]` 5xx bodies leak no stack traces or internal paths · `[J]` status codes semantically appropriate · `[J]` error codes documented.
 
 > Authoring rules `_TEMPLATE.md` · governance `README.md`

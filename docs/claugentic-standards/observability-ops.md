@@ -17,27 +17,27 @@ load_scope:
 
 ## Structured logging
 
-- **Auditor checks —** Scan log statements for unredacted tokens, passwords, or user data `[J]`; confirm a structured logger (not bare `print`/`console.log`) is used `[D]`; verify ERROR/WARN are reserved for actionable conditions `[J]`.
+- **Auditor checks —** `[D]` a structured logger, not bare `print`/`console.log` · `[J]` no unredacted tokens, passwords or user data in log statements · `[J]` ERROR/WARN reserved for actionable conditions.
 
 ## Metrics, tracing, and health checks
 
-- **Auditor checks —** Confirm new code paths increment relevant counters or are justified as trivial `[J]`; verify trace-id propagation across async boundaries `[J]`; check that health endpoints exist and test real dependencies `[D]`.
+- **Auditor checks —** `[D]` health endpoints exist and test real dependencies · `[J]` new code paths increment relevant counters, or are justified as trivial · `[J]` trace-id propagates across async boundaries.
 
 ## Alerting hooks
 
-- **Good looks like —** Alerts fire on **SLO thresholds**, not resource proxies (“CPU > 80%”), and page **only when human action is required**. A silenced alert is a deleted alert.
-- **Auditor checks —** If new failure modes are introduced, confirm a corresponding alert or runbook reference exists `[J]`; check that alert thresholds are documented and not arbitrary `[J]`.
+- **Good looks like —** Alerts fire on **SLO thresholds**, not resource proxies ("CPU > 80%"), and page **only when human action is required**. A silenced alert is a deleted alert.
+- **Auditor checks —** `[J]` new failure modes have a corresponding alert or runbook reference · `[J]` alert thresholds documented, not arbitrary.
 
 ## 12-factor configuration
 
-- **Auditor checks —** Grep for hardcoded hostnames, ports, or credential strings `[D]`; confirm config validation runs at process startup `[J]`; verify no env-specific branches (`if env == "prod"`) exist in application code `[J]`.
+- **Auditor checks —** `[D]` grep hardcoded hostnames, ports or credential strings · `[J]` config validated at process startup · `[J]` no env-specific branch (`if env == "prod"`) in application code.
 
 ## Environment separation and reproducible builds
 
-- **Auditor checks —** Confirm no shared DB/queue between staging and prod `[J]`; verify image/dependency pins are present `[D]`; check that rollback steps exist in the runbook or CI pipeline `[J]`.
+- **Auditor checks —** `[D]` image/dependency pins present · `[J]` no shared DB/queue between staging and prod · `[J]` rollback steps exist in the runbook or CI pipeline.
 
 ## Feature flags and progressive rollout
 
-- **Auditor checks —** If a change introduces risk that warrants a flag, confirm one exists `[J]`; verify flag cleanup tickets exist to prevent permanent flag accumulation `[J]`.
+- **Auditor checks —** `[J]` a change carrying rollout risk has a flag · `[J]` flag cleanup tracked, so flags don't accumulate permanently.
 
 > Authoring rules `_TEMPLATE.md` · governance `README.md`

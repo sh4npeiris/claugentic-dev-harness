@@ -18,27 +18,27 @@ load_scope:
 
 ## Character encoding
 
-- **Auditor checks —** Confirm source files and DB columns are UTF-8 `[D]`; check that file/stream open calls do not omit an explicit encoding `[J]`; verify no `latin-1`/`ascii` assumptions in string manipulation `[J]`.
+- **Auditor checks —** `[D]` source files and DB columns are UTF-8 · `[J]` file/stream open calls pass an explicit encoding · `[J]` no `latin-1`/`ascii` assumption in string manipulation.
 
 ## Locale-aware date, time, and number formatting
 
-- **Auditor checks —** Confirm display formatting passes a locale/format parameter `[J]`; verify wire formats use ISO 8601 for dates and integers/decimals for numbers `[D]`; check that no locale-dependent `parseInt`/`parseFloat` or `strptime` calls lack explicit locale handling `[J]`.
+- **Auditor checks —** `[D]` wire formats are ISO 8601 for dates and integers/decimals for numbers · `[J]` display formatting passes a locale/format parameter · `[J]` no locale-dependent `parseInt`/`parseFloat`/`strptime` without explicit locale handling.
 
 ## Timezone handling
 
-- **Auditor checks —** Confirm DB timestamps are UTC-typed (timestamptz or equivalent) `[D]`; verify no raw `+offset` arithmetic in business logic — use `pytz`/`dateutil`/`Intl.DateTimeFormat`/`Temporal` `[J]`; check that user timezone is read from a preference, not inferred from server locale `[J]`.
+- **Auditor checks —** `[D]` DB timestamps UTC-typed (`timestamptz` or equivalent) · `[J]` no raw `+offset` arithmetic in business logic — use `pytz`/`dateutil`/`Intl.DateTimeFormat`/`Temporal` · `[J]` user timezone read from a preference, not inferred from server locale.
 
 ## Translatable strings
 
-- **Auditor checks —** Grep for hardcoded user-visible string literals outside translation files `[D]`; verify concatenations use named parameters (`{name} joined` not `"Welcome " + name`) `[J]`; check plural handling uses a plural-aware library `[J]`.
+- **Auditor checks —** `[D]` grep hardcoded user-visible string literals outside translation files · `[J]` interpolation uses named parameters (`{name} joined`, not `"Welcome " + name`) · `[J]` plurals handled by a plural-aware library.
 
 ## RTL and bidirectional text layout
 
 - **Good looks like —** **Logical** (start/end) rather than physical (left/right) CSS properties. *Not relevant where RTL is not a target market — a per-change judgment, never a permanent N/A.*
-- **Auditor checks —** If the product targets RTL markets, verify logical CSS properties (`margin-inline-start` not `margin-left`) are used `[J]`; check that icon/image assets mirror correctly in RTL mode `[J]`.
+- **Auditor checks —** `[J]` logical CSS properties (`margin-inline-start`, not `margin-left`) where the product targets RTL · `[J]` icon/image assets mirror correctly in RTL mode.
 
 ## Locale-dependent parsing bugs
 
-- **Auditor checks —** Flag `sort()`/`.toLowerCase()` on user-visible text without locale param `[J]`; check regex word-boundary assertions (`\b`) against non-Latin input requirements `[J]`.
+- **Auditor checks —** `[J]` no `sort()`/`.toLowerCase()` on user-visible text without a locale param · `[J]` regex word boundaries (`\b`) checked against non-Latin input requirements.
 
 > Authoring rules `_TEMPLATE.md` · governance `README.md`
