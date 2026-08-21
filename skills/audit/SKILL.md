@@ -10,18 +10,16 @@ Point this at a repo and it teaches you what the codebase is, then finds the wor
 
 ## How this skill works
 
-Three phases, cheap → expensive, run end-to-end in one pass — **Understand** (inline conversational pass → the overview + audit-plan; no fan-out) → **Audit** (the orchestrator invokes `engine/audit.js` with the audit-plan as args; the script runs FIND → PRUNE → VERIFY mechanically) → **Backlog** (the structured return rendered into the `harness-audit:backlog` fence of `docs/claugentic-ROADMAP.md`).
+Three phases, cheap → expensive, one pass — **Understand** (inline conversational pass → overview + audit-plan; no fan-out) → **Audit** (the orchestrator invokes `engine/audit.js`; the script runs FIND → PRUNE → VERIFY mechanically) → **Backlog** (the structured return rendered into the `harness-audit:backlog` fence of `docs/claugentic-ROADMAP.md`).
 
-**The honest formula (verbatim):** *the skill invokes the script, and the script then runs the fan-out, the prune, and one independent re-check per surfaced finding mechanically.* Invoking the script is still the model's act — what's mechanical is everything **after** the invocation.
-
-Findings are **model-asserted, then independently re-checked, and human-triaged**: a separate `finding-verifier` reads the cited code and **attempts to refute every surviving finding** before it reaches the backlog — an honest **reduction of false confidence, not a deterministic gate**. The script enforces *one verifier per finding*, so the model can't forget a verification, skip the prune, or silently truncate a run.
+**The honest formula (verbatim):** *the skill invokes the script, and the script then runs the fan-out, the prune, and one independent re-check per surfaced finding mechanically.* Invoking the script is still the model's act — what's mechanical is everything **after** the invocation. A separate `finding-verifier` **attempts to refute every surviving finding** before it reaches the backlog — a **reduction of false confidence, not a deterministic gate** (one verifier per finding, enforced by the script).
 
 ### How to use it (a periodic snapshot, not a treadmill)
 
-- **Run it periodically** — after meaningful changes, **not obsessively**; **the backlog regenerates rather than accumulating** (a re-run replaces the fenced backlog with the *current* snapshot).
+- **Run it periodically**, not obsessively; **the backlog regenerates rather than accumulating**.
 - **Tier 3 is optional** polish; **an empty Tier 1 + Tier 2 means the code is sound on the audited dimensions** — the signal to stop, not a prompt to manufacture work.
-- **One thoroughness slider, three notches** (`quick` · `standard` · `thorough` — see *Set the dial*). **Every surfaced finding is independently re-checked at every level** — that floor never moves.
-- **Be honest about which path ran:** all three notches run through `engine/audit.js`; the **only** fallback is *Prose-orchestrated fallback* below (**Workflow tool unavailable**), stated to the user and tagged "prose-orchestrated". Never claim script guarantees on a prose run.
+- **One thoroughness slider, three notches** (`quick` · `standard` · `thorough` — see *Set the dial*); every finding is independently re-checked at every level.
+- **Be honest about which path ran:** all three notches run through `engine/audit.js`; the **only** fallback is *Prose-orchestrated fallback* below (**Workflow tool unavailable**), tagged "prose-orchestrated". Never claim script guarantees on a prose run.
 
 ---
 
@@ -48,7 +46,7 @@ Findings are **model-asserted, then independently re-checked, and human-triaged*
 
    **Application source present — the shared predicate (single source of truth).** As a named output of this detection, decide whether the repo *has application source*: **true iff there is ≥1 non-harness-managed source file of a detected ecosystem** (a recognized manifest present **and/or** ≥1 file matching the detected source layout), **excluding** harness-managed scaffolding (anything carrying the `claugentic-dev-harness@` managed stamp — e.g. the copied `scripts/claugentic-check_architecture_tree.py` — plus the seeded `docs/claugentic-standards/`, `claugentic-WORKFLOW.md`, `claugentic-PLAYBOOK.md`) and the exclude-set. A repo of **only** docs + config + harness scaffolding is **"no application source"** (e.g. a freshly-`init`'d empty repo). **`/claugentic-dev-harness:init` reuses this exact predicate** — do **not** author a second detector.
 
-6. **Map dependencies (high-level).** Name only the **architecturally-significant** ones — enough to say *"an Express + Postgres API,"* not every transitive dep. These **pre-select the likely standards modules**: a DB driver pulls in `data-and-persistence`; an HTTP server pulls in `api-and-contracts` + `security`; a UI pulls in `product-ux`.
+6. **Map dependencies (high-level).** Name only the **architecturally-significant** ones (not every transitive dep) — they **pre-select the likely standards modules** (a DB driver → `data-and-persistence`; an HTTP server → `api-and-contracts` + `security`; a UI → `product-ux`).
 
 7. **Prioritized directory order.** Rank the *included* directories by likely risk / value, highest first: **entry points & core domain → data / persistence → API / routes → UI → config / scripts → tests last.** This is the `scopeDirs` order Phase 2 passes the script.
 
@@ -128,7 +126,7 @@ State to the user that the Workflow tool is unavailable, run the **same FIND →
 2. **FIND — one `claugentic-dev-harness:lens-reviewer`** (audit-scope mode) per module batch, in parallel, passed its module + scoped dirs + exclude-set + the dial's `depth`. *(thorough: also one in whole-scope mode at `exhaustive`.)*
 3. **Dedup + synthesize.** Key dedup on **issue-class**, not file·location alone; roll systemic cross-file duplicates into one "recurs in N files" item; carry each confidence label unchanged. **Citation-guard:** re-confirm every `file:line` against the actual file first.
 4. **PRUNE — YAGNI right-size** (keep real impact; cut nice-to-haves; never manufacture a finding to fill a tier). *(thorough: also spawn one `claugentic-dev-harness:yagni-sentinel` — the independent skeptic — and apply its cut-list.)* **Never prune the Tier-1 "establish a test baseline" item.** **Criteria-as-lens-source (gap) mode runs the CONFORMANCE variant instead** — per the `synthesizer-gate` **Mode 3 gap variant**: no YAGNI right-sizing, cut only exact duplicates and criterion-less findings (every reason naming its criterion id), **never a promised-but-missing behaviour**, and **never add the test-baseline item** (it maps to no criterion).
-5. **VERIFY — one `claugentic-dev-harness:finding-verifier` per surfaced finding**, all tiers, every level. Its independence is of **role and clean context, never of model**: it inherits the session's tier; the `RUNNING AS:` self-report + same-model tag disclose what resulted (`docs/claugentic-WORKFLOW.md` → *Principles*). Pass it **only** `{claim (plain + technical), file:line, source module, confidence label, exclude-set}` and the refute-first posture — never the finder's rationale, never a lens verifying its own finding. Verdicts, exactly as the script applies them: **Refuted** → drop (count it, don't persist) · **Verified** / **Unconfirmed** → keep with the matching tag · **budget-exhausted** → `deferred`, listed in `pending-cells`.
+5. **VERIFY — one `claugentic-dev-harness:finding-verifier` per surfaced finding**, all tiers, every level (independence of **role and clean context, never of model** — `docs/claugentic-WORKFLOW.md` → *Principles*). Pass it **only** `{claim (plain + technical), file:line, source module, confidence label, exclude-set}` and the refute-first posture — never the finder's rationale, never a lens verifying its own finding. Verdicts, exactly as the script applies them: **Refuted** → drop (count it, don't persist) · **Verified** / **Unconfirmed** → keep with the matching tag · **budget-exhausted** → `deferred`, listed in `pending-cells`.
 6. **Budget checkpoint** — one shared `max-cells-per-run` cap; on a hit (or cells `pending`), checkpoint `PARTIAL` with explicit `done`/`pending` lists and **tell the user to re-run. Never silently truncate.** Even on `PARTIAL`, the Tier-1 test-baseline item still emits for untested behavior-bearing code seen in the covered cells.
 7. **Author the backlog** (Phase 3) and **report the dial level + coverage** + the run-report line.
 
@@ -172,7 +170,7 @@ Record a dismissal in a **rejected-findings memory** that **mirrors product spec
 
 ### The three things to know  *(the renderer is the source of truth)*
 
-1. **The status line is the resume contract.** Its `done-cells` / `pending-cells` are verbatim `cellKey` tokens (a re-run passes them back as `doneCells`). The Tier-1 `missing-test-baseline` item emits even on a `PARTIAL` run (the script protects its key from the prune). **`{{DATE}}` is the only thing you fill in.**
+1. **The status line is the resume contract** — `done-cells` / `pending-cells` are verbatim `cellKey` tokens (a re-run passes them back as `doneCells`), and the Tier-1 `missing-test-baseline` item emits even on a `PARTIAL` run. **`{{DATE}}` is the only thing you fill in.**
 2. **Every item carries exactly one verification phrase** (`(checked against the code)` / `(could not confirm independently -- model's assertion)` / `(! not yet verified -- re-run to confirm)`) — a *reduction of false confidence*, never a guarantee; refuted findings are dropped (their only trace is the run-report count). Tiers 1+2 both empty → the recommended starting point is the **terminal "sound" signal**, the explicit stop. The renderer handles all of this; do not re-author it.
 3. **The closing run-report you say to the user** (conversationally, outside the fence) frames the refuted count as a trust signal. **When `verification.crossModel` is false**, the fence's run-report line carries the verbatim same-model tag instead of the clean-context-judge parenthetical (never both) — and **on a prose-orchestrated run, also state that** in your report.
 

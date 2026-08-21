@@ -9,15 +9,14 @@ description: >-
 > mechanical cut-decider — the classification and the proposed diff are model-upheld judgment, and the
 > human approval is the decision gate.
 
-The **executable operator for the condensation pass — and the one canonical home of its procedure**,
-written so a non-expert agent can run it reliably. Ownership, so nothing is restated:
-`docs/claugentic-WORKFLOW.md` → Definition of Done carries the **obligation** (a budget WARN is a
-do-it-now signal, discharged inside the current slice) and owns the **escape-valve ladder**;
-`/claugentic-dev-harness:doctor` owns the **caps-config reader-contract**; this skill owns the
-**procedure**. Its two triggers read one cap source (`.claude/claugentic-doc-budgets.json`): `/doctor`'s
-"condense soon" advisory, which runs anywhere, and the doc-budget **gate's** WARN, which needs that
-gate's script in the repo being measured. With **no** caps config neither speaks, and your own periodic
-review is the cue.
+The **executable operator for the condensation pass — and the one canonical home of its procedure.**
+Ownership, so nothing is restated: `docs/claugentic-WORKFLOW.md` → Definition of Done carries the
+**obligation** (a budget WARN is a do-it-now signal, discharged inside the current slice) and owns the
+**escape-valve ladder**; `/claugentic-dev-harness:doctor` owns the **caps-config reader-contract**; this
+skill owns the **procedure**. Two triggers read one cap source (`.claude/claugentic-doc-budgets.json`):
+`/doctor`'s "condense soon" advisory, which runs anywhere, and the doc-budget **gate's** WARN, which
+needs that gate's script in the repo being measured. With **no** caps config, your own periodic review
+is the cue.
 
 ## The one rule that must not be inverted (read this FIRST)
 
@@ -82,9 +81,7 @@ home is whichever doc already OWNS the topic:** a release step to the release ru
 the standards module for its dimension, a role's bar to that role's file. Re-homing to the owner is rung
 1 of the escape-valve ladder done properly, and it is what turns an un-cuttable live item into a real
 reduction. **Where a Stage-9 harvest has already promoted an entry's incident into one of those homes,
-the ledger's retelling is now a duplicate** — leave a pointer and absorb the story. *(0041 S10b-L8: a
-ROADMAP needing +631 B against 95 B of levers absorbed the routing with **no** shave — one re-home, three
-already-harvested incidents cut to pointers.)*
+the ledger's retelling is now a duplicate** — leave a pointer and absorb the story.
 
 ## STEP 4 — Merge duplicative siblings — ENTRIES, and the prose around them
 
@@ -149,12 +146,3 @@ Condensing a ledger *is* a judgment about what to keep. Never imply the edit was
   beside it would be a second cap source and is deliberately not offered. And when a file is over budget
   on **day one**, the honest instrument is the `reportOnly` grace, **never** a cap sized to the file — a
   cap chosen at the measurement is a ceiling-raise wearing another face.
-
-## What `/condense` is NOT
-
-- **Not a mechanical cut-decider** — it classifies and proposes; your approval is the decision gate.
-- **Not a second apply path** — it reuses `/doctor`'s existing user-approved-diff treat (DRY).
-- **Not a new gate or hook** — the doc-budget WARN and `/doctor`'s advisory are the *triggers*, this skill
-  is the *work*.
-- **Not the escape valve** — when condensation genuinely can't reach the band, the ladder above is the
-  recourse, not more cutting into live rules.

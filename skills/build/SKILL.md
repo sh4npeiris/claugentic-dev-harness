@@ -18,7 +18,7 @@ A **thin orchestration layer**: it drives the existing process, it does not inve
 - **A top-level agent (the orchestrator) runs this skill** — it spawns the pipeline subagents (`synthesizer-gate`, `implementer`, the lenses, the diverse panel); subagents can't spawn subagents (the same constraint `audit` and `init` carry). Invoke it in plain English — *"build Tier-1 item 2"*.
 - **When to stop = WORKFLOW → *Decision-gated autonomy*.** Its **three blocking-stop classes ARE the three concrete pauses here**, not a parallel set: **(a) design fork / (b) spec trade-off** → the **spec pause, before any code** (step 4 — per item, or pre-satisfied up front by a batch sitting); **(c) irreversible / outward action** → the **before-land pause** (step 7) and the **irreversible hard-stop** (*Guardrails*), which the flag path can **never** absorb. Everything else auto-drives — research a factual uncertainty (cited), flag-and-continue a reversible judgment, surface every flag at the close (step 8). *(A mid-build re-slice and a failed item are exception-only pauses.)*
 - **Every stop is plain English:** *what was just done · what's being decided · your options.*
-- **Narration rule, everywhere below: completed beats only — never an ETA, never "nearly done"** (*"Landed item 2 of 5 — re-checking the code it touched…"*). A long stretch between pauses is narrated, never silent.
+- **Narration rule, everywhere below: completed beats only — never an ETA, never "nearly done."** A long stretch between pauses is narrated, never silent.
 - **Judge independence, everywhere below:** every judge role's independence is of **role and clean context, never of model** — they inherit the session's tier; the `RUNNING AS:` self-report + same-model tag disclose what resulted (WORKFLOW → *Principles*).
 
 ---
@@ -193,7 +193,7 @@ After an item lands, **re-run the audit scoped to the touched cells** — the `(
 
 **Be honest about its scope.** It covers only those cells; **cross-file fallout beyond them is owned by the closing full audit (step 11), not claimed here.** Never imply it covers the whole repo, and never describe it as chasing "dependents" — **the harness has no dependency graph and claims none.** Like the closing audit, it regenerates the **engineering** `harness-audit:backlog` fence **only** — never gap mode, never the `harness-product:backlog` fence.
 
-Carry each finding's **verification tag unchanged** — `(checked against the code)` / `(could not confirm independently — model's assertion)` / `(⚠ not yet verified — re-run to confirm)` mean exactly what they mean in the `audit` skill (the single source): a reduction of false confidence by a clean-context judge — never sees the finder's rationale, so it can't rubber-stamp it; same model family, so blind spots aren't independent — **not** a deterministic guarantee. Don't upgrade the framing because it's the loop re-checking its own work.
+Carry each finding's **verification tag unchanged** — `(checked against the code)` / `(could not confirm independently -- model's assertion)` / `(! not yet verified -- re-run to confirm)` mean exactly what they mean in the `audit` skill (the single source): a clean-context judge is a reduction of false confidence, same model family so blind spots aren't independent — **not** a deterministic guarantee. Don't upgrade the framing because it's the loop re-checking its own work.
 
 **Then decide — continue or re-triage:**
 
@@ -231,7 +231,7 @@ Triggered **only** by the batch ask at step 1b. It invents no steps — it **re-
 - **Adjust** → amend the spec and re-render that item's triad; a **material change re-enters the review loop** (step 3) before it can be approved.
 - **Drop** → unjudged, **no penalty framing** — as easy and as blame-free as approve.
 
-**Close the sitting by re-confirming the surviving ordered list** (a numbered read-back, the same shape as step 1b) — **and restate what batch does not remove**: *"you'll still confirm each item before it lands, anything irreversible still stops, and if earlier work shifts the ground under a later item I'll pause to re-confirm."* (The echo matters: on a mid-prep resume the sitting may run in a session where the user never heard the ask copy.)
+**Close the sitting by re-confirming the surviving ordered list** (a numbered read-back, the same shape as step 1b) — **and restate what batch does not remove** (the per-item land confirm, the irreversible stop, the currency re-confirm), since on a mid-prep resume the sitting may run in a session where the user never heard the ask copy.
 
 **The run.** Work the surviving list through the **existing loop (steps 5–8 per item)**. The **spec pause is pre-satisfied per item by the sitting** (its plan reads `Status: Approved`) — every other pause is unchanged: **pre-land per item · the irreversible hard-stop · the re-slice and item-failure pauses · the re-triage on a new Tier-1/2 (step 10) · the currency pause below.** Because batch invites the user to step away, the **completed beats between items are their primary thread back into the run.**
 
@@ -249,7 +249,7 @@ A resumed run **reconstructs** the worklist from the state stores the harness al
 
 **The three batch-derived approval states** (from the plan files' `Status` line — the durable mark the sitting writes): **`Status: Spec'd`** (or in review) = **awaiting a sitting** · **`Status: Approved`** = **build when reached** · **unchecked implementation boxes** = **in-flight**. **Approval is never inferred** — only an explicit `Status: Approved` counts, so a run that died mid-prep or mid-sitting resumes derivably.
 
-Then **re-confirm the remaining selection + order** (the step-1b confirm + "start now?"). Be honest: the **picked order is the one thing not durably stored.** A **5-second re-confirm** ("here's what's left — same order?") replaces a third state store — the deliberate trade (derive-don't-store beats a worklist file that could drift from the backlog).
+Then **re-confirm the remaining selection + order** (the step-1b confirm + "start now?") — the **picked order is the one thing not durably stored**, so a 5-second re-confirm replaces a third state store (derive-don't-store beats a worklist file that could drift).
 
 ---
 
