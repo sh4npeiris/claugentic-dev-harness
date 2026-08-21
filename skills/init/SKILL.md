@@ -861,10 +861,9 @@ Then emit the clear summary, grouped. **The group names are the contract:**
   which files and that nothing mechanical clears the flag** (`/claugentic-dev-harness:condense` does the
   work; you delete the flag). Name **which mode** produced the tree: minimal · cheap-complete skeleton ·
   **replaced-by-skeleton** (the user-file overwrite) · **kept-untouched, gate off**.
-- **Refreshed** — managed files (and the CLAUDE.md fence) brought to the installed version because the
-  body drifted **or the stamp was in an old trailing-clause format**; **each by path**, `<old> →
-  <installed>`.
-- **Skipped (already current)** — body matched; byte-untouched even if the stamp semver was older.
+- **Refreshed** — managed files (and the CLAUDE.md fence) brought to the installed version; **each by
+  path**, `<old> → <installed>`.
+- **Skipped (already current)** — body matched; byte-untouched.
 - **Skipped (user file / unrecognized stamp)** — not genuine managed copies; untouched, reported for
   manual reconciliation.
 - **Wired** — the **pre-commit hook** and the **two gates chained into it** (tree check `--staged`, then
@@ -899,13 +898,9 @@ refresh."; otherwise the Refreshed group lists what moved.
 ## Idempotency at a fixed version — the hard safety check
 
 Re-running `init` **converges the repo to the installed version**, and is a **true no-op only when it
-is already there** — checked by a dogfood run, not a wired gate (the writes are `init`'s rule-bound,
-never-clobber-guarded judgment, not a mechanical oracle). Every write above is one of three
-convergent shapes: **managed upsert** (`CURRENT` byte-untouched; drift or an old-format stamp → one
-`REFRESH`, then `CURRENT`) · **create-if-absent, user-owned, never refreshed** (the tree, the ledger
-seeds, the caps config) · **append/merge keyed on its own marker**. The recorded choices are read
-BEFORE any prompt, so a settled re-run never re-prompts; only the `Architecture tree:` line is ever
-rewritten, and only on on-disk disagreement.
+is already there** — checked by a dogfood run, not a wired gate. Every write above is convergent by
+construction (managed upsert · create-if-absent user-owned · append/merge keyed on its own marker), and
+recorded choices are read before any prompt.
 
 **Acceptance of a 2nd run at the same installed version:** `git status` in the target shows **zero
 changes** and the report says everything was already current. If such a re-run dirties the repo, an

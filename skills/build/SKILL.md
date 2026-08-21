@@ -231,7 +231,7 @@ Triggered **only** by the batch ask at step 1b. It invents no steps — it **re-
 - **Adjust** → amend the spec and re-render that item's triad; a **material change re-enters the review loop** (step 3) before it can be approved.
 - **Drop** → unjudged, **no penalty framing** — as easy and as blame-free as approve.
 
-**Close the sitting by re-confirming the surviving ordered list** (a numbered read-back, the same shape as step 1b) — **and restate what batch does not remove** (the per-item land confirm, the irreversible stop, the currency re-confirm). The echo matters: on a mid-prep resume the sitting may run in a session where the user never heard the ask copy.
+**Close the sitting by re-confirming the surviving ordered list** (a numbered read-back, the same shape as step 1b) — **and restate what batch does not remove** (the per-item land confirm, the irreversible stop, the currency re-confirm), since on a mid-prep resume the sitting may run in a session where the user never heard the ask copy.
 
 **The run.** Work the surviving list through the **existing loop (steps 5–8 per item)**. The **spec pause is pre-satisfied per item by the sitting** (its plan reads `Status: Approved`) — every other pause is unchanged: **pre-land per item · the irreversible hard-stop · the re-slice and item-failure pauses · the re-triage on a new Tier-1/2 (step 10) · the currency pause below.** Because batch invites the user to step away, the **completed beats between items are their primary thread back into the run.**
 
@@ -249,7 +249,7 @@ A resumed run **reconstructs** the worklist from the state stores the harness al
 
 **The three batch-derived approval states** (from the plan files' `Status` line — the durable mark the sitting writes): **`Status: Spec'd`** (or in review) = **awaiting a sitting** · **`Status: Approved`** = **build when reached** · **unchecked implementation boxes** = **in-flight**. **Approval is never inferred** — only an explicit `Status: Approved` counts, so a run that died mid-prep or mid-sitting resumes derivably.
 
-Then **re-confirm the remaining selection + order** (the step-1b confirm + "start now?"). Be honest: the **picked order is the one thing not durably stored.** A **5-second re-confirm** ("here's what's left — same order?") replaces a third state store — the deliberate trade (derive-don't-store beats a worklist file that could drift from the backlog).
+Then **re-confirm the remaining selection + order** (the step-1b confirm + "start now?") — the **picked order is the one thing not durably stored**, so a 5-second re-confirm replaces a third state store (derive-don't-store beats a worklist file that could drift).
 
 ---
 
