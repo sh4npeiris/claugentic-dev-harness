@@ -10,6 +10,70 @@ K=3 comparison is a tripwire, not a proof.
 
 ---
 
+## Entry 2 -- 2026-08-20 . SHAKEDOWN: K=3, arm A only (never a decision input)
+
+**What this is.** Plan 0044 Slice 1b -- the exam's first real sitting. It validates the
+instrument end-to-end with real builders and records the first run-to-run noise yardstick.
+**Demoted by design (Stage-3 R1(i)):** the standards-cut decision comparison re-derives arm A
+inside Slice 2b's own six-run sitting; nothing here is a decision input. Small-N caveat: see
+`eval/BUILD_BASELINE.md` (cited, not restated).
+
+- **Base commit:** `2ce66df` (the S1a landing commit). **Arm A identity:**
+  `docs/claugentic-standards/` = 130,019 B, 13 files, unmodified.
+- **Sitting calibration (step 2):** PASSED, 345.1s, H = 13, 15 mutants, zero cross-trips --
+  run before any spawn.
+- **Worktree prep (steps 3-6):** three worktrees at the base commit; class-derived deletion
+  set = 46 tracked files (the grep authority surfaced nothing beyond the named set); `ls`-
+  verified; index removal + routing-index fixpoint converged in one round (23 tree lines);
+  post-deletion pytest **539 passed / 0 failed in all three worktrees** (736 minus the 197
+  tests in the four deleted test files -- the arithmetic closes).
+- **Builders:** three fresh clean-context `implementer` spawns, one sitting, identical
+  prompts. All three self-reported **Claude Opus 5** (`claude-opus-5[1m]`). **Grader:
+  self-reported Claude Fable 5** -- a cross-family builder/grader split on this run
+  (configured and self-reported; still same-vendor: a reduction of shared-blind-spot risk,
+  never independence).
+
+### Results
+
+| run | F (held-out) | S (surface) | traps |
+|---|---|---|---|
+| A1 | 13/13 | **drift**: `notify_over_budget` grew an optional `timeout` kwarg (1 pinned element) | 10/10 AVOIDED |
+| A2 | 13/13 | compliant | 10/10 AVOIDED |
+| A3 | 13/13 | compliant | 10/10 AVOIDED |
+
+**M(A) = 10 . mean F = 1.0 (floor clear) . flap(A) = 0 . spread(A) = 0.** No delta -- single
+arm by design. The S drift is exactly what separate-S exists for: an interface widening never
+masquerades as a quality delta, and the nine mechanical trap probes bound regardless.
+
+- **TG-5, graded blind:** seed 20260820; mapping sealed before grading, unsealed after the
+  verdicts locked (pack-a=A3, pack-b=A1, pack-c=A2); 0 redacted lines, 0 code lines for
+  human review. All three verdicts **AVOIDED**, each with supporting file:line citations;
+  none discounted. The grader named pack-c (A2) the nearest call -- request-read plus one SQL
+  statement in `monthly_report`'s body with rendering fully separated; two of three is not
+  the trap, per the rule as written.
+- **Attribution (step 10):** all three builders OPENED the catalog -- A2 exactly the five
+  in-scope modules; A1 and A3 those plus a listing of the rest. No catalog-unread case.
+- **Contamination (step 11):** both canaries ABSENT; zero answer-key ids and **zero
+  answer-key filenames** across ~3M characters of transcripts and every `out/` file --
+  cleaner than the sibling eval's recorded filename-residual precedent.
+- **Deviations:** none from the procedure. One runner note: the builders' task `.output`
+  mirrors materialized empty on this platform; transcripts were read from the session's
+  subagents store (same content, different path).
+
+### Honest reading
+
+A 10/10-everywhere shakedown with zero spread says two things and no more: **the instrument
+ran end-to-end** (every mechanical figure entered a verdict path, the blind channel worked,
+the deletion discipline held), and **the measured noise at this K is zero**. It does NOT say
+the exam can discriminate at these builders' strength: three Opus builders under the shipped
+implementer contract, reading the full 130 KB catalog, avoided all ten traps -- so if the
+Slice-2b comparison's arm B also scores 10/10, that is the pre-registered "no regression
+detected at this K" outcome by rule, AND it is the both-arms-saturation shape the calibration
+allowance names. The 2b sitting decides per the rule either way; this entry just says the
+saturation risk is live, before anyone sees an arm-B number.
+
+---
+
 ## Entry 1 — 2026-08-20 · calibration of the instrument (not an arm, not a measurement)
 
 **What this is.** The instrument's own verification, run before any arm exists and required
