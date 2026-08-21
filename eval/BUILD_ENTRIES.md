@@ -10,6 +10,83 @@ K=3 comparison is a tripwire, not a proof.
 
 ---
 
+## Entry 3 -- 2026-08-20 . DECISION SITTING: K=3 x 2 arms, the standards deep cut
+
+**What this is.** Plan 0044 Slice 2b -- the decision comparison the whole instrument was
+built for. Arm A = the current catalog (132,203 B); arm B = the deep cut (91,478 B, -30.8%,
+branch `0044-2a-standards-cut`). Six builds, ONE sitting, ONE base commit (`7ea0eef`),
+interleaved. Small-N caveat: `eval/BUILD_BASELINE.md`, cited.
+
+- **Sitting calibration:** PASSED, 359.5s, H=13, 15 mutants, zero cross-trips.
+- **Worktree prep:** six worktrees; class-derived deletion set = 46 files; index removal +
+  routing-index fixpoint (one round each); post-deletion pytest 539/0 in all six.
+- **Builders:** six fresh clean-context `implementer` spawns, all self-reported **Opus 5**.
+  Blind grader for the six-pack: self-reported **Fable 5** (cross-family). One arm (A1) was
+  DISCARDED and re-run -- see the contamination note; its replacement's single-pack re-grade
+  drew an **Opus 4.8** grader (same-family for that one verdict, disclosed).
+
+### Results
+
+| arm | catalog | M (2-of-3 majority) | mean F | flap | spread |
+|---|---|---|---|---|---|
+| A | 132,203 B | **10/10** | 13.00/13 | 0 | 0 |
+| B (cut) | 91,478 B | **10/10** | 13.00/13 | 0 | 0 |
+
+**Delta = M(A) - M(B) = 0 . DeltaF = 0.00 . floors CLEAR.** Every trap AVOIDED in every run
+(TG-5 graded blind AVOIDED on all six packs, each with supporting citations, none discounted).
+The only S-axis movement was optional-kwarg signature drift, and it slightly FAVOURED arm B
+(2 of 3 B runs compliant vs 0 of 3 A runs) -- separated from quality by design, so it moves no
+verdict.
+
+- **VERDICT (pre-registered rule): "no regression detected at this K."** Block iff Delta>=2 or
+  DeltaF>=2 or a floor fails -- none fired. Never read as equivalence shown, never predicated of
+  the cut itself.
+- **SATURATION FIRED (both arms 10/10).** Recorded in entry 2 as a live risk before any arm-B
+  number existed; it is now realised. The honest reading: the build-eval did NOT discriminate
+  132K from 91K at Opus builder strength -- consistent with the north star (the model already
+  holds the knowledge; the catalog's *authoring* value is low at this strength), NOT evidence the
+  cut is costless in general. The calibration allowance (re-sharpen the brief/traps once, voiding
+  prior runs) was **considered and DEFERRED by the user (2026-08-20)**: the cut lands on the rule
+  plus the independent detection evidence below, and the exam re-sharpen is a recorded ROADMAP item
+  for future cuts -- not taken now.
+
+### Detection path (independent, NOT saturated) -- the load-bearing evidence for this land
+
+A standard audit (36 agents, deep dial) over the seeded-defect fixture, run against the **91K
+deep-cut catalog** as its lens: **recall 10/10** -- every seed, including the historically
+coin-flip cohesion seed (its id lives only in the audit eval's own answer key; missed on the FULL
+catalog in the post-thinning ablation) and both assert-nothing test seeds as *discrete* findings
+(#8, #9 -- no subsumption, resolving that standing concern). 30 findings
+surfaced, all 30 verified, **0 refuted**. This matches or exceeds every prior baseline, all of
+which ran on the full 130K catalog. `crossModel: true / sameModelTag: null` -- reads on the
+orchestrator family per the known engine-semantics bug (`docs/claugentic-ROADMAP.md`), so treat
+the finder<->judge relationship as same-family; the recall count is unaffected by that caveat.
+
+- **Attribution:** all six builders OPENED the catalog (11 modules listed each). No catalog-unread
+  case; the treatment was received.
+- **Contamination:** clean on all six SURVIVING runs (both canaries, both answer-key id sets, both
+  key-filename sets -- absent across ~6M chars of transcript and every `out/`). **One discard,
+  root-caused and fixed:** the first A1 build ingested `TG-7` plus its remedy sentence from a stale
+  verify-round probe script left in the SHARED scratchpad by an earlier slice -- a cross-agent
+  Edit-tool collision, not a deletion-set miss (the worktree was clean; the leak came from OUTSIDE
+  it). Fixed by evacuating all 566 answer-bearing files out of the shared scratchpad into a private
+  store; A1 re-run clean under one disclosed prompt deviation (scratch-inside-the-checkout). A
+  second builder (arm A2, kept) independently INFERRED it was inside an eval fixture from the
+  surviving `docs/claugentic-INVARIANTS.md` (which names the build-eval paths and is NOT in the
+  deletion class) and deliberately avoided the deleted dirs' names -- no answer content is reachable
+  that way (the invariant names paths, not traps), recorded as a disclosed residual of the filename
+  class, and a candidate to widen the deletion class in a future slice.
+
+### Honest reading
+
+The deep cut lands because the rule cleared it AND an independent, non-saturated detection eval
+scored 10/10 on the cut catalog. What this sitting did NOT establish: that the build path can
+tell a good catalog from a bad one at this model strength -- it saturated, and says so. The exam
+needs re-sharpening before it can gate a *deeper* cut on the output path; that is the deferred
+ROADMAP item, not a silent gap.
+
+---
+
 ## Entry 2 -- 2026-08-20 . SHAKEDOWN: K=3, arm A only (never a decision input)
 
 **What this is.** Plan 0044 Slice 1b -- the exam's first real sitting. It validates the
