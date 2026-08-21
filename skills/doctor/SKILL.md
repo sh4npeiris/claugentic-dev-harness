@@ -240,21 +240,8 @@ equal**, and a flat any-surface test is what makes this signal useless:
 
 One row per check, its status from the vocabulary **green · WARN · breach · flag · condense-soon · skew · N-A** (each
 check's own section above states which values it can take), and an honest source tag. **Transient —
-never written to a fence, never accumulated;** re-running regenerates it from scratch.
-
-| Check | Source |
-|-------|--------|
-| architecture-tree gate | `[D]` exit code |
-| version-sync gate | `[D]` exit code; N-A if script absent — harness-self |
-| doc-budgets gate | `[D]` exit code + any `WARN:` line (**stderr**); **N-A whenever the script is not in THIS repo** — never run the plugin's copy instead |
-| shipped-content gate | `[D]` exit code (+ `WARN:` line); N-A if script absent — harness-self |
-| adopter doc-budget advisory | `[J]` advisory (read-only — not a gate) on a `[D]` byte figure; N-A if no caps config |
-| landed plan present · cold / stale plan | `[J]` classification |
-| init post-condition | read-only check |
-| hook wiring (shared / solo / **husky-chained**) | `[D]` marker + `core.hooksPath` + git index mode + `check-ignore` + CRLF byte-check; `[J]` whether an `exit` above the marker is *unconditional*. Healthy only when hooksPath resolves to husky; an absent `Husky chain:` record proves nothing |
-| commit-hook interpreter | `[D]` probe **at doctor-run time** — candidates EXECUTED, never resolved; flag = SKIPPED, and it speaks only for the shell doctor ran in |
-| stamped fence vs installed plugin | `[D]` read-only — not a gate: stamp vs `plugin.json` version (N-A if either is unreadable/non-numeric); remedy = you re-run `init` |
-| Stage-9 harvest signal | `[J]` soft advisory |
+never written to a fence, never accumulated;** re-running regenerates it from scratch. Assemble the rows
+from the checks above — each states its own status range and its `[D]`/`[J]` source.
 
 **`[D]` vs `[J]` is load-bearing, not decoration:** a `[D]` row states the gate's exact exit result; a
 `[J]` row must read as judgment, never as a mechanical fact.
@@ -312,10 +299,3 @@ A finding needing **an architectural decision or a non-trivial fix** is not trea
 - **OFFER-BUILD** — ask via AskUserQuestion *"build these now, or leave them in the roadmap?"*,
   **default = leave** (offered, never forced). Build now → enter the `build` procedure; leave → it
   persists for a later `/claugentic-dev-harness:build`.
-
-## What doctor is NOT
-
-- **Not `/audit`** — they share the pipeline, not the target.
-- **Not a new gate.** The only mechanical facts in its report are the gate exit codes and the
-  interpreter probe.
-- **Not a silent fixer.** Every treat is on explicit approval.
