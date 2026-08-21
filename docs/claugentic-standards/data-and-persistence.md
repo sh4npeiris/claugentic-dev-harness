@@ -12,7 +12,6 @@ load_scope:
 # Data & Persistence — the stored state stays correct, consistent, and recoverable
 
 > **Loads when:** a change touches the database — schema/models, migrations, queries, ORM mappings, repositories, transactions, indexes, or replication. Anything that reads or writes durable state.
-> **ISO/IEC 25010:** Reliability (with Maintainability spillover on schema evolution) · **Status:** draft
 > Method, tags, honesty register: `README.md` → *Reading a module*.
 > **The unifying invariant: the stored truth never silently corrupts, never silently loses a write, and can always be rebuilt.**
 

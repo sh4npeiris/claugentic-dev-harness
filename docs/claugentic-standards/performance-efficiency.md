@@ -11,7 +11,6 @@ load_scope:
 # Performance & Efficiency — do the right amount of work, at the right cost
 
 > **Loads when:** the change touches queries, caching, loops, pagination, resource sizing, streaming, or pay-per-use infrastructure.
-> **ISO/IEC 25010:** performance-efficiency · **Status:** draft
 > Method, tags, honesty register: `README.md` → *Reading a module*.
 > **"Large enough to matter" is always a judgment about realistic data volumes** — no gate decides it for you.
 

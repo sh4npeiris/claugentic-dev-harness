@@ -11,7 +11,6 @@ load_scope:
 # Internationalization — correct behaviour across locales, timezones, and scripts
 
 > **Loads when:** changes touch locale handling, date/number/currency formatting, string translation pipelines, timezone logic, character encoding, or RTL layout.
-> **ISO/IEC 25010:** interaction-capability · **Status:** draft
 > Method, tags, honesty register: `README.md` → *Reading a module*.
 > **Accessibility** (WCAG, keyboard nav, contrast, screen reader) is `product-ux.md`'s — cross-reference it; **do not duplicate those standards here.**
 

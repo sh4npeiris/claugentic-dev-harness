@@ -12,7 +12,6 @@ load_scope:
 # Security & Privacy — keep untrusted input, attackers, and regulators from turning code into a breach
 
 > **Loads when:** a change touches authentication/authorization, sessions/tokens, secrets or crypto, input handling or query/command construction, cross-origin/redirect/outbound-fetch behavior, deserialization, dependencies, or any personal/regulated data (PII, student, health, payment).
-> **ISO/IEC 25010:** Security (confidentiality, integrity, non-repudiation, accountability, authenticity) · **Status:** draft
 > Method, tags, honesty register: `README.md` → *Reading a module*.
 > **Relevance here is threat-driven** — set by what the change **exposes** (a new endpoint, a new sink, a new data field), never by how big the diff is. A one-line change can be in scope.
 

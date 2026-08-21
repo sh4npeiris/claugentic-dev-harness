@@ -14,9 +14,8 @@ load_scope:                    # how the harness decides to pull this module int
 # <Title> — <one-line purpose>
 
 > **Loads when:** <plain-English — the kinds of changes that bring this module into scope.>
-> **ISO/IEC 25010:** <characteristic(s)> · **Status:** <stub|draft|stable>
 > Method, tags and the honesty register: `README.md` → *Reading a module*.
-> <Optional fourth line: ONE governing rule specific to THIS module. Omit if there isn't one.>
+> <Optional last line: ONE governing rule specific to THIS module. Omit if there isn't one.>
 
 ---
 
@@ -33,7 +32,7 @@ load_scope:                    # how the harness decides to pull this module int
 
 ## Authoring rules
 
-- **Additive floor:** add dimensions as you discover them; **never delete** one. This catalog is meant to become "every standard we can think of."
+- **Additive floor:** add dimensions as you discover them; **never delete** one — this catalog is meant to become "every standard we can think of."
 - **Right-size:** apply only *relevant* dimensions per change (`KISS`/`YAGNI`); never skip a relevant one — `README.md` → *Reading a module*.
 - **Novel patterns allowed** when they add clear value — justify (problem → why existing patterns fall short → benefit) and record in `docs/claugentic-DECISIONS.md`. Unconventional ≠ wrong.
 - **Every check carries a `[D]`/`[J]` tag**, so the harness separates what it *proved* from what it *asserts*. Trust the oracle, not the model's word.

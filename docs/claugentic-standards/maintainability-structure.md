@@ -12,7 +12,6 @@ load_scope:
 # Maintainability & Structure — is this code shaped so the next change is cheap?
 
 > **Loads when:** new/changed code introduces or reshapes structure — modules, layers, services, interfaces, abstractions; refactors; anything where SOLID, layering, design-pattern choice, coupling/cohesion, type-safety, naming, or code-health is in play.
-> **ISO/IEC 25010:** Maintainability (modularity, reusability, analysability, modifiability, testability) · **Status:** draft
 > Method, tags, honesty register: `README.md` → *Reading a module*.
 
 ---

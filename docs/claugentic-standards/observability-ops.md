@@ -11,7 +11,6 @@ load_scope:
 # Observability & Ops — structured signals, safe config, and operable deployments
 
 > **Loads when:** changes touch logging, metrics, tracing, alerting, health checks, environment config, deployment pipelines, feature flags, or rollback paths.
-> **ISO/IEC 25010:** reliability · **Status:** draft
 > Method, tags, honesty register: `README.md` → *Reading a module*.
 
 ---

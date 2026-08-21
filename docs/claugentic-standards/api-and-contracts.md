@@ -11,7 +11,6 @@ load_scope:
 # API & Interface Design — consistent, minimal, stable public surfaces
 
 > **Loads when:** the change adds or modifies API endpoints, routes, controllers, public function signatures, webhooks, or any cross-boundary contract.
-> **ISO/IEC 25010:** compatibility · **Status:** draft
 > Method, tags, honesty register: `README.md` → *Reading a module*.
 > **Consistency is a whole-surface property** — judge a new endpoint against the surface it joins, not against the diff alone.
 
