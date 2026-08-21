@@ -11,7 +11,6 @@ load_scope:
 # API & Interface Design — consistent, minimal, stable public surfaces
 
 > **Loads when:** the change adds or modifies API endpoints, routes, controllers, public function signatures, webhooks, or any cross-boundary contract.
-> **ISO/IEC 25010:** compatibility · **Status:** draft
 > Method, tags, honesty register: `README.md` → *Reading a module*.
 > **Consistency is a whole-surface property** — judge a new endpoint against the surface it joins, not against the diff alone.
 
@@ -19,26 +18,24 @@ load_scope:
 
 ## Minimal & consistent contracts
 
-- **Auditor checks —** Scan new endpoints for fields that belong to internal domain models but have no external consumer `[J]`; check that path segments, query-param names, and JSON keys follow the project's established casing convention `[D via lint/schema tool if configured, otherwise J]`; verify HTTP verbs are used semantically (GET = safe+idempotent, POST = create, PUT/PATCH = update, DELETE = remove) `[J]`.
+- **Auditor checks —** `[D]` path segments, query-param names and JSON keys follow the project's casing convention, where a lint/schema tool is configured · `[J]` otherwise checked by eye against the surface the endpoint joins — consistency is a **whole-surface** property · `[J]` no new endpoint exposes internal domain fields with no external consumer.
 
 ## Idempotency of mutating endpoints
 
-- **Auditor checks —** Identify mutating endpoints in the diff `[D via HTTP verb]`; verify each either documents idempotency naturally or accepts an `Idempotency-Key` / equivalent header and deduplicates on it `[J]`; check the deduplication store has an appropriate TTL `[J]`.
+- **Auditor checks —** `[D]` mutating endpoints enumerated by HTTP verb · `[J]` each is naturally idempotent or accepts an `Idempotency-Key` and deduplicates on it, with a TTL on the dedup store.
 
 ## Versioning & backward compatibility
 
-- **Auditor checks —** Identify any removed or renamed request/response fields in the diff `[J]`; verify the change is either backward-compatible (field is new and optional) or introduced under a new version path `[J]`; check that the version scheme is consistent with existing endpoints `[J]`; confirm deprecated fields carry a documented sunset date if applicable `[J]`.
+- **Auditor checks —** `[J]` removed or renamed request/response fields are backward-compatible (new and optional) or land under a new version path · `[J]` deprecated fields carry a documented sunset date.
 
 ## Pagination & bounded responses
 
-- **Auditor checks —** Identify list endpoints in the diff `[D via route glob]`; verify each applies `.limit()` / slice / cursor before returning `[J]`; check that the API schema documents the pagination contract (fields, max page size) `[J]`; flag endpoints where `limit` is accepted from the caller but has no server-side cap `[J]`.
+- **Auditor checks —** `[D]` list endpoints enumerated by route glob, each applying `.limit()` / slice / cursor before returning · `[J]` a caller-supplied `limit` has a server-side cap, and the schema documents the contract (fields, max page size).
 
 ## Rate limiting & backpressure
 
-- **Auditor checks —** Identify new public-facing endpoints in the diff `[J]`; verify rate-limiting middleware or decorator is applied `[J]`; check that `429` responses include a `Retry-After` header `[J]`; confirm the limit is configured externally (not hardcoded) `[J]`.
+- **Auditor checks —** `[J]` `429` responses include `Retry-After` · `[J]` the limit is configured externally, not hardcoded.
 
 ## Clear & stable error shapes
 
-- **Auditor checks —** Scan new error-return paths in the diff for consistency with the project's error envelope schema `[J]`; check that 5xx responses do not leak stack traces or internal paths in the response body `[J]`; verify status codes are semantically appropriate for the error condition `[J]`; confirm error codes are documented `[J]`.
-
-> Authoring rules `_TEMPLATE.md` · governance `README.md`
+- **Auditor checks —** `[J]` new error paths match the project's error envelope, with documented codes · `[J]` 5xx bodies leak no stack traces or internal paths.

@@ -211,13 +211,25 @@ class TestDerivedHandListsEqualOld:
     # still fails these pins loud. Mirrors `test_build_release.TestManifestMigration
     # .POST_MIGRATION_ADDITIONS` (deliberately restated, not imported — each of these frozen
     # snapshots is local build-history for the module it guards); a new entry updates BOTH.
-    _ADDED_SINCE_MIGRATION = frozenset(
+    # Split BY CLASS: the dangle no-op property below subtracts every addition regardless of
+    # class, but the two partition assertions each mean one class — conflating them is what let
+    # the first non-`init-gen` addition read as a recreate-class member.
+    _ADDED_SINCE_MIGRATION_RECREATED = frozenset(
         {
             # plan 0041 Slice 4 — the per-repo doc-budget caps config, class `init-gen`, so it
             # joins the RECREATED partition (never the dangle set).
             ".claude/claugentic-doc-budgets.json",
         }
     )
+    _ADDED_SINCE_MIGRATION_SELF_GATE = frozenset(
+        {
+            # plan 0044 Slice 2a — the inbound-section-citation resolver: it resolves THIS
+            # repo's own doc citations and its self-test probes are facts about this repo, so
+            # an adopter install has no use for it.
+            "scripts/check_standards_anchors.py",
+        }
+    )
+    _ADDED_SINCE_MIGRATION = _ADDED_SINCE_MIGRATION_RECREATED | _ADDED_SINCE_MIGRATION_SELF_GATE
 
     # The mirror image: manifest paths REMOVED since those snapshots were frozen. Same
     # discipline as the additions — the snapshot above is never edited, the delta carries the
@@ -244,7 +256,7 @@ class TestDerivedHandListsEqualOld:
         # load-bearing for that pass: a script that leaves it also leaves the caveat scan.)
         assert csc.HARNESS_SELF_SCRIPTS == (
             self._OLD_HARNESS_SELF_SCRIPTS - self._REMOVED_SINCE_MIGRATION
-        )
+        ) | self._ADDED_SINCE_MIGRATION_SELF_GATE
 
     def test_dangle_excluded_derived_equals_old(self):
         # LITERALLY equal to the frozen snapshot — no `config`-class path has entered or left the
@@ -263,11 +275,13 @@ class TestDerivedHandListsEqualOld:
         assert self._OLD_INIT_CREATES - csc._RECREATED == {"docs/claugentic-CHARTER.md"}
         # ...and in the other direction, exactly the paths declared as post-snapshot additions
         # (a recreate-class path that is in NEITHER list is an unexplained membership change).
-        assert csc._RECREATED - self._OLD_INIT_CREATES == self._ADDED_SINCE_MIGRATION
+        assert csc._RECREATED - self._OLD_INIT_CREATES == self._ADDED_SINCE_MIGRATION_RECREATED
         # The phantom was never a member of the strip set, so the derivation reproduces the
         # exact EFFECTIVE membership (old ∩ strip == derived ∩ strip == derived, modulo the
         # declared additions).
-        assert self._OLD_INIT_CREATES & br.DEV_ONLY_FILES == csc._RECREATED - self._ADDED_SINCE_MIGRATION
+        assert self._OLD_INIT_CREATES & br.DEV_ONLY_FILES == (
+            csc._RECREATED - self._ADDED_SINCE_MIGRATION_RECREATED
+        )
 
     def test_dangling_paths_is_byte_identical_across_migration(self):
         # THE load-bearing no-op property: `dangling_paths()` — the only consumer of these

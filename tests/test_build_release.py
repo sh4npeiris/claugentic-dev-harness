@@ -199,6 +199,10 @@ class TestManifestMigration:
             # plan 0041 Slice 4 — the per-repo doc-budget caps config (`init-gen`): the
             # harness's own harness-tuned caps must not ship into adopter repos.
             ".claude/claugentic-doc-budgets.json",
+            # plan 0044 Slice 2a — the inbound-section-citation resolver (`self-gate`):
+            # it resolves THIS repo's own doc citations and its self-test probes are
+            # facts about this repo, so an adopter install has no use for it.
+            "scripts/check_standards_anchors.py",
         }
     )
 
@@ -302,6 +306,7 @@ class TestManifestMigration:
         assert br.recreate_class("docs/claugentic-PRODUCT_SPEC.md") == "recreate-on-demand"
         assert br.recreate_class("scripts/build_release.py") == "self-gate"
         assert br.recreate_class("scripts/check_versions_synced.py") == "self-gate"
+        assert br.recreate_class("scripts/check_standards_anchors.py") == "self-gate"
         assert br.recreate_class("CLAUDE.md") == "config"
         assert br.recreate_class(".gitignore") == "config"
         assert br.recreate_class("docs/RELEASE_CHECKLIST.md") == "dangle"

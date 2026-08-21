@@ -130,6 +130,7 @@ DEV_ONLY_PATH_CLASSES = {
     # default-include, the ABSENCE of a line is what ships it, and any class value here would
     # strip it again.
     "scripts/check_versions_synced.py": "self-gate",   # checks the plugin's two manifests — irrelevant to adopters
+    "scripts/check_standards_anchors.py": "self-gate",  # resolves THIS repo's doc citations; its self-test probes are repo facts
     "scripts/check_shipped_content.py": "self-gate",   # scans the SHIPPED tree's text — harness-self, reasons about the release, never ships
     "scripts/build_release.py": "self-gate",           # this script
     # Repo config / dev-infra (machinery no shipped doc points an adopter at).
