@@ -28,7 +28,7 @@ load_scope:                    # how the harness decides to pull this module int
 
 <!-- repeat the block above, one per dimension -->
 
-**The checks bullet is a CHECKLIST, not prose.** One ` · `-separated **clause** per check, each carrying **exactly one** tag — `[D]` (a gate can prove it — name the gate) or `[J]` (needs a reviewer's eye) — never both, never none. A check that is `[D]` with tooling and `[J]` without is **two clauses**, not one hedged tag: that split IS the mechanical-vs-model-upheld distinction, and it is never compressed away. Each clause carries what a model cannot infer — the threshold, the named tool, the house preference, the defect class this project hit — and nothing the heading already says. **These tags ARE the confidence record**; there is no dimension-level Confidence line.
+**The checks bullet is a CHECKLIST, not prose.** One ` · `-separated **clause** per check, each carrying **exactly one** tag — `[D]` (a gate can prove it — name the gate) or `[J]` (a reviewer's eye) — never both, never none. A check that is `[D]` with tooling and `[J]` without is **two clauses**, not one hedged tag: that split IS the mechanical-vs-model-upheld distinction, never compressed away. A clause carries what a model cannot infer — the threshold, the named tool, the house preference, the defect class this project hit — and nothing the heading already says. **These tags ARE the confidence record.**
 
 ---
 

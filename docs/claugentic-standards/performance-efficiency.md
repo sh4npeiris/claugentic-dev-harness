@@ -22,22 +22,20 @@ load_scope:
 
 ## Caching & invalidation
 
-- **Auditor checks —** `[D]` cache reads/writes in the diff enumerated (grep the cache identifiers) · `[J]` every write sets a TTL or has a documented invalidation trigger · `[J]` cache keys include **all** discriminating parameters · `[J]` cache-aside on a hot key has stampede protection.
+- **Auditor checks —** `[D]` cache reads/writes enumerated (grep the cache identifiers) · `[J]` every write sets a TTL or has a documented invalidation trigger · `[J]` cache keys include **all** discriminating parameters · `[J]` cache-aside on a hot key has stampede protection.
 
 ## Database access patterns
 
-- **Auditor checks —** `[D]` no `SELECT *` in application queries (grep) · `[J]` no lazy-loaded relationship accessed inside a loop · `[J]` list endpoints paginate (`.limit()`/`.offset()` or cursor) · `[J]` migrations add indexes on FK/filter columns · `[J]` connection-pool settings not left at defaults for production load. *(Depth: `data-and-persistence.md`.)*
+- **Auditor checks —** `[D]` no `SELECT *` in application queries (grep) · `[J]` connection-pool settings not left at defaults for production load. *(Depth: `data-and-persistence.md`.)*
 
 ## API & network efficiency
 
-- **Auditor checks —** `[J]` no API call inside a loop · `[J]` list endpoints that could return unbounded results paginate · `[J]` a polling loop replaced by a webhook/event subscription where possible · `[J]` responses not over-fetching (GraphQL over-select, REST extra fields).
+- **Auditor checks —** `[J]` no API call inside a loop · `[J]` a polling loop replaced by a webhook/event subscription where possible · `[J]` responses not over-fetching (GraphQL over-select, REST extra fields).
 
 ## Memory & streaming
 
-- **Auditor checks —** `[J]` no whole DB result set or file loaded into a list in one call · `[J]` file processing streams or chunks · `[J]` large in-memory collections bounded or short-lived.
+- **Auditor checks —** `[J]` no whole DB result set or file loaded into a list in one call — stream or chunk · `[J]` large in-memory collections bounded or short-lived.
 
 ## Cost & resource efficiency
 
-- **Auditor checks —** `[J]` no pay-per-use API call inside a loop or bulk processor without a batching/dedupe guard · `[J]` polling intervals replaced by a webhook or queue consumer where possible · `[J]` resource allocations (instance sizes, memory limits) not hardcoded at "maximum safe" when a lower tier suffices.
-
-> Authoring rules `_TEMPLATE.md` · governance `README.md`
+- **Auditor checks —** `[J]` no pay-per-use API call inside a loop or bulk processor without a batching/dedupe guard · `[J]` resource allocations (instance sizes, memory limits) not hardcoded at "maximum safe" when a lower tier suffices.

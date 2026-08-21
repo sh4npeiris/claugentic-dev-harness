@@ -19,47 +19,47 @@ load_scope:
 
 ## Authentication (proving who the caller is)
 
-- **Good looks like —** A memory-hard salted KDF (Argon2id / scrypt / bcrypt); minimum length **≥12, target ≥15** for single-factor; **no arbitrary composition rules**; a **breached-password blocklist** (NIST SP 800-63B). Nothing about the credential in the URL, query string, or logs.
-- **Auditor checks —** `[D]` grep weak hash calls (`md5`, `sha1(`, `hashlib.sha256(password`), hardcoded credential literals, logged passwords · `[D]` a dependency/secrets scan flags committed credentials · `[J]` authN delegated to a vetted lib/IdP, not hand-rolled · `[J]` reset tokens single-use and expiring · `[J]` uniform failure path — no user-enumeration by message or timing · `[J]` throttling on auth endpoints.
+- **Good looks like —** A memory-hard salted KDF (Argon2id / scrypt / bcrypt); minimum length **≥12, target ≥15** for single-factor; **no arbitrary composition rules**; a **breached-password blocklist** (NIST SP 800-63B).
+- **Auditor checks —** `[D]` grep weak hash calls (`md5`, `sha1(`, `hashlib.sha256(password`), hardcoded credential literals, logged passwords · `[J]` uniform failure path — no user-enumeration by message **or timing**.
 
 ## Authorization, least privilege & object-level access (IDOR / BOLA)
 
-- **Auditor checks —** `[D]` grep routes/handlers added without the auth middleware/decorator, where the framework makes that greppable · `[J]` every new endpoint has an authZ check *and* an ownership/tenant check before the resource is read or mutated — changing an `id` must not reach another tenant's row · `[J]` authZ server-side, not hidden UI.
+- **Auditor checks —** `[D]` grep routes/handlers added without the auth middleware/decorator, where the framework makes that greppable · `[J]` an **ownership/tenant** check, not just an authZ check, before the resource is read or mutated — changing an `id` must not reach another tenant's row.
 
 ## Session & token management
 
-- **Auditor checks —** `[D]` grep cookie set-calls for missing `HttpOnly`/`Secure`/`SameSite`, and JWT verify calls for unpinned/`none` algorithms or skipped verification · `[J]` sessions rotated on login, killed on logout/password-change · `[J]` claims (`exp`,`aud`,`iss`) validated, not just decoded.
+- **Auditor checks —** `[D]` grep cookie set-calls for missing `HttpOnly`/`Secure`/`SameSite`, and JWT verify calls for unpinned/`none` algorithms or skipped verification · `[J]` claims (`exp`,`aud`,`iss`) **validated**, not just decoded.
 
 ## Secrets management
 
-- **Auditor checks —** `[D]` secret-scanner (gitleaks / trufflehog / detect-secrets) clean over the diff **and** history; `.gitignore` covers `.env*`/keys · `[D]` grep tracked files for `AKIA`, `-----BEGIN ... PRIVATE KEY-----`, `password=`, `api_key=`, high-entropy strings · `[J]` rotation possible and per-env separation real.
+- **Auditor checks —** `[D]` secret-scanner (gitleaks / trufflehog / detect-secrets) clean over the diff **and history** · `[D]` grep tracked files for `AKIA`, `-----BEGIN ... PRIVATE KEY-----`, `password=`, `api_key=`, high-entropy strings.
 
 ## Input validation at trust boundaries
 
-- **Good looks like —** **Canonicalize before validating.** Allowlist, server-side, fail-closed — never silently coerced. Uploads stored outside the web root under generated, non-executable names.
-- **Auditor checks —** `[D]` where a schema lib is used (pydantic/zod/JSON-Schema/bean-validation), new DTOs/endpoints are typed rather than reading raw `request.body`/`params` · `[J]` a schema/validator at each new boundary, allowlist-based, rejecting rather than silently defaulting or truncating.
+- **Good looks like —** **Canonicalize before validating.** Allowlist, server-side, fail-closed. Uploads stored outside the web root under generated, non-executable names.
+- **Auditor checks —** `[D]` where a schema lib is used (pydantic/zod/JSON-Schema/bean-validation), new DTOs/endpoints are typed rather than reading raw `request.body`/`params`.
 
 ## Injection prevention (SQL/NoSQL · command · path · XSS · template/LDAP)
 
-- **Auditor checks —** `[D]` grep the danger sinks: f-string/`+`/`%`/`.format` building SQL, `os.system`/`subprocess(... shell=True)`/`eval`/`exec` on variable input, `innerHTML`/`dangerouslySetInnerHTML`/`v-html`, `Path`/`open` joined to raw user input · `[D]` SAST (semgrep / CodeQL / Bandit) clean on the diff · `[J]` each flagged sink is trusted input or properly parameterized/encoded/sanitized · `[J]` encoding correct for the *output context*.
+- **Auditor checks —** `[D]` grep the danger sinks: f-string/`+`/`%`/`.format` building SQL, `os.system`/`subprocess(... shell=True)`/`eval`/`exec` on variable input, `innerHTML`/`dangerouslySetInnerHTML`/`v-html`, `Path`/`open` joined to raw user input · `[D]` SAST (semgrep / CodeQL / Bandit) clean on the diff · `[J]` encoding correct for the *output context*, not merely present.
 
 ## CSRF, CORS, clickjacking & cross-origin posture
 
 - **Good looks like —** On cookie-authenticated apps, CSRF protection is a token **and** `SameSite` — **SameSite alone is not sufficient.** A token-/header-authenticated API **documents** why CSRF tokens are unnecessary.
-- **Auditor checks —** `[D]` grep CORS config for wildcard origin, `Origin` reflection, or `*` with credentials, and for missing CSP/HSTS/frame-ancestors where a server config exists · `[J]` new state-changing routes carry CSRF protection or a justified header-auth exemption · `[J]` the CORS origin list specific and intentional.
+- **Auditor checks —** `[D]` grep CORS config for wildcard origin, `Origin` reflection, or `*` with credentials, and for missing CSP/HSTS/frame-ancestors where a server config exists.
 
 ## SSRF & outbound-request safety
 
-- **Good looks like —** Deny-by-default allowlist of hosts/schemes; block private/loopback/link-local/metadata ranges (`127.0.0.0/8`, `169.254.169.254`, `10/172.16/192.168`, IPv6 ULA/`::1`); validate the **resolved IP after DNS** (rebinding); disable or constrain redirects; never echo raw upstream responses.
-- **Auditor checks —** `[D]` grep HTTP clients (`requests.get`, `fetch(`, `urllib`, `httpx`) taking a variable URL near request input · `[J]` each has allowlist + private-range block + redirect control, and validates the **post-DNS resolved IP**, not just the string.
+- **Good looks like —** Deny-by-default allowlist of hosts/schemes; block private/loopback/link-local/metadata ranges (`127.0.0.0/8`, `169.254.169.254`, `10/172.16/192.168`, IPv6 ULA/`::1`); validate the **resolved IP after DNS** (rebinding); constrain redirects; never echo raw upstream responses.
+- **Auditor checks —** `[D]` grep HTTP clients (`requests.get`, `fetch(`, `urllib`, `httpx`) taking a variable URL near request input · `[J]` the **post-DNS resolved IP** validated, not just the string.
 
 ## Safe deserialization & dynamic execution
 
-- **Auditor checks —** `[D]` grep `pickle.load`, `yaml.load(` without `SafeLoader`, `eval(`, `exec(`, `BinaryFormatter`, `unserialize(`, `node-serialize` on externally-sourced data · `[J]` the data's origin trusted/signed, or a safe loader + schema in place.
+- **Auditor checks —** `[D]` grep `pickle.load`, `yaml.load(` without `SafeLoader`, `eval(`, `exec(`, `BinaryFormatter`, `unserialize(`, `node-serialize` on externally-sourced data.
 
 ## Dependency & supply-chain hygiene
 
-- **Auditor checks —** `[D]` lockfile present and updated; dependency-audit gate green (no unaddressed critical/high); CI runs an SCA scan · `[J]` each newly-added dependency justified (real need, maintained, reasonable footprint, acceptable license) · `[J]` pins exact, not floating `latest`.
+- **Auditor checks —** `[D]` lockfile updated with the change; dependency-audit gate green (no unaddressed critical/high); CI runs an SCA scan · `[J]` pins exact, not floating `latest`.
 
 ## Build & release pipeline authorization (who may publish, and with what token)
 
@@ -69,20 +69,20 @@ load_scope:
 
 ## Secure defaults & misconfiguration
 
-- **Auditor checks —** `[D]` grep `DEBUG = True`, `app.run(debug=True)`, stack-trace-to-client handlers, disabled CSRF, `chmod 777`, container `USER root` · `[J]` errors generic to the client, detailed server-side · `[J]` TLS enforced end-to-end (the verification-disabled grep lives in *Cryptography correctness*).
+- **Auditor checks —** `[D]` grep `DEBUG = True`, `app.run(debug=True)`, stack-trace-to-client handlers, disabled CSRF, `chmod 777`, container `USER root`.
 
 ## Cryptography correctness
 
-- **Good looks like —** Authenticated symmetric ciphers (AES-GCM / ChaCha20-Poly1305), TLS 1.2+, SHA-256+, a password KDF for passwords — standard libraries, never home-grown. CSPRNG only (`secrets`, `crypto.randomBytes`, `SecureRandom`). Keys managed and purpose-separated; constant-time comparison for secrets/MACs.
-- **Auditor checks —** `[D]` grep `MD5`/`SHA1`/`DES`/`RC4`/`ECB`, `Math.random()` for security tokens, `verify=False`/`rejectUnauthorized:false`/disabled cert checks, hardcoded keys/IVs · `[J]` authenticated cipher, standard construction (right mode, fresh IV, CSPRNG) · `[J]` keys managed and comparisons constant-time.
+- **Good looks like —** Authenticated symmetric ciphers (AES-GCM / ChaCha20-Poly1305), TLS 1.2+, SHA-256+, a password KDF for passwords — standard libraries, never home-grown. CSPRNG only (`secrets`, `crypto.randomBytes`, `SecureRandom`); constant-time comparison for secrets/MACs.
+- **Auditor checks —** `[D]` grep `MD5`/`SHA1`/`DES`/`RC4`/`ECB`, `Math.random()` for security tokens, `verify=False`/`rejectUnauthorized:false`/disabled cert checks, hardcoded keys/IVs.
 
 ## PII minimization & data classification
 
-- **Auditor checks —** `[J]` sensitive data masked where displayed or exported, and never duplicated into logs/caches/analytics · `[J]` the most-sensitive classes avoided unless essential, and specially handled when not.
+- **Auditor checks —** `[J]` sensitive data never duplicated into logs/caches/analytics, and masked where displayed or exported.
 
 ## Encryption in transit & at rest
 
-- **Auditor checks —** `[D]` grep `http://` to sensitive endpoints, disabled TLS verification, and sensitive columns/files written unencrypted where the platform expects otherwise · `[J]` at-rest encryption enabled for the new store/field, **backups included** · `[J]` keys managed and rotated, not embedded.
+- **Auditor checks —** `[D]` grep `http://` to sensitive endpoints, disabled TLS verification, sensitive columns/files written unencrypted where the platform expects otherwise · `[J]` at-rest encryption covers **backups**, not just the live store.
 
 ## Retention, deletion & data-subject rights
 
@@ -90,19 +90,17 @@ load_scope:
 
 ## Consent, lawful basis & purpose limitation
 
-- **Auditor checks —** `[J]` where consent applies it is opt-in, granular, recorded and revocable, and trackers/third-party shares respect its state · `[J]` data used only for its original purpose — no scope creep into new analytics/ML/marketing.
+- **Auditor checks —** `[J]` where consent applies it is opt-in, granular, recorded and revocable, and trackers/third-party shares respect its state · `[J]` no purpose creep into new analytics/ML/marketing.
 
 ## Regulatory compliance mapping (GDPR · FERPA · HIPAA · PCI DSS)
 
-- **Auditor checks —** `[J]` the regimes this data/audience triggers are named (student → FERPA, health → HIPAA, EU resident → GDPR, card data → PCI) and their controls are **met rather than assumed**, data-residency and cross-border rules respected · `[J]` processor/BAA/data-transfer obligations covered for any third party touched · `[J]` PCI-prohibited data (full track, CVV) never stored.
+- **Auditor checks —** `[J]` the regimes this data/audience triggers are named (student → FERPA, health → HIPAA, EU resident → GDPR, card data → PCI) and their controls **met rather than assumed**, data-residency and cross-border rules respected · `[J]` PCI-prohibited data (full track, CVV) never stored.
 
 ## Audit trails & accountability
 
 - **Good looks like —** The security-significant event set: authN success/failure · authZ denials · privilege changes · access to regulated records · admin actions · config/security changes · data exports and deletions — each with *who, what, when, from where*, a correlation ID, and tamper-resistance. **Audit logs themselves carry no secrets, tokens, or raw PII.**
-- **Auditor checks —** `[D]` grep the audit log lines for passwords/tokens/secrets/raw PII · `[J]` this change's security-significant events logged with actor/action/timestamp/source and a correlation ID · `[J]` audit logs tamper-resistant and retained per the applicable regime.
+- **Auditor checks —** `[D]` grep the audit log lines for passwords/tokens/secrets/raw PII · `[J]` this change's security-significant events logged with actor/action/timestamp/source and a correlation ID.
 
 ## Sensitive-data hygiene — never log or commit real user data
 
-- **Auditor checks —** `[D]` grep added log/print/tracker calls for whole-request/whole-object dumps, password/token/PII fields, `Authorization`/`Cookie` headers · `[D]` scan committed fixtures/seeds for realistic PII or live credentials · `[J]` no new log statement risks emitting sensitive data under **real** inputs.
-
-> Authoring rules `_TEMPLATE.md` · governance `README.md`
+- **Auditor checks —** `[D]` grep added log/print/tracker calls for whole-request/whole-object dumps, password/token/PII fields, `Authorization`/`Cookie` headers · `[D]` scan committed fixtures/seeds for realistic PII or live credentials.

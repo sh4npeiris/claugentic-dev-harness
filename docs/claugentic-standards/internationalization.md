@@ -18,11 +18,11 @@ load_scope:
 
 ## Character encoding
 
-- **Auditor checks —** `[D]` source files and DB columns are UTF-8 · `[J]` file/stream open calls pass an explicit encoding · `[J]` no `latin-1`/`ascii` assumption in string manipulation.
+- **Auditor checks —** `[D]` source files and DB columns are UTF-8 · `[J]` file/stream open calls pass an explicit encoding, with no `latin-1`/`ascii` assumption in string manipulation.
 
 ## Locale-aware date, time, and number formatting
 
-- **Auditor checks —** `[D]` wire formats are ISO 8601 for dates and integers/decimals for numbers · `[J]` display formatting passes a locale/format parameter · `[J]` no locale-dependent `parseInt`/`parseFloat`/`strptime` without explicit locale handling.
+- **Auditor checks —** `[D]` wire formats are ISO 8601 for dates and integers/decimals for numbers · `[J]` no locale-dependent `parseInt`/`parseFloat`/`strptime` without explicit locale handling.
 
 ## Timezone handling
 
@@ -40,5 +40,3 @@ load_scope:
 ## Locale-dependent parsing bugs
 
 - **Auditor checks —** `[J]` no `sort()`/`.toLowerCase()` on user-visible text without a locale param · `[J]` regex word boundaries (`\b`) checked against non-Latin input requirements.
-
-> Authoring rules `_TEMPLATE.md` · governance `README.md`

@@ -19,7 +19,7 @@ load_scope:
 
 ## Information architecture & navigation
 
-- **Auditor checks —** `[D]` routes and internal links resolve — no orphan routes, link-check in CI · `[J]` nav model consistent across screens, and every screen answers "where am I / where can I go" · `[J]` labels match user language (card-sort/tree-test evidence if available).
+- **Auditor checks —** `[D]` routes and internal links resolve — no orphan routes, link-check in CI · `[J]` labels match user language (card-sort/tree-test evidence if available).
 
 ## Design system & design tokens (single source of truth for look-and-feel)
 
@@ -28,19 +28,19 @@ load_scope:
 
 ## Loading / empty / error states (every async surface has all three)
 
-- **Auditor checks —** `[J]` all three states render for each async call in the diff · `[D]` no data-fetching component lacks a loading/error branch (lint rule, or query hooks forced to handle `isLoading`/`isError`) · `[J]` the empty state is actionable (CTA), not a dead end · `[J]` error messages specific and recoverable — no swallowed errors, no `[object Object]`.
+- **Auditor checks —** `[D]` no data-fetching component lacks a loading/error branch (lint rule, or query hooks forced to handle `isLoading`/`isError`) · `[J]` **all three** states render for each async call in the diff, the empty one actionable (CTA) rather than a dead end.
 
 ## Optimistic UI & rollback
 
-- **Auditor checks —** `[D]` where the library ships optimistic APIs (TanStack Query `onMutate`/`onError`), the rollback handler is present · `[J]` explicit rollback on error (cache revert / previous-value restore) · `[J]` destructive or irreversible actions excluded from optimism.
+- **Auditor checks —** `[D]` where the library ships optimistic APIs (TanStack Query `onMutate`/`onError`), the rollback handler is present · `[J]` destructive or irreversible actions excluded from optimism.
 
 ## Perceived performance & micro-interactions
 
-- **Auditor checks —** `[J]` every actionable element gives instant visual feedback · `[J]` operations >1s show progress, >10s allow cancel · `[D]` `prefers-reduced-motion` honored wherever animation is used (grep/lint) · `[J]` motion meaningful (orienting/causal) and short (≈150–300ms), not gratuitous.
+- **Auditor checks —** `[D]` `prefers-reduced-motion` honored wherever animation is used (grep/lint) · `[J]` operations >1s show progress, >10s allow cancel · `[J]` motion short (≈150–300ms) and orienting, not gratuitous.
 
 ## Visual hierarchy, consistency & brand (look-and-feel)
 
-- **Auditor checks —** `[D]` raw design-value lint (the shared `no-hardcoded-design-values` gate — see *Design system & tokens*) · `[J]` a single clear primary action and a sensible scan order · `[J]` spacing/type/color drawn from the scale with intent, not literals that happen to match · `[J]` alignment and grouping clean (Gestalt proximity/similarity), with adequate whitespace.
+- **Auditor checks —** `[D]` raw design-value lint (the shared `no-hardcoded-design-values` gate — see *Design system & tokens*) · `[J]` spacing/type/color drawn from the scale with intent, not literals that happen to match.
 
 ## Aesthetic & motion craft (is it beautiful and does it feel alive — not just usable?)
 
@@ -59,15 +59,15 @@ load_scope:
 
 ## Ethical engagement (habit-forming without dark patterns)
 
-- **Auditor checks —** `[D]` cookie/consent flows meet "reject as easy as accept" where regulated (consent-mode/CMP config) · `[J]` cancel/unsubscribe/opt-out as discoverable and easy as the opposite action · `[J]` urgency/scarcity/social-proof cues truthful, consent defaults user-favorable (no pre-ticked sharing).
+- **Auditor checks —** `[D]` cookie/consent flows meet "reject as easy as accept" where regulated (consent-mode/CMP config) · `[J]` cancel/unsubscribe/opt-out as discoverable and easy as the opposite action · `[J]` urgency/scarcity/social-proof cues truthful, consent defaults user-favorable.
 
 ## User-flow completeness (no dead ends)
 
-- **Auditor checks —** `[D]` all CTA targets resolve (link/route check — see *Information architecture*) · `[J]` a way forward AND a way out from every state, traced end-to-end, with the success state explicit · `[J]` an interrupted flow resumes without silent data loss.
+- **Auditor checks —** `[D]` all CTA targets resolve (link/route check — see *Information architecture*) · `[J]` a way out from every state, and an interrupted flow resumes without silent data loss.
 
 ## Edge-case & resilient UX (offline / slow / flaky network)
 
-- **Auditor checks —** `[D]` double-submit prevented (button disabled or request de-duped while pending) · `[J]` an offline/connection-loss path exists (detect + message + recover), with bounded timeouts and a user-visible retry · `[J]` layout survives extreme content — overflow handled, no clipping · `[J]` long lists windowed/paginated, no unbounded DOM.
+- **Auditor checks —** `[D]` double-submit prevented (button disabled or request de-duped while pending) · `[J]` an offline/connection-loss path exists (detect + message + recover), timeouts bounded with a user-visible retry · `[J]` long lists windowed/paginated, no unbounded DOM.
 
 ## Accessibility (WCAG 2.2 AA — keyboard, contrast, screen reader, focus)
 
@@ -77,7 +77,7 @@ load_scope:
 ## Responsive & cross-device/-browser
 
 - **Good looks like —** Mobile-first and fluid, never fixed-pixel; ≥16px body text on mobile and user zoom respected.
-- **Auditor checks —** `[J]` holds at key widths (≈320, 768, 1024, 1440) with no overflow/overlap/clipping · `[D]` content reflows at 320px / 400% zoom without horizontal scroll (WCAG 1.4.10) · `[J]` touch targets and hit areas adequate on touch devices · `[J]` tested on the supported browser matrix · `[D]` viewport meta present and zoom not disabled (`user-scalable=no` forbidden — grep).
+- **Auditor checks —** `[D]` content reflows at 320px / 400% zoom without horizontal scroll (WCAG 1.4.10) · `[D]` viewport meta present and zoom not disabled (`user-scalable=no` forbidden — grep) · `[J]` holds at ≈320, 768, 1024, 1440 with no overflow/overlap/clipping.
 
 ## Objective UX signals (what a ux-reviewer measures)
 

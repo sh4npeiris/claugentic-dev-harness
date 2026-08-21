@@ -18,11 +18,11 @@ load_scope:
 
 ## Test pyramid (shape of the suite: unit / integration / e2e)
 
-- **Auditor checks —** `[J]` tested at the cheapest level that proves it · `[J]` no inverted pyramid (many e2e, few unit) signalling untestable design · `[D]` suite wall-clock and per-tier counts where the runner reports tiers · `[J]` integration tests hit the *real* seam (DB, serialization, HTTP contract), not a mock of the thing under test.
+- **Auditor checks —** `[D]` suite wall-clock and per-tier counts where the runner reports tiers · `[J]` no inverted pyramid (many e2e, few unit) signalling untestable design · `[J]` integration tests hit the *real* seam (DB, serialization, HTTP contract), not a mock of the thing under test.
 
 ## Characterization tests & golden master (the equivalence oracle for legacy refactors)
 
-- **Auditor checks —** `[J]` characterization tests land *before* a non-trivial refactor of untested code, visible in commit order · `[J]` they capture *actual* behavior, quirks and bugs included · `[D]` golden-master baselines committed, diffable, regenerable by a documented command · `[J]` throwaways later promoted or kept deliberately · `[J]` the oracle absorbed its adversarial pass **before** its first recorded run — afterwards the same fix is indistinguishable from tuning the exam, and the artifact owes a defect-versus-tuning rule (0044 S1a).
+- **Auditor checks —** `[D]` golden-master baselines committed, diffable, regenerable by a documented command · `[J]` they land *before* the refactor (visible in commit order) and capture *actual* behavior, quirks and bugs included · `[J]` the oracle absorbed its adversarial pass **before** its first recorded run — afterwards the same fix is indistinguishable from tuning the exam, and the artifact owes a defect-versus-tuning rule (0044 S1a).
 
 ## Mutation testing (are the tests real?)
 
@@ -47,7 +47,7 @@ load_scope:
 ## A scan's CORPUS is part of its contract — enumerate from the tracked tree, not the disk
 
 - **Auditor checks —** `[D]` `git ls-files` with a fail-loud `check=True`, never `rglob(`/`os.walk(`/a repo-rooted recursive glob — **a working checkout is not the repo**: a walk swallows vendored virtualenvs, tool caches, build output and **linked worktrees parked inside the checkout** · `[D]` sweep run in **both** shapes (maintainer checkout, fresh clone or linked worktree), corpus **sizes** equal · `[D]` a corpus floor assertion (`len(candidates) >= N`) exists · `[J]` one enumeration convention per repo, recorded **at the call site** as a do-not-revert comment, since no gate re-derives it · `[D]` for every DERIVED set — above all a **vocabulary** parsed out of a document — mutate the source so **one** member stops parsing (bold, footnote or re-case the cell): red, or does the set quietly shrink while the scan reports clean? · `[D]` the derived set's size pinned against a cardinality another file **owns**, not a floor that 1-of-N satisfies · `[J]` a docstring's delegation claim is an assertion: make it mechanical or delete it · `[J]` the corpus includes **the slice that ADDS the scan** (plan record, ledger line, the pin's own docstring) and never git history — so a **commit message** is out of scope by construction (`docs-traceability.md` → *Change explainability* owns that half).
-- **Incident —** 0041 S9 (2026-08-17): a pin enumerated markdown with `Path.rglob`. In the maintainer's checkout, **129 `.md` files, 61 leaked from linked worktrees** under a gitignored `.claude/worktrees/`, against **60 files and zero leaks** via `git ls-files` — GREEN in a worktree, GREEN in CI (which clones fresh, so the class passes CI *by construction*), RED only where the land ran; 8 more untracked `.md` came from a vendored virtualenv and a tool cache. *Recurred at S11 (2026-08-18) on the derived-vocabulary half: bolding **one** cell dropped its token from a regex-derived set asserting only non-emptiness, and republishing it elsewhere passed the entire suite — the sibling guard counted ROWS, the pin counted CELLS.*
+- **Incident —** 0041 S9 (2026-08-17): a pin enumerated markdown with `Path.rglob` — in the maintainer's checkout **129 `.md` files, 61 leaked from linked worktrees** under a gitignored `.claude/worktrees/`, against **60 files and zero leaks** via `git ls-files`: GREEN in a worktree, GREEN in CI (which clones fresh, so the class passes CI *by construction*), RED only where the land ran; 8 more untracked `.md` came from a vendored virtualenv and a tool cache. *Recurred at S11 (2026-08-18) on the derived-vocabulary half: bolding **one** cell dropped its token from a regex-derived set asserting only non-emptiness — the sibling guard counted ROWS, the pin counted CELLS.*
 
 ## A checker's VERDICT is part of its contract — what it measured decides, and a narrowed run says so
 
@@ -61,30 +61,28 @@ load_scope:
 
 ## Coverage of behavior, not vanity %
 
-- **Auditor checks —** `[J]` tests assert outcomes a caller cares about, not private internals and mock call-order · `[J]` no test executes code and asserts nothing (or only `not throws`) where a real outcome should be checked · `[J]` they would fail if the behavior silently changed, not only if the implementation is rewritten.
+- **Auditor checks —** `[J]` no test executes code and asserts nothing (or only `not throws`) where a real outcome should be checked · `[J]` they would fail if the behavior silently changed, not only if the implementation is rewritten.
 
 ## Test-diff review (did the assertions/coverage get weaker?)
 
-- **Auditor checks —** `[D]` grep the diff for `skip`, `only`, `xit`, `xdescribe`, `@Disabled`, `@Ignore`, `pytest.mark.skip`, `todo`, commented-out assertions, widened tolerances · `[J]` each removed or loosened assertion has a stated, legitimate reason · `[D]` diff-coverage shows changed lines didn't drop below threshold · `[J]` no expected value changed *to follow* the implementation (rubber-stamping a regression).
+- **Auditor checks —** `[D]` grep the diff for `skip`, `only`, `xit`, `xdescribe`, `@Disabled`, `@Ignore`, `pytest.mark.skip`, `todo`, commented-out assertions, widened tolerances · `[D]` diff-coverage shows changed lines didn't drop below threshold · `[J]` no expected value changed *to follow* the implementation (rubber-stamping a regression).
 
 ## Failure-path & edge-case coverage
 
-- **Auditor checks —** `[J]` boundaries and invalid inputs tested, not only the typical case · `[J]` every error branch / `catch` / fallback exercised and its *effect* asserted, not just "didn't crash" · `[D]` branch coverage on the changed unit · `[J]` external-dependency failures injected (timeout/5xx/exception) and the degradation asserted.
+- **Auditor checks —** `[D]` branch coverage on the changed unit (catches untested error arms) · `[J]` every error branch / `catch` / fallback exercised and its *effect* asserted, not just "didn't crash" · `[J]` external-dependency failures injected (timeout/5xx/exception) and the degradation asserted.
 
 ## Determinism (no flaky tests)
 
-- **Auditor checks —** `[D]` grep for nondeterminism smells: `sleep(`, `setTimeout`-then-assert, unseeded `random`, `Date.now()`/`new Date()`/`time.time()` in assertions, order-dependent fixtures, `@Retry`/`flaky`/`rerun` annotations · `[J]` async synchronized by await/poll on a condition, not a magic delay · `[D]` suite passes under randomized order (`--shuffle`/`-p randomly`) and on repeat runs · `[J]` known-flaky tests tracked and being fixed, not silently retried.
+- **Auditor checks —** `[D]` grep for nondeterminism smells: `sleep(`, `setTimeout`-then-assert, unseeded `random`, `Date.now()`/`time.time()` in assertions, `@Retry`/`flaky`/`rerun` annotations masking instability · `[D]` suite passes under randomized order (`--shuffle`/`-p randomly`) and on repeat runs.
 
 ## Regression & snapshot tests
 
-- **Auditor checks —** `[J]` each bug fix carries a test that would have caught the original · `[D]` snapshot files committed and present in the diff · `[J]` snapshots scoped, not sprawling captures rubber-stamped on update · `[J]` any snapshot update justified by an intended change.
+- **Auditor checks —** `[D]` snapshot files committed and present in the diff · `[J]` each bug fix carries a test that would have caught the original · `[J]` any snapshot update justified by an intended change, not a silent regression auto-accepted.
 
 ## Visual-regression & accessibility testing (UI)
 
-- **Auditor checks —** `[D]` visual-regression diffs against an approved baseline across key viewports/themes (Playwright / Chromatic / Percy / Storybook), committed and reviewed, not auto-accepted · `[D]` axe-core / `jest-axe` assertions on changed UI, build failing on new violations — automated a11y is a **floor, not a pass**: axe-core detects roughly half of issues (Deque 2021: ~57% across 13,000+ pages; older estimates ~30%) · `[J]` critical states (loading/empty/error, focus, RTL, dark mode) captured, not just the happy render · `[J]` manual keyboard/screen-reader coverage for what scanners miss (per `product-ux.md`).
+- **Auditor checks —** `[D]` visual-regression diffs against an approved baseline across key viewports/themes (Playwright / Chromatic / Percy / Storybook), committed and reviewed, not auto-accepted · `[D]` axe-core / `jest-axe` on changed UI, build failing on new violations — automated a11y is a **floor, not a pass**: axe-core detects roughly half of issues (Deque 2021: ~57% across 13,000+ pages; older estimates ~30%) · `[J]` critical states (loading/empty/error, focus, RTL, dark mode) captured, not just the happy render.
 
 ## Contract testing (provider/consumer compatibility)
 
-- **Auditor checks —** `[J]` changes to a published API/event carry a contract test (pact, schema-compat, stored-response verification) rather than slow brittle end-to-end · `[D]` provider verification / schema-back-compat runs in CI and passes; broker "can-I-deploy" green where adopted · `[J]` the contract is the genuine consumer expectation, not a stale hand-written stub · `[D]` breaking-change detector (Buf/OpenAPI-diff) gates the published surface.
-
-> Authoring rules `_TEMPLATE.md` · governance `README.md`
+- **Auditor checks —** `[D]` provider verification / schema-back-compat runs in CI and passes; broker "can-I-deploy" green where adopted · `[D]` breaking-change detector (Buf/OpenAPI-diff) gates the published surface · `[J]` the contract is the genuine consumer expectation, not a stale hand-written stub.

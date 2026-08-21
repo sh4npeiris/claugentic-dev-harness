@@ -23,34 +23,34 @@ load_scope:
 
 ## Indexing strategy
 
-- **Auditor checks —** `[D]` every FK column has a covering index (schema introspection) · `[D]` no duplicate indexes (same leading columns) · `[J]` each index maps to a known predicate/join/sort, not cargo-culted · `[J]` composite column order justified by query shape (leftmost prefix) · `[J]` a covering index considered where a flagged hot read still does a table lookup.
+- **Auditor checks —** `[D]` every FK column has a covering index; no duplicate indexes (same leading columns) · `[J]` composite column order justified by query shape (leftmost prefix).
 
 ## Migrations — versioned, reversible, zero-downtime
 
-- **Auditor checks —** `[D]` a checked-in migration with a version/sequence, not ad-hoc SQL · `[D]` a down-migration, or an explicit irreversibility note · `[D]` CI runs migrations forward **and** back on a scratch DB · `[J]` a destructive or blocking change on a live table (drop/rename column, add `NOT NULL`, type change) split **expand→migrate→contract** across deploys · `[J]` backfills batched to avoid long table locks.
+- **Auditor checks —** `[D]` a checked-in migration with a version/sequence; a down-migration or an explicit irreversibility note; CI runs migrations forward **and** back on a scratch DB · `[J]` a destructive or blocking change on a live table (drop/rename column, add `NOT NULL`, type change) split **expand→migrate→contract** across deploys · `[J]` backfills batched to avoid long table locks.
 
 ## Transactions & isolation levels
 
 - **Good looks like —** The isolation level is **chosen, not defaulted-by-accident** — know the engine's default (PostgreSQL/Oracle = Read Committed) and raise it for invariants that read-then-write across rows. Transactions stay **short**: no network calls, no user think-time inside an open one.
-- **Auditor checks —** `[J]` the level fits the invariant — would the default's anomalies (non-repeatable read, phantom, write skew) break this logic? · `[J]` `SERIALIZABLE` paths retry on serialization failure.
+- **Auditor checks —** `[J]` would the default's anomalies (non-repeatable read, phantom, write skew) break this logic? · `[J]` `SERIALIZABLE` paths retry on serialization failure.
 
 ## Concurrency control — optimistic vs. pessimistic locking (lost-update protection)
 
 - **Good looks like —** **Optimistic** (`UPDATE ... WHERE version = :v`; 0 rows affected = a conflict to handle) fits low-contention, read-heavy paths with long think-time; **pessimistic** (`SELECT ... FOR UPDATE`) fits hot, high-contention rows (inventory, balances).
-- **Auditor checks —** `[D]` an optimistic path detects and surfaces/retries the 0-rows-affected conflict rather than ignoring it · `[J]` every read-modify-write on shared state prevents lost updates — version check or row lock · `[J]` the strategy fits the contention profile · `[J]` pessimistic locks scoped tightly, with consistent ordering, to avoid deadlocks.
+- **Auditor checks —** `[D]` an optimistic path detects and surfaces/retries the **0-rows-affected** conflict rather than ignoring it · `[J]` pessimistic locks scoped tightly, with consistent ordering, to avoid deadlocks.
 
 ## N+1 queries & ORM pitfalls
 
-- **Auditor checks —** `[D]` a regression test asserts a **bounded query count** for the hot endpoint · `[J]` no loop over rows touches a lazy relation · `[J]` the generated SQL for a critical path actually read.
+- **Auditor checks —** `[D]` a regression test asserts a **bounded query count** for the hot endpoint · `[J]` the generated SQL for a critical path actually read.
 
 ## Connection pooling & resource lifecycle
 
 - **Good looks like —** A **bounded** pool sized against the DB's ceiling, never ad-hoc per-request connections. **Serverless / high-fanout deployments front the DB with a pooler** (PgBouncer / RDS Proxy) instead of each instance holding its own pool.
-- **Auditor checks —** `[D]` connections acquired via a pool, not constructed inline per call · `[D]` every connection/session closed on all paths (context manager / `finally`) · `[J]` pool sized against the DB's connection ceiling at peak concurrency · `[J]` connection recycle/health-check set, so stale connections don't surface as errors.
+- **Auditor checks —** `[D]` every connection/session closed on all paths (context manager / `finally`) · `[J]` connection recycle/health-check set, so stale connections don't surface as errors.
 
 ## Soft deletes & audit columns
 
-- **Auditor checks —** `[D]` with soft-delete, default queries exclude soft-deleted rows everywhere — no path leaks "deleted" data · `[D]` `created_at`/`updated_at` present and auto-populated on the touched tables · `[J]` delete-vs-soft-delete chosen intentionally, with no conflict against an erasure requirement · `[J]` unique constraints and business rules treat soft-deleted rows correctly.
+- **Auditor checks —** `[D]` with soft-delete, default queries exclude soft-deleted rows **everywhere** — no path leaks "deleted" data · `[D]` `created_at`/`updated_at` present and auto-populated · `[J]` unique constraints and business rules treat soft-deleted rows correctly.
 
 ## Read replicas & replication lag
 
@@ -58,7 +58,7 @@ load_scope:
 
 ## Query optimization (EXPLAIN, no `SELECT *`)
 
-- **Auditor checks —** `[D]` `SELECT *` absent from application queries (grep) · `[J]` a flagged hot query's `EXPLAIN` plan avoids a large-table seq scan and uses the right index · `[J]` deep pagination keyset-based, not high-`OFFSET` · `[J]` filter/sort/aggregate done in SQL, not fetched-then-processed in memory.
+- **Auditor checks —** `[D]` `SELECT *` absent from application queries (grep) · `[J]` deep pagination keyset-based, not high-`OFFSET`.
 
 ## Referential integrity
 
@@ -67,10 +67,8 @@ load_scope:
 ## Idempotent writes
 
 - **Good looks like —** **"Exactly once" is at-least-once delivery + idempotent handling** — the only honest way to get there.
-- **Auditor checks —** `[D]` a unique constraint or idempotency-key column backs the dedup (schema-checkable) · `[J]` each retriable write is safely repeatable — a retry never duplicates the effect · `[J]` externally-triggered writes (webhooks, queue consumers, payment callbacks) handle replay · `[J]` a retried multi-step write avoids partial application.
+- **Auditor checks —** `[D]` a unique constraint or idempotency-key column backs the dedup (schema-checkable) · `[J]` externally-triggered writes (webhooks, queue consumers, payment callbacks) handle replay.
 
 ## Backup before destructive migration
 
-- **Auditor checks —** `[D]` the runbook/PR requires a snapshot before the destructive step runs, and backups are **restore-tested**, not just taken · `[J]` the step reversible or staged (rename/keep, drop after soak) · `[J]` mass mutations batched and interruptible.
-
-> Authoring rules `_TEMPLATE.md` · governance `README.md`
+- **Auditor checks —** `[D]` the runbook/PR requires a snapshot before the destructive step runs, and backups are **restore-tested**, not just taken · `[J]` the step reversible or staged (rename/keep, drop after soak).

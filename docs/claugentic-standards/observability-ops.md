@@ -17,16 +17,16 @@ load_scope:
 
 ## Structured logging
 
-- **Auditor checks —** `[D]` a structured logger, not bare `print`/`console.log` · `[J]` no unredacted tokens, passwords or user data in log statements · `[J]` ERROR/WARN reserved for actionable conditions.
+- **Auditor checks —** `[D]` a structured logger, not bare `print`/`console.log` · `[J]` ERROR/WARN reserved for actionable conditions.
 
 ## Metrics, tracing, and health checks
 
-- **Auditor checks —** `[D]` health endpoints exist and test real dependencies · `[J]` new code paths increment relevant counters, or are justified as trivial · `[J]` trace-id propagates across async boundaries.
+- **Auditor checks —** `[D]` health endpoints exist and test **real dependencies** · `[J]` trace-id propagates across async boundaries.
 
 ## Alerting hooks
 
 - **Good looks like —** Alerts fire on **SLO thresholds**, not resource proxies ("CPU > 80%"), and page **only when human action is required**. A silenced alert is a deleted alert.
-- **Auditor checks —** `[J]` new failure modes have a corresponding alert or runbook reference · `[J]` alert thresholds documented, not arbitrary.
+- **Auditor checks —** `[J]` new failure modes have a corresponding alert or runbook reference, with documented thresholds.
 
 ## 12-factor configuration
 
@@ -39,5 +39,3 @@ load_scope:
 ## Feature flags and progressive rollout
 
 - **Auditor checks —** `[J]` a change carrying rollout risk has a flag · `[J]` flag cleanup tracked, so flags don't accumulate permanently.
-
-> Authoring rules `_TEMPLATE.md` · governance `README.md`

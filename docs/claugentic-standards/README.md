@@ -18,7 +18,7 @@ Every `##` heading is one **auditable dimension**. The core bullets, where each 
 
 **Select, don't skip.** Apply the *relevant* dimensions, each **fully** — no debt; never gold-plate an irrelevant one (`KISS`/`YAGNI`), never skip a relevant one. Relevance is a per-change judgment.
 
-**No permanent "N/A".** Don't cap a dimension as irrelevant forever — a stack grows into things, and a cap misleads a future agent. A repo's *current* applicability is the **Current scope** snapshot `init` seeds in the adopter's `CLAUDE.md` `harness:` block (local, non-managed, non-capping).
+**No permanent "N/A".** Don't cap a dimension as irrelevant forever — a stack grows into things. A repo's *current* applicability is the **Current scope** snapshot `init` seeds in the adopter's `CLAUDE.md` `harness:` block (local, non-managed, non-capping).
 
 **Not confined — to this list or to known patterns.** Exceed the list when a change warrants it; a novel pattern is allowed on the terms `_TEMPLATE.md` → *Authoring rules* sets.
 
@@ -30,8 +30,8 @@ Every `##` heading is one **auditable dimension**. The core bullets, where each 
 
 ## Two-tier knowledge: global (synced) vs local (stays put)
 
-- **Global — this directory.** Bundled in the plugin (the source of truth) and **copied into the adopter's `docs/claugentic-standards/` by `init`** — copy-on-init, never read from the plugin at runtime (`docs/claugentic-DECISIONS.md` → “Managed docs are adopter-aware”). Copies are version-stamped and headed **“managed — do not edit”**; agents read the local copy. **Never hand-edit one** — a newer plugin version replaces it. In the **plugin repo** these files ARE the editable source (no stamp); in an **adopter repo** they are managed copies, so changing a standard means proposing it **upstream** and re-initing to propagate.
-- **Local — the adopting repo (`${CLAUDE_PROJECT_DIR}`).** The **Current scope** snapshot, `CANDIDATES.md` (lessons awaiting promotion — a buffer **created on first use**, not shipped empty), and repo lessons in `CLAUDE.md` / `docs/claugentic-DECISIONS.md`. These **never propagate**.
+- **Global — this directory.** Bundled in the plugin and **copied into the adopter's `docs/claugentic-standards/` by `init`** — copy-on-init, never read from the plugin at runtime (`docs/claugentic-DECISIONS.md` → “Managed docs are adopter-aware”). Copies are version-stamped and headed **“managed — do not edit”**: a newer plugin version replaces them, so changing a standard means proposing it **upstream** and re-initing. In the **plugin repo** these files ARE the editable source.
+- **Local — the adopting repo (`${CLAUDE_PROJECT_DIR}`).** The **Current scope** snapshot, `CANDIDATES.md` (lessons awaiting promotion — **created on first use**, not shipped empty), and repo lessons in `CLAUDE.md` / `docs/claugentic-DECISIONS.md`. These **never propagate**.
 - **Promotion path — manual.** A *universal* lesson is staged in `CANDIDATES.md`, reviewed, then promoted upstream into a global module, reaching every repo on its next plugin update (`docs/claugentic-WORKFLOW.md` → *The learning loop*). A *repo-specific* lesson stays local.
 
 ## Versioning
