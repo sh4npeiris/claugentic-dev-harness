@@ -56,15 +56,12 @@ the user — it stays a conversation.**
    tagged not-verified** (only a research round carries citations).
 
    1. **Convene `claugentic-dev-harness:product-designer` in its elevate mode** (a second subagent,
-      allowed under the top-level-agent constraint). Pass it four things: the **elevate mode** · the
-      **draft spec** · the **spec-conversation context** (what the user said that didn't survive
-      structuring) · the **rejected-proposals memory** (the `<!-- product-critic:rejected-proposals -->`
-      fenced list in `docs/claugentic-PRODUCT_SPEC.md`, when present — so it never re-pitches a decided
-      idea). It **critiques by method** — second-session walkthrough · pre-mortem · kill-test ·
-      tell-a-friend · the **mandatory premise-challenge** — and **points at**
-      `docs/claugentic-standards/product-ux.md` for conformance rather than re-auditing states /
-      flow-completeness (discover + the standard own those). It opens with **what's already strong** and
-      is **licensed to return few or no proposals** — never filler.
+      allowed under the top-level-agent constraint) — pass it the four inputs named in its own *Your
+      inputs* section (elevate mode · the draft spec · the spec-conversation context · the
+      rejected-proposals memory, so it never re-pitches a decided idea). It **critiques by method** and
+      **points at** `docs/claugentic-standards/product-ux.md` for conformance rather than re-auditing
+      states / flow-completeness, opens with **what's already strong**, and is **licensed to return few
+      or no proposals** — never filler.
 
    2. **Present TIERED, not as a flat per-item ballot** (that is the decision-fatigue failure mode):
       **Headline** (the 1–2 highest-leverage) — open as a conversation, not a yes/no vote · **Quick wins**
@@ -93,19 +90,17 @@ the user — it stays a conversation.**
    6. **Refresh-path scoping.** On the refresh path (step 2), critique the **changed sections + a light
       whole-spec scan**, not a full re-critique. Tell the elevate pass the scope.
 
-   7. **Deep-research on demand.** To ground a proposal in how the best products actually solve a job,
-      invoke the **`deep-research` skill** (a session-available skill, **not** a repo file) scoped to
-      *"how do the best products solve `<job>`, and where do they underserve"* → feed the **cited**
-      findings to the elevate pass. **If `deep-research` is unavailable this session: say so plainly and
-      fall back to critique-only**, benchmark claims tagged *model knowledge, not verified this run*.
-      **Never claim research that didn't run.**
+   7. **Deep-research on demand.** To ground a proposal in how the best products solve a job, invoke the
+      **`deep-research` skill** (session-available, **not** a repo file) scoped to *"how the best
+      products solve `<job>`, and where they underserve"* → feed the **cited** findings to the elevate
+      pass. **Unavailable this session → say so and fall back to critique-only**, benchmark claims tagged
+      *model knowledge, not verified this run*. **Never claim research that didn't run.**
 
-   8. **A deferred proposal → `docs/claugentic-ROADMAP.md`, the human-owned area.** Land it as a `feature`
-      note **OUTSIDE** the `harness-audit:backlog` fence — that fence is regenerate-don't-accumulate (the
-      next audit/gap run **wipes** anything inside it). **Honest pickup:** `build`'s item universe **is**
-      the fence, so a deferred note is **not** picked up automatically — it enters when the **user names
-      it** or a later **gap run regenerates it from the now-adopted spec**. Say so; don't imply it'll be
-      built on its own.
+   8. **A deferred proposal → `docs/claugentic-ROADMAP.md`.** Land it as a `feature` note **OUTSIDE** the
+      `harness-audit:backlog` fence (regenerate-don't-accumulate — the next audit/gap run **wipes**
+      anything inside it). **Honest pickup:** `build`'s item universe **is** the fence, so a deferred
+      note is **not** picked up automatically — it enters when the **user names it** or a later **gap run
+      regenerates it from the now-adopted spec**. Say so; don't imply it'll be built on its own.
 
 6. **Re-validate the frozen criteria schema after folding — fail loud.** Every criterion must have
    **exactly** the six frozen keys `id, feature, flow, expect, states, check`; non-empty `flow` and
@@ -202,12 +197,12 @@ uses**. **Static code reading — gap mode does NOT run the app; runtime checkin
    run the app; runtime checking is the QA workflow."*
 
 5. **Prose-orchestrated fallback** *(Workflow tool unavailable — the ONLY fallback trigger).* Say so to the
-   user, then run the **audit SKILL's prose pipeline** (the `claugentic-dev-harness:audit` skill →
-   *Prose-orchestrated fallback*) with the **criteria as the lens source** — one cell per criterion, the
-   same dedup → prune → one-verifier-per-finding path, PRUNE in its **conformance variant**
-   (`synthesizer-gate` Mode 3 gap variant: no YAGNI, cut only duplicates and criterion-less findings,
-   **never** a promised-but-missing behaviour, and **never** add the test-baseline item) — and **tag the
-   run "prose-orchestrated."** Never claim the script's mechanical guarantees on a prose run.
+   user, then run the **audit SKILL's prose pipeline** (`claugentic-dev-harness:audit` →
+   *Prose-orchestrated fallback*) with the **criteria as the lens source** — one cell per criterion,
+   PRUNE in its **conformance variant** (`synthesizer-gate` Mode 3 gap variant: no YAGNI, cut only
+   duplicates and criterion-less findings, **never** a promised-but-missing behaviour, **never** the
+   test-baseline item) — and **tag the run "prose-orchestrated."** Never claim the script's mechanical
+   guarantees on a prose run.
 
 6. **OFFER-BUILD — the finder→build bridge** *(after the write, post-SELECT — offered, never forced)*. Run
    the finder-pipeline **OFFER-BUILD** step (contract: `docs/claugentic-WORKFLOW.md` → **The finder
