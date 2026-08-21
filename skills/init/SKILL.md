@@ -808,74 +808,52 @@ directly: the tree on **Replace**, the pre-commit wrapper, a `.gitignore`/`.gita
 any **refreshed managed file**. **Never compute it from the Refreshed/Created groups** — the Replace
 overwrite is filed under **Created**, so a group-based branch emits *"nothing overwritten"* on the one
 path that overwrites a user-owned file.
-- **Wrote nothing at all →** *"Done — everything is already at the installed version; I changed
-  nothing. I did NOT touch any of your code or your own files."*
-- **Wrote only NEW files →** *"Done — I added a code map, a quality checklist, and a safety check. I
-  did NOT change any of your code or overwrite your own files — nothing existing was modified."*
-- **Touched ANYTHING user-owned → say what, by name, IN THE HEADLINE — before any reassurance**, e.g.
-  *"Done — and I replaced your `docs/claugentic-ARCHITECTURE_TREE.md` with a harness skeleton, as you
-  confirmed."* Then **append the honest caveat:** *"Files marked `claugentic-dev-harness managed — do
-  not edit` were refreshed to the installed version; if you had edited one of those, your edits were
-  replaced — they're listed in the Refreshed group below, and git history keeps any version you
-  committed (uncommitted edits to a managed file are not recoverable — commit before re-running
-  `init`)."* **Never assert "I did NOT overwrite your own files" unconditionally when a managed file
-  was refreshed** — that is false for anyone who edited one. (The `CLAUDE.md` fence is separate: only
-  the content between the markers is replaced.)
+- **Wrote nothing at all →** already at the installed version; changed nothing, touched no user file.
+- **Wrote only NEW files →** added the map/checklist/safety check; changed and overwrote nothing existing.
+- **Touched ANYTHING user-owned → say what, by name, IN THE HEADLINE — before any reassurance**, then
+  append the honest caveat that any **refreshed managed file** replaced edits you may have made (listed
+  in the Refreshed group; git history keeps a committed version — **uncommitted edits to a managed file
+  are not recoverable**). **Never assert "I did NOT overwrite your own files" unconditionally when a
+  managed file was refreshed** — that is false for anyone who edited one. (The `CLAUDE.md` fence is
+  separate: only the content between the markers is replaced.)
 
-**The architecture-tree branch of the honesty register** — name the tree action plainly, per step 4's
-outcome: **Fresh** → "created a starter code map — it fills in as you add code"; **Mature-no-tree** →
-"created a code map listing every source file from `git ls-files`; descriptions stay thin and improve
-as the code is touched — nothing of yours was overwritten (you had no tree)"; **Keep-mine-gate-off** →
-"left your `docs/claugentic-ARCHITECTURE_TREE.md` untouched and turned the tree-gate OFF for this repo
-— no blocking check on your tree (it stays model-upheld via `CLAUDE.md`); to switch to the harness
-format later, delete the tree and re-run `init`". **Replace (confirmed) — the one user-file overwrite,
-name it loudly:** *"Replaced your `docs/claugentic-ARCHITECTURE_TREE.md` with a harness skeleton — your
-previous tree is in git history (an uncommitted tree is unrecoverable)."* That is the **only** path in
-`init` that overwrites a user-owned file, and only because you explicitly chose Replace.
+**The architecture-tree branch of the honesty register** — name the tree action plainly per step 4's
+outcome (Fresh / Mature-no-tree / Keep-mine-gate-off / Replace). **Replace (confirmed) is the one
+user-file overwrite in `init` — name it loudly:** *"Replaced your
+`docs/claugentic-ARCHITECTURE_TREE.md` with a harness skeleton — your previous tree is in git history
+(an uncommitted tree is unrecoverable)."*
 
-Then tell the user the **setup is live** — honestly, implying no restart where none is needed (a skill
-**cannot** restart a session; don't pretend otherwise):
-- **Tree-gate ON:** **two gates run at commit time**, once per `git commit` — no restart, no per-action
-  overhead. A missing tree entry, an entry longer than `MAX_ENTRY_CHARS` (in
-  `scripts/claugentic-check_architecture_tree.py`), or a ledger over its cap **aborts that commit**; a
-  ledger at **≥90%** of its cap prints a WARN and lets the commit through. Name the hook path per mode:
-  **shared** → `.githooks/pre-commit` via `core.hooksPath=.githooks` (travels with the repo); **solo**
-  → `.git/hooks/pre-commit` (local, untracked).
-- **Tree-gate OFF:** say plainly that **no pre-commit hook was wired, so neither gate runs at commit
-  time here**. Both scripts are still on disk: `python scripts/claugentic-check_architecture_tree.py`
-  for a one-off check (it would flag a non-backtick tree, which is why the gate is off) and `python
-  scripts/claugentic-check_doc_budgets.py` for the budget verdict — and `/claugentic-dev-harness:doctor`
-  runs them for you.
+Then tell the user the **setup is live**, implying no restart where none is needed (a skill **cannot**
+restart a session):
+- **Tree-gate ON:** **two gates run at commit time**, once per `git commit`. A missing tree entry, an
+  entry over `MAX_ENTRY_CHARS`, or a ledger over its cap **aborts that commit**; a ledger at **≥90%**
+  of cap prints a WARN and lets it through. Name the hook path per mode: **shared** →
+  `.githooks/pre-commit` via `core.hooksPath=.githooks`; **solo** → `.git/hooks/pre-commit`.
+- **Tree-gate OFF:** no pre-commit hook was wired, so neither gate runs at commit time here. Both
+  scripts are still on disk for a one-off check, and `/claugentic-dev-harness:doctor` runs them for you.
 - **You (the agent) have adopted the harness workflow for the rest of this session** — follow
-  `docs/claugentic-WORKFLOW.md` from here; work continues immediately.
-- **Suggest `/clear` or `/compact`** (quick — not a whole new chat): that is what loads the new
-  `CLAUDE.md` (or `CLAUDE.local.md` in solo) as cached context. Recommend it before a big `audit` run;
-  optional otherwise; in place next session regardless. **Never tell the user they *must* "start a
-  fresh chat."**
+  `docs/claugentic-WORKFLOW.md`; work continues immediately.
+- **Suggest `/clear` or `/compact`** (quick) — that is what loads the new `CLAUDE.md` (or
+  `CLAUDE.local.md` in solo) as cached context. Recommend it before a big `audit` run. **Never tell the
+  user they *must* "start a fresh chat."**
 
 **The solo-mode honesty + verification block — emit ONLY in solo mode** (omitted entirely in shared):
-- **Solo honesty line:** *"I adopted the harness **solo / local-only** — everything I wrote lives on
-  this clone alone: the managed docs, code map, and the `CLAUDE.local.md` anchor are kept untracked via
-  `.git/info/exclude` (not your committed `.gitignore`, which I did **not** touch — git does not ignore
-  `CLAUDE.local.md` on its own), and the tree gate is `.git/hooks/pre-commit` (local). **No new tracked
-  file, no committed-`.gitignore` edit, no shared git config — a teammate's clone is byte-identical and
-  unaffected.**"*
-- **Verification claim (state only what you confirmed):** run `git status --porcelain` and confirm
-  **zero new TRACKED paths**; run `git diff -- .gitignore` and confirm it is **empty**. Report both:
-  *"Verified: `git status` shows no new tracked paths; `git diff -- .gitignore` is empty."*
+- **Solo honesty line:** state that everything written lives on this clone alone — managed docs, code
+  map, and the `CLAUDE.local.md` anchor kept untracked via `.git/info/exclude` (not the committed
+  `.gitignore`, untouched), the tree gate at `.git/hooks/pre-commit` — so **no new tracked file, no
+  committed-`.gitignore` edit, no shared git config; a teammate's clone is unaffected.**
+- **Verification claim (state only what you confirmed):** run `git status --porcelain` (confirm **zero
+  new TRACKED paths**) and `git diff -- .gitignore` (confirm **empty**), and report both.
 - **The `git check-ignore` guard — FAIL LOUD if a should-be-local path is not ignored.** Run
-  `git check-ignore <path>` for **each** solo-written path (everything appended to `.git/info/exclude`,
-  plus `CLAUDE.local.md`). If **any** is **not** ignored — it would become a tracked change and leak to
-  teammates — **do NOT paper over it**: report it **loudly** as a solo-invariant breach naming the exact
-  path, and say the solo guarantee does not hold for it until it is excluded. That failure line
-  **replaces** the clean verification claim above.
+  `git check-ignore <path>` for **each** solo-written path (everything in `.git/info/exclude`, plus
+  `CLAUDE.local.md`). Any path **not** ignored would leak to teammates — **do NOT paper over it**:
+  report it **loudly** as a solo-invariant breach naming the exact path; that line **replaces** the
+  clean verification claim.
 
 Then the **next step**, branched on the *Application source present* predicate (audit Phase 1): **has
-app source** → *"Next: run `/claugentic-dev-harness:audit` — I'll explain your codebase in plain
-English and write a prioritized backlog of the work worth doing. (A quick `/clear` first gives the
-audit clean context.)"*; **no app source yet** → *"Next: just tell me what you want to build — describe
-your first feature in plain English and I'll run the workflow. No need to run
-`/claugentic-dev-harness:audit` until there's code to audit."*
+app source** → point them at `/claugentic-dev-harness:audit` (a plain-English explanation + a
+prioritized backlog; a quick `/clear` first gives it clean context); **no app source yet** → invite
+them to describe their first feature and run the workflow — no audit until there's code.
 
 Then emit the clear summary, grouped. **The group names are the contract:**
 - **Created** — files written from scratch + managed files that were absent. Name the caps config
@@ -890,36 +868,28 @@ Then emit the clear summary, grouped. **The group names are the contract:**
 - **Skipped (user file / unrecognized stamp)** — not genuine managed copies; untouched, reported for
   manual reconciliation.
 - **Wired** — the **pre-commit hook** and the **two gates chained into it** (tree check `--staged`, then
-  the doc-budget check with no args), per mode: **shared** → `.githooks/pre-commit` +
-  `core.hooksPath=.githooks`; **solo** → `.git/hooks/pre-commit`. Report whichever reconciliation
-  outcome applies — "pre-commit hook already wired (budget gate chained)" · "wrapper: refreshed (chained
-  the budget gate)" · the **never-clobber** report, which names neither the adopter nor an author and
-  whose remedy is **shape-aware**. **Gate OFF ⇒ no wrapper ⇒ no commit-time budget signal** — say that
-  plainly; the gate is still on disk and still runs when invoked. Flag a `core.hooksPath` **conflict**,
-  or **"tree-gate OFF — no pre-commit hook wired"**. **When husky was detected**, name the outcome —
-  **"appended", never "chained"**: *appended* (noting it reaches teammates **if** their `package.json`
-  carries husky's `prepare` script, and flagging **unreachable** when an unconditional `exit` sits above
-  the block) · *already present* · *declined* · *refused — `.githooks/pre-commit` is git-ignored*, with
-  the rule and the fix · in **solo** the offer is skipped, so report the `core.hooksPath` conflict.
+  the doc-budget check), per mode: **shared** → `.githooks/pre-commit` + `core.hooksPath=.githooks`;
+  **solo** → `.git/hooks/pre-commit`. Report the reconciliation outcome that applies (the branch-(1)/(2)
+  strings or the shape-aware never-clobber report from 5b). **Gate OFF ⇒ no wrapper ⇒ no commit-time
+  budget signal.** For husky, name the outcome — **"appended", never "chained"** — per 5b (appended /
+  already present / declined / refused), noting reachability and the `package.json` propagation caveat.
 - **Merged** — the `.claude/settings.json` plugin self-reference, or "already declared". **Omitted in
   solo mode** (5c is skipped; the solo honesty block reports that instead).
 - **Locally excluded (solo only)** — the paths appended to `.git/info/exclude`, each confirmed ignored
   via `git check-ignore`.
 - **Detected** — the ecosystem, the interpreter, the existing tooling, the recorded **harness mode** and
-  **architecture-tree choice**, and any **competing way-of-work doc**: name it, state the harvest
-  outcome, confirm **it was NOT deleted**, and list whatever a harvest promoted.
+  **architecture-tree choice**, and any **competing way-of-work doc** (name it, state the harvest
+  outcome, confirm **it was NOT deleted**).
 
 **Then — SHARED MODE ONLY — print the exact `git add <path> <path> …` command** covering every path
 this run created or modified (the groups above enumerate them), warning that `git add -u` /
 `git commit -a` will MISS the newly created files — untracked (never in solo: zero new tracked paths).
 
 **One caution to raise — build-time content scanners that read `docs/`.** A repo-wide content scanner
-can ingest harness prose and **fail the build on a string it was never meant to read** (real adopter
-incident: a CSS-utility scanner globbing the whole repo broke that project's build until `docs/` was
-excluded). **Raise it whenever one is present, even if step 8 reported nothing** — it names its own sources: a Tailwind/UnoCSS
-`content`/`include` glob over the repo · a docs/search-index build · a generator reading `**/*.md`.
-Fix: **exclude `docs/` from the scanner's globs.** No mechanical check does this — `init` never reads or
-edits your build config; deliberately a prose flag.
+(a Tailwind/UnoCSS `content`/`include` glob, a docs/search-index build, a generator reading
+`**/*.md`) can ingest harness prose and **fail the build on a string it was never meant to read**.
+**Raise it whenever one is present, even if step 8 reported nothing.** Fix: **exclude `docs/` from the
+scanner's globs** — `init` never reads or edits your build config, so this is deliberately a prose flag.
 
 **A repo already at the installed version reports** "already at the installed version — nothing to
 refresh."; otherwise the Refreshed group lists what moved.
@@ -929,31 +899,13 @@ refresh."; otherwise the Refreshed group lists what moved.
 ## Idempotency at a fixed version — the hard safety check
 
 Re-running `init` **converges the repo to the installed version**, and is a **true no-op only when it
-is already there**. The drift decision and the writes are **`init`'s judgment** (rule-bound,
-never-clobber-guarded by stop-if-ambiguous), **not a mechanical oracle** — so **idempotency here is
-checked by a dogfood run, not a wired gate.** It holds because every write above is one of three
-already-convergent shapes: **managed upsert** (identical body + current-form stamp → `CURRENT`,
-byte-untouched; drift or an old-format stamp → one `REFRESH`, after which it reads `CURRENT`) ·
-**create-if-absent and user-owned, never refreshed** (the tree, the three ledger seeds, the caps config
-— plus the `- Doc budgets:` opt-out reader, so a deleted config stays deleted) · **append/merge keyed
-on its own marker** (`.git/info/exclude` patterns, the recorded-choice lines, the `.gitignore`
-negations, and the `.claude/settings.json` merge keyed on the `sh4npeiris` marketplace +
-`claugentic-dev-harness@sh4npeiris` plugin keys).
-
-Three places need naming because they are not simply "write once":
-- **The recorded choices are read BEFORE any prompt**, so a settled re-run never re-prompts: a
-  `keep-gate-off` repo wires no hook and re-derives no globs (its `INCLUDE_GLOBS = []` is
-  carve-out-protected); a `harness-skeleton` repo's tree already exists. **Only the `Architecture
-  tree:` line is ever rewritten**, and only when on-disk state diverges — not the byte-identical re-run.
-- **The pre-commit hook** is "already wired" when `.githooks/pre-commit` exists AND `core.hooksPath` is
-  `.githooks` (solo: the `.git/hooks/pre-commit` presence) ⇒ a re-run writes nothing. **The one bounded
-  exception is convergent, not repeating:** a wrapper whose run logic is this version's shape without
-  the budget line is refreshed **once**, after which every later run takes the already-chained branch;
-  any other shape is never touched at all — also a no-op, with a report. Gate-off wires no hook.
-- **The CLAUDE.md fence** (or `CLAUDE.local.md` in solo) is refreshed inside the markers from a template
-  with **no volatile content**, so once it embeds the installed `{VERSION}` a re-run regenerates a
-  byte-identical inner block; everything outside is preserved byte-for-byte. Every solo divergence is
-  likewise idempotent, and `git status` stays clean — nothing was tracked to begin with.
+is already there** — checked by a dogfood run, not a wired gate (the writes are `init`'s rule-bound,
+never-clobber-guarded judgment, not a mechanical oracle). Every write above is one of three
+convergent shapes: **managed upsert** (`CURRENT` byte-untouched; drift or an old-format stamp → one
+`REFRESH`, then `CURRENT`) · **create-if-absent, user-owned, never refreshed** (the tree, the ledger
+seeds, the caps config) · **append/merge keyed on its own marker**. The recorded choices are read
+BEFORE any prompt, so a settled re-run never re-prompts; only the `Architecture tree:` line is ever
+rewritten, and only on on-disk disagreement.
 
 **Acceptance of a 2nd run at the same installed version:** `git status` in the target shows **zero
 changes** and the report says everything was already current. If such a re-run dirties the repo, an
@@ -962,25 +914,15 @@ is expected to refresh — that is convergence, not a bug.)
 
 ## What this skill does NOT do (honest scope)
 
-- It does **not** install or reconfigure your linters/test runner — it **detects and records** them
-  (step 8) so the workflow composes with them.
-- It does **not** refresh your **user-owned** files — `docs/claugentic-ARCHITECTURE_TREE.md`,
-  `docs/claugentic-ROADMAP.md`, `docs/claugentic-DECISIONS.md`, `docs/claugentic-CHARTER.md` and
-  `.claude/claugentic-doc-budgets.json` are seeded create-if-absent and then left to you (your tuned
-  caps included).
-- It does **not** 3-way-merge a user-edited **managed** file — managed files are marked *do not edit*
-  and carry no user content by contract (sole exception: the `claugentic-check_architecture_tree.py`
-  `INCLUDE_GLOBS` knob, preserved per step 3); on a genuine drift the installed version wins (reported
-  by path) and **git is the review/recovery net** for content you committed (an uncommitted edit isn't
-  recoverable — see the roadmap).
-- It does **not** generally reconcile the pre-commit wrapper **contents** across versions —
-  idempotency keys on the hook's presence. **Exactly one shape is repaired** (5b): a wrapper whose run
-  logic is this version's shape without the budget line gets the chain line added. Anything else — a
-  wrapper from **v0.5.1 or earlier** (which no `init` re-run will auto-chain), or one you edited — is
-  **never rewritten**; you get a shape-aware report instead. General version-to-version reconciliation
-  stays on the roadmap.
+- It **detects and records** your linters/test runner (step 8) so the workflow composes with them —
+  it never installs or reconfigures them.
+- It does **not** refresh your **user-owned** files (the tree, ROADMAP, DECISIONS, CHARTER, and the
+  caps config — seeded create-if-absent, then yours) and does **not** 3-way-merge a user-edited
+  **managed** file (marked *do not edit*, no user content by contract — sole exception: the
+  `INCLUDE_GLOBS` knob): on a genuine drift the installed version wins (reported by path), and git is
+  the recovery net for content you committed — **an uncommitted edit to a managed file is not
+  recoverable** (see the roadmap). It does not generally reconcile the wrapper across versions;
+  **exactly one shape is repaired** (5b), anything else gets a shape-aware report.
 - **In solo / local-only mode it does NOT** declare the plugin for teammates, edit your committed
-  `.gitignore`, or set any shared git config — solo adoption is invisible to teammates by design. The
-  trade-off: a teammate who clones gets **none** of the harness — switch to **Shared** mode (re-`init`,
-  choose Shared) when the team should adopt it too.
+  `.gitignore`, or set any shared git config — solo adoption is invisible to teammates by design.
 - It does **not** audit your code or write a backlog — that is **`/claugentic-dev-harness:audit`**.
