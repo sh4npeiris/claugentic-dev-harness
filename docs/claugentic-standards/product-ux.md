@@ -13,34 +13,34 @@ load_scope:
 
 > **Loads when:** a change touches a user-facing surface — a component, page, screen, form, layout, styling, or any interactive frontend.
 > Method, tags, honesty register: `README.md` → *Reading a module*.
-> This lens asks not "does it run?" but "is it a finished, usable, ethical experience?" — and it ends with the **objective UX signals** a `ux-reviewer` measures, so judgment is backed by numbers wherever possible.
+> Judgment is backed by numbers wherever possible — the **objective UX signals** a `ux-reviewer` measures close this module.
 
 ---
 
 ## Information architecture & navigation
 
-- **Auditor checks —** `[J]` is the nav model consistent across screens (same affordances in the same places)? `[J]` does every screen answer "where am I / where can I go"? `[J]` do labels match user language (card-sort/tree-test evidence if available)? `[D]` are route names/links resolvable (no orphan routes, no broken internal links — link-check in CI)?
+- **Auditor checks —** `[J]` nav model consistent across screens (same affordances in the same places). `[J]` every screen answers "where am I / where can I go". `[J]` labels match user language (card-sort/tree-test evidence if available). `[D]` route names/links resolvable — no orphan routes, no broken internal links (link-check in CI).
 
 ## Design system & design tokens (single source of truth for look-and-feel)
 
 - **When the system comes from an external source (mechanism-agnostic) —** Build UI to that project's **REAL** components/tokens, never invented ones. The source may be a code component-library, a synced design-system record, **or** a Claude Code `/design-sync` flow (**one option, never required**); the per-project design-language record (`docs/claugentic-PRODUCT.md` → *Per-project design language*) says which. **Invoking any such sync is model-upheld and degrades gracefully** — when unavailable, the record is populated **manually**. The **craft floor applies ON TOP** either way: the external system supplies the *system*, this module supplies the *quality* (the anti-slop `[D]` floor + the motion baseline + the `[J]` craft ceiling in *Aesthetic & motion craft* below).
-- **Auditor checks —** `[D]` grep the diff for raw hex/rgb/px literals in component/CSS files where a token exists (lint rule: `no-hardcoded-design-values` / Stylelint custom rule) `[J]` are semantic tokens used over primitives at the component layer (intent, not raw value)? `[J]` was an existing component reused, or a near-duplicate created? `[J]` is the new component consistent with siblings (states, sizes, spacing scale)?
+- **Auditor checks —** `[D]` grep the diff for raw hex/rgb/px literals in component/CSS files where a token exists (`no-hardcoded-design-values` / Stylelint custom rule). `[J]` semantic tokens over primitives at the component layer (intent, not raw value). `[J]` an existing component reused rather than a near-duplicate created. `[J]` the new component consistent with siblings (states, sizes, spacing scale).
 
 ## Loading / empty / error states (every async surface has all three)
 
-- **Auditor checks —** `[J]` for each async call in the diff, do all three states render? `[D]` does any data-fetching component lack a loading/error branch (lint rule / data-layer convention — e.g. query hooks forced to handle `isLoading`/`isError`)? `[J]` is the empty state actionable (CTA), not a dead end? `[J]` are error messages specific and recoverable (no swallowed errors, no `[object Object]`)?
+- **Auditor checks —** `[J]` all three states render for each async call in the diff. `[D]` no data-fetching component lacks a loading/error branch (lint rule / data-layer convention — e.g. query hooks forced to handle `isLoading`/`isError`). `[J]` the empty state is actionable (CTA), not a dead end. `[J]` error messages specific and recoverable (no swallowed errors, no `[object Object]`).
 
 ## Optimistic UI & rollback
 
-- **Auditor checks —** `[J]` does the mutation update local state before the server responds where latency would otherwise hurt? `[J]` is there an explicit rollback on error (cache revert / previous-value restore)? `[J]` are destructive/irreversible actions excluded from optimism (confirmed/pessimistic instead)? `[D]` for libraries with built-in optimistic APIs (e.g. TanStack Query `onMutate`/`onError` rollback), is the rollback handler present (pattern lint/review)?
+- **Auditor checks —** `[J]` the mutation updates local state before the server responds where latency would otherwise hurt. `[J]` explicit rollback on error (cache revert / previous-value restore). `[J]` destructive/irreversible actions excluded from optimism (confirmed/pessimistic instead). `[D]` where the library has optimistic APIs (TanStack Query `onMutate`/`onError`), the rollback handler is present.
 
 ## Perceived performance & micro-interactions
 
-- **Auditor checks —** `[J]` does every actionable element give instant visual feedback on interaction? `[J]` do operations >1s show progress (and >10s allow cancel)? `[D]` is `prefers-reduced-motion` honored (media-query present where animation is used — grep/lint)? `[J]` is motion meaningful (orienting/causal) and short (≈150–300ms), not gratuitous?
+- **Auditor checks —** `[J]` every actionable element gives instant visual feedback. `[J]` operations >1s show progress, >10s allow cancel. `[D]` `prefers-reduced-motion` honored (media-query present where animation is used — grep/lint). `[J]` motion meaningful (orienting/causal) and short (≈150–300ms), not gratuitous.
 
 ## Visual hierarchy, consistency & brand (look-and-feel)
 
-- **Auditor checks —** `[J]` is there a single clear primary action and a sensible scan order? `[D]` raw design-value lint: see *Design system & tokens* dimension — the shared Stylelint `no-hardcoded-design-values` gate covers this check. `[J]` are spacing/type/color choices drawn from the scale with intent (semantic tokens, not literals that happen to match)? `[J]` does it match the established brand/voice and sibling screens? `[J]` are alignment and grouping clean (Gestalt proximity/similarity), with adequate whitespace?
+- **Auditor checks —** `[J]` a single clear primary action and a sensible scan order. `[D]` raw design-value lint — the shared Stylelint `no-hardcoded-design-values` gate (see *Design system & tokens*). `[J]` spacing/type/color drawn from the scale with intent (semantic tokens, not literals that happen to match). `[J]` matches the established brand/voice and sibling screens. `[J]` alignment and grouping clean (Gestalt proximity/similarity), with adequate whitespace.
 
 ## Aesthetic & motion craft (is it beautiful and does it feel alive — not just usable?)
 
@@ -59,15 +59,15 @@ load_scope:
 
 ## Ethical engagement (habit-forming without dark patterns)
 
-- **Auditor checks —** `[J]` does any flow rely on tricking, shaming, or trapping the user to hit a metric? `[J]` is cancel/unsubscribe/opt-out as discoverable and easy as the opposite action? `[J]` are urgency/scarcity/social-proof cues truthful? `[J]` are consent defaults user-favorable (no pre-ticked data sharing)? `[D]` cookie/consent flows meet "reject as easy as accept" where regulated (consent-mode/CMP config check).
+- **Auditor checks —** `[J]` no flow relies on tricking, shaming, or trapping the user to hit a metric. `[J]` cancel/unsubscribe/opt-out as discoverable and easy as the opposite action. `[J]` urgency/scarcity/social-proof cues truthful. `[J]` consent defaults user-favorable (no pre-ticked data sharing). `[D]` cookie/consent flows meet "reject as easy as accept" where regulated (consent-mode/CMP config check).
 
 ## User-flow completeness (no dead ends)
 
-- **Auditor checks —** `[J]` trace the new/changed flow end-to-end: is there a way forward AND a way out from every state? `[J]` is the success state explicit with a next action (not just a silent close)? `[J]` is cancel/back non-destructive and predictable? `[J]` can an interrupted flow be resumed (no silent data loss)? `[D]` do all CTA targets resolve (no links/buttons to nowhere — see *Information architecture* dimension for the link/route check gate)?
+- **Auditor checks —** `[J]` trace the flow end-to-end: a way forward AND a way out from every state. `[J]` the success state is explicit with a next action, not a silent close. `[J]` cancel/back non-destructive and predictable. `[J]` an interrupted flow resumes without silent data loss. `[D]` all CTA targets resolve (link/route check — see *Information architecture*).
 
 ## Edge-case & resilient UX (offline / slow / flaky network)
 
-- **Auditor checks —** `[J]` is there an offline/connection-loss path (detect + message + recover), or is it assumed always-online? `[D]` is double-submit prevented (button disabled / request de-duped while pending — review/lint)? `[J]` does the layout survive extreme content (overflow handled, no clipping/overlap)? `[J]` are long lists windowed/paginated (no unbounded DOM)? `[J]` are network timeouts bounded with user-visible retry?
+- **Auditor checks —** `[J]` an offline/connection-loss path exists (detect + message + recover), not an always-online assumption. `[D]` double-submit prevented (button disabled / request de-duped while pending). `[J]` layout survives extreme content (overflow handled, no clipping/overlap). `[J]` long lists windowed/paginated (no unbounded DOM). `[J]` network timeouts bounded with user-visible retry.
 
 ## Accessibility (WCAG 2.2 AA — keyboard, contrast, screen reader, focus)
 
@@ -77,7 +77,7 @@ load_scope:
 ## Responsive & cross-device/-browser
 
 - **Good looks like —** Mobile-first and fluid, never fixed-pixel; ≥16px body text on mobile and user zoom respected.
-- **Auditor checks —** `[J]` does it hold at key widths (≈320, 768, 1024, 1440) with no overflow/overlap/clipping? `[D]` content reflows at 320px / 400% zoom without horizontal scroll (Lighthouse/manual zoom check — WCAG 1.4.10) `[J]` are touch targets and hit areas adequate on touch devices? `[J]` tested on the supported browser matrix (no engine-specific breakage)? `[D]` viewport meta present and zoom not disabled (`user-scalable=no` forbidden — grep).
+- **Auditor checks —** `[J]` holds at key widths (≈320, 768, 1024, 1440) with no overflow/overlap/clipping. `[D]` content reflows at 320px / 400% zoom without horizontal scroll (WCAG 1.4.10). `[J]` touch targets and hit areas adequate on touch devices. `[J]` tested on the supported browser matrix (no engine-specific breakage). `[D]` viewport meta present, zoom not disabled (`user-scalable=no` forbidden — grep).
 
 ## Objective UX signals (what a ux-reviewer measures)
 
