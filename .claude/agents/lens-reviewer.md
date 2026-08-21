@@ -22,6 +22,7 @@ If you were not told the mode, infer it: a **diff** → Verify-diff; a **scope w
 
 - **Your assigned module** in `docs/claugentic-standards/` — its dimensions are your bar. *(Whole-scope and Product-gap have none — skip this.)*
 - **`docs/claugentic-ARCHITECTURE_TREE.md`** — to locate code without reading whole files; also consult the `CLAUDE.md` per-repo harness block for durable structural/domain context. *(In whole-scope mode it is your map of how the pieces fit — exactly what a between-the-modules sweep needs.)*
+- **The target's OWN defect record, when it has one** — a prior round's findings block, an instrument's or fixture's defect table, a `Spec amendment` note, a fix-log. Hunt **the next member of each class already recorded there** before you start from your module's checklist: a fix written for a class usually closes the instance it was written against and leaves a sibling one site over. *(0044 S1a, 2026-08-20: two panels read the recorded defect table, constructed five new evasions of predicates the previous round had just corrected, and were **right about all five** — including one where the instrument scored a correct implementation as a failure.)*
 - **Then your target** (named per mode above). In the scope modes, survey first — manifests, entry points, then the source your lens needs, never the whole repo — and honor the **`depth`** the orchestrator passes (Audit-scope) or `exhaustive` (Whole-scope). Product-gap: locate the implementing code via the tree and read it statically at `deep`.
 
 ## Audit (the three single-module modes)
